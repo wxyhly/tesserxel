@@ -1,0 +1,14 @@
+{
+  "name": "tesserxel",
+  "version": "1.0.0",
+  "description": "WebGPU based 3D screen Renderer for 4D Objects",
+  "scripts": {
+    "build": "cd src && tsc",
+    "example": "cd src && tsc && cd ../examples && tsc"
+  },
+  "author": "Hqak",
+  "license": "ISC",
+  "dependencies": {
+    "@webgpu/types": "^0.1.21"
+  }
+}

@@ -1,0 +1,25 @@
+{
+    "include": [
+        "math/*",
+        "math/algebra/*",
+        "mesh/*",
+        "physics/*",
+        "renderer/*",
+    ],
+    "compilerOptions": {
+        "outFile": "../build/tesserxel.js",
+        "typeRoots": [
+            "../node_modules/@webgpu/types",
+            "../node_modules/@types"
+        ],
+        "lib": [
+            "ES2022",
+            "DOM"
+        ],
+        "target": "ES2022",
+        "sourceMap": true,
+        "composite": true,
+        "alwaysStrict": true,
+        "declaration": true
+    }
+}
