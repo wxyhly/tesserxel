@@ -303,10 +303,10 @@
 //         }
 //         `;
 //         export async function load() {
-//             let gpu = await tesserxel.getGPU();
+//             let gpu = await tesserxel.renderer.createGPU();
 //             let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
 //             let context = gpu.getContext(canvas);
-//             let renderer = await new tesserxel.renderer.TetraRenderer().init(gpu, context, {
+//             let renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, {
 //                 enableFloat16Blend: false,
 //                 sliceGroupSize: 8
 //             });
@@ -327,7 +327,7 @@
 //             });
 //             let bindgroups = [renderer.createBindGroup(pipeline, 1, [camBuffer])];
 
-//             let cube = tesserxel.mesh.tetra.tesseract;
+//             let cube = tesserxel.mesh.tetra.tesseract();
 
 //             let tetraPipeline = await renderer.createTetraSlicePipeline({
 //                 vertex: {

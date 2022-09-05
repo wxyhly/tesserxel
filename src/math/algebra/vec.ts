@@ -45,6 +45,10 @@ namespace tesserxel {
             addfs(v2: number): Vec2 {
                 this.x += v2; this.y += v2; return this;
             }
+            /** this += v * k */
+            addmulfs(v: Vec2, k: number) {
+                this.x += v.x * k; this.y += v.y * k; return this;
+            }
             neg(): Vec2 {
                 return new Vec2(-this.x, -this.y);
             }
@@ -217,6 +221,10 @@ namespace tesserxel {
             addfs(v2: number): Vec3 {
                 this.x += v2; this.y += v2; this.z += v2; return this;
             }
+            /** this += v * k */
+            addmulfs(v: Vec3, k: number) {
+                this.x += v.x * k; this.y += v.y * k; this.z += v.z * k; return this;
+            }
             neg(): Vec3 {
                 return new Vec3(-this.x, -this.y, -this.z);
             }
@@ -307,29 +315,18 @@ namespace tesserxel {
                 this.z = v1.x * v2.y - v1.y * v2.x;
                 return this;
             }
-            /** (this ^ v2).copy(v3) */
-            wedgecpy(v2: Vec3, v3: Vec3): Vec3 {
-                v3.x = this.y * v2.z - this.z * v2.y;
-                v3.y = this.z * v2.x - this.x * v2.z;
-                v3.z = this.x * v2.y - this.y * v2.x;
-                return this;
-            }
-            wedges(v3: Vec3): Vec3 {
+            /** this = this ^ v */
+            wedgesr(v: Vec3): Vec3 {
                 return this.set(
-                    this.y * v3.z - this.z * v3.y,
-                    this.z * v3.x - this.x * v3.z,
-                    this.x * v3.y - this.y * v3.x,
+                    this.y * v.z - this.z * v.y,
+                    this.z * v.x - this.x * v.z,
+                    this.x * v.y - this.y * v.x,
                 );
             }
             exp(): Quaternion {
                 let g = this.norm() * 0.5;
                 let s = Math.abs(g) > 0.005 ? Math.sin(g) / g * 0.5 : 0.5 - g * g / 12;
                 return new Quaternion(Math.cos(g), s * this.x, s * this.y, s * this.z);
-            }
-            expcpy(q: Quaternion) {
-                let g = this.norm() * 0.5;
-                let s = Math.abs(g) > 0.005 ? Math.sin(g) / g * 0.5 : 0.5 - g * g / 12;
-                return q.set(Math.cos(g), s * this.x, s * this.y, s * this.z);
             }
             rotate(q: Quaternion): Vec3 {
                 return _Q.set(0, this.x, this.y, this.z).mulsl(q).mulsr(q.conj()).yzw();
@@ -478,6 +475,10 @@ namespace tesserxel {
             mulfs(v2: number): Vec4 {
                 this.x *= v2; this.y *= v2; this.z *= v2; this.w *= v2; return this;
             }
+            /** this += v * k */
+            addmulfs(v: Vec4, k: number) {
+                this.x += v.x * k; this.y += v.y * k; this.z += v.z * k; this.w += v.w * k; return this;
+            }
             mul(v2: Vec4): Vec4 {
                 return new Vec4(this.x * v2.x, this.y * v2.y, this.z * v2.z, this.w * v2.w);
             }
@@ -536,14 +537,12 @@ namespace tesserxel {
                     this.z * V.w - this.w * V.z
                 );
             }
-            wedgecpy(V: Vec4, b: Bivec) {
-                b.set(
-                    this.x * V.y - this.y * V.x,
-                    this.x * V.z - this.z * V.x,
-                    this.x * V.w - this.w * V.x,
-                    this.y * V.z - this.z * V.y,
-                    this.y * V.w - this.w * V.y,
-                    this.z * V.w - this.w * V.z
+            wedgevbset(v: Vec4, bivec: Bivec): Vec4 {
+                return this.set(
+                    -bivec.yz * v.w - bivec.zw * v.y + bivec.yw * v.z,
+                    bivec.xz * v.w + bivec.zw * v.x - bivec.xw * v.z,
+                    -bivec.xy * v.w - bivec.yw * v.x + bivec.xw * v.y,
+                    bivec.xy * v.z + bivec.yz * v.x - bivec.xz * v.y
                 );
             }
             wedgeb(bivec: Bivec): Vec4 {
@@ -560,12 +559,22 @@ namespace tesserxel {
                     B.xw * this.x + B.yw * this.y + B.zw * this.z
                 );
             }
-            dotbset(B: Bivec, v:Vec4): Vec4 {
+            dotbset(B: Bivec, v: Vec4): Vec4 {
                 return v.set(
                     -B.xy * this.y - B.xz * this.z - B.xw * this.w,
                     B.xy * this.x - B.yz * this.z - B.yw * this.w,
                     B.xz * this.x + B.yz * this.y - B.zw * this.w,
                     B.xw * this.x + B.yw * this.y + B.zw * this.z
+                );
+            }
+            /** this = mat * this */
+            mulmatls(mat4: Mat4): Vec4 {
+                let a = mat4.elem;
+                return this.set(
+                    this.x * a[0] + this.y * a[1] + this.z * a[2] + this.w * a[3],
+                    this.x * a[4] + this.y * a[5] + this.z * a[6] + this.w * a[7],
+                    this.x * a[8] + this.y * a[9] + this.z * a[10] + this.w * a[11],
+                    this.x * a[12] + this.y * a[13] + this.z * a[14] + this.w * a[15]
                 );
             }
             rotate(r: Rotor): Vec4 {

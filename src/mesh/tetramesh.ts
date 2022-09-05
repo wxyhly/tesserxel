@@ -5,238 +5,51 @@ namespace tesserxel {
          */
         export interface TetraMesh {
             position: Float32Array;
-            normal: Float32Array;
+            normal?: Float32Array;
             uvw?: Float32Array;
-            tetraCount?: number;
+            tetraCount: number;
+        }
+        /** TetraIndexMesh is not supported for tetraslice rendering
+         *  It is only used in data storage and mesh construction
+         */
+        export interface TetraIndexMesh {
+            position: Float32Array;
+            normal?: Float32Array;
+            uvw?: Float32Array;
+            positionIndex: Uint32Array;
+            normalIndex?: Uint32Array;
+            uvwIndex?: Uint32Array;
+            tetraCount: number;
         }
         export namespace tetra {
-            export let tesseract: TetraMesh = {
+            export let cube: TetraMesh = {
                 position: new Float32Array([
-                    1, 1, 1, 1,
-                    1, 1, -1, -1,
-                    1, -1, -1, 1,
-                    1, -1, 1, -1,
+                    1, 0, -1, -1,
+                    1, 0, 1, 1,
+                    -1, 0, -1, 1,
+                    -1, 0, 1, -1,
 
-                    1, 1, -1, -1,
-                    1, -1, -1, -1,
-                    1, -1, -1, 1,
-                    1, -1, 1, -1,
+                    -1, 0, -1, -1,
+                    1, 0, -1, -1,
+                    -1, 0, -1, 1,
+                    -1, 0, 1, -1,
 
-                    1, -1, 1, 1,
-                    1, 1, 1, 1,
-                    1, -1, -1, 1,
-                    1, -1, 1, -1,
+                    1, 0, 1, 1,
+                    -1, 0, 1, 1,
+                    -1, 0, -1, 1,
+                    -1, 0, 1, -1,
 
-                    1, 1, -1, -1,
-                    1, 1, 1, 1,
-                    1, 1, 1, -1,
-                    1, -1, 1, -1,
+                    1, 0, 1, 1,
+                    1, 0, -1, -1,
+                    1, 0, 1, -1,
+                    -1, 0, 1, -1,
 
-                    1, 1, -1, -1,
-                    1, 1, 1, 1,
-                    1, -1, -1, 1,
-                    1, 1, -1, 1,
-
-                    //x-
-                    -1, 1, -1, -1,
-                    -1, 1, 1, 1,
-                    -1, -1, -1, 1,
-                    -1, -1, 1, -1,
-
-                    -1, -1, -1, -1,
-                    -1, 1, -1, -1,
-                    -1, -1, -1, 1,
-                    -1, -1, 1, -1,
-
-                    -1, 1, 1, 1,
-                    -1, -1, 1, 1,
-                    -1, -1, -1, 1,
-                    -1, -1, 1, -1,
-
-                    -1, 1, 1, 1,
-                    -1, 1, -1, -1,
-                    -1, 1, 1, -1,
-                    -1, -1, 1, -1,
-
-                    -1, 1, 1, 1,
-                    -1, 1, -1, -1,
-                    -1, -1, -1, 1,
-                    -1, 1, -1, 1,
-
-                    //y+
-                    1, 1, -1, -1,
-                    1, 1, 1, 1,
-                    -1, 1, -1, 1,
-                    -1, 1, 1, -1,
-
-                    -1, 1, -1, -1,
-                    1, 1, -1, -1,
-                    -1, 1, -1, 1,
-                    -1, 1, 1, -1,
-
-                    1, 1, 1, 1,
-                    -1, 1, 1, 1,
-                    -1, 1, -1, 1,
-                    -1, 1, 1, -1,
-
-                    1, 1, 1, 1,
-                    1, 1, -1, -1,
-                    1, 1, 1, -1,
-                    -1, 1, 1, -1,
-
-                    1, 1, 1, 1,
-                    1, 1, -1, -1,
-                    -1, 1, -1, 1,
-                    1, 1, -1, 1,
-
-                    //y-
-                    1, -1, 1, 1,
-                    1, -1, -1, -1,
-                    -1, -1, -1, 1,
-                    -1, -1, 1, -1,
-                    1, -1, -1, -1,
-                    -1, -1, -1, -1,
-                    -1, -1, -1, 1,
-                    -1, -1, 1, -1,
-                    -1, -1, 1, 1,
-                    1, -1, 1, 1,
-                    -1, -1, -1, 1,
-                    -1, -1, 1, -1,
-                    1, -1, -1, -1,
-                    1, -1, 1, 1,
-                    1, -1, 1, -1,
-                    -1, -1, 1, -1,
-                    1, -1, -1, -1,
-                    1, -1, 1, 1,
-                    -1, -1, -1, 1,
-                    1, -1, -1, 1,
-                    //z+
-                    1, 1, 1, 1,
-                    1, -1, 1, -1,
-                    -1, -1, 1, 1,
-                    -1, 1, 1, -1,
-                    1, -1, 1, -1,
-                    -1, -1, 1, -1,
-                    -1, -1, 1, 1,
-                    -1, 1, 1, -1,
-                    -1, 1, 1, 1,
-                    1, 1, 1, 1,
-                    -1, -1, 1, 1,
-                    -1, 1, 1, -1,
-                    1, -1, 1, -1,
-                    1, 1, 1, 1,
-                    1, 1, 1, -1,
-                    -1, 1, 1, -1,
-                    1, -1, 1, -1,
-                    1, 1, 1, 1,
-                    -1, -1, 1, 1,
-                    1, -1, 1, 1,
-                    //z-
-                    1, -1, -1, -1,
-                    1, 1, -1, 1,
-                    -1, -1, -1, 1,
-                    -1, 1, -1, -1,
-                    -1, -1, -1, -1,
-                    1, -1, -1, -1,
-                    -1, -1, -1, 1,
-                    -1, 1, -1, -1,
-                    1, 1, -1, 1,
-                    -1, 1, -1, 1,
-                    -1, -1, -1, 1,
-                    -1, 1, -1, -1,
-                    1, 1, -1, 1,
-                    1, -1, -1, -1,
-                    1, 1, -1, -1,
-                    -1, 1, -1, -1,
-                    1, 1, -1, 1,
-                    1, -1, -1, -1,
-                    -1, -1, -1, 1,
-                    1, -1, -1, 1,
-                    //w+
-                    1, -1, -1, 1,
-                    1, 1, 1, 1,
-                    -1, -1, 1, 1,
-                    -1, 1, -1, 1,
-                    -1, -1, -1, 1,
-                    1, -1, -1, 1,
-                    -1, -1, 1, 1,
-                    -1, 1, -1, 1,
-                    1, 1, 1, 1,
-                    -1, 1, 1, 1,
-                    -1, -1, 1, 1,
-                    -1, 1, -1, 1,
-                    1, 1, 1, 1,
-                    1, -1, -1, 1,
-                    1, 1, -1, 1,
-                    -1, 1, -1, 1,
-                    1, 1, 1, 1,
-                    1, -1, -1, 1,
-                    -1, -1, 1, 1,
-                    1, -1, 1, 1,
-
-                    //w-
-                    1, 1, 1, -1,
-                    1, -1, -1, -1,
-                    -1, -1, 1, -1,
-                    -1, 1, -1, -1,
-                    1, -1, -1, -1,
-                    -1, -1, -1, -1,
-                    -1, -1, 1, -1,
-                    -1, 1, -1, -1,
-                    -1, 1, 1, -1,
-                    1, 1, 1, -1,
-                    -1, -1, 1, -1,
-                    -1, 1, -1, -1,
-                    1, -1, -1, -1,
-                    1, 1, 1, -1,
-                    1, 1, -1, -1,
-                    -1, 1, -1, -1,
-                    1, -1, -1, -1,
-                    1, 1, 1, -1,
-                    -1, -1, 1, -1,
-                    1, -1, 1, -1,
+                    1, 0, 1, 1,
+                    1, 0, -1, -1,
+                    -1, 0, -1, 1,
+                    1, 0, -1, 1,
                 ]),
                 normal: new Float32Array([
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
                     0, 1, 0, 0,
                     0, 1, 0, 0,
                     0, 1, 0, 0,
@@ -257,281 +70,173 @@ namespace tesserxel {
                     0, 1, 0, 0,
                     0, 1, 0, 0,
                     0, 1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1
                 ]),
                 uvw: new Float32Array([
-                    1, 1, 1, 0,
                     1, -1, -1, 0,
+                    1, 1, 1, 0,
                     -1, -1, 1, 0,
                     -1, 1, -1, 0,
-                    1, -1, -1, 0,
                     -1, -1, -1, 0,
-                    -1, -1, 1, 0,
-                    -1, 1, -1, 0,
-                    -1, 1, 1, 0,
-                    1, 1, 1, 0,
-                    -1, -1, 1, 0,
-                    -1, 1, -1, 0,
                     1, -1, -1, 0,
+                    -1, -1, 1, 0,
+                    -1, 1, -1, 0,
                     1, 1, 1, 0,
+                    -1, 1, 1, 0,
+                    -1, -1, 1, 0,
+                    -1, 1, -1, 0,
+                    1, 1, 1, 0,
+                    1, -1, -1, 0,
                     1, 1, -1, 0,
                     -1, 1, -1, 0,
-                    1, -1, -1, 0,
                     1, 1, 1, 0,
+                    1, -1, -1, 0,
                     -1, -1, 1, 0,
                     1, -1, 1, 0,
-                    //x-
-                    1, -1, -1, 1,
-                    1, 1, 1, 1,
-                    -1, -1, 1, 1,
-                    -1, 1, -1, 1,
-                    -1, -1, -1, 1,
-                    1, -1, -1, 1,
-                    -1, -1, 1, 1,
-                    -1, 1, -1, 1,
-                    1, 1, 1, 1,
-                    -1, 1, 1, 1,
-                    -1, -1, 1, 1,
-                    -1, 1, -1, 1,
-                    1, 1, 1, 1,
-                    1, -1, -1, 1,
-                    1, 1, -1, 1,
-                    -1, 1, -1, 1,
-                    1, 1, 1, 1,
-                    1, -1, -1, 1,
-                    -1, -1, 1, 1,
-                    1, -1, 1, 1,
-
-                    //y+
-                    1, -1, -1, 2,
-                    1, 1, 1, 2,
-                    -1, -1, 1, 2,
-                    -1, 1, -1, 2,
-                    -1, -1, -1, 2,
-                    1, -1, -1, 2,
-                    -1, -1, 1, 2,
-                    -1, 1, -1, 2,
-                    1, 1, 1, 2,
-                    -1, 1, 1, 2,
-                    -1, -1, 1, 2,
-                    -1, 1, -1, 2,
-                    1, 1, 1, 2,
-                    1, -1, -1, 2,
-                    1, 1, -1, 2,
-                    -1, 1, -1, 2,
-                    1, 1, 1, 2,
-                    1, -1, -1, 2,
-                    -1, -1, 1, 2,
-                    1, -1, 1, 2,
-
-                    //y-
-                    1, 1, 1, 3,
-                    1, -1, -1, 3,
-                    -1, -1, 1, 3,
-                    -1, 1, -1, 3,
-                    1, -1, -1, 3,
-                    -1, -1, -1, 3,
-                    -1, -1, 1, 3,
-                    -1, 1, -1, 3,
-                    -1, 1, 1, 3,
-                    1, 1, 1, 3,
-                    -1, -1, 1, 3,
-                    -1, 1, -1, 3,
-                    1, -1, -1, 3,
-                    1, 1, 1, 3,
-                    1, 1, -1, 3,
-                    -1, 1, -1, 3,
-                    1, -1, -1, 3,
-                    1, 1, 1, 3,
-                    -1, -1, 1, 3,
-                    1, -1, 1, 3,
-                    //z+
-                    1, 1, 1, 4,
-                    1, -1, -1, 4,
-                    -1, -1, 1, 4,
-                    -1, 1, -1, 4,
-                    1, -1, -1, 4,
-                    -1, -1, -1, 4,
-                    -1, -1, 1, 4,
-                    -1, 1, -1, 4,
-                    -1, 1, 1, 4,
-                    1, 1, 1, 4,
-                    -1, -1, 1, 4,
-                    -1, 1, -1, 4,
-                    1, -1, -1, 4,
-                    1, 1, 1, 4,
-                    1, 1, -1, 4,
-                    -1, 1, -1, 4,
-                    1, -1, -1, 4,
-                    1, 1, 1, 4,
-                    -1, -1, 1, 4,
-                    1, -1, 1, 4,
-                    //z-
-                    1, -1, -1, 5,
-                    1, 1, 1, 5,
-                    -1, -1, 1, 5,
-                    -1, 1, -1, 5,
-                    -1, -1, -1, 5,
-                    1, -1, -1, 5,
-                    -1, -1, 1, 5,
-                    -1, 1, -1, 5,
-                    1, 1, 1, 5,
-                    -1, 1, 1, 5,
-                    -1, -1, 1, 5,
-                    -1, 1, -1, 5,
-                    1, 1, 1, 5,
-                    1, -1, -1, 5,
-                    1, 1, -1, 5,
-                    -1, 1, -1, 5,
-                    1, 1, 1, 5,
-                    1, -1, -1, 5,
-                    -1, -1, 1, 5,
-                    1, -1, 1, 5,
-                    //w+
-                    1, -1, -1, 6,
-                    1, 1, 1, 6,
-                    -1, -1, 1, 6,
-                    -1, 1, -1, 6,
-                    -1, -1, -1, 6,
-                    1, -1, -1, 6,
-                    -1, -1, 1, 6,
-                    -1, 1, -1, 6,
-                    1, 1, 1, 6,
-                    -1, 1, 1, 6,
-                    -1, -1, 1, 6,
-                    -1, 1, -1, 6,
-                    1, 1, 1, 6,
-                    1, -1, -1, 6,
-                    1, 1, -1, 6,
-                    -1, 1, -1, 6,
-                    1, 1, 1, 6,
-                    1, -1, -1, 6,
-                    -1, -1, 1, 6,
-                    1, -1, 1, 6,
-
-                    //w-
-                    1, 1, 1, 7,
-                    1, -1, -1, 7,
-                    -1, -1, 1, 7,
-                    -1, 1, -1, 7,
-                    1, -1, -1, 7,
-                    -1, -1, -1, 7,
-                    -1, -1, 1, 7,
-                    -1, 1, -1, 7,
-                    -1, 1, 1, 7,
-                    1, 1, 1, 7,
-                    -1, -1, 1, 7,
-                    -1, 1, -1, 7,
-                    1, -1, -1, 7,
-                    1, 1, 1, 7,
-                    1, 1, -1, 7,
-                    -1, 1, -1, 7,
-                    1, -1, -1, 7,
-                    1, 1, 1, 7,
-                    -1, -1, 1, 7,
-                    1, -1, 1, 7,
                 ]),
-                tetraCount: 40
-            };
+                tetraCount: 5
+            }
+            export function applyAffineMat4(mesh: TetraMesh, am: math.AffineMat4) {
+                let vp = new math.Vec4();
+                for (let i = 0; i < mesh.position.length; i += 4) {
+                    vp.set(
+                        mesh.position[i],
+                        mesh.position[i + 1],
+                        mesh.position[i + 2],
+                        mesh.position[i + 3],
+                    ).mulmatls(am.mat).adds(am.vec).writeBuffer(mesh.position, i);
+                    if (mesh.normal) {
+                        vp.set(
+                            mesh.normal[i],
+                            mesh.normal[i + 1],
+                            mesh.normal[i + 2],
+                            mesh.normal[i + 3],
+                        ).mulmatls(am.mat).writeBuffer(mesh.position, i);
+                    }
+                }
+                return mesh;
+            }
+            export function applyObj4(mesh: TetraMesh, obj: math.Obj4) {
+                let vp = new math.Vec4();
+                let scaleinv: math.Vec4;
+                if (obj.scale && mesh.normal) {
+                    scaleinv = new math.Vec4(1 / obj.scale.x, 1 / obj.scale.y, 1 / obj.scale.z, 1 / obj.scale.w);
+                }
+                for (let i = 0; i < mesh.position.length; i += 4) {
+                    if (obj.scale) {
+                        vp.set(
+                            mesh.position[i] * obj.scale.x,
+                            mesh.position[i + 1] * obj.scale.y,
+                            mesh.position[i + 2] * obj.scale.z,
+                            mesh.position[i + 3] * obj.scale.w,
+                        ).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.position, i);
+                        if (mesh.normal) {
+                            vp.set(
+                                mesh.normal[i] * scaleinv.x,
+                                mesh.normal[i + 1] * scaleinv.y,
+                                mesh.normal[i + 2] * scaleinv.z,
+                                mesh.normal[i + 3] * scaleinv.w,
+                            ).rotates(obj.rotation).writeBuffer(mesh.position, i);
+                        }
+                    } else {
+                        vp.set(
+                            mesh.position[i],
+                            mesh.position[i + 1],
+                            mesh.position[i + 2],
+                            mesh.position[i + 3],
+                        ).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.position, i);
+                        if (mesh.normal) {
+                            vp.set(
+                                mesh.normal[i],
+                                mesh.normal[i + 1],
+                                mesh.normal[i + 2],
+                                mesh.normal[i + 3],
+                            ).rotates(obj.rotation).writeBuffer(mesh.normal, i);
+                        }
+                    }
+                }
+                return mesh;
+            }
+            export function concat(mesh1: TetraMesh, mesh2: TetraMesh): TetraMesh {
+                let position = new Float32Array(mesh1.position.length + mesh2.position.length);
+                position.set(mesh1.position);
+                position.set(mesh2.position, mesh1.position.length);
+                let ret: TetraMesh = { position, tetraCount: position.length << 4 };
+                if (mesh1.normal && mesh2.normal) {
+                    let normal = new Float32Array(mesh1.normal.length + mesh2.normal.length);
+                    normal.set(mesh1.normal);
+                    normal.set(mesh2.normal, mesh1.normal.length);
+                    ret.normal = normal;
+                }
+                if (mesh1.uvw && mesh2.uvw) {
+                    let uvw = new Float32Array(mesh1.uvw.length + mesh2.uvw.length);
+                    uvw.set(mesh1.uvw);
+                    uvw.set(mesh2.uvw, mesh1.uvw.length);
+                    ret.uvw = uvw;
+                }
+                return ret;
+            }
+            export function concatarr(meshes: TetraMesh[]): TetraMesh {
+                let length = 0;
+                let hasNormal = true;
+                let hasUvw = true;
+                for (let i = 0; i < meshes.length; i++) {
+                    length += meshes[i].position.length;
+                    hasUvw = hasUvw && (meshes[i].uvw ? true : false);
+                    hasNormal = hasNormal && (meshes[i].normal ? true : false);
+                }
+                let position = new Float32Array(length);
+                let ret: TetraMesh = { position, tetraCount: length << 4 };
+                let normal: Float32Array, uvw: Float32Array;
+                if (hasNormal) {
+                    normal = new Float32Array(length);
+                    ret.normal = normal;
+                }
+                if (hasUvw) {
+                    uvw = new Float32Array(length);
+                    ret.uvw = uvw;
+                }
+                length = 0;
+                for (let i = 0; i < meshes.length; i++) {
+                    position.set(meshes[i].position, length);
+                    if (hasNormal) {
+                        normal.set(meshes[i].normal, length);
+                    }
+                    if (hasUvw) {
+                        uvw.set(meshes[i].uvw, length);
+                    }
+                    length += meshes[i].position.length;
+                }
+                return ret;
+            }
+            export function clone(mesh: TetraMesh): TetraMesh {
+                let ret: TetraMesh = {
+                    position: mesh.position.slice(0),
+                    tetraCount: mesh.tetraCount
+                }
+                if (mesh.uvw) ret.uvw = mesh.uvw.slice(0);
+                if (mesh.normal) ret.normal = mesh.normal.slice(0);
+                return ret;
+            }
+            export function tesseract(): TetraMesh {
+                let yface = applyObj4(clone(cube), new math.Obj4(math.Vec4.y));
+                let meshes = [
+                    new math.Bivec(math._90).exp(),
+                    new math.Bivec(-math._90).exp(),
+                    new math.Bivec(0, 0, 0, math._90).exp(),
+                    new math.Bivec(0, 0, 0, -math._90).exp(),
+                    new math.Bivec(0, 0, 0, 0, math._90).exp(),
+                    new math.Bivec(0, 0, 0, 0, -math._90).exp(),
+                    new math.Bivec(math._180).exp(),
+                ].map(r => applyObj4(clone(yface), new math.Obj4(new math.Vec4(), r)));
+                meshes.push(yface);
+                let m = concatarr(meshes);
+                for (let i = 0; i < 8; i++) {
+                    for (let j = 0; j < 20; j++) {
+                        m.uvw[i * 80 + j * 4 + 3] = i;
+                    }
+                }
+                return m;
+            }
             export let hexadecachoron: TetraMesh = {
                 position: new Float32Array([
                     1, 0, 0, 0,
@@ -742,7 +447,7 @@ namespace tesserxel {
                 ]),
                 tetraCount: 16
             };
-            export function glome(radius:number, xySegment: number, zwSegment: number, lattitudeSegment: number) {
+            export function glome(radius: number, xySegment: number, zwSegment: number, lattitudeSegment: number) {
                 if (xySegment < 3) xySegment = 3;
                 if (zwSegment < 3) zwSegment = 3;
                 if (lattitudeSegment < 1) lattitudeSegment = 1;
@@ -833,7 +538,7 @@ namespace tesserxel {
                             positions[offset1 + 2] === positions[offset2 + 2] &&
                             positions[offset1 + 3] === positions[offset2 + 3];
                     }
-                    if (!(same(a, b) || same(a, c) || same(a, d) || same(b, c) || same(b, d))){
+                    if (!(same(a, b) || same(a, c) || same(a, d) || same(b, c) || same(b, d))) {
                         pushIdx(a); pushIdx(b); pushIdx(c); pushIdx(d);
                     }
                 }
@@ -1019,6 +724,75 @@ namespace tesserxel {
                     }
                 }
                 return tesserxel.mesh.tetra.convexhull(ps);
+            }
+            export function loft(sp: tesserxel.math.Spline, section: tesserxel.mesh.FaceMesh, step: number): tesserxel.mesh.TetraMesh {
+                let { points, rotors, curveLength } = sp.generate(step);
+                let quadcount = section.quad.position.length >> 4;
+                let tetraCount = quadcount * (points.length - 1) * 5;
+                let arraySize = tetraCount << 4;
+                let pslen = quadcount * points.length << 4;
+                let positions = new Float32Array(pslen);
+                let uvws = new Float32Array(pslen);
+                let normals = new Float32Array(pslen);
+                let position = new Float32Array(arraySize);
+                let uvw = new Float32Array(arraySize);
+                let normal = new Float32Array(arraySize);
+                let _vec4 = new math.Vec4(); // cache
+                let offset = 0;
+                let idxPtr = 0;
+                let pos = section.quad.position;
+                let norm = section.quad.normal;
+                let uv = section.quad.uv;
+                for (let ptr = 0; ptr < (quadcount << 4); ptr += 16) {
+                    for (let j = 0; j < rotors.length; j++) {
+                        let r = rotors[j];
+                        let p = points[j];
+                        for (let i = 0; i < 4; i++, ptr += 4) {
+                            _vec4.set(pos[ptr], pos[ptr + 1], pos[ptr + 2], pos[ptr + 3]);
+                            _vec4.rotates(r).adds(p);
+                            _vec4.writeBuffer(positions, offset);
+                            _vec4.set(norm[ptr], norm[ptr + 1], norm[ptr + 2], norm[ptr + 3]);
+                            _vec4.rotates(r);
+                            _vec4.writeBuffer(normals, offset);
+                            _vec4.set(uv[ptr], uv[ptr + 1], uv[ptr + 2], curveLength[j]);
+                            _vec4.writeBuffer(uvws, offset);
+                            offset += 4;
+                        }
+                        ptr -= 16;
+                        if (j) {
+                            let doffset = offset - 32;
+                            pushTetra(doffset, 0, 1, 3, 4);
+                            pushTetra(doffset, 1, 5, 6, 4);
+                            pushTetra(doffset, 1, 3, 6, 2);
+                            pushTetra(doffset, 4, 7, 6, 3);
+                            pushTetra(doffset, 1, 3, 4, 6);
+                        }
+                    }
+                }
+                function pushTetra(offset: number, a: number, b: number, c: number, d: number) {
+                    a = offset + (a << 2);
+                    b = offset + (b << 2);
+                    c = offset + (c << 2);
+                    d = offset + (d << 2);
+                    pushIdx(a); pushIdx(b); pushIdx(c); pushIdx(d);
+                }
+                function pushIdx(i: number) {
+                    position[idxPtr++] = positions[i];
+                    position[idxPtr++] = positions[i + 1];
+                    position[idxPtr++] = positions[i + 2];
+                    position[idxPtr++] = positions[i + 3];
+                    idxPtr -= 4;
+                    normal[idxPtr++] = normals[i];
+                    normal[idxPtr++] = normals[i + 1];
+                    normal[idxPtr++] = normals[i + 2];
+                    normal[idxPtr++] = normals[i + 3];
+                    idxPtr -= 4;
+                    uvw[idxPtr++] = uvws[i];
+                    uvw[idxPtr++] = uvws[i + 1];
+                    uvw[idxPtr++] = uvws[i + 2];
+                    uvw[idxPtr++] = uvws[i + 3];
+                }
+                return { position, uvw, normal, tetraCount };
             }
         }
     }

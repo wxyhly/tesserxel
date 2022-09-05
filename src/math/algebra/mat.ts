@@ -318,6 +318,26 @@ namespace tesserxel {
                 me[8] = (n22 * n11 - n21 * n12) * detInv;
                 return this;
             }
+            
+            setFromRotaion(q:Quaternion): Mat3 {
+                let xt2 = q.y + q.y, yt2 = q.z + q.z, zt2 = q.w + q.w;
+                let x2 = q.y * xt2;
+                let y2 = q.z * yt2;
+                let z2 = q.w * zt2;
+
+                let xy = q.y * yt2;
+                let yz = q.w * yt2;
+                let xz = q.w * xt2;
+
+                let wx = q.x * xt2;
+                let wy = q.x * yt2;
+                let wz = q.x * zt2;
+                return this.set(
+                    1 - (y2 + z2), xy - wz, xz + wy,
+                    xy + wz, 1 - x2 - z2, yz - wx,
+                    xz - wy, yz + wx, 1 - x2 - y2
+                );
+            }
         }
         export class Mat4 {
             elem: number[];
@@ -504,7 +524,8 @@ namespace tesserxel {
                     a[12] * b[0] + a[13] * b[4] + a[14] * b[8] + a[15] * b[12], a[12] * b[1] + a[13] * b[5] + a[14] * b[9] + a[15] * b[13], a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14], a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15],
                 );
             }
-            muls(m: Mat4): Mat4 {
+            /** this = this * m2; */
+            mulsr(m: Mat4): Mat4 {
                 let a = this.elem; let b = m.elem;
                 this.set(
                     a[0] * b[0] + a[1] * b[4] + a[2] * b[8] + a[3] * b[12], a[0] * b[1] + a[1] * b[5] + a[2] * b[9] + a[3] * b[13], a[0] * b[2] + a[1] * b[6] + a[2] * b[10] + a[3] * b[14], a[0] * b[3] + a[1] * b[7] + a[2] * b[11] + a[3] * b[15],
@@ -514,8 +535,19 @@ namespace tesserxel {
                 );
                 return this;
             }
+            /** this = m2 * this; */
+            mulsl(m: Mat4): Mat4 {
+                let b = this.elem; let a = m.elem;
+                this.set(
+                    a[0] * b[0] + a[1] * b[4] + a[2] * b[8] + a[3] * b[12], a[0] * b[1] + a[1] * b[5] + a[2] * b[9] + a[3] * b[13], a[0] * b[2] + a[1] * b[6] + a[2] * b[10] + a[3] * b[14], a[0] * b[3] + a[1] * b[7] + a[2] * b[11] + a[3] * b[15],
+                    a[4] * b[0] + a[5] * b[4] + a[6] * b[8] + a[7] * b[12], a[4] * b[1] + a[5] * b[5] + a[6] * b[9] + a[7] * b[13], a[4] * b[2] + a[5] * b[6] + a[6] * b[10] + a[7] * b[14], a[4] * b[3] + a[5] * b[7] + a[6] * b[11] + a[7] * b[15],
+                    a[8] * b[0] + a[9] * b[4] + a[10] * b[8] + a[11] * b[12], a[8] * b[1] + a[9] * b[5] + a[10] * b[9] + a[11] * b[13], a[8] * b[2] + a[9] * b[6] + a[10] * b[10] + a[11] * b[14], a[8] * b[3] + a[9] * b[7] + a[10] * b[11] + a[11] * b[15],
+                    a[12] * b[0] + a[13] * b[4] + a[14] * b[8] + a[15] * b[12], a[12] * b[1] + a[13] * b[5] + a[14] * b[9] + a[15] * b[13], a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14], a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15],
+                );
+                return this;
+            }
             /** this = m1 * m2; */
-            mulcpy(m1: Mat4, m2: Mat4): Mat4 {
+            mulset(m1: Mat4, m2: Mat4): Mat4 {
                 let a = m1.elem; let b = m2.elem;
                 this.set(
                     a[0] * b[0] + a[1] * b[4] + a[2] * b[8] + a[3] * b[12], a[0] * b[1] + a[1] * b[5] + a[2] * b[9] + a[3] * b[13], a[0] * b[2] + a[1] * b[6] + a[2] * b[10] + a[3] * b[14], a[0] * b[3] + a[1] * b[7] + a[2] * b[11] + a[3] * b[15],
@@ -524,6 +556,45 @@ namespace tesserxel {
                     a[12] * b[0] + a[13] * b[4] + a[14] * b[8] + a[15] * b[12], a[12] * b[1] + a[13] * b[5] + a[14] * b[9] + a[15] * b[13], a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14], a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15],
                 );
                 return this;
+            }
+            setFrom3DRotation(q:Quaternion): Mat4 {
+                let xt2 = q.y + q.y, yt2 = q.z + q.z, zt2 = q.w + q.w;
+                let x2 = q.y * xt2;
+                let y2 = q.z * yt2;
+                let z2 = q.w * zt2;
+
+                let xy = q.y * yt2;
+                let yz = q.w * yt2;
+                let xz = q.w * xt2;
+
+                let wx = q.x * xt2;
+                let wy = q.x * yt2;
+                let wz = q.x * zt2;
+                return this.set(
+                    1 - (y2 + z2), xy - wz, xz + wy, 0,
+                    xy + wz, 1 - x2 - z2, yz - wx, 0,
+                    xz - wy, yz + wx, 1 - x2 - y2, 0,
+                    0, 0, 0, 1
+                );
+            }
+            setFromQuaternionL(q:Quaternion): Mat4 {
+                return this.set(
+                    q.x, -q.y, -q.z, -q.w,
+                    q.y, q.x, -q.w, q.z,
+                    q.z, q.w, q.x, -q.y,
+                    q.w, -q.z, q.y, q.x
+                );
+            }
+            setFromQuaternionR(q:Quaternion): Mat4 {
+                return this.set(
+                    q.x, -q.y, -q.z, -q.w,
+                    q.y, q.x, q.w, -q.z,
+                    q.z, -q.w, q.x, q.y,
+                    q.w, q.z, -q.y, q.x
+                );
+            }
+            setFromRotor(r:Rotor): Mat4 {
+                return this.setFromQuaternionL(r.l).mulsr(_mat4.setFromQuaternionR(r.r));
             }
             det(): number {
                 let me = this.elem;

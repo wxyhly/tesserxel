@@ -1,7 +1,7 @@
 namespace examples {
-    export class MandelApp {
+    class MandelApp {
 
-        renderer: tesserxel.renderer.TetraRenderer;
+        renderer: tesserxel.renderer.SliceRenderer;
         camController: tesserxel.controller.FreeFlyController;
         retinaController: tesserxel.controller.RetinaController;
         headercode = `
@@ -100,10 +100,10 @@ namespace examples {
         }
         `
         async load(code: string, fnDE: (pos: tesserxel.math.Vec4) => number) {
-            let gpu = await tesserxel.getGPU();
+            let gpu = await tesserxel.renderer.createGPU();
             let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             let context = gpu.getContext(canvas);
-            let renderer = await new tesserxel.renderer.TetraRenderer().init(gpu, context, {
+            let renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, {
                 enableFloat16Blend: false,
                 sliceGroupSize: 8
             });
@@ -115,7 +115,7 @@ namespace examples {
             this.camController = camController;
             let retinaController = new tesserxel.controller.RetinaController(renderer);
             this.retinaController = retinaController;
-            let controller = new tesserxel.controller.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
+            let ctrlreg = new tesserxel.controller.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
             let matModelViewJSBuffer = new Float32Array(20);
             let pipeline = await renderer.createRaytracingPipeline({
                 code: this.headercode.replace(/\{replace\}/g, code),
@@ -129,9 +129,9 @@ namespace examples {
                 );
                 camController.keyMoveSpeed = de * 0.001;
                 let config = renderer.getSliceConfig();
-                config.sectionEyeOffset = de * 0.1;
+                config.sectionEyeOffset = de * 0.2;
                 retinaController.setSlice(config);
-                controller.update();
+                ctrlreg.update();
                 camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
                 gpu.device.queue.writeBuffer(camBuffer, 0, matModelViewJSBuffer);
 
@@ -174,7 +174,6 @@ namespace examples {
                 z += pos;
             `,
                 (pos: tesserxel.math.Vec4) => {
-                    const DISTANCE = 3.0;
                     const MAXMANDELBROTDIST = 1.5;
                     const MANDELBROTSTEPS = 32;
                     const Power = 10;
@@ -262,6 +261,7 @@ namespace examples {
 
     export namespace julia_quaternion {
         export async function load() {
+            let _Q = new tesserxel.math.Quaternion();
             let app = await new MandelApp().load(
                 `
                 dr =  pow(r, Power - 1.0)*Power*dr;
@@ -285,7 +285,7 @@ namespace examples {
                     if (r > MAXMANDELBROTDIST) { break; }
                     // convert to hopf coordinates
                     let q = z.divf(r);
-                    z = tesserxel.math._Q.copy(q).log().mulfs(Power).expcpy(tesserxel.math._Q).xyzw();
+                    z.copy(_Q.expset(_Q.copy(q).log().mulfs(Power)));
                     dr = Math.pow(r, Power - 1.0) * Power * dr;
                     // scale and rotate the point
                     let zr = Math.pow(r, Power);

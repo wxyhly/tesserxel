@@ -51,7 +51,7 @@ namespace examples {
         }
         `;
         gpu: tesserxel.renderer.GPU;
-        renderer: tesserxel.renderer.TetraRenderer;
+        renderer: tesserxel.renderer.SliceRenderer;
         trackBallController: tesserxel.controller.TrackBallController;
         retinaController: tesserxel.controller.RetinaController;
         ctrlRegistry: tesserxel.controller.ControllerRegistry;
@@ -62,10 +62,10 @@ namespace examples {
         vertBindGroup: GPUBindGroup;
         camBuffer: GPUBuffer;
         async init(fragmentShaderCode: string, mesh: tesserxel.mesh.TetraMesh) {
-            this.gpu = await tesserxel.getGPU();
+            this.gpu = await tesserxel.renderer.createGPU();
             this.canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             this.context = this.gpu.getContext(this.canvas);
-            this.renderer = await new tesserxel.renderer.TetraRenderer().init(this.gpu, this.context, {
+            this.renderer = await new tesserxel.renderer.SliceRenderer().init(this.gpu, this.context, {
                 // if this is set true, alpha blending will be more accurate but costy
                 enableFloat16Blend: false,
                 // how many slices are drawn together, this value must be 2^n and it can't be to big for resource limitation
@@ -143,8 +143,8 @@ namespace examples {
                 );
                 return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
             }`;
-            let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.tiger(0.5 + Math.random() * 0.1, 32, 0.5, 32, 0.2 + Math.random() * 0.05, 16));
-            app.retinaController.toggleSectionConfig(1);
+            let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.tiger(0.3 + Math.random() * 0.05, 32, 0.5, 32, 0.14 + Math.random() * 0.03, 16));
+            app.retinaController.toggleSectionConfig("retina+zslices");
             app.run();
         }
     }
@@ -205,7 +205,7 @@ namespace examples {
                 );
                 return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 0.2 + f32(count>=2.0));
             }`;
-            let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.tesseract);
+            let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.tesseract());
             let config = app.renderer.getSliceConfig();
             config.opacity = 10.0;
             // retina controller will own the slice config, so we should not call renderer.setSlice() directly

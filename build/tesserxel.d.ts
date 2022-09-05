@@ -36,7 +36,10 @@ declare namespace tesserxel {
             inv(): AffineMat4;
             invs(): AffineMat4;
             mul(m: AffineMat4): AffineMat4;
-            muls(m: AffineMat4): AffineMat4;
+            /** this = this * m */
+            mulsr(m: AffineMat4): AffineMat4;
+            /** this = m * this */
+            mulsl(m: AffineMat4): AffineMat4;
         }
         /** an coordinate transform of rotation translation and scale */
         class Obj4 {
@@ -108,10 +111,13 @@ declare namespace tesserxel {
 declare namespace tesserxel {
     namespace math {
         class Matrix {
-            data: number[];
-            r: number;
-            c: number;
+            elem: Float32Array;
+            row: number;
+            col: number;
+            length: number;
             constructor(r: number, c?: number);
+            static id(r: number): Matrix;
+            static subMatrix(startRow: number, startCol: number, rowCount: number, colCout: number): void;
         }
     }
 }
@@ -148,6 +154,7 @@ declare namespace tesserxel {
             add(bv: Bivec): Bivec;
             adds(bv: Bivec): Bivec;
             addset(bv1: Bivec, bv2: Bivec): Bivec;
+            addmulfs(bv: Bivec, k: number): Bivec;
             neg(): Bivec;
             negs(): Bivec;
             sub(bv: Bivec): Bivec;
@@ -166,14 +173,13 @@ declare namespace tesserxel {
             dual(): Bivec;
             duals(): Bivec;
             wedgev(V: Vec4): Vec4;
-            wedgevcpy(V: Vec4, destV: Vec4): Vec4;
+            wedgevvset(v1: Vec4, v2: Vec4): Bivec;
             /** Vector part of Geometry Product
              * exy * ey = ex, exy * ex = -ey, exy * ez = 0
              *  */
             dotv(V: Vec4): Vec4;
             cross(V: Bivec): Bivec;
             exp(): Rotor;
-            expcpy(r: Rotor): Rotor;
             /** return two angles [max, min] between a and b
              * "a" and "b" must be normalized simple bivectors*/
             static angle(a: Bivec, b: Bivec): number[];
@@ -229,14 +235,11 @@ declare namespace tesserxel {
             /** get generator of this, Quaternion must be normalized */
             log(): Vec3;
             static slerp(a: Quaternion, b: Quaternion, t: number): Quaternion;
-            toMat3cpy(m: Mat3): Mat3;
             toRotateMat(): Mat4;
-            toLMat4cpy(m: Mat4): Mat4;
-            toRMat4cpy(m: Mat4): Mat4;
             toMat3(): Mat3;
-            toRotateMatcpy(m: Mat4): Mat4;
             toLMat4(): Mat4;
             toRMat4(): Mat4;
+            expset(v: Vec3): Quaternion;
             static rand(): Quaternion;
             static srand(seed: Srand): Quaternion;
             randset(): Quaternion;
@@ -246,6 +249,7 @@ declare namespace tesserxel {
             l: Quaternion;
             r: Quaternion;
             constructor(l?: Quaternion, r?: Quaternion);
+            clone(): Rotor;
             copy(r: Rotor): Rotor;
             conj(): Rotor;
             conjs(): Rotor;
@@ -268,10 +272,10 @@ declare namespace tesserxel {
              * [this.l, this.r] = [conj(R.l) * this.l, this.r * conj(R.r)]; */
             mulslconj(R: Rotor): Rotor;
             sqrt(): Rotor;
+            expset(bivec: Bivec): Rotor;
             log(): Bivec;
             static slerp(a: Rotor, b: Rotor, t: number): Rotor;
             toMat4(): Mat4;
-            toMat4cpy(m: Mat4): Mat4;
             /** plane must be a unit simple vector, if not, use Bivec.exp() instead
              * angle1 is rotation angle on the plane
              * angle2 is rotatoin angle on the perpendicular plane (right handed, eg: exy + ezw)
@@ -283,28 +287,6 @@ declare namespace tesserxel {
             static srand(seed: Srand): Rotor;
             randset(): Rotor;
             srandset(seed: Srand): Rotor;
-        }
-        class Multivec {
-            /** float scalar part */
-            f: number;
-            /** vector part */
-            v: Vec4;
-            /** bivector part */
-            b: Bivec;
-            /** trivector (pseudo vector) part Vec4(-yzw, zwx, -wxy, xyz) */
-            t: Vec4;
-            /** pseudo scalar part exyzw */
-            i: number;
-            constructor(f?: number, v?: Vec4, b?: Bivec, t?: Vec4, i?: number);
-            conj(): Multivec;
-            conjs(): Multivec;
-            add(m: Multivec): Multivec;
-            adds(m: Multivec): Multivec;
-            sub(m: Multivec): Multivec;
-            subs(m: Multivec): Multivec;
-            mulf(k: number): Multivec;
-            mulfs(k: number): Multivec;
-            mul(m: Multivec): Multivec;
         }
     }
 }
@@ -361,6 +343,7 @@ declare namespace tesserxel {
             muls(m: Mat3): Mat3;
             inv(): Mat3;
             invs(): Mat3;
+            setFromRotaion(q: Quaternion): Mat3;
         }
         class Mat4 {
             elem: number[];
@@ -395,9 +378,16 @@ declare namespace tesserxel {
             mulfs(k: number): Mat4;
             mulv(v: Vec4): Vec4;
             mul(m: Mat4): Mat4;
-            muls(m: Mat4): Mat4;
+            /** this = this * m2; */
+            mulsr(m: Mat4): Mat4;
+            /** this = m2 * this; */
+            mulsl(m: Mat4): Mat4;
             /** this = m1 * m2; */
-            mulcpy(m1: Mat4, m2: Mat4): Mat4;
+            mulset(m1: Mat4, m2: Mat4): Mat4;
+            setFrom3DRotation(q: Quaternion): Mat4;
+            setFromQuaternionL(q: Quaternion): Mat4;
+            setFromQuaternionR(q: Quaternion): Mat4;
+            setFromRotor(r: Rotor): Mat4;
             det(): number;
             inv(): Mat4;
             invs(): Mat4;
@@ -443,6 +433,8 @@ declare namespace tesserxel {
             addf(v2: number): Vec2;
             adds(v2: Vec2): Vec2;
             addfs(v2: number): Vec2;
+            /** this += v * k */
+            addmulfs(v: Vec2, k: number): this;
             neg(): Vec2;
             negs(): Vec2;
             sub(v2: Vec2): Vec2;
@@ -499,6 +491,8 @@ declare namespace tesserxel {
             addf(v2: number): Vec3;
             adds(v2: Vec3): Vec3;
             addfs(v2: number): Vec3;
+            /** this += v * k */
+            addmulfs(v: Vec3, k: number): this;
             neg(): Vec3;
             negs(): Vec3;
             sub(v2: Vec3): Vec3;
@@ -524,11 +518,9 @@ declare namespace tesserxel {
             wedge(v3: Vec3): Vec3;
             /** this.set(v1 ^ v2) */
             wedgeset(v1: Vec3, v2: Vec3): Vec3;
-            /** (this ^ v2).copy(v3) */
-            wedgecpy(v2: Vec3, v3: Vec3): Vec3;
-            wedges(v3: Vec3): Vec3;
+            /** this = this ^ v */
+            wedgesr(v: Vec3): Vec3;
             exp(): Quaternion;
-            expcpy(q: Quaternion): Quaternion;
             rotate(q: Quaternion): Vec3;
             rotates(q: Quaternion): Vec3;
             randset(): Vec3;
@@ -597,6 +589,8 @@ declare namespace tesserxel {
             subfs(v2: number): Vec4;
             mulf(v2: number): Vec4;
             mulfs(v2: number): Vec4;
+            /** this += v * k */
+            addmulfs(v: Vec4, k: number): this;
             mul(v2: Vec4): Vec4;
             muls(v2: Vec4): Vec4;
             divf(v2: number): Vec4;
@@ -611,13 +605,15 @@ declare namespace tesserxel {
             norminf(): number;
             normi(i: number): number;
             wedge(V: Vec4): Bivec;
-            wedgecpy(V: Vec4, b: Bivec): void;
+            wedgevbset(v: Vec4, bivec: Bivec): Vec4;
             wedgeb(bivec: Bivec): Vec4;
             /** Vector part of Geometry Product
              * ey * exy = -ex, ex * exy = ey, ex * eyz = 0
              *  */
             dotb(B: Bivec): Vec4;
             dotbset(B: Bivec, v: Vec4): Vec4;
+            /** this = mat * this */
+            mulmatls(mat4: Mat4): Vec4;
             rotate(r: Rotor): Vec4;
             rotates(r: Rotor): Vec4;
             rotateconj(r: Rotor): Vec4;
@@ -641,18 +637,96 @@ declare namespace tesserxel {
     }
 }
 declare namespace tesserxel {
+    namespace math {
+    }
+}
+declare namespace tesserxel {
+    namespace math {
+        class Spline {
+            points: Vec4[];
+            derives: Vec4[];
+            constructor(points: Vec4[], derives: Vec4[]);
+            generate(seg: number): {
+                points: Vec4[];
+                rotors: Rotor[];
+                curveLength: number[];
+            };
+            getValue(t: number): Vec4;
+        }
+    }
+}
+declare namespace tesserxel {
+    namespace mesh {
+        /** FaceMesh store traditional 2-face mesh as triangle or quad list
+         *  This mesh is for constructing complex tetrameshes
+         *  It is not aimed for rendering purpose
+         */
+        interface FaceMesh {
+            quad?: {
+                position: Float32Array;
+                normal?: Float32Array;
+                uv?: Float32Array;
+            };
+            triangle?: {
+                position: Float32Array;
+                normal?: Float32Array;
+                uv?: Float32Array;
+            };
+        }
+        interface FaceIndexMesh {
+            position: Float32Array;
+            normal?: Float32Array;
+            uv?: Float32Array;
+            quad?: {
+                position: Uint32Array;
+                normal?: Uint32Array;
+                uv?: Uint32Array;
+                count: number;
+            };
+            triangle?: {
+                position: Uint32Array;
+                normal?: Uint32Array;
+                uv?: Uint32Array;
+                count: number;
+            };
+        }
+        namespace face {
+            function sphere(u: any, v: any): void;
+            function parametricSurface(fn: (inputUV: math.Vec2, outputPosition: math.Vec4, outputNormal: math.Vec4) => void, uSegment: number, vSegment: number): void;
+        }
+    }
+}
+declare namespace tesserxel {
     namespace mesh {
         /** Tetramesh store 4D mesh as tetrahedral list
          *  Each tetrahedral uses four vertices in the position list
          */
         interface TetraMesh {
             position: Float32Array;
-            normal: Float32Array;
+            normal?: Float32Array;
             uvw?: Float32Array;
-            tetraCount?: number;
+            tetraCount: number;
+        }
+        /** TetraIndexMesh is not supported for tetraslice rendering
+         *  It is only used in data storage and mesh construction
+         */
+        interface TetraIndexMesh {
+            position: Float32Array;
+            normal?: Float32Array;
+            uvw?: Float32Array;
+            positionIndex: Uint32Array;
+            normalIndex?: Uint32Array;
+            uvwIndex?: Uint32Array;
+            tetraCount: number;
         }
         namespace tetra {
-            let tesseract: TetraMesh;
+            let cube: TetraMesh;
+            function applyAffineMat4(mesh: TetraMesh, am: math.AffineMat4): TetraMesh;
+            function applyObj4(mesh: TetraMesh, obj: math.Obj4): TetraMesh;
+            function concat(mesh1: TetraMesh, mesh2: TetraMesh): TetraMesh;
+            function concatarr(meshes: TetraMesh[]): TetraMesh;
+            function clone(mesh: TetraMesh): TetraMesh;
+            function tesseract(): TetraMesh;
             let hexadecachoron: TetraMesh;
             function glome(radius: number, xySegment: number, zwSegment: number, lattitudeSegment: number): TetraMesh;
             function tiger(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number, secondaryRadius: number, secondarySegment: number): TetraMesh;
@@ -669,28 +743,142 @@ declare namespace tesserxel {
                 position: Float32Array;
                 tetraCount: number;
             };
+            function loft(sp: tesserxel.math.Spline, section: tesserxel.mesh.FaceMesh, step: number): tesserxel.mesh.TetraMesh;
         }
     }
 }
 declare namespace tesserxel {
     namespace physics {
         class Engine {
-            dt: number;
+            forceAccumulator: ForceAccumulator;
+            constructor(forceAccumulator?: ForceAccumulator);
+            runCollisionDetector(): void;
+            runCollisionSolver(): void;
+            update(world: World, dt: number): void;
+            getObjectsAccelerations(world: World): void;
+        }
+        class World {
             gravity: math.Vec4;
             objects: Object[];
+            forces: Force[];
+            collisions: IntersectedResult[];
+            time: number;
+            frameCount: number;
+            addObject(o: Object): void;
+            addForce(f: Force): void;
         }
-        class Object extends math.Obj4 {
-            geom: Geometry;
-        }
-        interface Geometry {
+        class Object {
+            geometry: Geometry;
+            invMass: number;
+            invInertia: math.Matrix;
+            velocity: math.Vec4;
+            angularVelocity: math.Bivec;
+            /** sleeping objects are still.
+             *  it only do collision test will active objects
+             *  */
+            sleep: boolean;
+            force: math.Vec4;
+            torque: math.Bivec;
+            acceleration: math.Vec4;
+            angularAcceleration: math.Bivec;
+            getlinearVelocity(position: math.Vec4): math.Vec4;
+            constructor(geometry: Geometry, mass?: number);
         }
     }
 }
 declare namespace tesserxel {
     namespace physics {
+        interface ForceAccumulator {
+            run(engine: Engine, world: World, dt: number): void;
+        }
+        namespace force_accumulator {
+            class Euler2 {
+                private _bivec;
+                private _rotor;
+                run(engine: Engine, world: World, dt: number): void;
+            }
+            class Predict3 {
+                private _bivec1;
+                private _bivec2;
+                private _rotor;
+                private _vec;
+                run(engine: Engine, world: World, dt: number): void;
+            }
+            class RK4 {
+                private _bivec1;
+                private _rotor;
+                run(engine: Engine, world: World, dt: number): void;
+            }
+        }
+        interface Force {
+            apply(time: number): void;
+        }
+        namespace force {
+            /** apply a spring force between object a and b
+             *  pointA and pointB are in local coordinates,
+             *  refering connect point of spring's two ends.
+             *  b can be null for attaching spring to a fixed point in the world.
+             *  f = k dx - damp * dv */
+            class Spring implements Force {
+                a: Object;
+                pointA: math.Vec4;
+                b: Object | null;
+                pointB: math.Vec4;
+                k: number;
+                damp: number;
+                length: number;
+                private _vec4f;
+                private _vec4a;
+                private _vec4b;
+                private _bivec;
+                constructor(a: Object, b: Object | null, pointA: math.Vec4, pointB: math.Vec4, k: number, damp?: number, length?: number);
+                apply(time: null): void;
+            }
+        }
+    }
+}
+declare namespace tesserxel {
+    namespace physics {
+        interface Geometry {
+            type: string;
+            position?: math.Vec4;
+            rotation?: math.Rotor;
+            intersectGeometry(g: Geometry): IntersectResult;
+        }
         class Glome implements Geometry {
             radius: number;
+            position: math.Vec4;
+            rotation: math.Rotor;
+            type: "glome";
+            constructor(radius: number);
+            intersectGeometry(g: Geometry): any;
         }
+        /** equation: dot(normal,positon) == offset
+         *  => when offset > 0, plane is shifted to normal direction
+         *  from origin by distance = offset
+         */
+        class Plane implements Geometry {
+            normal: math.Vec4;
+            offset: number;
+            type: "plane";
+            intersectGeometry(g: Geometry): IntersectedResult;
+        }
+    }
+}
+declare namespace tesserxel {
+    namespace physics {
+        type IntersectResult = IntersectedResult | null;
+        interface IntersectedResult {
+            point: math.Vec4;
+            depth: number;
+            /** normal is defined from a to b */
+            normal: math.Vec4;
+            a: Geometry;
+            b: Geometry;
+        }
+        function intersetGlomeGlome(a: Glome, b: Glome): IntersectResult;
+        function inverseIntersectOrder(r: IntersectResult): IntersectResult;
+        function intersetGlomePlane(a: Glome, b: Plane): IntersectResult;
     }
 }
 declare namespace tesserxel {
@@ -733,7 +921,7 @@ declare namespace tesserxel {
             dom: HTMLElement;
             ctrls: Iterable<IController>;
             requsetPointerLock: boolean;
-            private states;
+            readonly states: ControllerState;
             constructor(dom: HTMLElement, ctrls: Iterable<IController>, config?: ControllerConfig);
             update(): void;
         }
@@ -841,17 +1029,21 @@ declare namespace tesserxel {
         }
         export namespace sliceconfig {
             let size: number;
-            function singleslice1eye(aspect: number): renderer.SliceConfig;
-            function singleslice2eye(aspect: number): renderer.SliceConfig;
+            function singlezslice1eye(aspect: number): renderer.SliceConfig;
+            function singlezslice2eye(aspect: number): renderer.SliceConfig;
+            function singleyslice1eye(aspect: number): renderer.SliceConfig;
+            function singleyslice2eye(aspect: number): renderer.SliceConfig;
             function zslices1eye(step: number, maxpos: number, aspect: number): renderer.SliceConfig;
             function zslices2eye(step: number, maxpos: number, aspect: number): renderer.SliceConfig;
-            function default2eye(size: any): renderer.SliceConfig;
-            function default1eye(size: any): renderer.SliceConfig;
+            function yslices1eye(step: number, maxpos: number, aspect: number): renderer.SliceConfig;
+            function yslices2eye(step: number, maxpos: number, aspect: number): renderer.SliceConfig;
+            function default2eye(size: number, aspect: number): renderer.SliceConfig;
+            function default1eye(size: number, aspect: number): renderer.SliceConfig;
         }
         export class RetinaController implements IController {
             enabled: boolean;
             keepUp: boolean;
-            renderer: renderer.TetraRenderer;
+            renderer: renderer.SliceRenderer;
             mouseSpeed: number;
             wheelSpeed: number;
             keyMoveSpeed: number;
@@ -859,7 +1051,9 @@ declare namespace tesserxel {
             opacityKeySpeed: number;
             damp: number;
             mouseButton: number;
-            sectionPresets: (aspect: number) => SectionPreset[];
+            sectionPresets: (aspect: number) => {
+                [label: string]: SectionPreset;
+            };
             private sliceConfig;
             private currentSectionConfig;
             private rembemerLastLayers;
@@ -877,9 +1071,17 @@ declare namespace tesserxel {
                 rotateUp: string;
                 rotateDown: string;
                 refaceFront: string;
-                sectionConfigs: string[];
+                sectionConfigs: {
+                    "retina+sections": string;
+                    retina: string;
+                    sections: string;
+                    "retina+zslices": string;
+                    "retina+yslices": string;
+                    zsection: string;
+                    ysection: string;
+                };
             };
-            constructor(r: renderer.TetraRenderer);
+            constructor(r: renderer.SliceRenderer);
             private _vec2damp;
             private _vec2euler;
             private _vec3;
@@ -890,15 +1092,15 @@ declare namespace tesserxel {
             retinaZDistance: number;
             update(state: ControllerState): void;
             setSlice(sliceConfig: renderer.SliceConfig): void;
-            toggleSectionConfig(index: number): void;
+            toggleSectionConfig(index: string): void;
             setSize(size: GPUExtent3DStrict): void;
         }
         export {};
     }
 }
 declare namespace tesserxel {
-    function getGPU(): Promise<renderer.GPU>;
     namespace renderer {
+        export function createGPU(): Promise<GPU>;
         export class GPU {
             adapter: GPUAdapter;
             device: GPUDevice;
@@ -920,7 +1122,7 @@ declare namespace tesserxel {
 }
 declare namespace tesserxel {
     namespace renderer {
-        interface TetraRendererOption {
+        interface SliceRendererOption {
             /** Square slice framebuffer of dimension sliceResolution, should be 2^n */
             sliceResolution?: number;
             /** Caution: must be 2^n, this includes cross section thumbnails */
@@ -997,7 +1199,7 @@ declare namespace tesserxel {
                 height: number;
             };
         }
-        class TetraRenderer {
+        class SliceRenderer {
             private maxSlicesNumber;
             private maxVertexOutputNumber;
             private maxCrossSectionBufferSize;
@@ -1048,7 +1250,7 @@ declare namespace tesserxel {
             private refacingMatsCode;
             private totalGroupNum;
             private sliceGroupNum;
-            init(gpu: GPU, context: GPUCanvasContext, options?: TetraRendererOption): Promise<this>;
+            init(gpu: GPU, context: GPUCanvasContext, options?: SliceRendererOption): Promise<this>;
             createBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[]): GPUBindGroup;
             createTetraSlicePipeline(desc: TetraSlicePipelineDescriptor): Promise<TetraSlicePipeline>;
             setSize(size: GPUExtent3DStrict): void;
@@ -1188,5 +1390,14 @@ declare namespace tesserxel {
                 _roundUp(k: any, n: any): number;
             }
         }
+    }
+}
+/** threejs like 4D lib */
+declare namespace tesserxel {
+    namespace four {
+    }
+}
+declare namespace tesserxel {
+    namespace four {
     }
 }

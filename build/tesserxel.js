@@ -70,9 +70,16 @@ var tesserxel;
             mul(m) {
                 return new AffineMat4(this.mat.mul(m.mat), this.mat.mulv(m.vec).adds(this.vec));
             }
-            muls(m) {
+            /** this = this * m */
+            mulsr(m) {
                 this.vec.adds(this.mat.mulv(m.vec));
-                this.mat.muls(m.mat);
+                this.mat.mulsr(m.mat);
+                return this;
+            }
+            /** this = m * this */
+            mulsl(m) {
+                this.vec.mulmatls(m.mat).adds(m.vec);
+                this.mat.mulsl(m.mat);
                 return this;
             }
         }
@@ -110,7 +117,7 @@ var tesserxel;
             }
             getAffineMat4() {
                 if (this.scale)
-                    return new AffineMat4(this.rotation.toMat4().muls(math.Mat4.diag(this.scale.x, this.scale.y, this.scale.z, this.scale.w)), this.position.clone());
+                    return new AffineMat4(this.rotation.toMat4().mulsr(math.Mat4.diag(this.scale.x, this.scale.y, this.scale.z, this.scale.w)), this.position.clone());
                 return new AffineMat4(this.rotation.toMat4(), this.position.clone());
             }
             getAffineMat4inv() {
@@ -121,7 +128,7 @@ var tesserxel;
                 let y = 1 / this.scale.y;
                 let z = 1 / this.scale.z;
                 let w = 1 / this.scale.w;
-                return new AffineMat4(math.Mat4.diag(x, y, z, w).muls(this.rotation.conj().toMat4()), new math.Vec4(b.x * x, b.y * y, b.z * z, b.w * w));
+                return new AffineMat4(math.Mat4.diag(x, y, z, w).mulsr(this.rotation.conj().toMat4()), new math.Vec4(b.x * x, b.y * y, b.z * z, b.w * w));
             }
             translates(v) {
                 this.position.adds(v);
@@ -313,13 +320,27 @@ var tesserxel;
     let math;
     (function (math) {
         class Matrix {
-            data;
-            r;
-            c;
+            elem;
+            row;
+            col;
+            length;
             constructor(r, c) {
                 c = c ?? r;
-                this.r = r;
-                this.c = c;
+                this.row = r;
+                this.col = c;
+                this.length = r * c;
+                this.elem = new Float32Array(this.length);
+            }
+            static id(r) {
+                let m = new Matrix(r);
+                let rplus1 = r + 1;
+                for (let i = 0; i < m.length; i += rplus1) {
+                    m.elem[i] = 1.0;
+                }
+                return m;
+            }
+            static subMatrix(startRow, startCol, rowCount, colCout) {
+                let m = new Matrix(rowCount, colCout);
             }
         }
         math.Matrix = Matrix;
@@ -398,6 +419,15 @@ var tesserxel;
             }
             addset(bv1, bv2) {
                 return this.set(bv1.xy + bv2.xy, bv1.xz + bv2.xz, bv1.xw + bv2.xw, bv1.yz + bv2.yz, bv1.yw + bv2.yw, bv1.zw + bv2.zw);
+            }
+            addmulfs(bv, k) {
+                this.xy += bv.xy * k;
+                this.xz += bv.xz * k;
+                this.xw += bv.xw * k;
+                this.yz += bv.yz * k;
+                this.yw += bv.yw * k;
+                this.zw += bv.zw * k;
+                return this;
             }
             neg() {
                 return new Bivec(-this.xy, -this.xz, -this.xw, -this.yz, -this.yw, -this.zw);
@@ -498,8 +528,8 @@ var tesserxel;
             wedgev(V) {
                 return new math.Vec4(-this.yz * V.w - this.zw * V.y + this.yw * V.z, this.xz * V.w + this.zw * V.x - this.xw * V.z, -this.xy * V.w - this.yw * V.x + this.xw * V.y, this.xy * V.z + this.yz * V.x - this.xz * V.y);
             }
-            wedgevcpy(V, destV) {
-                return destV.set(-this.yz * V.w - this.zw * V.y + this.yw * V.z, this.xz * V.w + this.zw * V.x - this.xw * V.z, -this.xy * V.w - this.yw * V.x + this.xw * V.y, this.xy * V.z + this.yz * V.x - this.xz * V.y);
+            wedgevvset(v1, v2) {
+                return this.set(v1.x * v2.y - v1.y * v2.x, v1.x * v2.z - v1.z * v2.x, v1.x * v2.w - v1.w * v2.x, v1.y * v2.z - v1.z * v2.y, v1.y * v2.w - v1.w * v2.y, v1.z * v2.w - v1.w * v2.z);
             }
             /** Vector part of Geometry Product
              * exy * ey = ex, exy * ex = -ey, exy * ez = 0
@@ -533,19 +563,6 @@ var tesserxel;
                 let sa = (a > 0.005 ? Math.sin(aa) / a : 0.5 - a * a / 12);
                 let sb = (b > 0.005 ? Math.sin(bb) / b : 0.5 - b * b / 12);
                 return new Rotor(new Quaternion(Math.cos(aa), sa * A.x, sa * A.y, sa * A.z), new Quaternion(Math.cos(bb), sb * B.x, sb * B.y, sb * B.z));
-            }
-            expcpy(r) {
-                let A = math._vec3_1.set(this.xy + this.zw, this.xz - this.yw, this.xw + this.yz);
-                let B = math._vec3_2.set(this.xy - this.zw, this.xz + this.yw, this.xw - this.yz);
-                let a = A.norm();
-                let b = B.norm();
-                let aa = a * 0.5;
-                let bb = b * 0.5;
-                let sa = (a > 0.005 ? Math.sin(aa) / a : 0.5 - a * a / 12);
-                let sb = (b > 0.005 ? Math.sin(bb) / b : 0.5 - b * b / 12);
-                r.l.set(Math.cos(aa), sa * A.x, sa * A.y, sa * A.z);
-                r.r.set(Math.cos(bb), sb * B.x, sb * B.y, sb * B.z);
-                return r;
             }
             /** return two angles [max, min] between a and b
              * "a" and "b" must be normalized simple bivectors*/
@@ -754,19 +771,6 @@ var tesserxel;
                 }
                 return new Quaternion(a.x * A + b.x * B, a.y * A + b.y * B, a.z * A + b.z * B, a.w * A + b.w * B);
             }
-            toMat3cpy(m) {
-                let xt2 = this.y + this.y, yt2 = this.z + this.z, zt2 = this.w + this.w;
-                let x2 = this.y * xt2;
-                let y2 = this.z * yt2;
-                let z2 = this.w * zt2;
-                let xy = this.y * yt2;
-                let yz = this.w * yt2;
-                let xz = this.w * xt2;
-                let wx = this.x * xt2;
-                let wy = this.x * yt2;
-                let wz = this.x * zt2;
-                return m.set(1 - (y2 + z2), xy - wz, xz + wy, xy + wz, 1 - x2 - z2, yz - wx, xz - wy, yz + wx, 1 - x2 - y2);
-            }
             toRotateMat() {
                 let xt2 = this.y + this.y, yt2 = this.z + this.z, zt2 = this.w + this.w;
                 let x2 = this.y * xt2;
@@ -779,12 +783,6 @@ var tesserxel;
                 let wy = this.x * yt2;
                 let wz = this.x * zt2;
                 return new math.Mat4(1 - (y2 + z2), xy - wz, xz + wy, 0, xy + wz, 1 - x2 - z2, yz - wx, 0, xz - wy, yz + wx, 1 - x2 - y2, 0, 0, 0, 0, 1);
-            }
-            toLMat4cpy(m) {
-                return m.set(this.x, -this.y, -this.z, -this.w, this.y, this.x, -this.w, this.z, this.z, this.w, this.x, -this.y, this.w, -this.z, this.y, this.x);
-            }
-            toRMat4cpy(m) {
-                return m.set(this.x, -this.y, -this.z, -this.w, this.y, this.x, this.w, -this.z, this.z, -this.w, this.x, this.y, this.w, this.z, -this.y, this.x);
             }
             toMat3() {
                 let xt2 = this.y + this.y, yt2 = this.z + this.z, zt2 = this.w + this.w;
@@ -799,24 +797,16 @@ var tesserxel;
                 let wz = this.x * zt2;
                 return new math.Mat3(1 - (y2 + z2), xy - wz, xz + wy, xy + wz, 1 - x2 - z2, yz - wx, xz - wy, yz + wx, 1 - x2 - y2);
             }
-            toRotateMatcpy(m) {
-                let xt2 = this.y + this.y, yt2 = this.z + this.z, zt2 = this.w + this.w;
-                let x2 = this.y * xt2;
-                let y2 = this.z * yt2;
-                let z2 = this.w * zt2;
-                let xy = this.y * yt2;
-                let yz = this.w * yt2;
-                let xz = this.w * xt2;
-                let wx = this.x * xt2;
-                let wy = this.x * yt2;
-                let wz = this.x * zt2;
-                return m.set(1 - (y2 + z2), xy - wz, xz + wy, 0, xy + wz, 1 - x2 - z2, yz - wx, 0, xz - wy, yz + wx, 1 - x2 - y2, 0, 0, 0, 0, 1);
-            }
             toLMat4() {
                 return new math.Mat4(this.x, -this.y, -this.z, -this.w, this.y, this.x, -this.w, this.z, this.z, this.w, this.x, -this.y, this.w, -this.z, this.y, this.x);
             }
             toRMat4() {
                 return new math.Mat4(this.x, -this.y, -this.z, -this.w, this.y, this.x, this.w, -this.z, this.z, -this.w, this.x, this.y, this.w, this.z, -this.y, this.x);
+            }
+            expset(v) {
+                let g = v.norm() * 0.5;
+                let s = Math.abs(g) > 0.005 ? Math.sin(g) / g * 0.5 : 0.5 - g * g / 12;
+                return this.set(Math.cos(g), s * v.x, s * v.y, s * v.z);
             }
             static rand() {
                 let a = Math.random() * math._360;
@@ -858,6 +848,9 @@ var tesserxel;
             constructor(l = new Quaternion(), r = new Quaternion()) {
                 this.l = l;
                 this.r = r;
+            }
+            clone() {
+                return new Rotor(this.l.clone(), this.r.clone());
             }
             copy(r) {
                 this.l.copy(r.l);
@@ -914,6 +907,19 @@ var tesserxel;
             sqrt() {
                 return new Rotor(this.l.sqrt(), this.r.sqrt());
             }
+            expset(bivec) {
+                let A = math._vec3_1.set(bivec.xy + bivec.zw, bivec.xz - bivec.yw, bivec.xw + bivec.yz);
+                let B = math._vec3_2.set(bivec.xy - bivec.zw, bivec.xz + bivec.yw, bivec.xw - bivec.yz);
+                let a = A.norm();
+                let b = B.norm();
+                let aa = a * 0.5;
+                let bb = b * 0.5;
+                let sa = (a > 0.005 ? Math.sin(aa) / a : 0.5 - a * a / 12);
+                let sb = (b > 0.005 ? Math.sin(bb) / b : 0.5 - b * b / 12);
+                this.l.set(Math.cos(aa), sa * A.x, sa * A.y, sa * A.z);
+                this.r.set(Math.cos(bb), sb * B.x, sb * B.y, sb * B.z);
+                return this;
+            }
             log() {
                 let a, b;
                 if (Math.abs(this.l.x) > 0.9999) {
@@ -936,10 +942,7 @@ var tesserxel;
                 return new Rotor(Quaternion.slerp(a.l, b.l, t), Quaternion.slerp(a.r, b.r, t));
             }
             toMat4() {
-                return this.l.toLMat4().muls(this.r.toRMat4cpy(math._mat4));
-            }
-            toMat4cpy(m) {
-                return this.l.toLMat4cpy(m).muls(this.r.toRMat4cpy(math._mat4));
+                return this.l.toLMat4().mulsr(math._mat4.setFromQuaternionR(this.r));
             }
             /** plane must be a unit simple vector, if not, use Bivec.exp() instead
              * angle1 is rotation angle on the plane
@@ -957,7 +960,7 @@ var tesserxel;
                 let s = right.norm();
                 let c = from.dot(to);
                 if (s > 0.000001) { // not aligned
-                    right.mulfs(-Math.atan2(s, c) / s);
+                    right.mulfs(Math.atan2(s, c) / s);
                 }
                 else if (c < 0) { // almost n reversely aligned
                     let v = from.wedge(math.Vec4.x);
@@ -987,84 +990,6 @@ var tesserxel;
             }
         }
         math.Rotor = Rotor;
-        class Multivec {
-            /** float scalar part */
-            f;
-            /** vector part */
-            v;
-            /** bivector part */
-            b;
-            /** trivector (pseudo vector) part Vec4(-yzw, zwx, -wxy, xyz) */
-            t;
-            /** pseudo scalar part exyzw */
-            i;
-            constructor(f = 0, v = new math.Vec4(), b = new Bivec(), t = new math.Vec4(), i = 0) {
-                this.f = f;
-                this.v = v;
-                this.b = b;
-                this.t = t;
-                this.i = i;
-            }
-            conj() {
-                return new Multivec(this.f, this.v.clone(), this.b.neg(), this.t.neg(), this.i);
-            }
-            conjs() {
-                this.b.negs();
-                this.t.negs();
-                return this;
-            }
-            add(m) {
-                return new Multivec(this.f + m.f, this.v.add(m.v), this.b.add(m.b), this.t.add(m.t), this.i + m.i);
-            }
-            adds(m) {
-                this.v.adds(m.v);
-                this.b.adds(m.b);
-                this.t.adds(m.t);
-                this.f += m.f;
-                this.i += m.i;
-                return this;
-            }
-            sub(m) {
-                return new Multivec(this.f - m.f, this.v.sub(m.v), this.b.sub(m.b), this.t.sub(m.t), this.i - m.i);
-            }
-            subs(m) {
-                this.v.subs(m.v);
-                this.b.subs(m.b);
-                this.t.subs(m.t);
-                this.f -= m.f;
-                this.i -= m.i;
-                return this;
-            }
-            mulf(k) {
-                return new Multivec(this.f * k, this.v.mulf(k), this.b.mulf(k), this.t.mulf(k), this.i * k);
-            }
-            mulfs(k) {
-                this.v.mulfs(k);
-                this.b.mulfs(k);
-                this.t.mulfs(k);
-                this.f *= k;
-                this.i *= k;
-                return this;
-            }
-            mul(m) {
-                return new Multivec(
-                //00 11 22 33 44
-                this.f * m.f + this.v.dot(m.v) - this.b.dot(m.b) - this.t.dot(m.t) + this.i * m.i, 
-                //10 01 12 21 23 32 34 43 
-                this.v.mulf(m.f).adds(m.v.mulf(this.f)).adds(this.v.dotb(m.b)).adds(this.b.dotv(m.v))
-                    .adds(this.b.wedgev(m.t)).adds(m.b.wedgev(this.t)).subs(this.t.mulf(m.i)).subs(m.t.mulf(this.i)), 
-                //02 20 22 11 13 31 24 42 33
-                this.b.mulf(m.f).adds(m.b.mulf(this.f)).adds(this.v.wedge(m.v)).adds(this.b.cross(m.b))
-                    .adds(this.v.wedge(m.t).duals()).adds(m.v.wedge(this.t).duals())
-                    .subs(this.b.dual().mulfs(m.i)).subs(m.b.dual().mulfs(this.i)).adds(this.t.wedge(m.t)), 
-                //03 30 12 21 14 41 23 32
-                this.t.mulf(m.f).adds(m.t.mulf(this.f)).adds(this.b.wedgev(m.v)).adds(m.b.wedgev(this.v))
-                    .adds(this.v.mulf(m.i)).adds(m.v.mulf(this.i)).adds(this.b.wedgev(m.t)).adds(m.b.wedgev(this.t)), 
-                //04 40 22 13 31
-                this.f * m.i + this.i * m.f + this.b.wedge(m.b) + this.v.dot(m.t) + this.t.dot(m.v));
-            }
-        }
-        math.Multivec = Multivec;
     })(math = tesserxel.math || (tesserxel.math = {}));
 })(tesserxel || (tesserxel = {}));
 /**  mat.ts: Matrix2|3|4
@@ -1323,6 +1248,19 @@ var tesserxel;
                 me[8] = (n22 * n11 - n21 * n12) * detInv;
                 return this;
             }
+            setFromRotaion(q) {
+                let xt2 = q.y + q.y, yt2 = q.z + q.z, zt2 = q.w + q.w;
+                let x2 = q.y * xt2;
+                let y2 = q.z * yt2;
+                let z2 = q.w * zt2;
+                let xy = q.y * yt2;
+                let yz = q.w * yt2;
+                let xz = q.w * xt2;
+                let wx = q.x * xt2;
+                let wy = q.x * yt2;
+                let wz = q.x * zt2;
+                return this.set(1 - (y2 + z2), xy - wz, xz + wy, xy + wz, 1 - x2 - z2, yz - wx, xz - wy, yz + wx, 1 - x2 - y2);
+            }
         }
         math.Mat3 = Mat3;
         class Mat4 {
@@ -1472,18 +1410,48 @@ var tesserxel;
                 let b = m.elem;
                 return new Mat4(a[0] * b[0] + a[1] * b[4] + a[2] * b[8] + a[3] * b[12], a[0] * b[1] + a[1] * b[5] + a[2] * b[9] + a[3] * b[13], a[0] * b[2] + a[1] * b[6] + a[2] * b[10] + a[3] * b[14], a[0] * b[3] + a[1] * b[7] + a[2] * b[11] + a[3] * b[15], a[4] * b[0] + a[5] * b[4] + a[6] * b[8] + a[7] * b[12], a[4] * b[1] + a[5] * b[5] + a[6] * b[9] + a[7] * b[13], a[4] * b[2] + a[5] * b[6] + a[6] * b[10] + a[7] * b[14], a[4] * b[3] + a[5] * b[7] + a[6] * b[11] + a[7] * b[15], a[8] * b[0] + a[9] * b[4] + a[10] * b[8] + a[11] * b[12], a[8] * b[1] + a[9] * b[5] + a[10] * b[9] + a[11] * b[13], a[8] * b[2] + a[9] * b[6] + a[10] * b[10] + a[11] * b[14], a[8] * b[3] + a[9] * b[7] + a[10] * b[11] + a[11] * b[15], a[12] * b[0] + a[13] * b[4] + a[14] * b[8] + a[15] * b[12], a[12] * b[1] + a[13] * b[5] + a[14] * b[9] + a[15] * b[13], a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14], a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15]);
             }
-            muls(m) {
+            /** this = this * m2; */
+            mulsr(m) {
                 let a = this.elem;
                 let b = m.elem;
                 this.set(a[0] * b[0] + a[1] * b[4] + a[2] * b[8] + a[3] * b[12], a[0] * b[1] + a[1] * b[5] + a[2] * b[9] + a[3] * b[13], a[0] * b[2] + a[1] * b[6] + a[2] * b[10] + a[3] * b[14], a[0] * b[3] + a[1] * b[7] + a[2] * b[11] + a[3] * b[15], a[4] * b[0] + a[5] * b[4] + a[6] * b[8] + a[7] * b[12], a[4] * b[1] + a[5] * b[5] + a[6] * b[9] + a[7] * b[13], a[4] * b[2] + a[5] * b[6] + a[6] * b[10] + a[7] * b[14], a[4] * b[3] + a[5] * b[7] + a[6] * b[11] + a[7] * b[15], a[8] * b[0] + a[9] * b[4] + a[10] * b[8] + a[11] * b[12], a[8] * b[1] + a[9] * b[5] + a[10] * b[9] + a[11] * b[13], a[8] * b[2] + a[9] * b[6] + a[10] * b[10] + a[11] * b[14], a[8] * b[3] + a[9] * b[7] + a[10] * b[11] + a[11] * b[15], a[12] * b[0] + a[13] * b[4] + a[14] * b[8] + a[15] * b[12], a[12] * b[1] + a[13] * b[5] + a[14] * b[9] + a[15] * b[13], a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14], a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15]);
                 return this;
             }
+            /** this = m2 * this; */
+            mulsl(m) {
+                let b = this.elem;
+                let a = m.elem;
+                this.set(a[0] * b[0] + a[1] * b[4] + a[2] * b[8] + a[3] * b[12], a[0] * b[1] + a[1] * b[5] + a[2] * b[9] + a[3] * b[13], a[0] * b[2] + a[1] * b[6] + a[2] * b[10] + a[3] * b[14], a[0] * b[3] + a[1] * b[7] + a[2] * b[11] + a[3] * b[15], a[4] * b[0] + a[5] * b[4] + a[6] * b[8] + a[7] * b[12], a[4] * b[1] + a[5] * b[5] + a[6] * b[9] + a[7] * b[13], a[4] * b[2] + a[5] * b[6] + a[6] * b[10] + a[7] * b[14], a[4] * b[3] + a[5] * b[7] + a[6] * b[11] + a[7] * b[15], a[8] * b[0] + a[9] * b[4] + a[10] * b[8] + a[11] * b[12], a[8] * b[1] + a[9] * b[5] + a[10] * b[9] + a[11] * b[13], a[8] * b[2] + a[9] * b[6] + a[10] * b[10] + a[11] * b[14], a[8] * b[3] + a[9] * b[7] + a[10] * b[11] + a[11] * b[15], a[12] * b[0] + a[13] * b[4] + a[14] * b[8] + a[15] * b[12], a[12] * b[1] + a[13] * b[5] + a[14] * b[9] + a[15] * b[13], a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14], a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15]);
+                return this;
+            }
             /** this = m1 * m2; */
-            mulcpy(m1, m2) {
+            mulset(m1, m2) {
                 let a = m1.elem;
                 let b = m2.elem;
                 this.set(a[0] * b[0] + a[1] * b[4] + a[2] * b[8] + a[3] * b[12], a[0] * b[1] + a[1] * b[5] + a[2] * b[9] + a[3] * b[13], a[0] * b[2] + a[1] * b[6] + a[2] * b[10] + a[3] * b[14], a[0] * b[3] + a[1] * b[7] + a[2] * b[11] + a[3] * b[15], a[4] * b[0] + a[5] * b[4] + a[6] * b[8] + a[7] * b[12], a[4] * b[1] + a[5] * b[5] + a[6] * b[9] + a[7] * b[13], a[4] * b[2] + a[5] * b[6] + a[6] * b[10] + a[7] * b[14], a[4] * b[3] + a[5] * b[7] + a[6] * b[11] + a[7] * b[15], a[8] * b[0] + a[9] * b[4] + a[10] * b[8] + a[11] * b[12], a[8] * b[1] + a[9] * b[5] + a[10] * b[9] + a[11] * b[13], a[8] * b[2] + a[9] * b[6] + a[10] * b[10] + a[11] * b[14], a[8] * b[3] + a[9] * b[7] + a[10] * b[11] + a[11] * b[15], a[12] * b[0] + a[13] * b[4] + a[14] * b[8] + a[15] * b[12], a[12] * b[1] + a[13] * b[5] + a[14] * b[9] + a[15] * b[13], a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14], a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15]);
                 return this;
+            }
+            setFrom3DRotation(q) {
+                let xt2 = q.y + q.y, yt2 = q.z + q.z, zt2 = q.w + q.w;
+                let x2 = q.y * xt2;
+                let y2 = q.z * yt2;
+                let z2 = q.w * zt2;
+                let xy = q.y * yt2;
+                let yz = q.w * yt2;
+                let xz = q.w * xt2;
+                let wx = q.x * xt2;
+                let wy = q.x * yt2;
+                let wz = q.x * zt2;
+                return this.set(1 - (y2 + z2), xy - wz, xz + wy, 0, xy + wz, 1 - x2 - z2, yz - wx, 0, xz - wy, yz + wx, 1 - x2 - y2, 0, 0, 0, 0, 1);
+            }
+            setFromQuaternionL(q) {
+                return this.set(q.x, -q.y, -q.z, -q.w, q.y, q.x, -q.w, q.z, q.z, q.w, q.x, -q.y, q.w, -q.z, q.y, q.x);
+            }
+            setFromQuaternionR(q) {
+                return this.set(q.x, -q.y, -q.z, -q.w, q.y, q.x, q.w, -q.z, q.z, -q.w, q.x, q.y, q.w, q.z, -q.y, q.x);
+            }
+            setFromRotor(r) {
+                return this.setFromQuaternionL(r.l).mulsr(math._mat4.setFromQuaternionR(r.r));
             }
             det() {
                 let me = this.elem;
@@ -1616,6 +1584,12 @@ var tesserxel;
             addfs(v2) {
                 this.x += v2;
                 this.y += v2;
+                return this;
+            }
+            /** this += v * k */
+            addmulfs(v, k) {
+                this.x += v.x * k;
+                this.y += v.y * k;
                 return this;
             }
             neg() {
@@ -1821,6 +1795,13 @@ var tesserxel;
                 this.z += v2;
                 return this;
             }
+            /** this += v * k */
+            addmulfs(v, k) {
+                this.x += v.x * k;
+                this.y += v.y * k;
+                this.z += v.z * k;
+                return this;
+            }
             neg() {
                 return new Vec3(-this.x, -this.y, -this.z);
             }
@@ -1930,25 +1911,14 @@ var tesserxel;
                 this.z = v1.x * v2.y - v1.y * v2.x;
                 return this;
             }
-            /** (this ^ v2).copy(v3) */
-            wedgecpy(v2, v3) {
-                v3.x = this.y * v2.z - this.z * v2.y;
-                v3.y = this.z * v2.x - this.x * v2.z;
-                v3.z = this.x * v2.y - this.y * v2.x;
-                return this;
-            }
-            wedges(v3) {
-                return this.set(this.y * v3.z - this.z * v3.y, this.z * v3.x - this.x * v3.z, this.x * v3.y - this.y * v3.x);
+            /** this = this ^ v */
+            wedgesr(v) {
+                return this.set(this.y * v.z - this.z * v.y, this.z * v.x - this.x * v.z, this.x * v.y - this.y * v.x);
             }
             exp() {
                 let g = this.norm() * 0.5;
                 let s = Math.abs(g) > 0.005 ? Math.sin(g) / g * 0.5 : 0.5 - g * g / 12;
                 return new math.Quaternion(Math.cos(g), s * this.x, s * this.y, s * this.z);
-            }
-            expcpy(q) {
-                let g = this.norm() * 0.5;
-                let s = Math.abs(g) > 0.005 ? Math.sin(g) / g * 0.5 : 0.5 - g * g / 12;
-                return q.set(Math.cos(g), s * this.x, s * this.y, s * this.z);
             }
             rotate(q) {
                 return math._Q.set(0, this.x, this.y, this.z).mulsl(q).mulsr(q.conj()).yzw();
@@ -2137,6 +2107,14 @@ var tesserxel;
                 this.w *= v2;
                 return this;
             }
+            /** this += v * k */
+            addmulfs(v, k) {
+                this.x += v.x * k;
+                this.y += v.y * k;
+                this.z += v.z * k;
+                this.w += v.w * k;
+                return this;
+            }
             mul(v2) {
                 return new Vec4(this.x * v2.x, this.y * v2.y, this.z * v2.z, this.w * v2.w);
             }
@@ -2202,8 +2180,8 @@ var tesserxel;
             wedge(V) {
                 return new math.Bivec(this.x * V.y - this.y * V.x, this.x * V.z - this.z * V.x, this.x * V.w - this.w * V.x, this.y * V.z - this.z * V.y, this.y * V.w - this.w * V.y, this.z * V.w - this.w * V.z);
             }
-            wedgecpy(V, b) {
-                b.set(this.x * V.y - this.y * V.x, this.x * V.z - this.z * V.x, this.x * V.w - this.w * V.x, this.y * V.z - this.z * V.y, this.y * V.w - this.w * V.y, this.z * V.w - this.w * V.z);
+            wedgevbset(v, bivec) {
+                return this.set(-bivec.yz * v.w - bivec.zw * v.y + bivec.yw * v.z, bivec.xz * v.w + bivec.zw * v.x - bivec.xw * v.z, -bivec.xy * v.w - bivec.yw * v.x + bivec.xw * v.y, bivec.xy * v.z + bivec.yz * v.x - bivec.xz * v.y);
             }
             wedgeb(bivec) {
                 return bivec.wedgev(this);
@@ -2216,6 +2194,11 @@ var tesserxel;
             }
             dotbset(B, v) {
                 return v.set(-B.xy * this.y - B.xz * this.z - B.xw * this.w, B.xy * this.x - B.yz * this.z - B.yw * this.w, B.xz * this.x + B.yz * this.y - B.zw * this.w, B.xw * this.x + B.yw * this.y + B.zw * this.z);
+            }
+            /** this = mat * this */
+            mulmatls(mat4) {
+                let a = mat4.elem;
+                return this.set(this.x * a[0] + this.y * a[1] + this.z * a[2] + this.w * a[3], this.x * a[4] + this.y * a[5] + this.z * a[6] + this.w * a[7], this.x * a[8] + this.y * a[9] + this.z * a[10] + this.w * a[11], this.x * a[12] + this.y * a[13] + this.z * a[14] + this.w * a[15]);
             }
             rotate(r) {
                 return math._Q.copy(this).mulsl(r.l).mulsr(r.r).xyzw();
@@ -2289,221 +2272,228 @@ var tesserxel;
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
 (function (tesserxel) {
+    let math;
+    (function (math) {
+        class Ray {
+            origin;
+            direction;
+        }
+        class Plane {
+            /** normal need to be normalized */
+            normal;
+            offset;
+            distanceToPoint(p) {
+            }
+            /** regard r as an infinity line */
+            distanceToLine(r) {
+            }
+        }
+        class AABB {
+            min;
+            max;
+            testAABB(aabb) {
+                return ((this.min.x <= aabb.max.x && this.max.x >= aabb.min.x) &&
+                    (this.min.y <= aabb.max.y && this.max.y >= aabb.min.y) &&
+                    (this.min.z <= aabb.max.z && this.max.z >= aabb.min.z) &&
+                    (this.min.w <= aabb.max.w && this.max.w >= aabb.min.w));
+            }
+        }
+    })(math = tesserxel.math || (tesserxel.math = {}));
+})(tesserxel || (tesserxel = {}));
+var tesserxel;
+(function (tesserxel) {
+    let math;
+    (function (math) {
+        class Spline {
+            points;
+            derives;
+            constructor(points, derives) {
+                if (points.length !== derives.length)
+                    console.error("Spline: points and derives lengths don't agree");
+                this.points = points;
+                this.derives = derives;
+            }
+            generate(seg) {
+                let points = [];
+                let prevPoint;
+                let prevDir = math.Vec4.w;
+                let prevRotor = new math.Rotor();
+                let rotors = [];
+                let curveLength = [];
+                let curveLenSum = 0;
+                for (let i = 0; i < this.points.length - 1; i++) {
+                    let p0 = this.points[i];
+                    let p1 = this.points[i + 1];
+                    let d0 = this.derives[i];
+                    let d1 = this.derives[i + 1];
+                    let p01 = p0.sub(p1);
+                    let A = p01.mulf(2).adds(d0).adds(d1);
+                    let B = d0.mulf(-2).subs(d1).subs(p01.mulfs(3));
+                    let seginv = 1 / seg;
+                    for (let j = 0; j <= seg; j++) {
+                        if (j === seg && i !== this.points.length - 2)
+                            break;
+                        let t = j * seginv;
+                        let curPoint = new math.Vec4(p0.x + t * (d0.x + t * (B.x + t * A.x)), p0.y + t * (d0.y + t * (B.y + t * A.y)), p0.z + t * (d0.z + t * (B.z + t * A.z)), p0.w + t * (d0.w + t * (B.w + t * A.w)));
+                        if (prevPoint) {
+                            let curDir = curPoint.sub(prevPoint);
+                            let dirLen = curDir.norm();
+                            curDir.divfs(dirLen);
+                            prevRotor.mulsl(math.Rotor.lookAt(prevDir, curDir));
+                            // console.log(curDir.dot(Vec4.w.rotate(prevRotor)));
+                            prevDir = curDir;
+                            rotors.push(prevRotor.clone());
+                            curveLength.push(curveLenSum);
+                            curveLenSum += dirLen;
+                        }
+                        prevPoint = curPoint;
+                        points.push(curPoint);
+                    }
+                }
+                let lastDerive = this.derives[this.derives.length - 1];
+                if (points[0].x == prevPoint.x && points[0].y == prevPoint.y &&
+                    points[0].z == prevPoint.z && points[0].w == prevPoint.w &&
+                    this.derives[0].x == lastDerive.x && this.derives[0].y == lastDerive.y &&
+                    this.derives[0].z == lastDerive.z && this.derives[0].w == lastDerive.w) {
+                    rotors.push(rotors[0]);
+                }
+                else {
+                    rotors.push(prevRotor);
+                }
+                curveLength.push(curveLenSum);
+                return { points, rotors, curveLength };
+            }
+            getValue(t) {
+                let i = Math.floor(t);
+                t -= i;
+                // i %= this.points.length - 1;
+                // if (i < 0) i += this.points.length - 1
+                let p0 = this.points[i];
+                let p1 = this.points[i + 1];
+                let d0 = this.derives[i];
+                let d1 = this.derives[i + 1];
+                let p01 = p0.sub(p1);
+                let A = p01.mulfs(2).adds(d0).adds(d1);
+                let B = d0.mulf(-2).subs(d1).subs(p01.mulfs(1.5));
+                let x = p0.x + t * (d0.x + t * (B.x + t * A.x));
+                let y = p0.y + t * (d0.y + t * (B.y + t * A.y));
+                let z = p0.z + t * (d0.z + t * (B.z + t * A.z));
+                let w = p0.w + t * (d0.w + t * (B.w + t * A.w));
+                return new math.Vec4(x, y, z, w);
+            }
+        }
+        math.Spline = Spline;
+    })(math = tesserxel.math || (tesserxel.math = {}));
+})(tesserxel || (tesserxel = {}));
+var tesserxel;
+(function (tesserxel) {
     let mesh;
     (function (mesh) {
+        let face;
+        (function (face) {
+            function sphere(u, v) {
+            }
+            face.sphere = sphere;
+            function parametricSurface(fn, uSegment, vSegment) {
+                if (uSegment < 1)
+                    uSegment = 1;
+                if (vSegment < 1)
+                    vSegment = 1;
+                let uv_seg = uSegment * uSegment;
+                let arraySize = uv_seg << 4;
+                uSegment++;
+                vSegment++;
+                let positions = new Float32Array((uv_seg) << 2);
+                let normals = new Float32Array((uv_seg) << 2);
+                let uvws = new Float32Array((uv_seg) << 2);
+                let position = new Float32Array(arraySize);
+                let normal = new Float32Array(arraySize);
+                let uvw = new Float32Array(arraySize);
+                let inputUV = new tesserxel.math.Vec2;
+                let outputVertex = new tesserxel.math.Vec4;
+                let outputNormal = new tesserxel.math.Vec4;
+                let ptr = 0;
+                let idxPtr = 0;
+                function pushIdx(i) {
+                    position[idxPtr++] = positions[i];
+                    position[idxPtr++] = positions[i + 1];
+                    position[idxPtr++] = positions[i + 2];
+                    position[idxPtr++] = positions[i + 3];
+                    idxPtr -= 4;
+                    normal[idxPtr++] = normals[i];
+                    normal[idxPtr++] = normals[i + 1];
+                    normal[idxPtr++] = normals[i + 2];
+                    normal[idxPtr++] = normals[i + 3];
+                    idxPtr -= 4;
+                    uvw[idxPtr++] = uvws[i];
+                    uvw[idxPtr++] = uvws[i + 1];
+                    uvw[idxPtr++] = uvws[i + 2];
+                    uvw[idxPtr++] = uvws[i + 3];
+                }
+                for (let u_index = 0; u_index < uSegment; u_index++) {
+                    inputUV.x = u_index / (uSegment - 1);
+                    let offset = vSegment * u_index;
+                    for (let v_index = 0; v_index < vSegment; v_index++) {
+                        inputUV.y = v_index / (vSegment - 1);
+                        fn(inputUV, outputVertex, outputNormal);
+                        positions[ptr++] = outputVertex.x;
+                        positions[ptr++] = outputVertex.y;
+                        positions[ptr++] = outputVertex.z;
+                        positions[ptr++] = outputVertex.w;
+                        ptr -= 4;
+                        normals[ptr++] = outputNormal.x;
+                        normals[ptr++] = outputNormal.y;
+                        normals[ptr++] = outputNormal.z;
+                        normals[ptr++] = outputNormal.w;
+                        ptr -= 4;
+                        uvws[ptr++] = inputUV.x;
+                        uvws[ptr++] = inputUV.y;
+                        uvws[ptr++] = 0;
+                        uvws[ptr++] = 0;
+                        if (u_index && v_index) {
+                            // todo: if same -> no push or push to triangle
+                            pushIdx(offset << 2);
+                            pushIdx(offset - 1 << 2);
+                            pushIdx(offset - vSegment << 2);
+                            pushIdx(offset - vSegment - 1 << 2);
+                        }
+                    }
+                }
+            }
+            face.parametricSurface = parametricSurface;
+        })(face = mesh.face || (mesh.face = {}));
+    })(mesh = tesserxel.mesh || (tesserxel.mesh = {}));
+})(tesserxel || (tesserxel = {}));
+var tesserxel;
+(function (tesserxel) {
+    let mesh;
+    (function (mesh_1) {
         let tetra;
         (function (tetra) {
-            tetra.tesseract = {
+            tetra.cube = {
                 position: new Float32Array([
-                    1, 1, 1, 1,
-                    1, 1, -1, -1,
-                    1, -1, -1, 1,
-                    1, -1, 1, -1,
-                    1, 1, -1, -1,
-                    1, -1, -1, -1,
-                    1, -1, -1, 1,
-                    1, -1, 1, -1,
-                    1, -1, 1, 1,
-                    1, 1, 1, 1,
-                    1, -1, -1, 1,
-                    1, -1, 1, -1,
-                    1, 1, -1, -1,
-                    1, 1, 1, 1,
-                    1, 1, 1, -1,
-                    1, -1, 1, -1,
-                    1, 1, -1, -1,
-                    1, 1, 1, 1,
-                    1, -1, -1, 1,
-                    1, 1, -1, 1,
-                    //x-
-                    -1, 1, -1, -1,
-                    -1, 1, 1, 1,
-                    -1, -1, -1, 1,
-                    -1, -1, 1, -1,
-                    -1, -1, -1, -1,
-                    -1, 1, -1, -1,
-                    -1, -1, -1, 1,
-                    -1, -1, 1, -1,
-                    -1, 1, 1, 1,
-                    -1, -1, 1, 1,
-                    -1, -1, -1, 1,
-                    -1, -1, 1, -1,
-                    -1, 1, 1, 1,
-                    -1, 1, -1, -1,
-                    -1, 1, 1, -1,
-                    -1, -1, 1, -1,
-                    -1, 1, 1, 1,
-                    -1, 1, -1, -1,
-                    -1, -1, -1, 1,
-                    -1, 1, -1, 1,
-                    //y+
-                    1, 1, -1, -1,
-                    1, 1, 1, 1,
-                    -1, 1, -1, 1,
-                    -1, 1, 1, -1,
-                    -1, 1, -1, -1,
-                    1, 1, -1, -1,
-                    -1, 1, -1, 1,
-                    -1, 1, 1, -1,
-                    1, 1, 1, 1,
-                    -1, 1, 1, 1,
-                    -1, 1, -1, 1,
-                    -1, 1, 1, -1,
-                    1, 1, 1, 1,
-                    1, 1, -1, -1,
-                    1, 1, 1, -1,
-                    -1, 1, 1, -1,
-                    1, 1, 1, 1,
-                    1, 1, -1, -1,
-                    -1, 1, -1, 1,
-                    1, 1, -1, 1,
-                    //y-
-                    1, -1, 1, 1,
-                    1, -1, -1, -1,
-                    -1, -1, -1, 1,
-                    -1, -1, 1, -1,
-                    1, -1, -1, -1,
-                    -1, -1, -1, -1,
-                    -1, -1, -1, 1,
-                    -1, -1, 1, -1,
-                    -1, -1, 1, 1,
-                    1, -1, 1, 1,
-                    -1, -1, -1, 1,
-                    -1, -1, 1, -1,
-                    1, -1, -1, -1,
-                    1, -1, 1, 1,
-                    1, -1, 1, -1,
-                    -1, -1, 1, -1,
-                    1, -1, -1, -1,
-                    1, -1, 1, 1,
-                    -1, -1, -1, 1,
-                    1, -1, -1, 1,
-                    //z+
-                    1, 1, 1, 1,
-                    1, -1, 1, -1,
-                    -1, -1, 1, 1,
-                    -1, 1, 1, -1,
-                    1, -1, 1, -1,
-                    -1, -1, 1, -1,
-                    -1, -1, 1, 1,
-                    -1, 1, 1, -1,
-                    -1, 1, 1, 1,
-                    1, 1, 1, 1,
-                    -1, -1, 1, 1,
-                    -1, 1, 1, -1,
-                    1, -1, 1, -1,
-                    1, 1, 1, 1,
-                    1, 1, 1, -1,
-                    -1, 1, 1, -1,
-                    1, -1, 1, -1,
-                    1, 1, 1, 1,
-                    -1, -1, 1, 1,
-                    1, -1, 1, 1,
-                    //z-
-                    1, -1, -1, -1,
-                    1, 1, -1, 1,
-                    -1, -1, -1, 1,
-                    -1, 1, -1, -1,
-                    -1, -1, -1, -1,
-                    1, -1, -1, -1,
-                    -1, -1, -1, 1,
-                    -1, 1, -1, -1,
-                    1, 1, -1, 1,
-                    -1, 1, -1, 1,
-                    -1, -1, -1, 1,
-                    -1, 1, -1, -1,
-                    1, 1, -1, 1,
-                    1, -1, -1, -1,
-                    1, 1, -1, -1,
-                    -1, 1, -1, -1,
-                    1, 1, -1, 1,
-                    1, -1, -1, -1,
-                    -1, -1, -1, 1,
-                    1, -1, -1, 1,
-                    //w+
-                    1, -1, -1, 1,
-                    1, 1, 1, 1,
-                    -1, -1, 1, 1,
-                    -1, 1, -1, 1,
-                    -1, -1, -1, 1,
-                    1, -1, -1, 1,
-                    -1, -1, 1, 1,
-                    -1, 1, -1, 1,
-                    1, 1, 1, 1,
-                    -1, 1, 1, 1,
-                    -1, -1, 1, 1,
-                    -1, 1, -1, 1,
-                    1, 1, 1, 1,
-                    1, -1, -1, 1,
-                    1, 1, -1, 1,
-                    -1, 1, -1, 1,
-                    1, 1, 1, 1,
-                    1, -1, -1, 1,
-                    -1, -1, 1, 1,
-                    1, -1, 1, 1,
-                    //w-
-                    1, 1, 1, -1,
-                    1, -1, -1, -1,
-                    -1, -1, 1, -1,
-                    -1, 1, -1, -1,
-                    1, -1, -1, -1,
-                    -1, -1, -1, -1,
-                    -1, -1, 1, -1,
-                    -1, 1, -1, -1,
-                    -1, 1, 1, -1,
-                    1, 1, 1, -1,
-                    -1, -1, 1, -1,
-                    -1, 1, -1, -1,
-                    1, -1, -1, -1,
-                    1, 1, 1, -1,
-                    1, 1, -1, -1,
-                    -1, 1, -1, -1,
-                    1, -1, -1, -1,
-                    1, 1, 1, -1,
-                    -1, -1, 1, -1,
-                    1, -1, 1, -1,
+                    1, 0, -1, -1,
+                    1, 0, 1, 1,
+                    -1, 0, -1, 1,
+                    -1, 0, 1, -1,
+                    -1, 0, -1, -1,
+                    1, 0, -1, -1,
+                    -1, 0, -1, 1,
+                    -1, 0, 1, -1,
+                    1, 0, 1, 1,
+                    -1, 0, 1, 1,
+                    -1, 0, -1, 1,
+                    -1, 0, 1, -1,
+                    1, 0, 1, 1,
+                    1, 0, -1, -1,
+                    1, 0, 1, -1,
+                    -1, 0, 1, -1,
+                    1, 0, 1, 1,
+                    1, 0, -1, -1,
+                    -1, 0, -1, 1,
+                    1, 0, -1, 1,
                 ]),
                 normal: new Float32Array([
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
-                    -1, 0, 0, 0,
                     0, 1, 0, 0,
                     0, 1, 0, 0,
                     0, 1, 0, 0,
@@ -2524,278 +2514,152 @@ var tesserxel;
                     0, 1, 0, 0,
                     0, 1, 0, 0,
                     0, 1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, -1, 0, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, 1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, -1, 0,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, 1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1,
-                    0, 0, 0, -1
                 ]),
                 uvw: new Float32Array([
-                    1, 1, 1, 0,
                     1, -1, -1, 0,
+                    1, 1, 1, 0,
                     -1, -1, 1, 0,
                     -1, 1, -1, 0,
-                    1, -1, -1, 0,
                     -1, -1, -1, 0,
-                    -1, -1, 1, 0,
-                    -1, 1, -1, 0,
-                    -1, 1, 1, 0,
-                    1, 1, 1, 0,
-                    -1, -1, 1, 0,
-                    -1, 1, -1, 0,
                     1, -1, -1, 0,
+                    -1, -1, 1, 0,
+                    -1, 1, -1, 0,
                     1, 1, 1, 0,
+                    -1, 1, 1, 0,
+                    -1, -1, 1, 0,
+                    -1, 1, -1, 0,
+                    1, 1, 1, 0,
+                    1, -1, -1, 0,
                     1, 1, -1, 0,
                     -1, 1, -1, 0,
-                    1, -1, -1, 0,
                     1, 1, 1, 0,
+                    1, -1, -1, 0,
                     -1, -1, 1, 0,
                     1, -1, 1, 0,
-                    //x-
-                    1, -1, -1, 1,
-                    1, 1, 1, 1,
-                    -1, -1, 1, 1,
-                    -1, 1, -1, 1,
-                    -1, -1, -1, 1,
-                    1, -1, -1, 1,
-                    -1, -1, 1, 1,
-                    -1, 1, -1, 1,
-                    1, 1, 1, 1,
-                    -1, 1, 1, 1,
-                    -1, -1, 1, 1,
-                    -1, 1, -1, 1,
-                    1, 1, 1, 1,
-                    1, -1, -1, 1,
-                    1, 1, -1, 1,
-                    -1, 1, -1, 1,
-                    1, 1, 1, 1,
-                    1, -1, -1, 1,
-                    -1, -1, 1, 1,
-                    1, -1, 1, 1,
-                    //y+
-                    1, -1, -1, 2,
-                    1, 1, 1, 2,
-                    -1, -1, 1, 2,
-                    -1, 1, -1, 2,
-                    -1, -1, -1, 2,
-                    1, -1, -1, 2,
-                    -1, -1, 1, 2,
-                    -1, 1, -1, 2,
-                    1, 1, 1, 2,
-                    -1, 1, 1, 2,
-                    -1, -1, 1, 2,
-                    -1, 1, -1, 2,
-                    1, 1, 1, 2,
-                    1, -1, -1, 2,
-                    1, 1, -1, 2,
-                    -1, 1, -1, 2,
-                    1, 1, 1, 2,
-                    1, -1, -1, 2,
-                    -1, -1, 1, 2,
-                    1, -1, 1, 2,
-                    //y-
-                    1, 1, 1, 3,
-                    1, -1, -1, 3,
-                    -1, -1, 1, 3,
-                    -1, 1, -1, 3,
-                    1, -1, -1, 3,
-                    -1, -1, -1, 3,
-                    -1, -1, 1, 3,
-                    -1, 1, -1, 3,
-                    -1, 1, 1, 3,
-                    1, 1, 1, 3,
-                    -1, -1, 1, 3,
-                    -1, 1, -1, 3,
-                    1, -1, -1, 3,
-                    1, 1, 1, 3,
-                    1, 1, -1, 3,
-                    -1, 1, -1, 3,
-                    1, -1, -1, 3,
-                    1, 1, 1, 3,
-                    -1, -1, 1, 3,
-                    1, -1, 1, 3,
-                    //z+
-                    1, 1, 1, 4,
-                    1, -1, -1, 4,
-                    -1, -1, 1, 4,
-                    -1, 1, -1, 4,
-                    1, -1, -1, 4,
-                    -1, -1, -1, 4,
-                    -1, -1, 1, 4,
-                    -1, 1, -1, 4,
-                    -1, 1, 1, 4,
-                    1, 1, 1, 4,
-                    -1, -1, 1, 4,
-                    -1, 1, -1, 4,
-                    1, -1, -1, 4,
-                    1, 1, 1, 4,
-                    1, 1, -1, 4,
-                    -1, 1, -1, 4,
-                    1, -1, -1, 4,
-                    1, 1, 1, 4,
-                    -1, -1, 1, 4,
-                    1, -1, 1, 4,
-                    //z-
-                    1, -1, -1, 5,
-                    1, 1, 1, 5,
-                    -1, -1, 1, 5,
-                    -1, 1, -1, 5,
-                    -1, -1, -1, 5,
-                    1, -1, -1, 5,
-                    -1, -1, 1, 5,
-                    -1, 1, -1, 5,
-                    1, 1, 1, 5,
-                    -1, 1, 1, 5,
-                    -1, -1, 1, 5,
-                    -1, 1, -1, 5,
-                    1, 1, 1, 5,
-                    1, -1, -1, 5,
-                    1, 1, -1, 5,
-                    -1, 1, -1, 5,
-                    1, 1, 1, 5,
-                    1, -1, -1, 5,
-                    -1, -1, 1, 5,
-                    1, -1, 1, 5,
-                    //w+
-                    1, -1, -1, 6,
-                    1, 1, 1, 6,
-                    -1, -1, 1, 6,
-                    -1, 1, -1, 6,
-                    -1, -1, -1, 6,
-                    1, -1, -1, 6,
-                    -1, -1, 1, 6,
-                    -1, 1, -1, 6,
-                    1, 1, 1, 6,
-                    -1, 1, 1, 6,
-                    -1, -1, 1, 6,
-                    -1, 1, -1, 6,
-                    1, 1, 1, 6,
-                    1, -1, -1, 6,
-                    1, 1, -1, 6,
-                    -1, 1, -1, 6,
-                    1, 1, 1, 6,
-                    1, -1, -1, 6,
-                    -1, -1, 1, 6,
-                    1, -1, 1, 6,
-                    //w-
-                    1, 1, 1, 7,
-                    1, -1, -1, 7,
-                    -1, -1, 1, 7,
-                    -1, 1, -1, 7,
-                    1, -1, -1, 7,
-                    -1, -1, -1, 7,
-                    -1, -1, 1, 7,
-                    -1, 1, -1, 7,
-                    -1, 1, 1, 7,
-                    1, 1, 1, 7,
-                    -1, -1, 1, 7,
-                    -1, 1, -1, 7,
-                    1, -1, -1, 7,
-                    1, 1, 1, 7,
-                    1, 1, -1, 7,
-                    -1, 1, -1, 7,
-                    1, -1, -1, 7,
-                    1, 1, 1, 7,
-                    -1, -1, 1, 7,
-                    1, -1, 1, 7,
                 ]),
-                tetraCount: 40
+                tetraCount: 5
             };
+            function applyAffineMat4(mesh, am) {
+                let vp = new tesserxel.math.Vec4();
+                for (let i = 0; i < mesh.position.length; i += 4) {
+                    vp.set(mesh.position[i], mesh.position[i + 1], mesh.position[i + 2], mesh.position[i + 3]).mulmatls(am.mat).adds(am.vec).writeBuffer(mesh.position, i);
+                    if (mesh.normal) {
+                        vp.set(mesh.normal[i], mesh.normal[i + 1], mesh.normal[i + 2], mesh.normal[i + 3]).mulmatls(am.mat).writeBuffer(mesh.position, i);
+                    }
+                }
+                return mesh;
+            }
+            tetra.applyAffineMat4 = applyAffineMat4;
+            function applyObj4(mesh, obj) {
+                let vp = new tesserxel.math.Vec4();
+                let scaleinv;
+                if (obj.scale && mesh.normal) {
+                    scaleinv = new tesserxel.math.Vec4(1 / obj.scale.x, 1 / obj.scale.y, 1 / obj.scale.z, 1 / obj.scale.w);
+                }
+                for (let i = 0; i < mesh.position.length; i += 4) {
+                    if (obj.scale) {
+                        vp.set(mesh.position[i] * obj.scale.x, mesh.position[i + 1] * obj.scale.y, mesh.position[i + 2] * obj.scale.z, mesh.position[i + 3] * obj.scale.w).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.position, i);
+                        if (mesh.normal) {
+                            vp.set(mesh.normal[i] * scaleinv.x, mesh.normal[i + 1] * scaleinv.y, mesh.normal[i + 2] * scaleinv.z, mesh.normal[i + 3] * scaleinv.w).rotates(obj.rotation).writeBuffer(mesh.position, i);
+                        }
+                    }
+                    else {
+                        vp.set(mesh.position[i], mesh.position[i + 1], mesh.position[i + 2], mesh.position[i + 3]).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.position, i);
+                        if (mesh.normal) {
+                            vp.set(mesh.normal[i], mesh.normal[i + 1], mesh.normal[i + 2], mesh.normal[i + 3]).rotates(obj.rotation).writeBuffer(mesh.normal, i);
+                        }
+                    }
+                }
+                return mesh;
+            }
+            tetra.applyObj4 = applyObj4;
+            function concat(mesh1, mesh2) {
+                let position = new Float32Array(mesh1.position.length + mesh2.position.length);
+                position.set(mesh1.position);
+                position.set(mesh2.position, mesh1.position.length);
+                let ret = { position, tetraCount: position.length << 4 };
+                if (mesh1.normal && mesh2.normal) {
+                    let normal = new Float32Array(mesh1.normal.length + mesh2.normal.length);
+                    normal.set(mesh1.normal);
+                    normal.set(mesh2.normal, mesh1.normal.length);
+                    ret.normal = normal;
+                }
+                if (mesh1.uvw && mesh2.uvw) {
+                    let uvw = new Float32Array(mesh1.uvw.length + mesh2.uvw.length);
+                    uvw.set(mesh1.uvw);
+                    uvw.set(mesh2.uvw, mesh1.uvw.length);
+                    ret.uvw = uvw;
+                }
+                return ret;
+            }
+            tetra.concat = concat;
+            function concatarr(meshes) {
+                let length = 0;
+                let hasNormal = true;
+                let hasUvw = true;
+                for (let i = 0; i < meshes.length; i++) {
+                    length += meshes[i].position.length;
+                    hasUvw = hasUvw && (meshes[i].uvw ? true : false);
+                    hasNormal = hasNormal && (meshes[i].normal ? true : false);
+                }
+                let position = new Float32Array(length);
+                let ret = { position, tetraCount: length << 4 };
+                let normal, uvw;
+                if (hasNormal) {
+                    normal = new Float32Array(length);
+                    ret.normal = normal;
+                }
+                if (hasUvw) {
+                    uvw = new Float32Array(length);
+                    ret.uvw = uvw;
+                }
+                length = 0;
+                for (let i = 0; i < meshes.length; i++) {
+                    position.set(meshes[i].position, length);
+                    if (hasNormal) {
+                        normal.set(meshes[i].normal, length);
+                    }
+                    if (hasUvw) {
+                        uvw.set(meshes[i].uvw, length);
+                    }
+                    length += meshes[i].position.length;
+                }
+                return ret;
+            }
+            tetra.concatarr = concatarr;
+            function clone(mesh) {
+                let ret = {
+                    position: mesh.position.slice(0),
+                    tetraCount: mesh.tetraCount
+                };
+                if (mesh.uvw)
+                    ret.uvw = mesh.uvw.slice(0);
+                if (mesh.normal)
+                    ret.normal = mesh.normal.slice(0);
+                return ret;
+            }
+            tetra.clone = clone;
+            function tesseract() {
+                let yface = applyObj4(clone(tetra.cube), new tesserxel.math.Obj4(tesserxel.math.Vec4.y));
+                let meshes = [
+                    new tesserxel.math.Bivec(tesserxel.math._90).exp(),
+                    new tesserxel.math.Bivec(-tesserxel.math._90).exp(),
+                    new tesserxel.math.Bivec(0, 0, 0, tesserxel.math._90).exp(),
+                    new tesserxel.math.Bivec(0, 0, 0, -tesserxel.math._90).exp(),
+                    new tesserxel.math.Bivec(0, 0, 0, 0, tesserxel.math._90).exp(),
+                    new tesserxel.math.Bivec(0, 0, 0, 0, -tesserxel.math._90).exp(),
+                    new tesserxel.math.Bivec(tesserxel.math._180).exp(),
+                ].map(r => applyObj4(clone(yface), new tesserxel.math.Obj4(new tesserxel.math.Vec4(), r)));
+                meshes.push(yface);
+                let m = concatarr(meshes);
+                for (let i = 0; i < 8; i++) {
+                    for (let j = 0; j < 20; j++) {
+                        m.uvw[i * 80 + j * 4 + 3] = i;
+                    }
+                }
+                return m;
+            }
+            tetra.tesseract = tesseract;
             tetra.hexadecachoron = {
                 position: new Float32Array([
                     1, 0, 0, 0,
@@ -3311,7 +3175,80 @@ var tesserxel;
                 return tesserxel.mesh.tetra.convexhull(ps);
             }
             tetra.duocylinder = duocylinder;
-        })(tetra = mesh.tetra || (mesh.tetra = {}));
+            function loft(sp, section, step) {
+                let { points, rotors, curveLength } = sp.generate(step);
+                let quadcount = section.quad.position.length >> 4;
+                let tetraCount = quadcount * (points.length - 1) * 5;
+                let arraySize = tetraCount << 4;
+                let pslen = quadcount * points.length << 4;
+                let positions = new Float32Array(pslen);
+                let uvws = new Float32Array(pslen);
+                let normals = new Float32Array(pslen);
+                let position = new Float32Array(arraySize);
+                let uvw = new Float32Array(arraySize);
+                let normal = new Float32Array(arraySize);
+                let _vec4 = new tesserxel.math.Vec4(); // cache
+                let offset = 0;
+                let idxPtr = 0;
+                let pos = section.quad.position;
+                let norm = section.quad.normal;
+                let uv = section.quad.uv;
+                for (let ptr = 0; ptr < (quadcount << 4); ptr += 16) {
+                    for (let j = 0; j < rotors.length; j++) {
+                        let r = rotors[j];
+                        let p = points[j];
+                        for (let i = 0; i < 4; i++, ptr += 4) {
+                            _vec4.set(pos[ptr], pos[ptr + 1], pos[ptr + 2], pos[ptr + 3]);
+                            _vec4.rotates(r).adds(p);
+                            _vec4.writeBuffer(positions, offset);
+                            _vec4.set(norm[ptr], norm[ptr + 1], norm[ptr + 2], norm[ptr + 3]);
+                            _vec4.rotates(r);
+                            _vec4.writeBuffer(normals, offset);
+                            _vec4.set(uv[ptr], uv[ptr + 1], uv[ptr + 2], curveLength[j]);
+                            _vec4.writeBuffer(uvws, offset);
+                            offset += 4;
+                        }
+                        ptr -= 16;
+                        if (j) {
+                            let doffset = offset - 32;
+                            pushTetra(doffset, 0, 1, 3, 4);
+                            pushTetra(doffset, 1, 5, 6, 4);
+                            pushTetra(doffset, 1, 3, 6, 2);
+                            pushTetra(doffset, 4, 7, 6, 3);
+                            pushTetra(doffset, 1, 3, 4, 6);
+                        }
+                    }
+                }
+                function pushTetra(offset, a, b, c, d) {
+                    a = offset + (a << 2);
+                    b = offset + (b << 2);
+                    c = offset + (c << 2);
+                    d = offset + (d << 2);
+                    pushIdx(a);
+                    pushIdx(b);
+                    pushIdx(c);
+                    pushIdx(d);
+                }
+                function pushIdx(i) {
+                    position[idxPtr++] = positions[i];
+                    position[idxPtr++] = positions[i + 1];
+                    position[idxPtr++] = positions[i + 2];
+                    position[idxPtr++] = positions[i + 3];
+                    idxPtr -= 4;
+                    normal[idxPtr++] = normals[i];
+                    normal[idxPtr++] = normals[i + 1];
+                    normal[idxPtr++] = normals[i + 2];
+                    normal[idxPtr++] = normals[i + 3];
+                    idxPtr -= 4;
+                    uvw[idxPtr++] = uvws[i];
+                    uvw[idxPtr++] = uvws[i + 1];
+                    uvw[idxPtr++] = uvws[i + 2];
+                    uvw[idxPtr++] = uvws[i + 3];
+                }
+                return { position, uvw, normal, tetraCount };
+            }
+            tetra.loft = loft;
+        })(tetra = mesh_1.tetra || (mesh_1.tetra = {}));
     })(mesh = tesserxel.mesh || (tesserxel.mesh = {}));
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
@@ -3319,13 +3256,93 @@ var tesserxel;
     let physics;
     (function (physics) {
         class Engine {
-            dt = 0.001;
-            gravity = new tesserxel.math.Vec4(0, -9.8);
-            objects;
+            forceAccumulator;
+            constructor(forceAccumulator) {
+                this.forceAccumulator = forceAccumulator ?? new physics.force_accumulator.Euler2();
+            }
+            runCollisionDetector() {
+                // this.collisions = [];
+                // for (let i = 0; i < this.objects.length; i++) {
+                //     for (let j = i + 1; j < this.objects.length; j++) {
+                //         let r = this.objects[i].geometry.intersectGeometry(this.objects[j].geometry);
+                //         if (r) this.collisions.push(r);
+                //     }
+                // }
+            }
+            runCollisionSolver() {
+                // todo
+            }
+            update(world, dt) {
+                this.forceAccumulator.run(this, world, dt);
+                this.runCollisionDetector();
+                this.runCollisionSolver();
+                world.frameCount++;
+            }
+            getObjectsAccelerations(world) {
+                // clear
+                for (let o of world.objects) {
+                    o.force.set();
+                    if (o.invMass)
+                        o.acceleration.copy(world.gravity);
+                    o.torque.set();
+                }
+                // apply force
+                for (let f of world.forces) {
+                    f.apply(world.time);
+                }
+                for (let o of world.objects) {
+                    if (o.force.norm1() > 0) {
+                        o.acceleration.addmulfs(o.force, o.invMass);
+                    }
+                    if (o.torque.norm1() > 0) {
+                        // todo
+                        // o.angularAcceleration.addmulfs(o.torque, o.invMass);
+                    }
+                }
+            }
         }
         physics.Engine = Engine;
-        class Object extends tesserxel.math.Obj4 {
-            geom;
+        class World {
+            gravity = new tesserxel.math.Vec4(0, -9.8);
+            objects = [];
+            forces = [];
+            collisions = [];
+            time = 0;
+            frameCount = 0;
+            addObject(o) {
+                this.objects.push(o);
+            }
+            addForce(f) {
+                this.forces.push(f);
+            }
+        }
+        physics.World = World;
+        class Object {
+            geometry;
+            invMass;
+            // inertia is a 6x6 Matrix for angularVelocity -> angularMomentum
+            invInertia;
+            velocity = new tesserxel.math.Vec4();
+            angularVelocity = new tesserxel.math.Bivec();
+            /** sleeping objects are still.
+             *  it only do collision test will active objects
+             *  */
+            sleep = false;
+            // accumulators:
+            force = new tesserxel.math.Vec4();
+            torque = new tesserxel.math.Bivec();
+            acceleration = new tesserxel.math.Vec4();
+            angularAcceleration = new tesserxel.math.Bivec();
+            getlinearVelocity(position) {
+                if (!this.geometry.position)
+                    return new tesserxel.math.Vec4();
+                let relPosition = position.sub(this.geometry.position);
+                return relPosition.dotbset(this.angularVelocity, relPosition).add(this.velocity);
+            }
+            constructor(geometry, mass) {
+                this.geometry = geometry;
+                this.invMass = mass > 0 ? 1 / mass : null;
+            }
         }
         physics.Object = Object;
     })(physics = tesserxel.physics || (tesserxel.physics = {}));
@@ -3334,10 +3351,291 @@ var tesserxel;
 (function (tesserxel) {
     let physics;
     (function (physics) {
+        let force_accumulator;
+        (function (force_accumulator) {
+            class Euler2 {
+                _bivec = new tesserxel.math.Bivec;
+                _rotor = new tesserxel.math.Rotor;
+                run(engine, world, dt) {
+                    engine.getObjectsAccelerations(world);
+                    world.time += dt;
+                    let dtsqrhalf = dt * dt / 2;
+                    for (let o of world.objects) {
+                        if (o.sleep || !o.geometry.position)
+                            continue;
+                        // x1 = x0 + v0 t + a0 t^2/2
+                        // v1 = v0 + a0 t/2
+                        o.geometry.position.addmulfs(o.velocity, dt).addmulfs(o.acceleration, dtsqrhalf);
+                        o.velocity.addmulfs(o.acceleration, dt);
+                        if (!o.geometry.rotation)
+                            continue;
+                        o.geometry.rotation.mulsl(this._rotor.expset(this._bivec.copy(o.angularVelocity).mulfs(dt).addmulfs(o.angularAcceleration, dtsqrhalf)));
+                        o.angularVelocity.addmulfs(o.angularAcceleration, dt);
+                    }
+                }
+            }
+            force_accumulator.Euler2 = Euler2;
+            class Predict3 {
+                _bivec1 = new tesserxel.math.Bivec;
+                _bivec2 = new tesserxel.math.Bivec;
+                _rotor = new tesserxel.math.Rotor;
+                _vec = new tesserxel.math.Vec4;
+                run(engine, world, dt) {
+                    let prevStates = world.objects.map(obj => ({
+                        acceleration: obj.acceleration.clone(),
+                        angularAcceleration: obj.angularAcceleration.clone(),
+                    }));
+                    engine.getObjectsAccelerations(world);
+                    world.time += dt;
+                    let dthalf = dt * 0.5;
+                    let dtsqrdiv6 = dt * dthalf / 3;
+                    for (let idx = 0, len = world.objects.length; idx < len; idx++) {
+                        let o = world.objects[idx];
+                        let prevO = prevStates[idx];
+                        if (o.sleep || !o.geometry.position)
+                            continue;
+                        // if we know a1, then:
+                        // x1 = x0 + v0 t + (2/3 a0 + 1/3 a1) t^2/2
+                        // v1 = v0 + (a0 + a1) t/2
+                        // predict a1 = 2a0 - a{-1}, got:
+                        // x1 = x0 + v0 t + (4/3 a0 - 1/3 a{-1}) t^2/2
+                        // v1 = v0 + (3/2 a0 - 1/2 a{-1}) t
+                        o.geometry.position.addmulfs(o.velocity, dt).addmulfs(this._vec.copy(prevO.acceleration).addmulfs(o.acceleration, -4), -dtsqrdiv6);
+                        o.velocity.addmulfs(prevO.acceleration.addmulfs(o.acceleration, -3), -dthalf);
+                        if (!o.geometry.rotation)
+                            continue;
+                        o.geometry.rotation.mulsl(this._rotor.expset(this._bivec1.copy(o.angularVelocity).mulfs(dt).addmulfs(this._bivec2.copy(prevO.angularAcceleration).addmulfs(o.angularAcceleration, -4), -dtsqrdiv6)));
+                        o.angularVelocity.addmulfs(prevO.angularAcceleration.addmulfs(o.angularAcceleration, -3), -dthalf);
+                    }
+                }
+            }
+            force_accumulator.Predict3 = Predict3;
+            class RK4 {
+                _bivec1 = new tesserxel.math.Bivec;
+                _rotor = new tesserxel.math.Rotor;
+                run(engine, world, dt) {
+                    let dthalf = dt * 0.5;
+                    let dtdiv6 = dt / 6;
+                    function storeState(states) {
+                        engine.getObjectsAccelerations(world);
+                        states.push(world.objects.map(obj => ({
+                            position: obj.geometry.position?.clone(),
+                            rotation: obj.geometry.rotation?.clone(),
+                            velocity: obj.velocity.clone(),
+                            angularVelocity: obj.angularVelocity.clone(),
+                            acceleration: obj.acceleration.clone(),
+                            angularAcceleration: obj.angularAcceleration.clone(),
+                        })));
+                    }
+                    function loadState(states, index) {
+                        let state = states[index];
+                        for (let idx = 0, len = world.objects.length; idx < len; idx++) {
+                            let o = world.objects[idx];
+                            let s = state[idx];
+                            o.geometry.position?.copy(s?.position);
+                            o.geometry.rotation?.copy(s?.rotation);
+                            o.velocity.copy(s.velocity);
+                            o.angularVelocity.copy(s.angularVelocity);
+                            o.acceleration.copy(s.acceleration);
+                            o.angularAcceleration.copy(s.angularAcceleration);
+                        }
+                    }
+                    let states = [];
+                    storeState(states); // 0: k1 = f(yn, tn)
+                    for (let o of world.objects) {
+                        if (o.sleep || !o.geometry.position)
+                            continue;
+                        o.geometry.position.addmulfs(o.velocity, dthalf);
+                        o.velocity.addmulfs(o.acceleration, dthalf);
+                        if (!o.geometry.rotation)
+                            continue;
+                        o.geometry.rotation.mulsl(this._rotor.expset(this._bivec1.copy(o.angularVelocity).mulfs(dthalf)));
+                        o.angularVelocity.addmulfs(o.angularAcceleration, dthalf);
+                    }
+                    world.time += dthalf;
+                    storeState(states); // 1: k2 = f(yn + h/2 k1, tn + h/2)
+                    loadState(states, 0);
+                    let state = states[1];
+                    for (let idx = 0, len = world.objects.length; idx < len; idx++) {
+                        let o = world.objects[idx];
+                        if (o.sleep || !o.geometry.position)
+                            continue;
+                        let s = state[idx];
+                        o.geometry.position.addmulfs(s.velocity, dthalf);
+                        o.velocity.addmulfs(s.acceleration, dthalf);
+                        if (!o.geometry.rotation)
+                            continue;
+                        o.geometry.rotation.mulsl(this._rotor.expset(this._bivec1.copy(s.angularVelocity).mulfs(dthalf)));
+                        o.angularVelocity.addmulfs(s.angularAcceleration, dthalf);
+                    }
+                    storeState(states); // 2: k3 = f(yn + h/2 k2, tn + h/2)
+                    loadState(states, 0);
+                    state = states[2];
+                    for (let idx = 0, len = world.objects.length; idx < len; idx++) {
+                        let o = world.objects[idx];
+                        if (o.sleep || !o.geometry.position)
+                            continue;
+                        let s = state[idx];
+                        o.geometry.position.addmulfs(s.velocity, dt);
+                        o.velocity.addmulfs(s.acceleration, dt);
+                        if (!o.geometry.rotation)
+                            continue;
+                        o.geometry.rotation.mulsl(this._rotor.expset(this._bivec1.copy(s.angularVelocity).mulfs(dt)));
+                        o.angularVelocity.addmulfs(s.angularAcceleration, dt);
+                    }
+                    world.time += dthalf;
+                    storeState(states); // 3: k4 = f(yn + h k3, tn + h)
+                    loadState(states, 0);
+                    for (let idx = 0, len = world.objects.length; idx < len; idx++) {
+                        let o = world.objects[idx];
+                        if (o.sleep || !o.geometry.position)
+                            continue;
+                        let k1 = states[0][idx];
+                        let k2 = states[1][idx];
+                        let k3 = states[2][idx];
+                        let k4 = states[3][idx];
+                        o.geometry.position.addmulfs(k1.velocity.adds(k4.velocity).addmulfs(k2.velocity.adds(k3.velocity), 2), dtdiv6);
+                        o.velocity.addmulfs(k1.acceleration.adds(k4.acceleration).addmulfs(k2.acceleration.adds(k3.acceleration), 2), dtdiv6);
+                        if (!o.geometry.rotation)
+                            continue;
+                        o.geometry.rotation.mulsl(this._rotor.expset(k1.angularVelocity.adds(k4.angularVelocity).addmulfs(k2.angularVelocity.adds(k3.angularVelocity), 2).mulfs(dtdiv6)));
+                        o.angularVelocity.addmulfs(k1.angularAcceleration.adds(k4.angularAcceleration).addmulfs(k2.angularAcceleration.adds(k3.angularAcceleration), 2), dtdiv6);
+                    }
+                }
+            }
+            force_accumulator.RK4 = RK4;
+        })(force_accumulator = physics.force_accumulator || (physics.force_accumulator = {}));
+        let force;
+        (function (force) {
+            /** apply a spring force between object a and b
+             *  pointA and pointB are in local coordinates,
+             *  refering connect point of spring's two ends.
+             *  b can be null for attaching spring to a fixed point in the world.
+             *  f = k dx - damp * dv */
+            class Spring {
+                a;
+                pointA;
+                b;
+                pointB;
+                k;
+                damp;
+                length;
+                _vec4f = new tesserxel.math.Vec4();
+                _vec4a = new tesserxel.math.Vec4();
+                _vec4b = new tesserxel.math.Vec4();
+                _bivec = new tesserxel.math.Bivec();
+                constructor(a, b, pointA, pointB, k, damp = 0, length = 0) {
+                    this.a = a;
+                    this.b = b;
+                    this.k = k;
+                    this.damp = damp;
+                    this.pointA = pointA;
+                    this.pointB = pointB;
+                    this.length = length;
+                }
+                apply(time) {
+                    const pa = this.a.geometry.position;
+                    const pb = this.b?.geometry?.position;
+                    this._vec4a.copy(this.pointA).rotates(this.a.geometry.rotation).adds(pa);
+                    this._vec4b.copy(this.pointB);
+                    if (this.b)
+                        this._vec4b.rotates(this.b.geometry.rotation).adds(pb);
+                    let k = this.k;
+                    this._vec4f.subset(this._vec4b, this._vec4a);
+                    if (this.length > 0) {
+                        let len = this._vec4f.norm();
+                        k *= (len - this.length) / len;
+                    }
+                    //_vec4 is force from a to b
+                    this._vec4f.mulfs(k);
+                    // add force
+                    this.a.force.adds(this._vec4f);
+                    if (this.b)
+                        this.b.force.subs(this._vec4f);
+                    // add torque
+                    this.a.torque.adds(this._bivec.wedgevvset(this._vec4f, this._vec4a.subs(pa)));
+                    if (this.b)
+                        this.b.torque.subs(this._bivec.wedgevvset(this._vec4f, this._vec4b.subs(pb)));
+                }
+            }
+            force.Spring = Spring;
+        })(force = physics.force || (physics.force = {}));
+    })(physics = tesserxel.physics || (tesserxel.physics = {}));
+})(tesserxel || (tesserxel = {}));
+var tesserxel;
+(function (tesserxel) {
+    let physics;
+    (function (physics) {
         class Glome {
             radius = 1;
+            position = new tesserxel.math.Vec4;
+            rotation = new tesserxel.math.Rotor;
+            type;
+            constructor(radius) {
+                this.radius = radius;
+            }
+            intersectGeometry(g) {
+                switch (g.type) {
+                    case "glome": return physics.intersetGlomeGlome(this, g);
+                    case "plane": return physics.intersetGlomePlane(this, g);
+                }
+                return null;
+            }
         }
         physics.Glome = Glome;
+        /** equation: dot(normal,positon) == offset
+         *  => when offset > 0, plane is shifted to normal direction
+         *  from origin by distance = offset
+         */
+        class Plane {
+            normal;
+            offset;
+            type;
+            intersectGeometry(g) {
+                switch (g.type) {
+                    case "glome": return physics.inverseIntersectOrder(physics.intersetGlomePlane(g, this));
+                }
+                return null;
+            }
+        }
+        physics.Plane = Plane;
+    })(physics = tesserxel.physics || (tesserxel.physics = {}));
+})(tesserxel || (tesserxel = {}));
+var tesserxel;
+(function (tesserxel) {
+    let physics;
+    (function (physics) {
+        let _vec4 = new tesserxel.math.Vec4; // cache
+        function intersetGlomeGlome(a, b) {
+            _vec4.subset(b.position, a.position);
+            let d = _vec4.norm();
+            let depth = a.radius + b.radius - d;
+            if (depth < 0)
+                return null;
+            // todo: check whether clone can be removed
+            let normal = _vec4.divfs(d).clone();
+            let point = _vec4.mulfs((a.radius - b.radius + d) * 0.5).clone();
+            return { point, normal, depth, a, b };
+        }
+        physics.intersetGlomeGlome = intersetGlomeGlome;
+        function inverseIntersectOrder(r) {
+            if (!r)
+                return null;
+            let temp = r.a;
+            r.a = r.b;
+            r.b = temp;
+            r.normal.negs();
+            return r;
+        }
+        physics.inverseIntersectOrder = inverseIntersectOrder;
+        function intersetGlomePlane(a, b) {
+            let depth = a.radius - (a.position.dot(b.normal) - b.offset);
+            if (depth < 0)
+                return null;
+            let point = a.position.addmulfs(b.normal, depth * 0.5 - a.radius).clone();
+            return { point, normal: b.normal.neg(), depth, a, b };
+        }
+        physics.intersetGlomePlane = intersetGlomePlane;
     })(physics = tesserxel.physics || (tesserxel.physics = {}));
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
@@ -3404,6 +3702,10 @@ var tesserxel;
                     this.states.currentBtn = ev.button;
                     this.states.moveX = 0;
                     this.states.moveY = 0;
+                    if (ev.altKey === false) {
+                        this.states.currentKeys.set("AltLeft", KeyState.NONE);
+                        this.states.currentKeys.set("AltRight", KeyState.NONE);
+                    }
                     // left click should not be prevented, otherwise keydown event can't obtain focus
                     if (ev.button === 1 && config?.preventDefault === true) {
                         ev.preventDefault();
@@ -3420,6 +3722,10 @@ var tesserxel;
                 dom.addEventListener("keydown", (ev) => {
                     let prevState = this.states.currentKeys.get(ev.code);
                     this.states.currentKeys.set(ev.code, prevState === KeyState.HOLD ? KeyState.HOLD : KeyState.DOWN);
+                    if (ev.altKey === false) {
+                        this.states.currentKeys.set("AltLeft", KeyState.NONE);
+                        this.states.currentKeys.set("AltRight", KeyState.NONE);
+                    }
                     ev.preventDefault();
                     ev.stopPropagation();
                 });
@@ -3564,7 +3870,6 @@ var tesserxel;
                 let key = this.keyConfig;
                 let delta;
                 let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
-                console.log(dampFactor);
                 let disabled = state.queryDisabled(this.keyConfig);
                 if (!disabled) {
                     let keyRotateSpeed = this.keyRotateSpeed * state.mspf;
@@ -3729,7 +4034,7 @@ var tesserxel;
         let sliceconfig;
         (function (sliceconfig) {
             sliceconfig.size = 0.2;
-            function singleslice1eye(aspect) {
+            function singlezslice1eye(aspect) {
                 return {
                     layers: 0,
                     opacity: 1.0,
@@ -3740,8 +4045,8 @@ var tesserxel;
                         }]
                 };
             }
-            sliceconfig.singleslice1eye = singleslice1eye;
-            function singleslice2eye(aspect) {
+            sliceconfig.singlezslice1eye = singlezslice1eye;
+            function singlezslice2eye(aspect) {
                 return {
                     layers: 0,
                     opacity: 1.0,
@@ -3759,7 +4064,38 @@ var tesserxel;
                         }]
                 };
             }
-            sliceconfig.singleslice2eye = singleslice2eye;
+            sliceconfig.singlezslice2eye = singlezslice2eye;
+            function singleyslice1eye(aspect) {
+                return {
+                    layers: 0,
+                    opacity: 1.0,
+                    sections: [{
+                            slicePos: 0,
+                            facing: tesserxel.renderer.SliceFacing.NEGY,
+                            viewport: { x: 0, y: 0, width: 1 / aspect, height: 1.0 }
+                        }]
+                };
+            }
+            sliceconfig.singleyslice1eye = singleyslice1eye;
+            function singleyslice2eye(aspect) {
+                return {
+                    layers: 0,
+                    opacity: 1.0,
+                    sectionEyeOffset: 0.1,
+                    sections: [{
+                            slicePos: 0,
+                            facing: tesserxel.renderer.SliceFacing.NEGY,
+                            eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
+                            viewport: { x: -0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
+                        }, {
+                            slicePos: 0,
+                            facing: tesserxel.renderer.SliceFacing.NEGY,
+                            eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
+                            viewport: { x: 0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
+                        }]
+                };
+            }
+            sliceconfig.singleyslice2eye = singleyslice2eye;
             function zslices1eye(step, maxpos, aspect) {
                 let arr = [[0, 0]];
                 let j = 1;
@@ -3809,7 +4145,67 @@ var tesserxel;
                 };
             }
             sliceconfig.zslices2eye = zslices2eye;
-            function default2eye(size) {
+            function yslices1eye(step, maxpos, aspect) {
+                let arr = [[0, 0]];
+                let j = 1;
+                for (let i = step; i <= maxpos; i += step, j++) {
+                    arr.push([i, j]);
+                    arr.push([-i, -j]);
+                }
+                let half = 2 / arr.length;
+                let size = 1 / (aspect * arr.length);
+                return {
+                    layers: 64,
+                    opacity: 1.0,
+                    sections: arr.map(pos => ({
+                        slicePos: pos[0],
+                        facing: tesserxel.renderer.SliceFacing.NEGY,
+                        viewport: { x: pos[1] * half, y: size - 1, width: size, height: size }
+                    }))
+                };
+            }
+            sliceconfig.yslices1eye = yslices1eye;
+            function yslices2eye(step, maxpos, aspect) {
+                let arr = [[0, 0]];
+                let j = 1;
+                for (let i = step; i <= maxpos; i += step, j++) {
+                    arr.push([i, j]);
+                    arr.push([-i, -j]);
+                }
+                arr.sort((a, b) => a[0] - b[0]);
+                let half = 1 / arr.length;
+                let size = 0.5 / (aspect * arr.length);
+                return {
+                    layers: 64,
+                    sectionEyeOffset: 0.1,
+                    retinaEyeOffset: 0.1,
+                    opacity: 1.0,
+                    sections: arr.map(pos => ({
+                        slicePos: pos[0],
+                        facing: tesserxel.renderer.SliceFacing.NEGY,
+                        eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
+                        viewport: { x: (pos[1] * half) - 0.5, y: size - 1, width: size, height: size }
+                    })).concat(arr.map(pos => ({
+                        slicePos: pos[0],
+                        facing: tesserxel.renderer.SliceFacing.NEGY,
+                        eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
+                        viewport: { x: (pos[1] * half) + 0.5, y: size - 1, width: size, height: size }
+                    })))
+                };
+            }
+            sliceconfig.yslices2eye = yslices2eye;
+            function default2eye(size, aspect) {
+                let wsize;
+                let size_aspect;
+                if (size >= 0.5) {
+                    wsize = 0.25 / aspect;
+                    size_aspect = 0.25;
+                    size = 0.5;
+                }
+                else {
+                    size_aspect = size * aspect;
+                    wsize = size;
+                }
                 return {
                     layers: 64,
                     sectionEyeOffset: 0.1,
@@ -3819,60 +4215,70 @@ var tesserxel;
                         {
                             facing: tesserxel.renderer.SliceFacing.NEGX,
                             eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                            viewport: { x: -size, y: size - 1, width: size, height: size }
+                            viewport: { x: -size_aspect, y: size - 1, width: wsize, height: size }
                         },
                         {
                             facing: tesserxel.renderer.SliceFacing.NEGX,
                             eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                            viewport: { x: 1 - size, y: size - 1, width: size, height: size }
+                            viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size }
                         },
                         {
                             facing: tesserxel.renderer.SliceFacing.NEGY,
                             eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                            viewport: { x: -size, y: 1 - size, width: size, height: size }
+                            viewport: { x: -size_aspect, y: 1 - size, width: wsize, height: size }
                         },
                         {
                             facing: tesserxel.renderer.SliceFacing.NEGY,
                             eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                            viewport: { x: 1 - size, y: 1 - size, width: size, height: size }
+                            viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size }
                         },
                         {
                             facing: tesserxel.renderer.SliceFacing.POSZ,
                             eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                            viewport: { x: size - 1, y: size - 1, width: size, height: size }
+                            viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size }
                         },
                         {
                             facing: tesserxel.renderer.SliceFacing.POSZ,
                             eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                            viewport: { x: size, y: size - 1, width: size, height: size }
+                            viewport: { x: size_aspect, y: size - 1, width: wsize, height: size }
                         },
                     ]
                 };
             }
             sliceconfig.default2eye = default2eye;
             ;
-            function default1eye(size) {
+            function default1eye(size, aspect) {
+                let wsize;
+                let size_aspect;
+                if (size >= 0.5) {
+                    wsize = 0.5 / aspect;
+                    size_aspect = 0.5;
+                    size = 0.5;
+                }
+                else {
+                    size_aspect = size * aspect;
+                    wsize = size;
+                }
                 return {
                     layers: 64,
                     opacity: 1.0,
                     sections: [
                         {
                             facing: tesserxel.renderer.SliceFacing.NEGX,
-                            viewport: { x: 1 - size, y: size - 1, width: size, height: size }
+                            viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size }
                         },
                         {
                             facing: tesserxel.renderer.SliceFacing.NEGY,
-                            viewport: { x: 1 - size, y: 1 - size, width: size, height: size }
+                            viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size }
                         },
                         {
                             facing: tesserxel.renderer.SliceFacing.POSZ,
-                            viewport: { x: size - 1, y: size - 1, width: size, height: size }
+                            viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size }
                         }
                     ]
                 };
             }
             sliceconfig.default1eye = default1eye;
-            ;
         })(sliceconfig = controller.sliceconfig || (controller.sliceconfig = {}));
         class RetinaController {
             enabled = true;
@@ -3887,7 +4293,7 @@ var tesserxel;
             mouseButton = 0;
             sectionPresets;
             sliceConfig;
-            currentSectionConfig = 0;
+            currentSectionConfig = "retina+sections";
             rembemerLastLayers;
             needResize = true;
             keyConfig = {
@@ -3903,28 +4309,56 @@ var tesserxel;
                 rotateUp: "ArrowUp",
                 rotateDown: "ArrowDown",
                 refaceFront: ".KeyR",
-                sectionConfigs: [".Digit1", ".Digit2", ".Digit3"],
+                sectionConfigs: {
+                    "retina+sections": ".Digit1",
+                    "retina": ".Digit2",
+                    "sections": ".Digit3",
+                    "retina+zslices": ".Digit4",
+                    "retina+yslices": ".Digit5",
+                    "zsection": ".Digit6",
+                    "ysection": ".Digit7"
+                },
             };
             constructor(r) {
                 this.renderer = r;
-                this.sliceConfig = r.getSliceConfig() ?? sliceconfig.default2eye(0.2);
-                this.sectionPresets = (aspect) => [
-                    {
-                        eye1: sliceconfig.default1eye(0.2).sections,
-                        eye2: sliceconfig.default2eye(0.2).sections,
+                this.sliceConfig = r.getSliceConfig() ?? sliceconfig.default2eye(0.2, 1.0);
+                this.sectionPresets = (aspect) => ({
+                    "retina+sections": {
+                        eye1: sliceconfig.default1eye(0.2, aspect).sections,
+                        eye2: sliceconfig.default2eye(0.2, aspect).sections,
                         retina: true
                     },
-                    {
+                    "retina": {
+                        eye1: [],
+                        eye2: [],
+                        retina: true
+                    },
+                    "sections": {
+                        eye1: sliceconfig.default1eye(0.5, aspect).sections,
+                        eye2: sliceconfig.default2eye(0.5, aspect).sections,
+                        retina: false
+                    },
+                    "retina+zslices": {
                         eye1: sliceconfig.zslices1eye(0.15, 0.6, aspect).sections,
                         eye2: sliceconfig.zslices2eye(0.3, 0.6, aspect).sections,
                         retina: true
                     },
-                    {
-                        eye1: sliceconfig.singleslice1eye(aspect).sections,
-                        eye2: sliceconfig.singleslice2eye(aspect).sections,
+                    "retina+yslices": {
+                        eye1: sliceconfig.yslices1eye(0.15, 0.6, aspect).sections,
+                        eye2: sliceconfig.yslices2eye(0.3, 0.6, aspect).sections,
+                        retina: true
+                    },
+                    "zsection": {
+                        eye1: sliceconfig.singlezslice1eye(aspect).sections,
+                        eye2: sliceconfig.singlezslice2eye(aspect).sections,
                         retina: false
                     },
-                ];
+                    "ysection": {
+                        eye1: sliceconfig.singleyslice1eye(aspect).sections,
+                        eye2: sliceconfig.singleyslice2eye(aspect).sections,
+                        retina: false
+                    },
+                });
             }
             _vec2damp = new tesserxel.math.Vec2();
             _vec2euler = new tesserxel.math.Vec2();
@@ -3976,9 +4410,9 @@ var tesserxel;
                             this.sliceNeedUpdate = true;
                         }
                     }
-                    for (let i = 0; i < this.keyConfig.sectionConfigs.length; i++) {
-                        if (state.isKeyHold(this.keyConfig.sectionConfigs[i])) {
-                            this.toggleSectionConfig(i);
+                    for (let [label, keyCode] of Object.entries(this.keyConfig.sectionConfigs)) {
+                        if (state.isKeyHold(keyCode)) {
+                            this.toggleSectionConfig(label);
                         }
                     }
                     delta = (on(key.rotateDown) ? -1 : 0) + (on(key.rotateUp) ? 1 : 0);
@@ -4000,7 +4434,7 @@ var tesserxel;
                 }
                 else {
                     this._vec2euler.adds(this._vec2damp);
-                    let mat = this._vec3.set(0, this._vec2euler.x, 0).expcpy(this._q1).mulsr(this._vec3.set(this._vec2euler.y, 0, 0).expcpy(this._q2)).conjs().toRotateMatcpy(this._mat4);
+                    let mat = this._mat4.setFrom3DRotation(this._q1.expset(this._vec3.set(0, this._vec2euler.x, 0)).mulsr(this._q2.expset(this._vec3.set(this._vec2euler.y, 0, 0))).conjs());
                     mat.elem[11] = -this.retinaZDistance;
                     this.renderer.setRetinaViewMatrix(mat);
                     let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
@@ -4020,6 +4454,8 @@ var tesserxel;
                     return;
                 this.sliceNeedUpdate = true;
                 let preset = this.sectionPresets(this.renderer.getScreenAspect())[index];
+                if (!preset)
+                    console.error(`Section Configuration "${index}" does not exsit.`);
                 if (preset.retina === false && this.sliceConfig.layers > 0) {
                     this.rembemerLastLayers = this.sliceConfig.layers;
                     this.sliceConfig.layers = 0;
@@ -4041,12 +4477,12 @@ var tesserxel;
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
 (function (tesserxel) {
-    async function getGPU() {
-        return await new renderer.GPU().init();
-    }
-    tesserxel.getGPU = getGPU;
     let renderer;
     (function (renderer) {
+        async function createGPU() {
+            return await new renderer.GPU().init();
+        }
+        renderer.createGPU = createGPU;
         class GPU {
             adapter;
             device;
@@ -4137,7 +4573,7 @@ var tesserxel;
         const DefaultMaxSlicesNumber = 256;
         const DefaultMaxCrossSectionBufferSize = 0x800000;
         const DefaultEnableFloat16Blend = true;
-        class TetraRenderer {
+        class SliceRenderer {
             // readonly ATTRIBUTE = 1;
             // configurations
             maxSlicesNumber;
@@ -4422,6 +4858,7 @@ struct _SliceInfo{
         camRay = omat * ray;
         glPosition = pmat * camRay;
         normal = omat[2];
+        // todo: viewport of retina slices
         glPosition.x = (glPosition.x) * screenAspect + step(0.0001, eyeOffset.y) * stereoLR * glPosition.w;
     }else{
         let vp = thumbnailViewport[sindex + sliceoffset - (refacing >> 5)];
@@ -4745,6 +5182,8 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
     // call user defined code 
     ${call}
     let cameraPosMat = ${output["builtin(position)"]};
+    let preclipW = cameraPosMat[0].w >= 0 && cameraPosMat[1].w >= 0 && cameraPosMat[2].w >= 0  && cameraPosMat[3].w >= 0;
+    if(preclipW){ return; }
     let projBiais:mat4x4<f32> = mat4x4<f32>(
         0,0,_camProj.w,0,
         0,0,_camProj.w,0,
@@ -4932,8 +5371,9 @@ struct vOutputType{
                 this.gpu.device.queue.writeBuffer(this.screenAspectBuffer, 0, new Float32Array([aspect]));
             }
             getScreenAspect() {
-                if (!this.screenTexture)
-                    console.error("tesserxel.TetraRenderer: Must call setSize before call getScreenAspect()");
+                if (!this.screenTexture) {
+                    return 1;
+                }
                 return this.screenTexture.height / this.screenTexture.width;
             }
             set4DCameraProjectMatrix(camera) {
@@ -5041,7 +5481,7 @@ struct vOutputType{
             }
             render(drawCall) {
                 if (!this.screenTexture) {
-                    console.error("tesserxel.TetraRenderer: Must call setSize before rendering");
+                    console.error("tesserxel.SliceRenderer: Must call setSize before rendering");
                 }
                 const gpu = this.gpu;
                 if (this.retinaMatrixChanged) {
@@ -5162,12 +5602,16 @@ struct vOutputType{
                 // let mainFragFn = reflect.functions.filter(
                 //     e => e.attributes && e.attributes.some(a => a.name === "fragment") && e.name == desc.fragment.entryPoint
                 // )[0];
-                let { output, call } = renderer.wgslreflect.getFnInputAndOutput(reflect, mainRayFn, {
+                let { input, output, call } = renderer.wgslreflect.getFnInputAndOutput(reflect, mainRayFn, {
                     "builtin(ray_origin)": "camRayOri",
                     "builtin(ray_direction)": "camRayDir",
                     "builtin(voxel_coord)": "voxelCoord",
-                    "builtin(screen_aspect)": "aspect",
+                    "builtin(aspect_matrix)": "refacingMat3 * mat3x3<f32>(aspect,0.0,0.0, 0.0,1.0,0.0, 0.0,0.0,1.0) * refacingMat3",
                 }, ["location(0)", "location(1)", "location(2)", "location(3)", "location(4)", "location(5)"]);
+                let dealRefacingCall = "";
+                if (input.has("builtin(aspect_matrix)")) {
+                    dealRefacingCall = "let refacingMat3 = mat3x3<f32>(refacingMat[0].xyz,refacingMat[1].xyz,refacingMat[2].xyz);";
+                }
                 let retunTypeMembers;
                 let outputMembers;
                 if (mainRayFn.return.attributes) {
@@ -5214,7 +5658,7 @@ fn applyinv(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
     let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
     return transpose(afmat.matrix) * (points - biais);
 }
-${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_direction|voxel_coord|screen_aspect)\s*\)\s*/g, " ")}
+${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_direction|voxel_coord|aspect_matrix)\s*\)\s*/g, " ")}
 @vertex fn mainVertex(@builtin(vertex_index) vindex:u32, @builtin(instance_index) i_index:u32) -> _vOut{
     const pos = array<vec2<f32>, 4>(
         vec2<f32>(-1.0, -1.0),
@@ -5244,6 +5688,7 @@ ${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_directi
     let voxelCoord = (refacingMat * vec4<f32>(coord, sliceInfo.slicePos,0.0)).xyz;
     let camRayDir = refacingMat * rayDir;
     let camRayOri = refacingMat * rayPos;
+    ${dealRefacingCall}
     ${call}
     return _vOut(
         vec4<f32>(posidx.x,
@@ -5305,7 +5750,7 @@ fn calDepth(distance: f32)->f32{
                 this.renderState.needClear = false;
             }
         }
-        renderer.TetraRenderer = TetraRenderer;
+        renderer.SliceRenderer = SliceRenderer;
         ; // end class
     })(renderer = tesserxel.renderer || (tesserxel.renderer = {}));
 })(tesserxel || (tesserxel = {}));
@@ -5708,6 +6153,16 @@ var tesserxel;
                 tilde: '~',
                 underscore: '_',
                 xor: '^',
+                plus_equal: '+=',
+                minus_equal: '-=',
+                times_equal: '*=',
+                division_equal: '/=',
+                modulo_equal: '%=',
+                and_equal: '&=',
+                or_equal: '|=',
+                xor_equal: '^=',
+                shift_right_equal: '>>=',
+                shift_left_equal: '<<=',
             };
             Token.WgslKeywords = [
                 "array",
@@ -5766,6 +6221,7 @@ var tesserxel;
                 "function",
                 "if",
                 "let",
+                "const",
                 "loop",
                 "while",
                 "private",
@@ -5814,12 +6270,12 @@ var tesserxel;
                 "rgba16float",
                 "rgba32uint",
                 "rgba32sint",
-                "rgba32float"
+                "rgba32float",
+                "static_assert"
             ];
             Token.WgslReserved = [
                 "asm",
                 "bf16",
-                "const",
                 "do",
                 "enum",
                 "f16",
@@ -6001,6 +6457,23 @@ var tesserxel;
                     Token.ident,
                     Keyword.block,
                 ];
+                Token.assignment_operators = [
+                    Token.equal,
+                    Token.plus_equal,
+                    Token.minus_equal,
+                    Token.times_equal,
+                    Token.division_equal,
+                    Token.modulo_equal,
+                    Token.and_equal,
+                    Token.or_equal,
+                    Token.xor_equal,
+                    Token.shift_right_equal,
+                    Token.shift_left_equal
+                ];
+                Token.increment_operators = [
+                    Token.plus_plus,
+                    Token.minus_minus
+                ];
             }
             _InitTokens();
             /**
@@ -6123,7 +6596,7 @@ var tesserxel;
                         this._consume(Token.semicolon, "Expected ';'.");
                         return _var;
                     }
-                    if (this._check(Keyword.let)) {
+                    if (this._check(Keyword.let) || this._check(Keyword.const)) {
                         const _let = this._global_constant_decl();
                         _let.attributes = attrs;
                         this._consume(Token.semicolon, "Expected ';'.");
@@ -6151,6 +6624,8 @@ var tesserxel;
                     const args = [];
                     if (!this._check(Token.paren_right)) {
                         do {
+                            if (this._check(Token.paren_right))
+                                break;
                             const argAttrs = this._attribute();
                             const name = this._consume(Token.ident, "Expected argument name.").toString();
                             this._consume(Token.colon, "Expected ':' for argument type.");
@@ -6196,6 +6671,9 @@ var tesserxel;
                     // discard semicolon
                     // assignment_statement semicolon
                     // compound_statement
+                    // increment_statement semicolon
+                    // decrement_statement semicolon
+                    // static_assert_statement semicolon
                     // Ignore any stand-alone semicolons
                     while (this._match(Token.semicolon) && !this._isAtEnd())
                         ;
@@ -6209,12 +6687,14 @@ var tesserxel;
                         return this._for_statement();
                     if (this._check(Keyword.while))
                         return this._while_statement();
+                    if (this._check(Keyword.static_assert))
+                        return this._static_assert_statement();
                     if (this._check(Token.brace_left))
                         return this._compound_statement();
                     let result = null;
                     if (this._check(Keyword.return))
                         result = this._return_statement();
-                    else if (this._check([Keyword.var, Keyword.let]))
+                    else if (this._check([Keyword.var, Keyword.let, Keyword.const]))
                         result = this._variable_statement();
                     else if (this._match(Keyword.discard))
                         result = new AST("discard");
@@ -6223,10 +6703,16 @@ var tesserxel;
                     else if (this._match(Keyword.continue))
                         result = new AST("continue");
                     else
-                        result = this._func_call_statement() || this._assignment_statement();
+                        result = this._increment_decrement_statement() || this._func_call_statement() || this._assignment_statement();
                     if (result != null)
                         this._consume(Token.semicolon, "Expected ';' after statement.");
                     return result;
+                }
+                _static_assert_statement() {
+                    if (!this._match(Keyword.static_assert))
+                        return null;
+                    let expression = this._optional_paren_expression();
+                    return new AST("static_assert", { expression });
                 }
                 _while_statement() {
                     if (!this._match(Keyword.while))
@@ -6256,12 +6742,13 @@ var tesserxel;
                 }
                 _for_increment() {
                     // (assignment_statement func_call_statement)?
-                    return this._func_call_statement() || this._assignment_statement();
+                    return this._increment_decrement_statement() || this._func_call_statement() || this._assignment_statement();
                 }
                 _variable_statement() {
                     // variable_decl
                     // variable_decl equal short_circuit_or_expression
                     // let (ident variable_ident_decl) equal short_circuit_or_expression
+                    // const (ident variable_ident_decl) equal short_circuit_or_expression
                     if (this._check(Keyword.var)) {
                         const _var = this._variable_decl();
                         let value = null;
@@ -6281,7 +6768,31 @@ var tesserxel;
                         const value = this._short_circuit_or_expression();
                         return new AST("let", { name, type, value });
                     }
+                    if (this._match(Keyword.const)) {
+                        const name = this._consume(Token.ident, "Expected name for const.").toString();
+                        let type = null;
+                        if (this._match(Token.colon)) {
+                            const typeAttrs = this._attribute();
+                            type = this._type_decl();
+                            type.attributes = typeAttrs;
+                        }
+                        this._consume(Token.equal, "Expected '=' for const.");
+                        const value = this._short_circuit_or_expression();
+                        return new AST("const", { name, type, value });
+                    }
                     return null;
+                }
+                _increment_decrement_statement() {
+                    const savedPos = this._current;
+                    const _var = this._unary_expression();
+                    if (_var == null)
+                        return null;
+                    if (!this._check(Token.increment_operators)) {
+                        this._current = savedPos;
+                        return null;
+                    }
+                    const type = this._consume(Token.increment_operators, "Expected increment operator");
+                    return new AST("increment", { type, var: _var });
                 }
                 _assignment_statement() {
                     // (unary_expression underscore) equal short_circuit_or_expression
@@ -6293,9 +6804,9 @@ var tesserxel;
                         _var = this._unary_expression();
                     if (!isUnderscore && _var == null)
                         return null;
-                    this._consume(Token.equal, "Expected '='.");
+                    const type = this._consume(Token.assignment_operators, "Expected assignment operator.");
                     const value = this._short_circuit_or_expression();
-                    return new AST("assign", { var: _var, value });
+                    return new AST("assign", { type, var: _var, value });
                 }
                 _func_call_statement() {
                     // ident argument_expression_list
@@ -6699,7 +7210,7 @@ var tesserxel;
                 }
                 _global_constant_decl() {
                     // attribute* let (ident variable_ident_decl) global_const_initializer?
-                    if (!this._match(Keyword.let))
+                    if (!this._match(Keyword.let) && !this._match(Keyword.const))
                         return null;
                     const name = this._consume(Token.ident, "Expected variable name");
                     let type = null;
@@ -7285,5 +7796,139 @@ var tesserxel;
             // export { AST, Keyword, Token, WgslParser, WgslReflect, WgslScanner };
         })(wgslreflect = renderer.wgslreflect || (renderer.wgslreflect = {}));
     })(renderer = tesserxel.renderer || (tesserxel.renderer = {}));
+})(tesserxel || (tesserxel = {}));
+/** threejs like 4D lib */
+var tesserxel;
+(function (tesserxel) {
+    let four;
+    (function (four) {
+        class Renderer {
+            core;
+            gpu;
+            canvas;
+            pipelines;
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.core = new tesserxel.renderer.SliceRenderer();
+            }
+            async init() {
+                this.gpu = await tesserxel.renderer.createGPU();
+                await this.core.init(this.gpu, this.gpu.getContext(this.canvas));
+            }
+            updateMesh(m) {
+                m.needsUpdate = false;
+                if (m.geometry.needsUpdate) {
+                    let g = m.geometry;
+                    g.needsUpdate = false;
+                    if (!g.gpuBuffer) {
+                        for (let [label, value] of globalThis.Object.entries(g.jsBuffer)) {
+                            if (value instanceof Float32Array) {
+                                g.gpuBuffer[label] = this.gpu.createBuffer(GPUBufferUsage.STORAGE, value, label);
+                            }
+                        }
+                    }
+                    else {
+                        for (let [label, buffer] of globalThis.Object.entries(g.gpuBuffer)) {
+                            this.gpu.device.queue.writeBuffer(buffer, 0, g.jsBuffer[label]);
+                        }
+                    }
+                }
+            }
+            updateScene(scene) {
+                for (let c of scene.child) {
+                    if (!c.needsUpdate)
+                        return;
+                    if (c instanceof Mesh) {
+                        this.updateMesh(c);
+                    }
+                }
+            }
+            render(scene) {
+                this.updateScene(scene);
+            }
+        }
+        class Object extends tesserxel.math.Obj4 {
+            child;
+            worldCoord;
+            needsUpdate = true;
+            add(obj) {
+                this.child.push(obj);
+            }
+        }
+        class Scene {
+            child;
+            add(obj) {
+                this.child.push(obj);
+            }
+        }
+        class Geometry {
+            jsBuffer;
+            gpuBuffer;
+            needsUpdate = true;
+            constructor(data) {
+                this.jsBuffer = data;
+            }
+        }
+        class Mesh extends Object {
+            geometry;
+            material;
+        }
+        class Material {
+            cullFace;
+            needsUpdate = true;
+            identifier;
+            constructor(identifier) {
+                this.identifier = identifier;
+            }
+            gpuUniformBuffer;
+            code;
+        }
+        class BasicMaterial extends Material {
+            color;
+            constructor(color) {
+                super("BasicMaterial");
+                this.color = color;
+            }
+        }
+        class PhoneMaterial extends Material {
+            color;
+            specular;
+            constructor(color, specular) {
+                super("PhoneMaterial");
+                this.color = color;
+                this.specular = specular;
+            }
+        }
+    })(four = tesserxel.four || (tesserxel.four = {}));
+})(tesserxel || (tesserxel = {}));
+var tesserxel;
+(function (tesserxel) {
+    let four;
+    (function (four) {
+        let basicVertShader = `
+        struct _fourInputType{
+            @location(0) pos: mat4x4<f32>,
+            @location(1) uvw: mat4x4<f32>,
+            @location(2) normal: mat4x4<f32>,
+        }
+        struct _fourOutputType{
+            @builtin(position) pos: mat4x4<f32>,
+            @location(0) uvw: mat4x4<f32>,
+            @location(1) normal: mat4x4<f32>,
+        }
+        struct AffineMat{
+            matrix: mat4x4<f32>,
+            vector: vec4<f32>,
+        }
+        @group(1) @binding(3) var<uniform> camMat: AffineMat;
+        fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
+            let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
+            return afmat.matrix* points + biais;
+        }
+        @tetra fn main(input : InputType, @builtin(instance_index) index: u32) -> OutputType{
+            return OutputType(apply(camMat,input.pos), input.uvw, input.normal);
+        }
+        `;
+    })(four = tesserxel.four || (tesserxel.four = {}));
 })(tesserxel || (tesserxel = {}));
 //# sourceMappingURL=tesserxel.js.map

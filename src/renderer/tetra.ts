@@ -1,6 +1,6 @@
 namespace tesserxel {
     export namespace renderer {
-        export interface TetraRendererOption {
+        export interface SliceRendererOption {
             // todo: cancel limitation of dim must be 2^n
             /** Square slice framebuffer of dimension sliceResolution, should be 2^n */
             sliceResolution?: number;
@@ -87,7 +87,7 @@ namespace tesserxel {
         const DefaultMaxSlicesNumber = 256;
         const DefaultMaxCrossSectionBufferSize = 0x800000;
         const DefaultEnableFloat16Blend = true;
-        export class TetraRenderer {
+        export class SliceRenderer {
 
             // readonly ATTRIBUTE = 1;
 
@@ -155,7 +155,7 @@ namespace tesserxel {
             private totalGroupNum: number;
             private sliceGroupNum: number;
 
-            async init(gpu: GPU, context: GPUCanvasContext, options?: TetraRendererOption) {
+            async init(gpu: GPU, context: GPUCanvasContext, options?: SliceRendererOption) {
 
                 // constants generations
 
@@ -399,6 +399,7 @@ struct _SliceInfo{
         camRay = omat * ray;
         glPosition = pmat * camRay;
         normal = omat[2];
+        // todo: viewport of retina slices
         glPosition.x = (glPosition.x) * screenAspect + step(0.0001, eyeOffset.y) * stereoLR * glPosition.w;
     }else{
         let vp = thumbnailViewport[sindex + sliceoffset - (refacing >> 5)];
@@ -726,6 +727,8 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
     // call user defined code 
     ${call}
     let cameraPosMat = ${output["builtin(position)"]};
+    let preclipW = cameraPosMat[0].w >= 0 && cameraPosMat[1].w >= 0 && cameraPosMat[2].w >= 0  && cameraPosMat[3].w >= 0;
+    if(preclipW){ return; }
     let projBiais:mat4x4<f32> = mat4x4<f32>(
         0,0,_camProj.w,0,
         0,0,_camProj.w,0,
@@ -913,7 +916,7 @@ struct vOutputType{
                 this.gpu.device.queue.writeBuffer(this.screenAspectBuffer, 0, new Float32Array([aspect]));
             }
             getScreenAspect(): number {
-                if (!this.screenTexture) console.error("tesserxel.TetraRenderer: Must call setSize before call getScreenAspect()");
+                if (!this.screenTexture) { return 1; }
                 return this.screenTexture.height / this.screenTexture.width;
             }
             set4DCameraProjectMatrix(camera: math.PerspectiveCamera) {
@@ -1022,7 +1025,7 @@ struct vOutputType{
                 }
             }
             render(drawCall: () => void) {
-                if (!this.screenTexture) { console.error("tesserxel.TetraRenderer: Must call setSize before rendering"); }
+                if (!this.screenTexture) { console.error("tesserxel.SliceRenderer: Must call setSize before rendering"); }
                 const gpu = this.gpu;
                 if (this.retinaMatrixChanged) {
                     this.retinaMatrixChanged = false;
@@ -1148,15 +1151,19 @@ struct vOutputType{
                 // let mainFragFn = reflect.functions.filter(
                 //     e => e.attributes && e.attributes.some(a => a.name === "fragment") && e.name == desc.fragment.entryPoint
                 // )[0];
-                let { output, call } = wgslreflect.getFnInputAndOutput(reflect, mainRayFn,
+                let { input, output, call } = wgslreflect.getFnInputAndOutput(reflect, mainRayFn,
                     {
                         "builtin(ray_origin)": "camRayOri",
                         "builtin(ray_direction)": "camRayDir",
                         "builtin(voxel_coord)": "voxelCoord",
-                        "builtin(screen_aspect)": "aspect",
+                        "builtin(aspect_matrix)": "refacingMat3 * mat3x3<f32>(aspect,0.0,0.0, 0.0,1.0,0.0, 0.0,0.0,1.0) * refacingMat3",
                     },
                     ["location(0)", "location(1)", "location(2)", "location(3)", "location(4)", "location(5)"]
                 );
+                let dealRefacingCall = "";
+                if(input.has("builtin(aspect_matrix)")){
+                    dealRefacingCall = "let refacingMat3 = mat3x3<f32>(refacingMat[0].xyz,refacingMat[1].xyz,refacingMat[2].xyz);"
+                }
                 let retunTypeMembers: string;
                 let outputMembers: string;
                 if (mainRayFn.return.attributes) {
@@ -1202,7 +1209,7 @@ fn applyinv(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
     let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
     return transpose(afmat.matrix) * (points - biais);
 }
-${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_direction|voxel_coord|screen_aspect)\s*\)\s*/g, " ")}
+${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_direction|voxel_coord|aspect_matrix)\s*\)\s*/g, " ")}
 @vertex fn mainVertex(@builtin(vertex_index) vindex:u32, @builtin(instance_index) i_index:u32) -> _vOut{
     const pos = array<vec2<f32>, 4>(
         vec2<f32>(-1.0, -1.0),
@@ -1232,6 +1239,7 @@ ${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_directi
     let voxelCoord = (refacingMat * vec4<f32>(coord, sliceInfo.slicePos,0.0)).xyz;
     let camRayDir = refacingMat * rayDir;
     let camRayOri = refacingMat * rayPos;
+    ${dealRefacingCall}
     ${call}
     return _vOut(
         vec4<f32>(posidx.x,

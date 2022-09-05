@@ -2,9 +2,11 @@
     "include": [
         "math/*",
         "math/algebra/*",
+        "math/geometry/*",
         "mesh/*",
         "physics/*",
         "renderer/*",
+        "four/*",
     ],
     "compilerOptions": {
         "outFile": "../build/tesserxel.js",

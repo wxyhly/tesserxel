@@ -1,426 +1,700 @@
 "use strict";
-// namespace examples {
-//     export namespace city {
-//         let vertCode = `
-// struct InputType{
-//     @location(0) pos: mat4x4<f32>,
-//     @location(1) normal: mat4x4<f32>,
-//     @location(2) uvw: mat4x4<f32>,
-// }
-// struct OutputType{
-//     @builtin(position) pos: mat4x4<f32>,
-//     @location(0) normal: mat4x4<f32>,
-//     @location(1) uvw: mat4x4<f32>,
-// }
-// struct AffineMat{
-//     matrix: mat4x4<f32>,
-//     vector: vec4<f32>,
-// }
-// @group(1) @binding(3) var<uniform> camMat: AffineMat;
-// @group(1) @binding(4) var<storage> modelMats: array<AffineMat>;
-// fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
-//     let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
-//     return afmat.matrix * points + biais;
-// }
-// @tetra fn main(input : InputType, @builtin(instance_index) index: u32) -> OutputType{
-//     let modelMat = modelMats[index];
-//     return OutputType(apply(camMat,apply(modelMat, input.pos)), modelMat.matrix * input.normal, input.uvw);
-// }
-// `;
-//         let fragCode = `
-// struct fInputType{
-//     @location(0) normal : vec4<f32>,
-//     @location(1) uvw : vec4<f32>,
-// };
-// @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
-//     let color = vec3<f32>(1.0,1.0,1.0);
-//     let directionalLight_dir = vec4<f32>(1.0,1.0,1.0,1.0);
-//     return vec4<f32>(color * 3.0 * max(0, dot(directionalLight_dir , vary.normal)) + color * 0.4 * max(0, -dot(directionalLight_dir , vary.normal)), 1.0);
-// }`;
-//         export async function load() {
-//             let gpu = await tesserxel.getGPU();
-//             let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-//             let context = gpu.getContext(canvas);
-//             let renderer = await new tesserxel.renderer.TetraRenderer().init(gpu, context, {
-//                 enableFloat16Blend: false,
-//                 sliceGroupSize: 8
-//             });
-//             let pipeline = await renderer.createTetraSlicePipeline({
-//                 vertex: { code: vertCode, entryPoint: "main" },
-//                 fragment: {
-//                     module: gpu.device.createShaderModule({ code: fragCode }),
-//                     entryPoint: "main",
-//                     targets: [{ format: gpu.preferredFormat }]
-//                 },
-//                 cullMode: "front"
-//             });
-//             let mesh = tesserxel.mesh.tetra.tesseract;
-//             let positionBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.position);
-//             let normalBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.normal);
-//             let uvwBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.uvw);
-//             let mvBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
-//             let cubeCount = 1024;
-//             let jsbuffer = new Float32Array(20 * cubeCount);
-//             let math = tesserxel.math;
-//             for (let i = 0; i < cubeCount; i++) {
-//                 let pos = math.Vec3.rand().mulfs(Math.sqrt(Math.random()) * 5.0);
-//                 new math.Obj4(
-//                     new math.Vec4(pos.x, 0, pos.y, pos.z),
-//                     new math.Rotor(), new math.Vec4(0.1, 0.1, 0.1, 0.1).adds(math.Vec4.rand().mulfs(0.05))
-//                 ).getAffineMat4().writeBuffer(jsbuffer, i * 20);
-//             }
-//             let modelBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, jsbuffer);
-//             let vertBindGroup = renderer.createBindGroup(pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, mvBuffer, modelBuffer]);
-//             // let sliceConfig = tesserxel.renderer.sliceconfig.default2eye();
-//             // sliceConfig.opacity = 20.0;
-//             // renderer.setSlice(sliceConfig);
-//             renderer.set4DCameraProjectMatrix({
-//                 fov: 100, near: 0.01, far: 10
-//             });
-//             renderer.setScreenClearColor({ r: 1, g: 1, b: 1, a: 1 });
-//             let trackBallController = new tesserxel.controller.KeepUpController();
-//             trackBallController.object.position.set(0, 0, 0, 3);
-//             let retinaController = new tesserxel.controller.RetinaController(renderer);
-//             let controller = new tesserxel.controller.ControllerRegistry(canvas, [trackBallController, retinaController], { preventDefault: true, requsetPointerLock: true });
-//             let matModelViewJSBuffer = new Float32Array(20);
-//             let run = () => {
-//                 controller.update();
-//                 trackBallController.object.getAffineMat4inv().writeBuffer(matModelViewJSBuffer);
-//                 gpu.device.queue.writeBuffer(mvBuffer, 0, matModelViewJSBuffer);
-//                 renderer.render(() => {
-//                     renderer.beginTetras(pipeline);
-//                     renderer.sliceTetras(vertBindGroup, mesh.tetraCount, cubeCount);
-//                     renderer.drawTetras();
-//                 });
-//                 window.requestAnimationFrame(run);
-//             }
-//             function setSize() {
-//                 let width = window.innerWidth * window.devicePixelRatio;
-//                 let height = window.innerHeight * window.devicePixelRatio;
-//                 canvas.width = width;
-//                 canvas.height = height;
-//                 renderer.setSize({ width, height });
-//             }
-//             setSize();
-//             window.addEventListener("resize", setSize);
-//             run();
-//         }
-//     }
-//     export namespace convexhull {
-//         let vertCode = `
-// struct InputType{
-//     @location(0) pos: mat4x4<f32>,
-// }
-// struct OutputType{
-//     @builtin(position) pos: mat4x4<f32>,
-//     @location(0) uvw: mat4x4<f32>,
-// }
-// struct AffineMat{
-//     matrix: mat4x4<f32>,
-//     vector: vec4<f32>,
-// }
-// @group(1) @binding(1) var<uniform> camMat: AffineMat;
-// fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
-//     let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
-//     return afmat.matrix * points + biais;
-// }
-// @tetra fn main(input : InputType, @builtin(tetra_index) idx:u32) -> OutputType{
-//     let pos = apply(camMat,input.pos);
-//     var uvwmat = input.pos;
-//     // if(idx < 3) {
-//     //     uvwmat[0].y = 0.01;
-//     //     uvwmat[1].y = 0.01;
-//     //     uvwmat[2].y = 0.01;
-//     //     uvwmat[3].y = 0.01;
-//     // }
-//     return OutputType(pos,uvwmat);
-// }
-// `;
-//         let fragCode = `
-// @fragment fn main(@location(0) pos : vec4<f32>) -> @location(0) vec4<f32> {
-//     return vec4<f32>(vec3<f32>(sin(pos.xzw*100.0*pos.y))*0.5+vec3<f32>(0.5), 1.0);
-// }`;
-//         export async function load() {
-//             let gpu = await tesserxel.getGPU();
-//             let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-//             let context = gpu.getContext(canvas);
-//             let renderer = await new tesserxel.renderer.TetraRenderer().init(gpu, context, {
-//                 enableFloat16Blend: false,
-//                 sliceGroupSize: 8
-//             });
-//             let pipeline = await renderer.createTetraSlicePipeline({
-//                 vertex: { code: vertCode, entryPoint: "main" },
-//                 fragment: { code: fragCode, entryPoint: "main" },
-//                 cullMode: "front"
-//             });
-//             // let mesh = tesserxel.mesh.tetra.duocylinder(0.5,32,0.5,32);
-//             let mesh = tesserxel.mesh.tetra.glome(1, 16, 16, 16);
-//             let positionBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.position);
-//             let mvBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
-//             let vertBindGroup = renderer.createBindGroup(pipeline, 1, [positionBuffer, mvBuffer]);
-//             renderer.set4DCameraProjectMatrix({
-//                 fov: 100, near: 0.01, far: 10
-//             });
-//             renderer.setRetinaProjectMatrix({
-//                 fov: 40, near: 0.01, far: 10
-//             });
-//             renderer.setScreenClearColor({ r: 1, g: 1, b: 1, a: 0.0 });
-//             let trackBallController = new tesserxel.controller.FreeFlyController();
-//             let retinaController = new tesserxel.controller.RetinaController(renderer);
-//             // retinaController.mouseButton = null;
-//             retinaController.toggleSectionConfig(1);
-//             let controller = new tesserxel.controller.ControllerRegistry(canvas, [
-//                 trackBallController, retinaController
-//             ], { preventDefault: true, requsetPointerLock: true });
-//             let matModelViewJSBuffer = new Float32Array(20);
-//             function setSize() {
-//                 let width = window.innerWidth * window.devicePixelRatio;
-//                 let height = window.innerHeight * window.devicePixelRatio;
-//                 canvas.width = width;
-//                 canvas.height = height;
-//                 renderer.setSize({ width, height });
-//             }
-//             let rtpipeline = await renderer.createRaytracingPipeline();
-//             let rtBindGroup = renderer.createBindGroup(rtpipeline, 1, [mvBuffer]);
-//             function run() {
-//                 controller.update();
-//                 trackBallController.object.getAffineMat4inv().writeBuffer(matModelViewJSBuffer);
-//                 gpu.device.queue.writeBuffer(mvBuffer, 0, matModelViewJSBuffer);
-//                 renderer.render(() => {
-//                     renderer.beginTetras(pipeline);
-//                     renderer.sliceTetras(vertBindGroup, mesh.tetraCount);
-//                     renderer.drawTetras();
-//                     renderer.drawRaytracing(rtpipeline, [rtBindGroup]);
-//                 });
-//                 window.requestAnimationFrame(run);
-//             }
-//             setSize();
-//             run();
-//             window.addEventListener("resize", setSize);
-//         }
-//     }
-//     export namespace wfc {
-//         let tiles = {};
-//         let weights: number[] = [];
-//         let tileCount = 0;
-//         let rules: { [key: number]: { [key: number]: number[] } } = {};
-//         let tileSym = {};
-//         enum Symetry {
-//             None,
-//             DirAxis,
-//             Axis,
-//         }
-//         enum Direction {
-//             nx,
-//             px,
-//             ny,
-//             py
-//         }
-//         let dir = ["nx", "px", "ny", "py"];
-//         function inv(d: Direction) {
-//             return d ^ 1;
-//         }
-//         function addTile(name: string, weight: number, sym?: Symetry) {
-//             tileSym[name] = sym;
-//             switch (sym) {
-//                 case Symetry.DirAxis:
-//                     tiles[name] = tileCount;
-//                     weights[tileCount] = weight; tiles[name + "nx"] = tileCount++;
-//                     weights[tileCount] = weight; tiles[name + "px"] = tileCount++;
-//                     weights[tileCount] = weight; tiles[name + "ny"] = tileCount++;
-//                     weights[tileCount] = weight; tiles[name + "py"] = tileCount++;
-//                     break;
-//                 case Symetry.Axis:
-//                     tiles[name] = tileCount;
-//                     weights[tileCount] = weight; tiles[name + "x"] = tileCount++;
-//                     weights[tileCount] = weight; tiles[name + "y"] = tileCount++;
-//                     break;
-//                 default:
-//                     weights[tileCount] = weight;
-//                     tiles[name] = tileCount++;
-//             }
-//         }
-//         function addRule(name1: number, name2: number, dir: Direction) {
-//             if (!rules[name1]) rules[name1] = {};
-//             let a = rules[name1];
-//             if (!a[dir]) a[dir] = [];
-//             a[dir].push(name2);
-//             dir = inv(dir);
-//             if (!rules[name2]) rules[name2] = {};
-//             let b = rules[name2];
-//             if (!b[dir]) b[dir] = [];
-//             b[dir].push(name1);
-//         }
-//         // /**  B 
-//         //  * B A B
-//         //  *   B
-//         //  *  */
-//         // function anydir(exactName1: string, exactName2: string) {
-//         //     for (let i = 0; i < 4; i++)
-//         //         addRule(tiles[exactName1], tiles[exactName2], i);
-//         // }
-//         // /**  ^ 
-//         //  * < A >  ^ > > v  
-//         //  *   v    ^ < < v
-//         //  *  */
-//         // function toaxis(name1: string, axisName: string) {
-//         //     if (tileSym[name1] == Symetry.DirAxis) {
-//         //     } else if (tileSym[name1] == Symetry.DirAxis) {
-//         //     } else {
-//         //         let n = tiles[axisName];
-//         //         for (let i = 0; i < 4; i++)addRule(tiles[name1], n + i, i);
-//         //     }
-//         // }
-//         // function axisinvdir(name1: string, axisName: string) {
-//         //     let n = tiles[axisName];
-//         //     for (let i = 0; i < 4; i++)
-//         //         addRule(tiles[name1], n + i, i ^ 1);
-//         // }
-//         // function axisverticaldir(name1: string, axisName: string) {
-//         //     let n = tiles[axisName];
-//         //     let t = tiles[name1];
-//         //     for (let i = 0; i < 4; i++) {
-//         //         addRule(t, n + i, i ^ 2);
-//         //         addRule(t, n + i, i ^ 3);
-//         //     }
-//         // }
-//         // function someTile(name1: string, name2: number[], dir: Direction) {
-//         //     for (let n of name2)
-//         //         addRule(tiles[name1], n, dir);
-//         // }
-//         // addTile("mon", 3);
-//         // addTile("kleu", 1, Symetry.Axis);
-//         // addTile("on", 10);
-//         // addTile("ros", 2);
-//         // addTile("road", 3);
-//         // addTile("road", 3);
-//         // anydir("ros", "on");
-//         // axisdir("on", "kleu");
-//         // axisinvdir("mon", "kleu");
-//         // axisverticaldir("on", "kleu");
-//         // axisverticaldir("mon", "kleu");
-//         // anydir("on", "on");
-//         // anydir("mon", "mon");
-//         function randomChoose(w: Set<number>) {
-//             let arr = [];
-//             let sum = 0;
-//             for (let t of w.keys()) {
-//                 arr.push(t);
-//                 sum += weights[t];
-//             }
-//             let rnd = Math.floor(Math.random() * sum);
-//             for (let i = 0; i < arr.length; i++) {
-//                 rnd -= weights[arr[i]];
-//                 if (rnd < 0) {
-//                     return arr[i];
-//                 }
-//             }
-//             return 0;
-//         }
-//         let sizex = 16;
-//         let sizey = 16;
-//         let size = sizex * sizey;
-//         let w: Set<number>[] = new Array(size);
-//         let etp = new Array(size);
-//         export function init() {
-//             // init
-//             for (let i = 0; i < size; i++) {
-//                 w[i] = new Set();
-//                 for (let j = 0; j < tileCount; j++) {
-//                     w[i].add(j);
-//                 }
-//             }
-//         }
-//         export function run() {
-//             init();
-//             while (!iterate()) { }
-//             console.log(show());
-//         }
-//         export function iterate() {
-//             // collapse
-//             let minEntropy = Infinity;
-//             for (let i = 0; i < size; i++) {
-//                 if (w[i].size == 1) { etp[i] = 0; continue; }
-//                 let sum_of_weights = 0;
-//                 let sum_of_weight_log_weights = 0;
-//                 for (let t of w[i].keys()) {
-//                     let weight = weights[t];
-//                     sum_of_weights += weight;
-//                     sum_of_weight_log_weights += weight * Math.log(weight);
-//                 }
-//                 etp[i] = Math.log(sum_of_weights) - (sum_of_weight_log_weights / sum_of_weights);
-//                 if (minEntropy > etp[i]) {
-//                     minEntropy = etp[i];
-//                 }
-//             }
-//             if (minEntropy === Infinity) return true;
-//             // collapse
-//             let candidats = [];
-//             for (let i = 0; i < size; i++) {
-//                 if (etp[i] === minEntropy) {
-//                     candidats.push(i);
-//                 }
-//             }
-//             let choosenOne = candidats[Math.floor(Math.random() * candidats.length)];
-//             let res = randomChoose(w[choosenOne]);
-//             w[choosenOne].clear(); w[choosenOne].add(res);
-//             //propagate
-//             let stack = [choosenOne];
-//             while (stack.length) {
-//                 let curo = stack.pop();
-//                 let x = curo & 15, y = curo >> 4;
-//                 if (x < sizex - 1) check(curo, curo + 1, Direction.px);
-//                 if (x > 0) check(curo, curo - 1, Direction.nx);
-//                 if (y < sizey - 1) check(curo, curo + sizex, Direction.py);
-//                 if (y > 0) check(curo, curo - sizex, Direction.ny);
-//             }
-//             function check(curo: number, pos: number, dir: Direction) {
-//                 let removeCantidats = [];
-//                 for (let t of w[pos].keys()) {
-//                     let found = false;
-//                     for (let tile of w[curo].keys()) {
-//                         if (rules[tile][dir]?.includes(t)) { found = true; break; }
-//                     }
-//                     if (!found) {
-//                         removeCantidats.push(t);
-//                     }
-//                 }
-//                 for (let i of removeCantidats) {
-//                     w[pos].delete(i);
-//                 }
-//                 if (removeCantidats.length) {
-//                     stack.push(pos);
-//                 }
-//             }
-//         }
-//         export function show() {
-//             let charact = "";
-//             let count = 0;
-//             for (let i of w) {
-//                 if (i.size > 1) {
-//                     charact += i.size;
-//                 } else {
-//                     charact += `M><v^ A`[i.values().next().value];
-//                 }
-//                 if ((count++ & 15) == 15) {
-//                     charact += "\n";
-//                 }
-//             }
-//             return charact;
-//         }
-//         enum id {
-//             Empty, // any buildings can be buit here
-//             Road,
-//             RoadTurn,
-//             // Block, // buildings can only be built inside here, cross edge is not allowed
-//             // River, 
-//             // River_Turn,
-//             // Empty_Block,
-//             // Empty_Road_Block,
-//             // Empty_Road_Empty,
-//         };
-//     }
-// }
+var examples;
+(function (examples) {
+    let city_highway;
+    (function (city_highway) {
+        const vec4 = tesserxel.math.Vec4;
+        const vec3 = tesserxel.math.Vec3;
+        const directionalLight_dir = "1.0,1.2,1.0,1.0";
+        function genRoad() {
+            const xLanes = 3;
+            const yLanes = 4;
+            const laneSide = 0.14;
+            const lineWidthHalf = 0.01;
+            const roadWidth = xLanes / (1 - 2 * laneSide);
+            const roadHeight = yLanes / (1 - 2 * laneSide);
+            const rw2 = roadWidth * 2;
+            const fenceHeight = 0.4;
+            const separatorHeight = 0.9;
+            const fenceWidthHalf = 0.12;
+            // let p = [];
+            // let q = [];
+            // for(let i=0;i<100;i++){
+            //     p.push(new vec4(Math.cos(i*0.3)*10 - 10,0,Math.sin(i*0.3)*10,i*0.5).mulfs(2));
+            //     q.push(new vec4(-Math.sin(i*0.3)*0.3*10,0,Math.cos(i*0.3)*0.3*10,0.5).mulfs(2));
+            // }
+            // let path = new tesserxel.math.Spline(p,q);
+            let edge = 40;
+            let deri = 30;
+            let path = new tesserxel.math.Spline([
+                new vec4(0, 0, 0, 0),
+                new vec4(0, 0, 0, edge),
+                new vec4(edge, 0, 0, edge),
+                new vec4(edge, 0, edge, edge),
+                new vec4(edge, 0, edge, 0),
+                new vec4(0, 0, edge, 0),
+                new vec4(0, 0, 0, 0),
+            ], [
+                new vec4(0, 0, -deri, deri),
+                new vec4(deri, 0, 0, deri),
+                new vec4(deri, 0, deri, 0),
+                new vec4(0, 0, deri, -deri),
+                new vec4(-deri, 0, 0, -deri),
+                new vec4(-deri, 0, -deri, 0),
+                new vec4(0, 0, -deri, deri),
+            ]);
+            let fenceCrossSection = {
+                quad: {
+                    position: new Float32Array([
+                        0, fenceHeight, yLanes, 0,
+                        0, fenceHeight, -yLanes, 0,
+                        0, separatorHeight, -yLanes, 0,
+                        0, separatorHeight, yLanes, 0,
+                    ]),
+                    uv: new Float32Array([
+                        2, 1, -1, 0,
+                        2, 1, 1, 0,
+                        2, -1, 1, 0,
+                        2, -1, -1, 0,
+                    ]),
+                    normal: new Float32Array([
+                        1, 0, 0, 0,
+                        1, 0, 0, 0,
+                        1, 0, 0, 0,
+                        1, 0, 0, 0,
+                    ])
+                }
+            };
+            let crossSection = {
+                quad: {
+                    position: new Float32Array([
+                        rw2, 0, -roadHeight, 0,
+                        rw2, 0, roadHeight, 0,
+                        -rw2, 0, roadHeight, 0,
+                        -rw2, 0, -roadHeight, 0,
+                        -fenceWidthHalf, 0, -yLanes, 0,
+                        -fenceWidthHalf, 0, yLanes, 0,
+                        -fenceWidthHalf, fenceHeight, yLanes, 0,
+                        -fenceWidthHalf, fenceHeight, -yLanes, 0,
+                        fenceWidthHalf, fenceHeight, -yLanes, 0,
+                        fenceWidthHalf, fenceHeight, yLanes, 0,
+                        fenceWidthHalf, 0, yLanes, 0,
+                        fenceWidthHalf, 0, -yLanes, 0,
+                        fenceWidthHalf, fenceHeight, -yLanes, 0,
+                        fenceWidthHalf, fenceHeight, yLanes, 0,
+                        -fenceWidthHalf, fenceHeight, yLanes, 0,
+                        -fenceWidthHalf, fenceHeight, -yLanes, 0,
+                    ]),
+                    uv: new Float32Array([
+                        0, 1, -1, 0,
+                        0, 1, 1, 0,
+                        0, -1, 1, 0,
+                        0, -1, -1, 0,
+                        1, 1, -1, 0,
+                        1, 1, 1, 0,
+                        1, -1, 1, 0,
+                        1, -1, -1, 0,
+                        1, -1, -1, 0,
+                        1, -1, 1, 0,
+                        1, 1, 1, 0,
+                        1, 1, -1, 0,
+                        1, 1, -1, 0,
+                        1, 1, 1, 0,
+                        1, -1, 1, 0,
+                        1, -1, -1, 0,
+                    ]),
+                    normal: new Float32Array([
+                        0, 1, 0, 0,
+                        0, 1, 0, 0,
+                        0, 1, 0, 0,
+                        0, 1, 0, 0,
+                        -1, 0, 0, 0,
+                        -1, 0, 0, 0,
+                        -1, 0, 0, 0,
+                        -1, 0, 0, 0,
+                        1, 0, 0, 0,
+                        1, 0, 0, 0,
+                        1, 0, 0, 0,
+                        1, 0, 0, 0,
+                        0, 1, 0, 0,
+                        0, 1, 0, 0,
+                        0, 1, 0, 0,
+                        0, 1, 0, 0,
+                    ])
+                }
+            };
+            let roadmesh = tesserxel.mesh.tetra.loft(path, crossSection, 20);
+            let fencemesh = tesserxel.mesh.tetra.loft(path, fenceCrossSection, 256);
+            roadmesh = tesserxel.mesh.tetra.concat(roadmesh, fencemesh);
+            let roadvertCode = `
+            struct InputType{
+                @location(0) pos: mat4x4<f32>,
+                @location(1) uvw: mat4x4<f32>,
+                @location(2) normal: mat4x4<f32>,
+            }
+            struct OutputType{
+                @builtin(position) pos: mat4x4<f32>,
+                @location(0) uvw: mat4x4<f32>,
+                @location(1) normal: mat4x4<f32>,
+            }
+            struct AffineMat{
+                matrix: mat4x4<f32>,
+                vector: vec4<f32>,
+            }
+            @group(1) @binding(3) var<uniform> camMat: AffineMat;
+            fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
+                let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
+                return afmat.matrix* points + biais;
+            }
+            @tetra fn main(input : InputType, @builtin(instance_index) index: u32) -> OutputType{
+                return OutputType(apply(camMat,input.pos), input.uvw, input.normal);
+            }
+            `;
+            let roadfragCode = `
+            struct fInputType{
+                @location(0) uvw : vec4<f32>,
+                @location(1) normal : vec4<f32>
+            };
+            const xLanes = ${xLanes};
+            const yLanes = ${yLanes};
+            const laneSide = ${laneSide};
+            const lineWidthHalf = ${lineWidthHalf};
+            const outterLine1 = ${1.0 - laneSide - lineWidthHalf};
+            const outterLine2 = ${1.0 - laneSide + lineWidthHalf};
+            const roadBaseColor = vec4<f32>(0.5,0.5,0.5,0.3);
+            const roadLineColor = vec4<f32>(1.0,1.0,0.0,1.0);
+            fn maxComp(p: vec2<f32>)->f32{
+                return max(p.x,p.y);
+            }
+            fn roadTexture(uvw:vec3<f32>)->vec4<f32>{
+                let uv = vec3<f32>((abs(uvw.x) - 0.5)*2.0, uvw.yz);
+                // outter lines
+                var online = step(0.0,maxComp(abs(uv.xy) - outterLine1));
+                let dashx = step(fract(uv.z * 0.5),0.5);
+                let dashy = 1.0 - dashx;
+                var separatorx = 0.0;
+                var separatory = 0.0;
+                for(var i = 1; i<xLanes; i+=1){
+                    separatorx += step(abs(uv.x - (laneSide - 1.0 + f32(i)/f32(xLanes)*(2.0 - 2.0 * laneSide))),lineWidthHalf);
+                }
+                for(var i = 1; i<yLanes; i+=1){
+                    separatory += step(abs(uv.y - (laneSide - 1.0 + f32(i)/f32(yLanes)*(2.0 - 2.0 * laneSide))),lineWidthHalf);
+                }
+                online += separatorx * dashx + separatory * dashy;
+                online *= step(maxComp(abs(uv.xy) - outterLine2),0.0);
+                return mix(roadBaseColor,roadLineColor,online);
+            }
+            const directionalLight_dir = vec4<f32>(${directionalLight_dir});
+            fn roadSeparatorTexture(normal:vec4<f32>,uvw_w:f32)->vec4<f32>{
+                const color = vec3<f32>(0.1,0.9,0.3);
+                if(fract(uvw_w * 3.5) > 0.3){ discard; };
+                return vec4<f32>((abs(dot(normal, directionalLight_dir))*0.2 + 0.5)*color,1.0);
+            }
+            @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+                let color = vec3<f32>(1.0,1.0,1.0);
+                if(vary.uvw.x > 1.1){
+                    return roadSeparatorTexture(vary.normal,vary.uvw.w);
+                }else if(vary.uvw.x > 0.1){
+                    return vec4<f32>(max(0.0,dot(vary.normal, directionalLight_dir)*0.2+0.5)*color,1.0);
+                }else{
+                    return roadTexture(vary.uvw.yzw);
+                }
+            }`;
+            return { path, roadmesh, roadfragCode, roadvertCode };
+        }
+        function genBuilding(path) {
+            const buildingCount = 1024;
+            const buildingMaxRadius = 120;
+            const buildingMinRadius = 15;
+            const buildingVertCode = `
+            
+            struct InputType{
+                @location(0) pos: mat4x4<f32>,
+                @location(1) uvw: mat4x4<f32>,
+                @location(2) normal: mat4x4<f32>,
+            }
+            
+            struct OutputType{
+                @builtin(position) pos: mat4x4<f32>,
+                @location(0) uvw: mat4x4<f32>,
+                @location(1) normal: mat4x4<f32>,
+            }
+            struct AffineMat{
+                matrix: mat4x4<f32>,
+                vector: vec4<f32>,
+            }
+            @group(1) @binding(3) var<uniform> camMat: AffineMat;
+            @group(1) @binding(4) var<storage,read> modelMats: array<AffineMat>;
+            fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
+                let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
+                return afmat.matrix* points + biais;
+            }
+            fn addVec4(v: vec4<f32>, points: mat4x4<f32>) -> mat4x4<f32>{
+                return points + mat4x4<f32>(v,v,v,v);
+            }
+            fn normalizeVec4(points: mat4x4<f32>) -> mat4x4<f32>{
+                return mat4x4<f32>(normalize(points[0]),normalize(points[1]),normalize(points[2]),normalize(points[3]));
+            }
+            @tetra fn main(input : InputType, @builtin(instance_index) index: u32) -> OutputType{
+                let modelMat = modelMats[index];
+                let uvw = addVec4(vec4<f32>(0.0,0.0,0.0, f32(index)),input.uvw);
+                return OutputType(apply(camMat,apply(modelMat,input.pos)), uvw, normalizeVec4(modelMat.matrix * input.normal));
+            }
+            `;
+            const buildingFragCode = `
+            struct fInputType{
+                @location(0) uvw : vec4<f32>,
+                @location(1) normal : vec4<f32>
+            };
+            const directionalLight_dir = vec4<f32>(${directionalLight_dir});
+            fn buildTextureMap(uvw: vec4<f32>)->vec4<f32>{
+                let Id = u32(uvw.w);
+                let colorId = Id & 7;
+                let anotherId = f32(Id & 1);
+                let floorId = f32(Id & 3);
+                const colorWallTable = array<vec3<f32>,8>(
+                    vec3<f32>(1.0),
+                    vec3<f32>(1.0),
+                    vec3<f32>(1.0,0.7,0.6),
+                    vec3<f32>(1.0,1.0,0.7),
+                    vec3<f32>(0.6,0.6,0.6),
+                    vec3<f32>(0.6,0.6,0.6),
+                    vec3<f32>(0.8,1.0,1.0),
+                    vec3<f32>(0.9,0.8,0.7),
+                );
+                let XZ = step(vec2<f32>(0.3,0.2), fract(uvw.xz * 4.0));
+                let Y =  step(0.2+f32(floorId)*0.1, fract(uvw.y * 30.0 - f32(floorId)));
+                return vec4<f32>(
+                    mix(
+                        mix(colorWallTable[colorId],vec3<f32>(0.5,0.8,0.9),XZ.x+XZ.y),
+                        colorWallTable[colorId],
+                        vec3<f32>(Y)
+                    ),
+                0.2);
+            }
+            @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+                var color = vec4<f32>(0.2,1.0,0.2,0.1);
+                if(vary.uvw.w > 1.0){
+                    color = buildTextureMap(vary.uvw);
+                }
+                return vec4<f32>(max(0.0,dot(vary.normal, directionalLight_dir)*0.2+0.5)*color.rgb,color.a);
+                // return vec4<f32>(1.0,0.0,0.0,0.3);
+            }
+            `;
+            let buildingTransformBuffer = new Float32Array(20 * buildingCount);
+            const points = path.generate(20).points;
+            const pointLen = points.length;
+            const srand = new tesserxel.math.Srand(12345);
+            const buildingMinRadius2 = buildingMinRadius * buildingMinRadius;
+            for (let i = 0; i < buildingCount; i++) {
+                let willContinue = false;
+                let randPointIdx = srand.nexti(pointLen);
+                let r;
+                do {
+                    r = Math.sqrt(srand.nextf()) * buildingMaxRadius;
+                } while (r < buildingMinRadius);
+                let randVec = vec3.srand(srand).mulfs(r);
+                randVec.adds(points[randPointIdx].xzw());
+                for (let idx = 0; idx < pointLen; idx++) {
+                    let testP = points[idx];
+                    // let testP = points[idx >= pointLen ? idx - pointLen : idx < 0 ? idx + pointLen : idx];
+                    if (testP.xzw().sub(randVec).normsqr() < buildingMinRadius2) {
+                        i--;
+                        willContinue = true;
+                        break;
+                    }
+                }
+                if (willContinue)
+                    continue;
+                let randRot = tesserxel.math.Quaternion.srand(srand).toMat3().elem;
+                let scale = vec4.srand(srand);
+                scale.x += 3;
+                scale.z += 3;
+                scale.y *= 4;
+                scale.y += 3;
+                scale.w += 3;
+                scale.mulfs(1.5);
+                new tesserxel.math.AffineMat4(tesserxel.math.Mat4.diag(scale.x, scale.y, scale.z, scale.w).mulsr(new tesserxel.math.Mat4(randRot[0], 0, randRot[3], randRot[6], 0, 1, 0, 0, randRot[1], 0, randRot[4], randRot[7], randRot[2], 0, randRot[5], randRot[8])), new vec4(randVec.x, scale.y, randVec.y, randVec.z)).writeBuffer(buildingTransformBuffer, 20 * i);
+            }
+            return { buildingFragCode, buildingVertCode, buildingTransformBuffer, buildingCount };
+        }
+        let rtCode = `
+        @group(1) @binding(0) var<uniform> camMat: AffineMat;
+
+        struct rayOut{
+            @location(0) out: vec4<f32>,
+            @location(1) coord: vec3<f32>
+        }
+
+        @ray fn mainRay(
+            @builtin(ray_direction) rd: vec4<f32>,
+            @builtin(voxel_coord) coord: vec3<f32>,
+            @builtin(aspect_matrix) aspect: mat3x3<f32>
+        ) -> rayOut {
+            return rayOut(
+                transpose(camMat.matrix)*rd,
+                aspect * coord
+            );
+        }
+        struct fOut{
+            @location(0) color: vec4<f32>,
+            @builtin(frag_depth) depth: f32
+        }
+        
+        // converted to 4D from shadertoy 3D: https://www.shadertoy.com/view/WtBXWw
+        fn ACESFilm(x: vec3<f32>)->vec3<f32>
+        {
+            let tA = 2.51;
+            let tB = vec3<f32>(0.03);
+            let tC = 2.43;
+            let tD = vec3<f32>(0.59);
+            let tE = vec3<f32>(0.14);
+            return clamp((x*(tA*x+tB))/(x*(tC*x+tD)+tE),vec3<f32>(0.0),vec3<f32>(1.0));
+        }
+        const Ds = vec4<f32>(${directionalLight_dir});
+        const betaR = vec3<f32>(1.95e-2, 1.1e-1, 2.94e-1); 
+        const betaM = vec3<f32>(4e-2, 4e-2, 4e-2);
+        const Rayleigh = 1.0;
+        const Mie = 1.0;
+        const RayleighAtt = 1.0;
+        const MieAtt = 1.2;
+        const g = -0.9;
+        fn sky (rd: vec4<f32>)->vec3<f32>{
+            let D = normalize(rd);
+            let t = max(0.001, D.y)*0.92+0.08;
+
+            // optical depth -> zenithAngle
+            let sR = RayleighAtt / t ;
+            let sM = MieAtt / t ;
+            let cosine = clamp(dot(D,normalize(Ds)),0.0,1.0);
+            let cosine2 =dot(D,normalize(Ds))+1.0;
+            let extinction = exp(-(betaR * sR + betaM * sM));
+
+            // scattering phase
+            let g2 = g * g;
+            let fcos2 = cosine * cosine;
+            let miePhase = Mie * pow(1.0 + g2 + 2.0 * g * cosine, -1.5) * (1.0 - g2) / (2.0 + g2);
+            
+            let rayleighPhase = Rayleigh;
+
+            let inScatter = (1.0 + fcos2) * vec3<f32>(rayleighPhase + betaM / betaR * miePhase);
+
+            var color = inScatter*(1.0-extinction) * 1.4;
+            // sun
+            color += 0.47*vec3<f32>(1.8,1.4,0.3)*pow( cosine, 350.0 ) * extinction;
+            // sun haze
+            color += 0.4*vec3<f32>(0.8,0.9,0.1)*pow( cosine2 *0.5, 2.0 )* extinction;
+            color *= vec3<f32>(1.4,1.7,1.2);
+            return ACESFilm(color);
+        }
+        @fragment fn mainFragment(@location(0) rd: vec4<f32>, @location(1) coord: vec3<f32>)->fOut{
+            let abscoord1 = step(abs(coord),vec3<f32>(0.03));
+            let abscoord2 = step(abs(coord),vec3<f32>(0.2));
+            if(abscoord1.x*abscoord1.y*abscoord1.z <= 0.0){
+                if(abscoord2.x*abscoord1.y*abscoord1.z > 0.0){
+                    return fOut(vec4<f32>(1.0,0.0,0.0,5.0),0.0);
+                }
+                if(abscoord1.x*abscoord2.y*abscoord1.z > 0.0){
+                    return fOut(vec4<f32>(0.2,0.2,1.0,5.0),0.0);
+                }
+                if(abscoord1.x*abscoord1.y*abscoord2.z > 0.0){
+                    return fOut(vec4<f32>(0.0,1.0,0.0,5.0),0.0);
+                }
+            }
+            
+            return fOut(vec4<f32>(sky(rd),0.1),0.999999);
+        }
+        `;
+        const { roadmesh, roadfragCode, roadvertCode, path } = genRoad();
+        const { buildingFragCode, buildingTransformBuffer, buildingVertCode, buildingCount } = genBuilding(path);
+        const terrainSize = 500;
+        let terrainTransformBuffer = new Float32Array([
+            terrainSize, 0, 0, 0,
+            0, terrainSize, 0, 0,
+            0, 0, terrainSize, 0,
+            0, 0, 0, terrainSize,
+            0, -0.1, 0, 0,
+        ]);
+        async function load() {
+            let gpu = await tesserxel.renderer.createGPU();
+            let canvas = document.getElementById("gpu-canvas");
+            let context = gpu.getContext(canvas);
+            let renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, {
+                enableFloat16Blend: true,
+                sliceGroupSize: 8
+            });
+            renderer.set4DCameraProjectMatrix({ fov: 100, near: 0.1, far: 500 });
+            let roadpipeline = await renderer.createTetraSlicePipeline({
+                vertex: { code: roadvertCode, entryPoint: "main" },
+                fragment: {
+                    code: roadfragCode,
+                    entryPoint: "main"
+                },
+                cullMode: "none"
+            });
+            let buildingPipeline = await renderer.createTetraSlicePipeline({
+                vertex: { code: buildingVertCode, entryPoint: "main" },
+                fragment: {
+                    code: buildingFragCode,
+                    entryPoint: "main"
+                },
+                cullMode: "front"
+            });
+            let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
+            let roadmeshBindGroup = renderer.createBindGroup(roadpipeline, 1, [
+                gpu.createBuffer(GPUBufferUsage.STORAGE, roadmesh.position),
+                gpu.createBuffer(GPUBufferUsage.STORAGE, roadmesh.uvw),
+                gpu.createBuffer(GPUBufferUsage.STORAGE, roadmesh.normal),
+                camBuffer
+            ]);
+            let buildingMesh = tesserxel.mesh.tetra.tesseract();
+            for (let i = 0; i < buildingMesh.uvw.length; i += 4) {
+                buildingMesh.uvw[i + 3] = 1.5;
+            }
+            let terrainMesh = tesserxel.mesh.tetra.clone(tesserxel.mesh.tetra.cube);
+            for (let i = 0; i < terrainMesh.uvw.length; i += 4) {
+                terrainMesh.uvw[i + 3] = 0;
+            }
+            let buildingBindGroup = renderer.createBindGroup(buildingPipeline, 1, [
+                gpu.createBuffer(GPUBufferUsage.STORAGE, buildingMesh.position),
+                gpu.createBuffer(GPUBufferUsage.STORAGE, buildingMesh.uvw),
+                gpu.createBuffer(GPUBufferUsage.STORAGE, buildingMesh.normal),
+                camBuffer,
+                gpu.createBuffer(GPUBufferUsage.STORAGE, buildingTransformBuffer)
+            ]);
+            let terrainBindGroup = renderer.createBindGroup(buildingPipeline, 1, [
+                gpu.createBuffer(GPUBufferUsage.STORAGE, terrainMesh.position),
+                gpu.createBuffer(GPUBufferUsage.STORAGE, terrainMesh.uvw),
+                gpu.createBuffer(GPUBufferUsage.STORAGE, terrainMesh.normal),
+                camBuffer,
+                gpu.createBuffer(GPUBufferUsage.STORAGE, terrainTransformBuffer)
+            ]);
+            let rtPipeline = await renderer.createRaytracingPipeline({
+                code: rtCode,
+                rayEntryPoint: "mainRay",
+                fragmentEntryPoint: "mainFragment"
+            });
+            let rtBindGroup = [renderer.createBindGroup(rtPipeline, 1, [camBuffer])];
+            let camController = new tesserxel.controller.KeepUpController();
+            camController.object.position.set(0.5, 0.5, 0.5, 3);
+            camController.keyMoveSpeed *= 5;
+            let retinaController = new tesserxel.controller.RetinaController(renderer);
+            let ctrlreg = new tesserxel.controller.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
+            let config = renderer.getSliceConfig();
+            config.opacity = 5;
+            retinaController.setSlice(config);
+            let camMatJSBuffer = new Float32Array(20);
+            renderer.setScreenClearColor({ r: 1.0, g: 1.0, b: 1.0, a: 1.0 });
+            renderer.setWorldClearColor({ r: 0.7, g: 0.85, b: 1.0, a: 0.1 });
+            let run = () => {
+                ctrlreg.update();
+                camController.object.getAffineMat4inv().writeBuffer(camMatJSBuffer);
+                gpu.device.queue.writeBuffer(camBuffer, 0, camMatJSBuffer);
+                renderer.render(() => {
+                    renderer.beginTetras(roadpipeline);
+                    renderer.sliceTetras(roadmeshBindGroup, roadmesh.tetraCount);
+                    renderer.drawTetras();
+                    renderer.beginTetras(buildingPipeline);
+                    renderer.sliceTetras(buildingBindGroup, buildingMesh.tetraCount - 5, buildingCount);
+                    renderer.sliceTetras(terrainBindGroup, 5);
+                    renderer.drawTetras();
+                    renderer.drawRaytracing(rtPipeline, rtBindGroup);
+                });
+                window.requestAnimationFrame(run);
+            };
+            function setSize() {
+                let width = window.innerWidth * window.devicePixelRatio;
+                let height = window.innerHeight * window.devicePixelRatio;
+                canvas.width = width;
+                canvas.height = height;
+                renderer.setSize({ width, height });
+            }
+            setSize();
+            window.addEventListener("resize", setSize);
+            run();
+        }
+        city_highway.load = load;
+    })(city_highway = examples.city_highway || (examples.city_highway = {}));
+})(examples || (examples = {}));
+var examples;
+(function (examples) {
+    class ForceApp {
+        renderer;
+        camController;
+        retinaController;
+        ctrlreg;
+        headercode = `
+        struct rayOut{
+            @location(0) o: vec4<f32>,
+            @location(1) d: vec4<f32>
+        }
+        @group(1) @binding(0) var<uniform> camMat: AffineMat;
+        @ray fn mainRay(
+            @builtin(ray_direction) rd: vec4<f32>,
+            @builtin(ray_origin) ro: vec4<f32>
+        ) -> rayOut{
+            return rayOut(camMat.matrix*ro+camMat.vector, camMat.matrix*rd);
+        }
+        {replace}
+        @fragment fn mainFragment(@location(0) rayOrigin: vec4<f32>, @location(1) rayDir: vec4<f32>)->@location(0) vec4<f32>{
+        return render(ray(rayOrigin, normalize(rayDir)));
+        }
+        struct ray{
+            o: vec4<f32>,
+            d: vec4<f32>,
+        }
+        struct glome{
+            p: vec4<f32>,
+            r: f32,
+            id: u32
+        }
+        struct plane{
+            n: vec4<f32>,
+            o: f32,
+            id: u32
+        }
+        struct rotor{
+            l: vec4<f32>,
+            r: vec4<f32>
+        }
+        struct obj4{
+            p: vec4<f32>,
+            r: rotor
+        }
+        fn quaternionMul(q1:vec4<f32>,q2:vec4<f32>)->vec4<f32>{
+            return vec4<f32>(
+                q1.x * q2.x - q1.y * q2.y - q1.z * q2.z - q1.w * q2.w,
+                q1.x * q2.y + q1.y * q2.x + q1.z * q2.w - q1.w * q2.z,
+                q1.x * q2.z - q1.y * q2.w + q1.z * q2.x + q1.w * q2.y,
+                q1.x * q2.w + q1.y * q2.z - q1.z * q2.y + q1.w * q2.x
+            );
+        }
+        fn rotate(r:rotor, p:vec4<f32>)->vec4<f32>{
+            return quaternionMul(quaternionMul(r.l,p),r.r);
+        }
+        fn intGlome(r:ray, g:glome)->f32 {
+            let oc = r.o - g.p;
+            let b = dot(oc, r.d);
+            let c = dot(oc, oc) - g.r*g.r;
+            var t = b*b - c;
+            if(t > 0.0) {
+                t = -b - sqrt(t);
+            }
+            if(t < 0.0) {
+                return 10000.0;
+            }
+            return t;
+        }
+        fn intPlane(r:ray, p:plane)->f32 {
+            let t = (p.o - dot(r.o, p.n)) / dot(r.d, p.n);
+            if(t < 0.0) {
+                return 10000.0;
+            }
+            return t;
+        }
+        `;
+        async load(code, genBuffersToBind, runWorld) {
+            let gpu = await tesserxel.renderer.createGPU();
+            let canvas = document.getElementById("gpu-canvas");
+            let context = gpu.getContext(canvas);
+            let renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, {
+                enableFloat16Blend: false,
+                sliceGroupSize: 8
+            });
+            this.renderer = renderer;
+            renderer.setScreenClearColor({ r: 1, g: 1, b: 1, a: 1 });
+            let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
+            let camController = new tesserxel.controller.FreeFlyController();
+            camController.object.position.set(0.001, 0.00141, 0.00172, 3);
+            this.camController = camController;
+            let retinaController = new tesserxel.controller.RetinaController(renderer);
+            this.retinaController = retinaController;
+            let ctrlreg = new tesserxel.controller.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
+            let matModelViewJSBuffer = new Float32Array(20);
+            let pipeline = await renderer.createRaytracingPipeline({
+                code: this.headercode.replace(/\{replace\}/g, code),
+                rayEntryPoint: "mainRay",
+                fragmentEntryPoint: "mainFragment"
+            });
+            let buffers = genBuffersToBind(gpu);
+            let bindgroups = [renderer.createBindGroup(pipeline, 1, [camBuffer, ...buffers])];
+            this.ctrlreg = ctrlreg;
+            this.run = () => {
+                runWorld(gpu);
+                ctrlreg.update();
+                camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
+                gpu.device.queue.writeBuffer(camBuffer, 0, matModelViewJSBuffer);
+                renderer.render(() => {
+                    renderer.drawRaytracing(pipeline, bindgroups);
+                });
+                window.requestAnimationFrame(this.run);
+            };
+            function setSize() {
+                let width = window.innerWidth * window.devicePixelRatio;
+                let height = window.innerHeight * window.devicePixelRatio;
+                canvas.width = width;
+                canvas.height = height;
+                renderer.setSize({ width, height });
+            }
+            setSize();
+            window.addEventListener("resize", setSize);
+            return this;
+        }
+        run;
+    }
+    let pendulum;
+    (function (pendulum) {
+        async function load() {
+            let objCounts = 2;
+            let sceneCode = `
+            @group(1) @binding(1) var<uniform> positions: array<vec4<f32>,${objCounts}>;
+            fn render(r: ray)->vec4<f32>{
+                let g1 = glome(positions[0],1.0,1);
+                let g2 = glome(positions[1],1.0,2);
+                var t = 10000.0;
+                t = intGlome(r,g1);
+                if(t<10000.0){
+                    return vec4<f32>(0.0,0.0,1.0,1.0);
+                }
+                t = min(t,intGlome(r,g2));
+                // t = min(t,intPlane(,plane()));
+                if(t<10000.0){return vec4<f32>(1.0,0.0,0.0,1.0);}
+                return vec4<f32>(1.0,1.0,1.0,0.0);
+            }
+            `;
+            let posBuffer;
+            let posJsBuffer = new Float32Array(objCounts << 4);
+            const phy = tesserxel.physics;
+            const vec = tesserxel.math.Vec4;
+            let engin = new phy.Engine(new phy.force_accumulator.RK4());
+            let world = new phy.World();
+            world.gravity.set();
+            let glome1 = new phy.Object(new phy.Glome(1), 1);
+            let glome2 = new phy.Object(new phy.Glome(2), 1);
+            let floor = new phy.Object(new phy.Glome(2), 1);
+            glome1.velocity.x = Math.sqrt(5);
+            glome1.geometry.position.y = 1;
+            // glome2.velocity.y = 1;
+            world.addObject(glome1);
+            world.addObject(glome2);
+            let spring1 = new phy.force.Spring(glome1, null, new vec(), new vec(), 5.0, 0);
+            let spring2 = new phy.force.Spring(glome2, glome1, new vec(), new vec(), 5.0, 0, 1);
+            world.addForce(spring1);
+            // world.addForce(spring2);
+            let app = await new ForceApp().load(sceneCode, (gpu) => {
+                posBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, posJsBuffer);
+                return [posBuffer];
+            }, (gpu) => {
+                engin.update(world, Math.min(app.ctrlreg.states.mspf ?? 0.01, 0.1));
+                glome1.geometry.position.writeBuffer(posJsBuffer, 0);
+                glome2.geometry.position.writeBuffer(posJsBuffer, 4);
+                gpu.device.queue.writeBuffer(posBuffer, 0, posJsBuffer);
+            });
+            app.run();
+        }
+        pendulum.load = load;
+    })(pendulum = examples.pendulum || (examples.pendulum = {}));
+})(examples || (examples = {}));
 var examples;
 (function (examples) {
     let instanced_cubes;
@@ -440,7 +714,7 @@ struct AffineMat{
     matrix: mat4x4<f32>,
     vector: vec4<f32>,
 }
-@group(1) @binding(3) var<uniform> camMat: AffineMat;
+@group(1) @binding(3) var<uniform> camMat: array<AffineMat,2>;
 @group(1) @binding(4) var<storage> modelMats: array<AffineMat>;
 fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
     let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
@@ -448,7 +722,7 @@ fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
 }
 @tetra fn main(input : InputType, @builtin(instance_index) index: u32) -> OutputType{
     let modelMat = modelMats[index];
-    return OutputType(apply(camMat,apply(modelMat, input.pos)), modelMat.matrix * input.normal, input.uvw);
+    return OutputType(apply(camMat[0],apply(modelMat, apply(camMat[1],input.pos))), modelMat.matrix * camMat[1].matrix * input.normal, input.uvw);
 }
 `;
         let fragCode = `
@@ -486,10 +760,10 @@ struct fInputType{
     return vec4<f32>(pow(color,vec3<f32>(0.6)), 0.5 + f32(count>=2.0));
 }`;
         async function load() {
-            let gpu = await tesserxel.getGPU();
+            let gpu = await tesserxel.renderer.createGPU();
             let canvas = document.getElementById("gpu-canvas");
             let context = gpu.getContext(canvas);
-            let renderer = await new tesserxel.renderer.TetraRenderer().init(gpu, context, {
+            let renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, {
                 enableFloat16Blend: false,
                 sliceGroupSize: 8
             });
@@ -498,11 +772,11 @@ struct fInputType{
                 fragment: { code: fragCode, entryPoint: "main" },
                 cullMode: "front"
             });
-            let mesh = tesserxel.mesh.tetra.tesseract;
+            let mesh = tesserxel.mesh.tetra.tesseract();
             let positionBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.position);
             let normalBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.normal);
             let uvwBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.uvw);
-            let camMat = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
+            let camMat = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5 * 2);
             let cubeCount = 4096;
             let jsbuffer = new Float32Array(20 * cubeCount);
             let math = tesserxel.math;
@@ -512,20 +786,25 @@ struct fInputType{
             let modelBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, jsbuffer);
             let vertBindGroup = renderer.createBindGroup(pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, camMat, modelBuffer]);
             let sliceConfig = renderer.getSliceConfig();
-            sliceConfig.opacity = 20.0;
+            sliceConfig.opacity = 30.0;
             renderer.setSlice(sliceConfig);
             renderer.set4DCameraProjectMatrix({
                 fov: 100, near: 0.02, far: 50
             });
             let retinaController = new tesserxel.controller.RetinaController(renderer);
+            retinaController.toggleSectionConfig("retina");
             retinaController.mouseButton = null;
             let trackBallController = new tesserxel.controller.TrackBallController();
             trackBallController.object.position.set(0, 0, 0, -3);
-            let controller = new tesserxel.controller.ControllerRegistry(canvas, [trackBallController, retinaController], { preventDefault: true, requsetPointerLock: true });
-            let camMatJSBuffer = new Float32Array(20);
+            let ctrlreg = new tesserxel.controller.ControllerRegistry(canvas, [trackBallController, retinaController], { preventDefault: true, requsetPointerLock: true });
+            let camMatJSBuffer = new Float32Array(40);
+            const factor1 = 0.4;
+            const factor2 = factor1 * Math.SQRT2;
             let run = () => {
-                controller.update();
+                ctrlreg.update();
                 trackBallController.object.getAffineMat4().writeBuffer(camMatJSBuffer);
+                let t = ctrlreg.states.updateCount * 0.1;
+                new tesserxel.math.Obj4(new tesserxel.math.Vec4(Math.sin(t * factor1), Math.cos(t * factor2), Math.sin(t * factor2), Math.cos(t * factor2)).mulfs(5), new tesserxel.math.Bivec(t, 0, 0, 0, 0, 1.414 * t).exp()).getAffineMat4().writeBuffer(camMatJSBuffer, 20);
                 gpu.device.queue.writeBuffer(camMat, 0, camMatJSBuffer);
                 renderer.render(() => {
                     renderer.beginTetras(pipeline);
@@ -650,10 +929,10 @@ var examples;
         }
         `;
         async load(code, fnDE) {
-            let gpu = await tesserxel.getGPU();
+            let gpu = await tesserxel.renderer.createGPU();
             let canvas = document.getElementById("gpu-canvas");
             let context = gpu.getContext(canvas);
-            let renderer = await new tesserxel.renderer.TetraRenderer().init(gpu, context, {
+            let renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, {
                 enableFloat16Blend: false,
                 sliceGroupSize: 8
             });
@@ -665,7 +944,7 @@ var examples;
             this.camController = camController;
             let retinaController = new tesserxel.controller.RetinaController(renderer);
             this.retinaController = retinaController;
-            let controller = new tesserxel.controller.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
+            let ctrlreg = new tesserxel.controller.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
             let matModelViewJSBuffer = new Float32Array(20);
             let pipeline = await renderer.createRaytracingPipeline({
                 code: this.headercode.replace(/\{replace\}/g, code),
@@ -677,9 +956,9 @@ var examples;
                 let de = fnDE(camController.object.position);
                 camController.keyMoveSpeed = de * 0.001;
                 let config = renderer.getSliceConfig();
-                config.sectionEyeOffset = de * 0.1;
+                config.sectionEyeOffset = de * 0.2;
                 retinaController.setSlice(config);
-                controller.update();
+                ctrlreg.update();
                 camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
                 gpu.device.queue.writeBuffer(camBuffer, 0, matModelViewJSBuffer);
                 renderer.render(() => {
@@ -700,7 +979,6 @@ var examples;
         }
         run;
     }
-    examples.MandelApp = MandelApp;
     let mandelbulb_hopf;
     (function (mandelbulb_hopf) {
         async function load() {
@@ -721,7 +999,6 @@ var examples;
                 z = zr*vec4<f32>(st*cos(phi1), st*sin(phi1), ct*cos(phi2), ct*sin(phi2));
                 z += pos;
             `, (pos) => {
-                const DISTANCE = 3.0;
                 const MAXMANDELBROTDIST = 1.5;
                 const MANDELBROTSTEPS = 32;
                 const Power = 10;
@@ -813,6 +1090,7 @@ var examples;
     let julia_quaternion;
     (function (julia_quaternion) {
         async function load() {
+            let _Q = new tesserxel.math.Quaternion();
             let app = await new MandelApp().load(`
                 dr =  pow(r, Power - 1.0)*Power*dr;
                 let q = z / r;
@@ -836,7 +1114,7 @@ var examples;
                     }
                     // convert to hopf coordinates
                     let q = z.divf(r);
-                    z = tesserxel.math._Q.copy(q).log().mulfs(Power).expcpy(tesserxel.math._Q).xyzw();
+                    z.copy(_Q.expset(_Q.copy(q).log().mulfs(Power)));
                     dr = Math.pow(r, Power - 1.0) * Power * dr;
                     // scale and rotate the point
                     let zr = Math.pow(r, Power);
@@ -1001,10 +1279,10 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
 }
         `;
         async load(code) {
-            let gpu = await tesserxel.getGPU();
+            let gpu = await tesserxel.renderer.createGPU();
             let canvas = document.getElementById("gpu-canvas");
             let context = gpu.getContext(canvas);
-            let renderer = await new tesserxel.renderer.TetraRenderer().init(gpu, context, {
+            let renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, {
                 enableFloat16Blend: false,
                 sliceGroupSize: 8
             });
@@ -1016,7 +1294,7 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
             this.camController = camController;
             let retinaController = new tesserxel.controller.RetinaController(renderer);
             this.retinaController = retinaController;
-            let controller = new tesserxel.controller.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
+            let ctrlreg = new tesserxel.controller.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
             let matModelViewJSBuffer = new Float32Array(20);
             let pipeline = await renderer.createRaytracingPipeline({
                 code: this.headercode.replace(/\{replace\}/g, code),
@@ -1025,7 +1303,7 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
             });
             let bindgroups = [renderer.createBindGroup(pipeline, 1, [camBuffer])];
             this.run = () => {
-                controller.update();
+                ctrlreg.update();
                 camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
                 gpu.device.queue.writeBuffer(camBuffer, 0, matModelViewJSBuffer);
                 renderer.render(() => {
@@ -1046,7 +1324,6 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
         }
         run;
     }
-    examples.MengerApp = MengerApp;
     let menger_sponge1;
     (function (menger_sponge1) {
         async function load() {
@@ -1372,10 +1649,10 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
 //         }
 //         `;
 //         export async function load() {
-//             let gpu = await tesserxel.getGPU();
+//             let gpu = await tesserxel.renderer.createGPU();
 //             let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
 //             let context = gpu.getContext(canvas);
-//             let renderer = await new tesserxel.renderer.TetraRenderer().init(gpu, context, {
+//             let renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, {
 //                 enableFloat16Blend: false,
 //                 sliceGroupSize: 8
 //             });
@@ -1395,7 +1672,7 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
 //                 fragmentEntryPoint: "mainFragment"
 //             });
 //             let bindgroups = [renderer.createBindGroup(pipeline, 1, [camBuffer])];
-//             let cube = tesserxel.mesh.tetra.tesseract;
+//             let cube = tesserxel.mesh.tetra.tesseract();
 //             let tetraPipeline = await renderer.createTetraSlicePipeline({
 //                 vertex: {
 //                     code: vertCode,
@@ -1502,10 +1779,10 @@ var examples;
         vertBindGroup;
         camBuffer;
         async init(fragmentShaderCode, mesh) {
-            this.gpu = await tesserxel.getGPU();
+            this.gpu = await tesserxel.renderer.createGPU();
             this.canvas = document.getElementById("gpu-canvas");
             this.context = this.gpu.getContext(this.canvas);
-            this.renderer = await new tesserxel.renderer.TetraRenderer().init(this.gpu, this.context, {
+            this.renderer = await new tesserxel.renderer.SliceRenderer().init(this.gpu, this.context, {
                 // if this is set true, alpha blending will be more accurate but costy
                 enableFloat16Blend: false,
                 // how many slices are drawn together, this value must be 2^n and it can't be to big for resource limitation
@@ -1584,8 +1861,8 @@ var examples;
                 );
                 return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
             }`;
-            let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.tiger(0.5 + Math.random() * 0.1, 32, 0.5, 32, 0.2 + Math.random() * 0.05, 16));
-            app.retinaController.toggleSectionConfig(1);
+            let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.tiger(0.3 + Math.random() * 0.05, 32, 0.5, 32, 0.14 + Math.random() * 0.03, 16));
+            app.retinaController.toggleSectionConfig("retina+zslices");
             app.run();
         }
         tiger.load = load;
@@ -1649,7 +1926,7 @@ var examples;
                 );
                 return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 0.2 + f32(count>=2.0));
             }`;
-            let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.tesseract);
+            let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.tesseract());
             let config = app.renderer.getSliceConfig();
             config.opacity = 10.0;
             // retina controller will own the slice config, so we should not call renderer.setSlice() directly

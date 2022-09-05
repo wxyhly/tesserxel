@@ -15,7 +15,7 @@ struct AffineMat{
     matrix: mat4x4<f32>,
     vector: vec4<f32>,
 }
-@group(1) @binding(3) var<uniform> camMat: AffineMat;
+@group(1) @binding(3) var<uniform> camMat: array<AffineMat,2>;
 @group(1) @binding(4) var<storage> modelMats: array<AffineMat>;
 fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
     let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
@@ -23,7 +23,7 @@ fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
 }
 @tetra fn main(input : InputType, @builtin(instance_index) index: u32) -> OutputType{
     let modelMat = modelMats[index];
-    return OutputType(apply(camMat,apply(modelMat, input.pos)), modelMat.matrix * input.normal, input.uvw);
+    return OutputType(apply(camMat[0],apply(modelMat, apply(camMat[1],input.pos))), modelMat.matrix * camMat[1].matrix * input.normal, input.uvw);
 }
 `;
         let fragCode = `
@@ -61,10 +61,10 @@ struct fInputType{
     return vec4<f32>(pow(color,vec3<f32>(0.6)), 0.5 + f32(count>=2.0));
 }`;
         export async function load() {
-            let gpu = await tesserxel.getGPU();
+            let gpu = await tesserxel.renderer.createGPU();
             let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             let context = gpu.getContext(canvas);
-            let renderer = await new tesserxel.renderer.TetraRenderer().init(gpu, context, {
+            let renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, {
                 enableFloat16Blend: false,
                 sliceGroupSize: 8
             });
@@ -73,11 +73,11 @@ struct fInputType{
                 fragment: { code: fragCode, entryPoint: "main" },
                 cullMode: "front"
             });
-            let mesh = tesserxel.mesh.tetra.tesseract;
+            let mesh = tesserxel.mesh.tetra.tesseract();
             let positionBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.position);
             let normalBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.normal);
             let uvwBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.uvw);
-            let camMat = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
+            let camMat = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5 * 2);
             let cubeCount = 4096;
             let jsbuffer = new Float32Array(20 * cubeCount);
             let math = tesserxel.math;
@@ -89,21 +89,29 @@ struct fInputType{
             let modelBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, jsbuffer);
             let vertBindGroup = renderer.createBindGroup(pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, camMat, modelBuffer]);
             let sliceConfig = renderer.getSliceConfig();
-            sliceConfig.opacity = 20.0;
+            sliceConfig.opacity = 30.0;
             renderer.setSlice(sliceConfig);
             renderer.set4DCameraProjectMatrix({
                 fov: 100, near: 0.02, far: 50
             });
 
             let retinaController = new tesserxel.controller.RetinaController(renderer);
+            retinaController.toggleSectionConfig("retina");
             retinaController.mouseButton = null;
             let trackBallController = new tesserxel.controller.TrackBallController();
             trackBallController.object.position.set(0, 0, 0, -3);
-            let controller = new tesserxel.controller.ControllerRegistry(canvas, [trackBallController, retinaController], { preventDefault: true, requsetPointerLock: true });
-            let camMatJSBuffer = new Float32Array(20);
+            let ctrlreg = new tesserxel.controller.ControllerRegistry(canvas, [trackBallController, retinaController], { preventDefault: true, requsetPointerLock: true });
+            let camMatJSBuffer = new Float32Array(40);
+            const factor1 = 0.4;
+            const factor2 = factor1 * Math.SQRT2;
             let run = () => {
-                controller.update();
+                ctrlreg.update();
                 trackBallController.object.getAffineMat4().writeBuffer(camMatJSBuffer);
+                let t = ctrlreg.states.updateCount * 0.1;
+                new tesserxel.math.Obj4(
+                    new tesserxel.math.Vec4(Math.sin(t * factor1), Math.cos(t * factor2), Math.sin(t * factor2), Math.cos(t * factor2)).mulfs(5),
+                    new tesserxel.math.Bivec(t, 0, 0, 0, 0, 1.414 * t).exp()
+                ).getAffineMat4().writeBuffer(camMatJSBuffer, 20);
                 gpu.device.queue.writeBuffer(camMat, 0, camMatJSBuffer);
 
                 renderer.render(() => {

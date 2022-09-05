@@ -1,8 +1,8 @@
 namespace tesserxel {
-    export async function getGPU() {
-        return await new renderer.GPU().init();
-    }
     export namespace renderer {
+        export async function createGPU() {
+            return await new renderer.GPU().init();
+        }
         export class GPU {
             adapter: GPUAdapter; 
             device: GPUDevice; 

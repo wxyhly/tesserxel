@@ -1,7 +1,7 @@
 namespace examples {
-    export class MengerApp {
+    class MengerApp {
 
-        renderer: tesserxel.renderer.TetraRenderer;
+        renderer: tesserxel.renderer.SliceRenderer;
         camController: tesserxel.controller.FreeFlyController;
         retinaController: tesserxel.controller.RetinaController;
         headercode = `
@@ -150,10 +150,10 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
 }
         `
         async load(code: string) {
-            let gpu = await tesserxel.getGPU();
+            let gpu = await tesserxel.renderer.createGPU();
             let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             let context = gpu.getContext(canvas);
-            let renderer = await new tesserxel.renderer.TetraRenderer().init(gpu, context, {
+            let renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, {
                 enableFloat16Blend: false,
                 sliceGroupSize: 8
             });
@@ -165,7 +165,7 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
             this.camController = camController;
             let retinaController = new tesserxel.controller.RetinaController(renderer);
             this.retinaController = retinaController;
-            let controller = new tesserxel.controller.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
+            let ctrlreg = new tesserxel.controller.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
             let matModelViewJSBuffer = new Float32Array(20);
             let pipeline = await renderer.createRaytracingPipeline({
                 code: this.headercode.replace(/\{replace\}/g,code),
@@ -174,7 +174,7 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
             });
             let bindgroups = [renderer.createBindGroup(pipeline, 1, [camBuffer])];
             this.run = () => {
-                controller.update();
+                ctrlreg.update();
                 camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
                 gpu.device.queue.writeBuffer(camBuffer, 0, matModelViewJSBuffer);
 

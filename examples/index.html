@@ -25,7 +25,7 @@
         .menu {
             height: 70%;
             overflow-y: scroll;
-            padding: 0 10px;
+            padding: 0px 10px;
             max-width: 200px;
         }
 
@@ -33,10 +33,12 @@
             height: 30%;
             border-top: 1px solid #888;
             overflow-y: scroll;
-            padding: 10px 10px;
+            padding: 0px 10px;
             max-width: 200px;
         }
-
+        .info-content{
+            padding: 20px 0px;
+        }
         .menu a {
             margin: 5px 0;
             color: #3789bf;
@@ -94,7 +96,9 @@
             <div class="examples"></div>
             <div></div>
         </div>
-        <div class="info"></div>
+        <div class="info">
+            <div class="info-content"></div>
+        </div>
     </div>
     <iframe src="iframe.html"></iframe>
 </body>
@@ -112,7 +116,7 @@
     if (window.location.search.length > 1) lang = window.location.search.slice(1);
     if (window.location.hash.length > 1) target = window.location.hash.slice(1);
     document.querySelector(`[target=${lang}`).classList.add('active');
-    const infodiv = document.querySelector('.info');
+    const infodiv = document.querySelector('.info-content');
     infodiv.innerHTML = info.default[lang];
     for (let example of examples) {
         let link = document.createElement("a");

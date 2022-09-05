@@ -8,7 +8,8 @@ let examples = [
     { target: "mandelbulb_spherical", zh: "Mandelbulb 球坐标", en: "Mandelbulb Spherical Coord" },
     { target: "julia_quaternion", zh: "四元数Julia集", en: "Quaternion Julia Set" },
     { target: "instanced_cubes", zh: "实例化多方块", en: "Instanced Hypercubes" },
-    // { target: "city", zh: "城市", en: "City" },
+    { target: "city_highway", zh: "城市高速", en: "City Highway" },
+    { target: "pendulum", zh: "摆", en: "Pendulum" },
     // { target: "convexhull", zh: "凸包算法", en: "Convex Hull" },
 ];
 let info = {

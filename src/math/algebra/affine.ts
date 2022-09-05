@@ -28,9 +28,16 @@ namespace tesserxel {
             mul(m: AffineMat4): AffineMat4 {
                 return new AffineMat4(this.mat.mul(m.mat), this.mat.mulv(m.vec).adds(this.vec));
             }
-            muls(m: AffineMat4): AffineMat4 {
+            /** this = this * m */
+            mulsr(m: AffineMat4): AffineMat4 {
                 this.vec.adds(this.mat.mulv(m.vec));
-                this.mat.muls(m.mat);
+                this.mat.mulsr(m.mat);
+                return this;
+            }
+            /** this = m * this */
+            mulsl(m: AffineMat4): AffineMat4 {
+                this.vec.mulmatls(m.mat).adds(m.vec);
+                this.mat.mulsl(m.mat);
                 return this;
             }
         }
@@ -80,7 +87,7 @@ namespace tesserxel {
             }
             getAffineMat4(): AffineMat4 {
                 if(this.scale)
-                return new AffineMat4(this.rotation.toMat4().muls(
+                return new AffineMat4(this.rotation.toMat4().mulsr(
                     Mat4.diag(this.scale.x, this.scale.y, this.scale.z, this.scale.w)
                 ), this.position.clone());
                 return new AffineMat4(this.rotation.toMat4(), this.position.clone());
@@ -94,7 +101,7 @@ namespace tesserxel {
                 let y = 1 / this.scale.y;
                 let z = 1 / this.scale.z;
                 let w = 1 / this.scale.w;
-                return new AffineMat4(Mat4.diag(x, y, z, w).muls(
+                return new AffineMat4(Mat4.diag(x, y, z, w).mulsr(
                     this.rotation.conj().toMat4()
                 ), new Vec4(b.x * x, b.y * y, b.z * z, b.w * w));
             }
