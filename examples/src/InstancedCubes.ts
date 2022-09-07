@@ -87,7 +87,7 @@ struct fInputType{
                 ).getAffineMat4().writeBuffer(jsbuffer, i * 20);
             }
             let modelBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, jsbuffer);
-            let vertBindGroup = renderer.createBindGroup(pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, camMat, modelBuffer]);
+            let vertBindGroup = renderer.createVertexShaderBindGroup(pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, camMat, modelBuffer]);
             let sliceConfig = renderer.getSliceConfig();
             sliceConfig.opacity = 30.0;
             renderer.setSlice(sliceConfig);

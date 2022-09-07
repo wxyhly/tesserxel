@@ -512,6 +512,9 @@ namespace tesserxel {
                 this.r.norms();
                 return this;
             }
+            /** Apply this to R: this * R;
+             * 
+             * [this.l * R.l, R.r * this.r]; */
             mul(R: Rotor): Rotor {
                 return new Rotor(this.l.mul(R.l), R.r.mul(this.r));
             }
@@ -602,21 +605,43 @@ namespace tesserxel {
             }
             /** "from" and "to" must be normalized vectors*/
             static lookAt(from: Vec4, to: Vec4): Rotor {
-                let right = from.wedge(to);
+
+                let right = _biv.wedgevvset(from, to);
                 let s = right.norm();
                 let c = from.dot(to);
                 if (s > 0.000001) { // not aligned
                     right.mulfs(Math.atan2(s, c) / s);
                 } else if (c < 0) { // almost n reversely aligned
-                    let v = from.wedge(Vec4.x);
+                    let v = _biv.wedgevvset(from,Vec4.x);
                     if (v.norm1() < 0.01) {
-                        v = from.wedge(Vec4.y);
+                        v = _biv.wedgevvset(from,Vec4.y);
                     }
                     return v.norms().mulfs(_180).exp();
                 }
                 return right.exp();
             }
-            // todo: lookAtb(from: Bivec, to: Bivec): Rotor
+            /** "from" and "to" must be normalized vectors*/
+            setFromLookAt(from: Vec4, to: Vec4): Rotor {
+                let right = _biv.wedgevvset(from, to);
+                let s = right.norm();
+                let c = from.dot(to);
+                if (s > 0.000001) { // not aligned
+                    right.mulfs(Math.atan2(s, c) / s);
+                } else if (c < 0) { // almost n reversely aligned
+                    let v = _biv.wedgevvset(from,Vec4.x);
+                    if (v.norm1() < 0.01) {
+                        v = _biv.wedgevvset(from,Vec4.y);
+                    }
+                    return this.expset(v.norms().mulfs(_180));
+                }
+                return this.expset(right);
+            }
+            // todo: lookAtbb(from: Bivec, to: Bivec): Rotor plane to plane
+            // todo: lookAtvb(from: Vec4, to: Bivec): Rotor dir to plane or reverse
+            static lookAtvb(from: Vec4, to: Bivec): Rotor {
+                let toVect = _vec4.copy(from).projbs(to).norms();
+                return Rotor.lookAt(from, toVect);
+            }
             static rand(): Rotor {
                 return new Rotor(Quaternion.rand(), Quaternion.rand());
             }
@@ -634,5 +659,8 @@ namespace tesserxel {
                 return this;
             }
         }
+
+        export let _biv = new Bivec();
+        export let _r = new Rotor();
     }
 }

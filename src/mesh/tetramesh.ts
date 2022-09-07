@@ -135,7 +135,7 @@ namespace tesserxel {
                                 mesh.normal[i + 1] * scaleinv.y,
                                 mesh.normal[i + 2] * scaleinv.z,
                                 mesh.normal[i + 3] * scaleinv.w,
-                            ).rotates(obj.rotation).writeBuffer(mesh.position, i);
+                            ).rotates(obj.rotation).writeBuffer(mesh.normal, i);
                         }
                     } else {
                         vp.set(
@@ -218,15 +218,17 @@ namespace tesserxel {
                 return ret;
             }
             export function tesseract(): TetraMesh {
-                let yface = applyObj4(clone(cube), new math.Obj4(math.Vec4.y));
+                let rotor = new math.Rotor();
+                let biv = new math.Bivec();
+                let yface = applyObj4(clone(cube), new math.Obj4(math.Vec4.y, rotor.expset(biv.set(0,math._90))));
                 let meshes = [
-                    new math.Bivec(math._90).exp(),
-                    new math.Bivec(-math._90).exp(),
-                    new math.Bivec(0, 0, 0, math._90).exp(),
-                    new math.Bivec(0, 0, 0, -math._90).exp(),
-                    new math.Bivec(0, 0, 0, 0, math._90).exp(),
-                    new math.Bivec(0, 0, 0, 0, -math._90).exp(),
-                    new math.Bivec(math._180).exp(),
+                    biv.set(math._90).exp(),
+                    biv.set(-math._90).exp().mulsl(rotor.expset(biv.set(0,0,0,0,math._180))),
+                    biv.set(0, 0, 0, math._90).exp().mulsl(rotor.expset(biv.set(math._90,0,0,0,0))),
+                    biv.set(0, 0, 0, -math._90).exp().mulsl(rotor.expset(biv.set(math._90,0,0,0,0))),
+                    biv.set(0, 0, 0, 0, math._90).exp().mulsl(rotor.expset(biv.set(math._90,0,0,0,0))),
+                    biv.set(0, 0, 0, 0, -math._90).exp().mulsl(rotor.expset(biv.set(math._90,0,0,0,0))),
+                    biv.set(math._180).exp(),
                 ].map(r => applyObj4(clone(yface), new math.Obj4(new math.Vec4(), r)));
                 meshes.push(yface);
                 let m = concatarr(meshes);

@@ -122,7 +122,7 @@ namespace examples {
                 rayEntryPoint: "mainRay",
                 fragmentEntryPoint: "mainFragment"
             });
-            let bindgroups = [renderer.createBindGroup(pipeline, 1, [camBuffer])];
+            let bindgroups = [renderer.createVertexShaderBindGroup(pipeline, 1, [camBuffer])];
             this.run = () => {
                 let de = fnDE(
                     camController.object.position

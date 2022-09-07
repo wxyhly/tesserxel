@@ -134,8 +134,8 @@ var examples;
             }
             struct OutputType{
                 @builtin(position) pos: mat4x4<f32>,
-                @location(0) uvw: mat4x4<f32>,
-                @location(1) normal: mat4x4<f32>,
+                @location(0) normal_uvw: array<mat4x4<f32>,2>,
+                @location(1) camRay: mat4x4<f32>,
             }
             struct AffineMat{
                 matrix: mat4x4<f32>,
@@ -147,13 +147,18 @@ var examples;
                 return afmat.matrix* points + biais;
             }
             @tetra fn main(input : InputType, @builtin(instance_index) index: u32) -> OutputType{
-                return OutputType(apply(camMat,input.pos), input.uvw, input.normal);
+                let camInvVec = transpose(camMat.matrix) * camMat.vector;
+                return OutputType(apply(camMat,input.pos),
+                    array<mat4x4<f32>,2>(input.uvw, input.normal),
+                    input.pos + mat4x4<f32>(camInvVec,camInvVec,camInvVec,camInvVec)
+                );
             }
             `;
             let roadfragCode = `
             struct fInputType{
                 @location(0) uvw : vec4<f32>,
-                @location(1) normal : vec4<f32>
+                @location(1) normal : vec4<f32>,
+                @location(2) camRay : vec4<f32>
             };
             const xLanes = ${xLanes};
             const yLanes = ${yLanes};
@@ -166,7 +171,7 @@ var examples;
             fn maxComp(p: vec2<f32>)->f32{
                 return max(p.x,p.y);
             }
-            fn roadTexture(uvw:vec3<f32>)->vec4<f32>{
+            fn roadTexture(uvw:vec3<f32>, phong: f32)->vec4<f32>{
                 let uv = vec3<f32>((abs(uvw.x) - 0.5)*2.0, uvw.yz);
                 // outter lines
                 var online = step(0.0,maxComp(abs(uv.xy) - outterLine1));
@@ -182,22 +187,26 @@ var examples;
                 }
                 online += separatorx * dashx + separatory * dashy;
                 online *= step(maxComp(abs(uv.xy) - outterLine2),0.0);
-                return mix(roadBaseColor,roadLineColor,online);
+                return mix(roadBaseColor * (0.3 + 1.0*pow(phong,2.0)),roadLineColor,online);
             }
             const directionalLight_dir = vec4<f32>(${directionalLight_dir});
-            fn roadSeparatorTexture(normal:vec4<f32>,uvw_w:f32)->vec4<f32>{
+            fn roadSeparatorTexture(normal:vec4<f32>,uvw_w:f32, phong: f32)->vec4<f32>{
                 const color = vec3<f32>(0.1,0.9,0.3);
-                if(fract(uvw_w * 3.5) > 0.3){ discard; };
-                return vec4<f32>((abs(dot(normal, directionalLight_dir))*0.2 + 0.5)*color,1.0);
+                if(fract(uvw_w * 3.5) > 0.3){ discard; }
+                let blinnphong = pow(phong,2.0);
+                return vec4<f32>(((dot(normal, directionalLight_dir))*0.2 + 0.5)*color*(0.5+0.9*blinnphong),1.0);
             }
             @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
                 let color = vec3<f32>(1.0,1.0,1.0);
                 if(vary.uvw.x > 1.1){
-                    return roadSeparatorTexture(vary.normal,vary.uvw.w);
+                    let normal = vary.normal * (step(dot(vary.normal,vary.camRay),0.0)*2.0 - 1.0);
+                    let phong = max(0.0,dot(normal,normalize(directionalLight_dir - normalize(vary.camRay))));
+                    return roadSeparatorTexture(normal,vary.uvw.w, phong);
                 }else if(vary.uvw.x > 0.1){
                     return vec4<f32>(max(0.0,dot(vary.normal, directionalLight_dir)*0.2+0.5)*color,1.0);
                 }else{
-                    return roadTexture(vary.uvw.yzw);
+                    let phong = max(0.0,dot(vary.normal,normalize(directionalLight_dir - normalize(vary.camRay))));
+                    return roadTexture(vary.uvw.yzw, phong);
                 }
             }`;
             return { path, roadmesh, roadfragCode, roadvertCode };
@@ -263,7 +272,7 @@ var examples;
                     vec3<f32>(0.9,0.8,0.7),
                 );
                 let XZ = step(vec2<f32>(0.3,0.2), fract(uvw.xz * 4.0));
-                let Y =  step(0.2+f32(floorId)*0.1, fract(uvw.y * 30.0 - f32(floorId)));
+                let Y =  step(0.2+f32(floorId)*0.1, fract(uvw.y * 8.0 - f32(floorId)));
                 return vec4<f32>(
                     mix(
                         mix(colorWallTable[colorId],vec3<f32>(0.5,0.8,0.9),XZ.x+XZ.y),
@@ -441,7 +450,7 @@ var examples;
                 cullMode: "front"
             });
             let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
-            let roadmeshBindGroup = renderer.createBindGroup(roadpipeline, 1, [
+            let roadmeshBindGroup = renderer.createVertexShaderBindGroup(roadpipeline, 1, [
                 gpu.createBuffer(GPUBufferUsage.STORAGE, roadmesh.position),
                 gpu.createBuffer(GPUBufferUsage.STORAGE, roadmesh.uvw),
                 gpu.createBuffer(GPUBufferUsage.STORAGE, roadmesh.normal),
@@ -455,14 +464,14 @@ var examples;
             for (let i = 0; i < terrainMesh.uvw.length; i += 4) {
                 terrainMesh.uvw[i + 3] = 0;
             }
-            let buildingBindGroup = renderer.createBindGroup(buildingPipeline, 1, [
+            let buildingBindGroup = renderer.createVertexShaderBindGroup(buildingPipeline, 1, [
                 gpu.createBuffer(GPUBufferUsage.STORAGE, buildingMesh.position),
                 gpu.createBuffer(GPUBufferUsage.STORAGE, buildingMesh.uvw),
                 gpu.createBuffer(GPUBufferUsage.STORAGE, buildingMesh.normal),
                 camBuffer,
                 gpu.createBuffer(GPUBufferUsage.STORAGE, buildingTransformBuffer)
             ]);
-            let terrainBindGroup = renderer.createBindGroup(buildingPipeline, 1, [
+            let terrainBindGroup = renderer.createVertexShaderBindGroup(buildingPipeline, 1, [
                 gpu.createBuffer(GPUBufferUsage.STORAGE, terrainMesh.position),
                 gpu.createBuffer(GPUBufferUsage.STORAGE, terrainMesh.uvw),
                 gpu.createBuffer(GPUBufferUsage.STORAGE, terrainMesh.normal),
@@ -474,7 +483,7 @@ var examples;
                 rayEntryPoint: "mainRay",
                 fragmentEntryPoint: "mainFragment"
             });
-            let rtBindGroup = [renderer.createBindGroup(rtPipeline, 1, [camBuffer])];
+            let rtBindGroup = [renderer.createVertexShaderBindGroup(rtPipeline, 1, [camBuffer])];
             let camController = new tesserxel.controller.KeepUpController();
             camController.object.position.set(0.5, 0.5, 0.5, 3);
             camController.keyMoveSpeed *= 5;
@@ -617,7 +626,7 @@ var examples;
                 fragmentEntryPoint: "mainFragment"
             });
             let buffers = genBuffersToBind(gpu);
-            let bindgroups = [renderer.createBindGroup(pipeline, 1, [camBuffer, ...buffers])];
+            let bindgroups = [renderer.createVertexShaderBindGroup(pipeline, 1, [camBuffer, ...buffers])];
             this.ctrlreg = ctrlreg;
             this.run = () => {
                 runWorld(gpu);
@@ -694,6 +703,141 @@ var examples;
         }
         pendulum.load = load;
     })(pendulum = examples.pendulum || (examples.pendulum = {}));
+})(examples || (examples = {}));
+var examples;
+(function (examples) {
+    /** Double rotation of a tesseract */
+    let four_basic_scene;
+    (function (four_basic_scene) {
+        async function load() {
+            const FOUR = tesserxel.four;
+            const canvas = document.getElementById("gpu-canvas");
+            let renderer = await new FOUR.Renderer(canvas).init();
+            let scene = new FOUR.Scene();
+            // by default the backgroud is black (0.0, 0.0, 0.0) here we change it to white
+            // alpha value is used for voxel opacity in retina
+            // this value doesn't affect section views
+            scene.setBackgroudColor({ r: 1.0, g: 1.0, b: 1.0, a: 1.0 });
+            let camera = new FOUR.Camera();
+            let cubeGeometry = new FOUR.TesseractGeometry();
+            let material = new FOUR.BasicMaterial({ r: 1.0, g: 0.0, b: 0.0, a: 1.0 });
+            let mesh = new FOUR.Mesh(cubeGeometry, material);
+            scene.add(mesh);
+            scene.add(camera);
+            // move camera a little back to see hypercube at origin
+            // note: w axis is pointed to back direction (like z axis in 3D)
+            camera.position.w = 3.0;
+            let retinaController = new tesserxel.controller.RetinaController(renderer.core);
+            // by default retina operations must be enabled by pressing AltLeft key
+            // we cancel it manually, so we can directly drag the cubic retina
+            retinaController.keyConfig.enable = "";
+            // Create a controllerRegistry binding on the canvas, then add our controller
+            let controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [retinaController]);
+            function setSize() {
+                let width = window.innerWidth * window.devicePixelRatio;
+                let height = window.innerHeight * window.devicePixelRatio;
+                renderer.setSize({ width, height });
+            }
+            setSize();
+            window.addEventListener("resize", setSize);
+            function run() {
+                controllerRegistry.update();
+                camera.needsUpdateCoord = true; // to tell renderer to update camera's orientation
+                // For every frame, we rotate the mesh by angle of 0.01 radius degree in both xw and yz direction
+                // We got a double clifford rotation here
+                mesh.rotates(tesserxel.math.Bivec.xw.mulf(0.01).exp());
+                mesh.rotates(tesserxel.math.Bivec.yz.mulf(0.01).exp());
+                mesh.needsUpdateCoord = true; // to tell renderer to update mesh's orientation
+                renderer.render(scene, camera);
+                window.requestAnimationFrame(run);
+            }
+            run();
+        }
+        four_basic_scene.load = load;
+    })(four_basic_scene = examples.four_basic_scene || (examples.four_basic_scene = {}));
+})(examples || (examples = {}));
+var examples;
+(function (examples) {
+    let four_materials;
+    (function (four_materials) {
+        async function load() {
+            const FOUR = tesserxel.four;
+            const canvas = document.getElementById("gpu-canvas");
+            let renderer = await new FOUR.Renderer(canvas).init();
+            let scene = new FOUR.Scene();
+            let cubeGeometry = new FOUR.TesseractGeometry();
+            let glomeGeometry = new FOUR.GlomeGeometry();
+            let floorGeometry = new FOUR.CubeGeometry(10.0);
+            let uniformColor = new FOUR.ColorUniformValue();
+            let material1 = new FOUR.PhongMaterial([1.0, 1.0, 1.0]);
+            let material2 = new FOUR.PhongMaterial(uniformColor);
+            let cubeMesh1 = new FOUR.Mesh(cubeGeometry, material1);
+            cubeMesh1.position.x = -2;
+            cubeMesh1.position.y = 2;
+            let cubeMesh2 = new FOUR.Mesh(cubeGeometry, material2);
+            cubeMesh2.position.x = 2;
+            cubeMesh2.position.y = 2;
+            let floorMaterial = new FOUR.PhongMaterial(new FOUR.CheckerTexture([0, 0, 0, 0.2], [1, 1, 1, 1.0], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input, new tesserxel.math.Obj4(null, null, new tesserxel.math.Vec4(10, 10, 10, 10)))));
+            let floorMesh = new FOUR.Mesh(floorGeometry, floorMaterial);
+            let glomeMesh = new FOUR.Mesh(glomeGeometry, new FOUR.PhongMaterial([0.2, 0.2, 1], 50));
+            glomeMesh.position.y = 1.0;
+            glomeMesh.position.z = 1.0;
+            glomeMesh.position.w = 1.0;
+            scene.add(glomeMesh);
+            scene.add(cubeMesh1);
+            scene.add(cubeMesh2);
+            scene.add(floorMesh);
+            scene.add(new FOUR.AmbientLight(0.1));
+            let dirLight = new FOUR.DirectionalLight([0.1, 0.0, 0.0]);
+            scene.add(dirLight);
+            let pointLight = new FOUR.PointLight([5.4, 2.5, 1.7]);
+            scene.add(pointLight);
+            let pointLight2 = new FOUR.PointLight([1.4, 12.5, 5.7]);
+            scene.add(pointLight2);
+            let pointLight3 = new FOUR.PointLight([1.4, 1.5, 15.7]);
+            scene.add(pointLight3);
+            let spotLight = new FOUR.SpotLight([800, 800, 800], 40, 0.2);
+            scene.add(spotLight);
+            spotLight.position.y = 10;
+            let camera = new FOUR.Camera();
+            camera.position.w = 5.0;
+            camera.position.y = 2.0;
+            camera.lookAt(tesserxel.math.Vec4.wNeg, new tesserxel.math.Vec4());
+            scene.add(camera);
+            let controller = new tesserxel.controller.ControllerRegistry(canvas, [
+                new tesserxel.controller.KeepUpController(camera),
+                new tesserxel.controller.RetinaController(renderer.core)
+            ], { requsetPointerLock: true });
+            function setSize() {
+                let width = window.innerWidth * window.devicePixelRatio;
+                let height = window.innerHeight * window.devicePixelRatio;
+                renderer.setSize({ width, height });
+            }
+            setSize();
+            window.addEventListener("resize", setSize);
+            let t = Math.random() * 12345678;
+            function run() {
+                spotLight.direction.copy(new tesserxel.math.Vec4(Math.sin(t * 3), Math.cos(t * 3), Math.sin(t * 1.732), Math.cos(t * 1.732)).adds(tesserxel.math.Vec4.y.mulf(6)).norms());
+                pointLight.position.set(Math.sin(t * 3), 0.5, Math.cos(t * 3), 0).mulfs(3);
+                pointLight2.position.set(0, 0.5, Math.sin(t * 3), Math.cos(t * 3)).mulfs(3);
+                pointLight3.position.set(Math.cos(t * 3), 0.5, 0, Math.sin(t * 3)).mulfs(3);
+                dirLight.direction.set(Math.sin(t * 20), 0.2, Math.cos(t * 20) * 0.2, Math.cos(t * 20)).norms();
+                dirLight.needsUpdateCoord = true;
+                pointLight.needsUpdateCoord = true;
+                pointLight2.needsUpdateCoord = true;
+                pointLight3.needsUpdateCoord = true;
+                spotLight.needsUpdateCoord = true;
+                uniformColor.write([Math.sin(t) * 0.3 + 0.7, Math.sin(t * 0.91) * 0.5 + 0.5, Math.sin(t * 1.414) * 0.5 + 0.5]);
+                t += 0.01;
+                controller.update();
+                camera.needsUpdateCoord = true;
+                renderer.render(scene, camera);
+                window.requestAnimationFrame(run);
+            }
+            run();
+        }
+        four_materials.load = load;
+    })(four_materials = examples.four_materials || (examples.four_materials = {}));
 })(examples || (examples = {}));
 var examples;
 (function (examples) {
@@ -784,7 +928,7 @@ struct fInputType{
                 new math.Obj4(math.Vec4.rand().mulfs(Math.cbrt(Math.random()) * 5.0), math.Rotor.rand(), new math.Vec4(0.1, 0.1, 0.1, 0.1).adds(math.Vec4.rand().mulfs(0.05))).getAffineMat4().writeBuffer(jsbuffer, i * 20);
             }
             let modelBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, jsbuffer);
-            let vertBindGroup = renderer.createBindGroup(pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, camMat, modelBuffer]);
+            let vertBindGroup = renderer.createVertexShaderBindGroup(pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, camMat, modelBuffer]);
             let sliceConfig = renderer.getSliceConfig();
             sliceConfig.opacity = 30.0;
             renderer.setSlice(sliceConfig);
@@ -951,7 +1095,7 @@ var examples;
                 rayEntryPoint: "mainRay",
                 fragmentEntryPoint: "mainFragment"
             });
-            let bindgroups = [renderer.createBindGroup(pipeline, 1, [camBuffer])];
+            let bindgroups = [renderer.createVertexShaderBindGroup(pipeline, 1, [camBuffer])];
             this.run = () => {
                 let de = fnDE(camController.object.position);
                 camController.keyMoveSpeed = de * 0.001;
@@ -1301,7 +1445,7 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
                 rayEntryPoint: "mainRay",
                 fragmentEntryPoint: "mainFragment"
             });
-            let bindgroups = [renderer.createBindGroup(pipeline, 1, [camBuffer])];
+            let bindgroups = [renderer.createVertexShaderBindGroup(pipeline, 1, [camBuffer])];
             this.run = () => {
                 ctrlreg.update();
                 camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
@@ -1371,349 +1515,6 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
         menger_sponge2.load = load;
     })(menger_sponge2 = examples.menger_sponge2 || (examples.menger_sponge2 = {}));
 })(examples || (examples = {}));
-// namespace examples {
-//     export namespace menger_sponge {
-//         let raytracingCode = `
-//         struct ray{
-//             o: vec4<f32>,
-//             d: vec4<f32>,
-//         }
-//         struct glome{
-//             p: vec4<f32>,
-//             r: f32,
-//             id: u32
-//         }
-//         fn intGlome(r:ray, g:glome)->f32 {
-//              let oc = r.o - g.p;
-//             let b = dot(oc, r.d);
-//             let c = dot(oc, oc) - g.r*g.r;
-//             var t = b*b - c;
-//             if(t > 0.0) {
-//                 t = -b - sqrt(t);
-//             }
-//             return t;
-//         }
-//         fn at(r:ray, t:f32)->vec4<f32>{
-//             return r.o + r.d * t;
-//         }
-//         struct fOutputs {
-//             @location(0) color: vec4<f32>,
-//             @builtin(frag_depth) depth: f32,
-//         }
-//         struct rayOut{
-//             @location(0) o: vec4<f32>,
-//             @location(1) d: vec4<f32>,
-//             @location(2) screen: vec3<f32>,
-//         }
-//         @group(1) @binding(0) var<uniform> camMat: AffineMat;
-//         @ray fn mainRay(
-//             @builtin(ray_direction) rd: vec4<f32>,
-//             @builtin(ray_origin) ro: vec4<f32>,
-//             @builtin(voxel_coord) coord: vec3<f32>,
-//             @builtin(screen_aspect) aspect: f32
-//         ) -> rayOut{
-//             return rayOut(camMat.matrix*ro+camMat.vector, camMat.matrix*rd, vec3<f32>(coord.x*aspect,coord.yz));
-//         }
-// fn maxcomp( p : vec4<f32>)->f32 { return max(p.x,max(p.y, max(p.w,p.z)));}
-// fn sdBox( p:vec4<f32>, b:vec4<f32> )->f32
-// {
-//     let di:vec4<f32> = abs(p) - b;
-//     let mc:f32 = maxcomp(di);
-//     return min(mc,length(max(di,vec4<f32>(0.0))));
-// }
-// fn iBox( ro:vec4<f32>, rd:vec4<f32>, rad:vec4<f32> )->vec2<f32> 
-// {
-//     let m:vec4<f32> = 1.0/rd;
-//     let n:vec4<f32> = m*ro;
-//     let k:vec4<f32> = abs(m)*rad;
-//     let t1:vec4<f32> = -n - k;
-//     let t2:vec4<f32> = -n + k;
-// 	return vec2<f32>( max( max( max( t1.x, t1.y ), t1.z ),t1.w),
-// 	            min( min( min( t2.x, t2.y ), t2.z ),t2.w) );
-// }
-// const ma = mat4x4<f32>( 0.60, 0.00,  0.80, 0.0,
-//                       0.00, 1.00,  0.00,  0.0,
-//                      -0.80, 0.00,  0.60,0.0,
-//                      0.0,0.0,0.0,1.0);
-// fn map(pos:vec4<f32> )->vec4<f32>
-// {
-//     var p = pos;
-//     var d:f32 = sdBox(p,vec4<f32>(1.0));
-//     var res = vec4<f32>( d, 1.0, 0.0, 0.0 );
-//     const iTime: f32 = 1.0;
-//     let ani:f32 = smoothstep( -0.2, 0.2, -cos(0.5*iTime) );
-// 	let off:f32 = 1.5*sin( 0.01*iTime );
-//     var s:f32 = 1.0;
-//     for(var m = 0; m<5; m = m + 1)
-//     {
-//         p = mix( p, ma*(p+vec4<f32>(off)), ani );
-//         let a:vec4<f32> = fract( p*s / 2.0 ) * 2.0-vec4<f32>(1.0);
-//         s *= 3.0;
-//         let r = abs(vec4<f32>(1.0) - 3.0*abs(a));
-//         let da = max(max(r.x,r.y),r.z);
-//         let db = max(max(r.x,r.y),r.w);
-//         let dc = max(max(r.x,r.w),r.z);
-//         let dd = max(max(r.w,r.y),r.z);
-//         let minc = min(da,min(db,min(dc,dd)));
-//         let c = (minc - 1.0)/s;
-//         if( c>d ){
-//             d = c;
-//             res = vec4<f32>( d, min(res.y, 0.2*da*db*dc*dd), (1.0+f32(m))/4.0, 0.0 );
-//         }
-//     }
-//     return res;
-// }
-// fn intersect( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
-// {
-//     let bb = iBox( ro, rd, vec4<f32>(1.05) );
-//     if( bb.y<bb.x ) {return vec4<f32>(-1.0);}
-//     let tmin = bb.x;
-//     let tmax = bb.y;
-//     var t = tmin;
-//     var res = vec4<f32>(-1.0);
-//     for( var i=0; i<64; i=i+1 )
-//     {
-//         let h = map(ro + rd*t);
-// 		if( h.x<0.002 || t>tmax ){ break;}
-//         res = vec4<f32>(t,h.yzw);
-//         t += h.x;
-//     }
-// 	if( t>tmax ) {res = vec4<f32>(-1.0);}
-//     return res;
-// }
-// fn softshadow( ro:vec4<f32>, rd:vec4<f32>, mint:f32, k:f32 )->f32
-// {
-//     let bb = iBox( ro, rd, vec4<f32>(1.05) );
-//     let tmax = bb.y;
-//     var res:f32 = 1.0;
-//     var t = mint;
-//     for( var i=0; i<64; i++ )
-//     {
-//         let h = map(ro + rd*t).x;
-//         res = min( res, k*h/t );
-//         if( res<0.001 ) {break;}
-// 		t += clamp( h, 0.005, 0.1 );
-//         if( t>tmax ) {break;}
-//     }
-//     return clamp(res,0.0,1.0);
-// }
-// fn calcNormal(pos:vec4<f32>)->vec4<f32>
-// {
-//     let eps = vec4<f32>(0.001,0.0,0.0,0.0);
-//     return normalize(vec4<f32>(
-//     map(pos+eps.xyyy).x - map(pos-eps.xyyy).x,
-//     map(pos+eps.yxyy).x - map(pos-eps.yxyy).x,
-//     map(pos+eps.yyxy).x - map(pos-eps.yyxy).x,
-//     map(pos+eps.yyyx).x - map(pos-eps.yyyx).x,
-//      ));
-// }
-// fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
-// {
-//     // background color
-//     var col = vec4<f32>(mix( vec3<f32>(0.3,0.2,0.1)*0.5, vec3<f32>(0.7, 0.9, 1.0), 0.5 + 0.5*rd.y ),0.2);
-//     let tmat = intersect(ro,rd);
-//     if( tmat.x>0.0 )
-//     {
-//         let pos:vec4<f32> = ro + tmat.x*rd;
-//         let nor:vec4<f32> = calcNormal(pos);
-//         let matcol:vec3<f32> = vec3<f32>(0.5) + 0.5*cos(vec3<f32>(0.0,1.0,2.0)+2.0*tmat.z);
-//         let occ = tmat.y;
-//         let light = normalize(vec4<f32>(1.0,0.9,0.3,0.6));
-//         var dif:f32 = dot(nor,light);
-//         var sha:f32 = 1.0;
-//         if( dif>0.0 ){ sha=softshadow( pos, light, 0.01, 64.0 );}
-//         dif = max(dif,0.0);
-//         let hal:vec4<f32> = normalize(light-rd);
-//         let spe:f32 = dif*sha*pow(clamp(dot(hal,nor),0.0,1.0),16.0)*(0.04+0.96*pow(clamp(1.0-dot(hal,light),0.0,1.0),5.0));
-// 		let sky:f32 = 0.5 + 0.5*nor.y;
-//         let bac:f32 = max(0.4 + 0.6*dot(nor,vec4<f32>(-light.x,light.y,-light.z,light.w)),0.0);
-//         var lin = vec3<f32>(0.0);
-//         lin += 1.00*dif*vec3<f32>(1.10,0.85,0.60)*sha;
-//         lin += 0.50*sky*vec3<f32>(0.10,0.20,0.40)*occ;
-//         lin += 0.10*bac*vec3<f32>(1.00,1.00,1.00)*(0.5+0.5*occ);
-//         lin += 0.25*occ*vec3<f32>(0.15,0.17,0.20);	 
-//         col = vec4<f32>(matcol*lin + spe*128.0, 1.0);
-//     }
-//     var gamma = 1.5*col.xyz/(vec3<f32>(1.0)+col.xyz);
-//     gamma = sqrt( gamma );
-//     return vec4<f32>(gamma, col.w);
-// }
-//         @fragment fn mainFragment(@location(0) rayOrigin: vec4<f32>, @location(1) rayDir: vec4<f32>, @location(2) screenPos: vec3<f32>)->fOutputs{
-//             var depth = 0.0;
-//             return fOutputs(
-//                 render(rayOrigin, rayDir),
-//                 depth
-//             );
-//             // let g1 = glome(vec4<f32>(0.0,0.0,0.0,0.0),1.0,0);
-//             // let a = abs(abs(screenPos) - vec3<f32>(1.0));
-//             // if(length(screenPos - vec3<f32>(-0.5,0.0,0.0)) < 0.2){
-//             //     return fOutputs(vec4<f32>(1.0,1.0,0.0,1.0),depth);
-//             // }
-//             // if(a.x <0.1 || a.y < 0.1 || a.z<0.1){
-//             //     return fOutputs(vec4<f32>(rayDir.xyz,0.0),depth);
-//             // }else{
-//             //     let r = ray(rayOrigin,normalize(rayDir));
-//             //     let d = intGlome(r, g1);
-//             //     if(d > 0){
-//             //         let p = normalize(at(r, d) - g1.p);
-//             //         return fOutputs(
-//             //             vec4<f32>(dot(p,vec4<f32>(1.0,2.0,3.0,2.0))*vec3<f32>(1.0,0.5,0.2),1.0),
-//             //             calDepth(d)
-//             //         );
-//             //     }
-//             //     let dir = normalize(rayDir).ywx;
-//             //     return fOutputs(
-//             //         vec4<f32>(sin(dir*10.0),0.3),
-//             //         depth
-//             //     );
-//             // }
-//         }
-//         `;
-//         let vertCode = `
-//         // vertex attributes, regard four vector4 for vertices of one tetrahedra as matrix4x4 
-//         struct InputType{
-//             @location(0) pos: mat4x4<f32>,
-//             @location(1) normal: mat4x4<f32>,
-//             @location(2) uvw: mat4x4<f32>,
-//         }
-//         // output position in camera space and data sent to fragment shader to be interpolated
-//         struct OutputType{
-//             @builtin(position) pos: mat4x4<f32>,
-//             @location(0) normal: mat4x4<f32>,
-//             @location(1) uvw: mat4x4<f32>,
-//         }
-//         // we define an affineMat to store rotation and transform since there's no mat5x5 in wgsl
-//         struct AffineMat{
-//             matrix: mat4x4<f32>,
-//             vector: vec4<f32>,
-//         }
-//         // remember that group(0) is occupied by internal usage and binding(0) to binding(2) are occupied by vertex attributes
-//         // so we start here by group(1) binding(3)
-//         @group(1) @binding(3) var<uniform> camMat: AffineMat;
-//         // apply affineMat to four points
-//         fn applyinv(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
-//             let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
-//             return transpose(afmat.matrix) * (points - biais);
-//         }
-//         // tell compiler that this is tetra slice pipeline's entry function by '@tetra'
-//         @tetra fn main(input : InputType) -> OutputType{
-//             return OutputType(applyinv(camMat,input.pos), camMat.matrix * input.normal, input.uvw);
-//         }
-//         `;
-//         let fragHeaderCode = `
-//         // receive data from vertex output, these values are automatically interpolated for every fragment
-//         struct fInputType{
-//             @location(0) normal : vec4<f32>,
-//             @location(1) uvw : vec4<f32>,
-//         };
-//         // a color space conversion function
-//         fn hsb2rgb( c:vec3<f32> )->vec3<f32>{
-//             let a = fract(
-//                 c.x+vec3<f32>(0.0,4.0,2.0)/6.0
-//             );
-//             var rgb = clamp(abs(a*6.0-vec3<f32>(3.0))-vec3<f32>(1.0),
-//                 vec3<f32>(0.0),
-//                 vec3<f32>(1.0)
-//             );
-//             rgb = rgb*rgb*(3.0-rgb * 2.0);
-//             return c.z * mix(vec3<f32>(1.0), rgb, c.y);
-//         }
-//         @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
-//             const colors = array<vec3<f32>,8> (
-//                 vec3<f32>(1, 0, 0),
-//                 vec3<f32>(1, 1, 0),
-//                 vec3<f32>(1, 0, 1),
-//                 vec3<f32>(0, 0, 1),
-//                 vec3<f32>(1, 0.5, 0),
-//                 vec3<f32>(0, 0.5, 1),
-//                 vec3<f32>(0, 1, 1),
-//                 vec3<f32>(0.6, 0.9, 0.2),
-//             );
-//             const radius: f32 = 0.8;
-//             const ambientLight = vec3<f32>(0.8);
-//             const frontLightColor = vec3<f32>(5.0,4.6,3.5);
-//             const backLightColor = vec3<f32>(1.9,2.4,2.8);
-//             const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
-//             var color:vec3<f32> = vec3(1.0,1.0,1.0);
-//             var count:f32 = 0;
-//             count += step(0.8,abs(vary.uvw.x));
-//             count += step(0.8,abs(vary.uvw.y));
-//             count += step(0.8,abs(vary.uvw.z));
-//             if(dot(vary.uvw.xyz,vary.uvw.xyz) < radius * radius * radius || count >= 2.0){
-//                 color = colors[u32(vary.uvw.w + 0.1)];
-//             }
-//             color = color * (
-//                 ambientLight + frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
-//             );
-//             return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 0.2 + f32(count>=2.0));
-//         }
-//         `;
-//         export async function load() {
-//             let gpu = await tesserxel.renderer.createGPU();
-//             let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-//             let context = gpu.getContext(canvas);
-//             let renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, {
-//                 enableFloat16Blend: false,
-//                 sliceGroupSize: 8
-//             });
-//             renderer.set4DCameraProjectMatrix({
-//                 fov: 100, near: 0.01, far: 10
-//             });
-//             renderer.setScreenClearColor({ r: 1, g: 1, b: 1, a: 1 });
-//             let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
-//             let trackBallController = new tesserxel.controller.KeepUpController();
-//             trackBallController.object.position.set(0, 0, 0, -3);
-//             let retinaController = new tesserxel.controller.RetinaController(renderer);
-//             let controller = new tesserxel.controller.ControllerRegistry(canvas, [trackBallController, retinaController], { preventDefault: true, requsetPointerLock: true });
-//             let matModelViewJSBuffer = new Float32Array(20);
-//             let pipeline = await renderer.createRaytracingPipeline({
-//                 code: raytracingCode,
-//                 rayEntryPoint: "mainRay",
-//                 fragmentEntryPoint: "mainFragment"
-//             });
-//             let bindgroups = [renderer.createBindGroup(pipeline, 1, [camBuffer])];
-//             let cube = tesserxel.mesh.tetra.tesseract();
-//             let tetraPipeline = await renderer.createTetraSlicePipeline({
-//                 vertex: {
-//                     code: vertCode,
-//                     entryPoint: "main"
-//                 },
-//                 fragment: {
-//                     code: fragHeaderCode,
-//                     entryPoint: "main"
-//                 }
-//             });
-//             let cubeBuffers = renderer.createBindGroup(tetraPipeline, 1, [
-//                 gpu.createBuffer(GPUBufferUsage.STORAGE, cube.position),
-//                 gpu.createBuffer(GPUBufferUsage.STORAGE, cube.normal),
-//                 gpu.createBuffer(GPUBufferUsage.STORAGE, cube.uvw),
-//                 camBuffer
-//             ]);
-//             let run = () => {
-//                 controller.update();
-//                 trackBallController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
-//                 gpu.device.queue.writeBuffer(camBuffer, 0, matModelViewJSBuffer);
-//                 renderer.render(() => {
-//                     renderer.drawRaytracing(pipeline, bindgroups);
-//                     renderer.beginTetras(tetraPipeline);
-//                     renderer.sliceTetras(cubeBuffers, cube.tetraCount);
-//                     renderer.drawTetras();
-//                 });
-//                 window.requestAnimationFrame(run);
-//             }
-//             function setSize() {
-//                 let width = window.innerWidth * window.devicePixelRatio;
-//                 let height = window.innerHeight * window.devicePixelRatio;
-//                 canvas.width = width;
-//                 canvas.height = height;
-//                 renderer.setSize({ width, height });
-//             }
-//             setSize();
-//             window.addEventListener("resize", setSize);
-//             run();
-//         }
-//     }
-// }
 var examples;
 (function (examples) {
     class ShapesApp {
@@ -1727,8 +1528,8 @@ var examples;
         // output position in camera space and data sent to fragment shader to be interpolated
         struct OutputType{
             @builtin(position) pos: mat4x4<f32>,
-            @location(0) normal: mat4x4<f32>,
-            @location(1) uvw: mat4x4<f32>,
+            @location(0) normal_uvw: array<mat4x4<f32>,2>,
+            @location(1) position: mat4x4<f32>,
         }
         // we define an affineMat to store rotation and transform since there's no mat5x5 in wgsl
         struct AffineMat{
@@ -1745,7 +1546,10 @@ var examples;
         }
         // tell compiler that this is tetra slice pipeline's entry function by '@tetra'
         @tetra fn main(input : InputType) -> OutputType{
-            return OutputType(apply(camMat,input.pos), camMat.matrix * input.normal, input.uvw);
+            let campos = apply(camMat,input.pos);
+            return OutputType(campos, array<mat4x4<f32>,2>(
+                camMat.matrix * input.normal, input.uvw), campos
+            );
         }
         `;
         fragHeaderCode = `
@@ -1753,6 +1557,7 @@ var examples;
         struct fInputType{
             @location(0) normal : vec4<f32>,
             @location(1) uvw : vec4<f32>,
+            @location(2) pos : vec4<f32>,
         };
         // a color space conversion function
         fn hsb2rgb( c:vec3<f32> )->vec3<f32>{
@@ -1808,7 +1613,7 @@ var examples;
             // camera affinemat buffer on gpu
             this.camBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
             // bind these buffers to group(1) in pipeline
-            this.vertBindGroup = this.renderer.createBindGroup(this.pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, this.camBuffer]);
+            this.vertBindGroup = this.renderer.createVertexShaderBindGroup(this.pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, this.camBuffer]);
             // init a trackball controller in order to drag 4d object by mouse and keys
             this.trackBallController = new tesserxel.controller.TrackBallController();
             // randomize the initial orientation of the object controlled by trackball controller
@@ -1853,12 +1658,14 @@ var examples;
                 const frontLightColor = vec3<f32>(5.0,4.6,3.5);
                 const backLightColor = vec3<f32>(0.1,1.2,1.4);
                 const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
+                let halfvec = normalize(directionalLight_dir - normalize(vary.pos));
+                let highLight = pow(max(0.0,dot(vary.normal,halfvec)),30);
                 let checkerboard = fract(vary.uvw.xyz *vec3<f32>(40.0, 40.0, 20.0)) - vec3<f32>(0.5);
                 let factor = step( checkerboard.x * checkerboard.y * checkerboard.z, 0.0);
                 var color:vec3<f32> = mix(hsb2rgb(vec3<f32>(vary.uvw.x,0.7,1.0)), hsb2rgb(vec3<f32>(vary.uvw.y,1.0,0.7)), factor);
                 color = color * (
                     frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
-                );
+                )* (0.4 + 0.8*highLight);
                 return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
             }`;
             let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.tiger(0.3 + Math.random() * 0.05, 32, 0.5, 32, 0.14 + Math.random() * 0.03, 16));
@@ -1927,10 +1734,8 @@ var examples;
                 return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 0.2 + f32(count>=2.0));
             }`;
             let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.tesseract());
-            let config = app.renderer.getSliceConfig();
-            config.opacity = 10.0;
             // retina controller will own the slice config, so we should not call renderer.setSlice() directly
-            app.retinaController.setSlice(config);
+            app.retinaController.setOpacity(10.0);
             app.renderer.set4DCameraProjectMatrix({ fov: 110, near: 0.01, far: 10.0 });
             app.trackBallController.object.rotation.l.set();
             app.trackBallController.object.rotation.r.set();

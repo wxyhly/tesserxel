@@ -10,29 +10,44 @@
             width: 100%;
             height: 100%;
         }
+        canvas:focus {
+            outline: none;
+        }
 
         body {
             margin: 0;
             overflow: hidden;
+        }
+
+        div.default {
+            display: none;
+            position: absolute;
+            top: 0%;
+            padding: 20px;
         }
     </style>
 </head>
 
 <body>
     <canvas id="gpu-canvas"></canvas>
+    <div class="default" lang="zh">
+        <h1>欢迎来到由Tesserxel引擎驱动的四维世界</h1>
+    </div>
+    <div class="default" lang="en">
+        <h1>Welcome to the Four Dimensional World Powered by Tesserxel Engine</h1>
+    </div>
 </body>
 <script src='../build/tesserxel.js'></script>
 <script src='js/examples.js'></script>
 <script>
-// let a = new tesserxel.math.Vec4();
-// tesserxel.math.Vec4.y.dotbset(tesserxel.math.Bivec.xy,a);
-// console.log(a);
     let params = new URLSearchParams(window.location.search.slice(1));
     let target = params.get("target");
-    let lang = params.get("lang");
+    let lang = params.get("lang") ?? "zh";
     if (target) {
         examples[target].load(lang);
         (function () { var script = document.createElement('script'); script.onload = function () { var stats = new Stats(); document.body.appendChild(stats.dom); requestAnimationFrame(function loop() { stats.update(); requestAnimationFrame(loop) }); }; script.src = 'http://mrdoob.github.io/stats.js/build/stats.min.js'; document.head.appendChild(script); })()
+    } else {
+        document.querySelector(`.default[lang=${lang}]`).style.display = "block";
     }
 </script>
 

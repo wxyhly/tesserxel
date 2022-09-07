@@ -10,6 +10,7 @@ namespace tesserxel {
                 name: string;
                 attributes: Array<ReflectAttribute>;
                 format?: ReflectType;
+                count?: string;
             };
             export declare type ReflectArg = {
                 name: string;
@@ -30,11 +31,11 @@ namespace tesserxel {
                 return: ReflectType;
                 _type: "function";
             };
-            export declare class WgslReflect {
-                functions: Array<ReflectFunction>;
-                structs: Array<ReflectStruct>;
-                constructor(code: string);
-            };
+            // export declare class WgslReflect {
+            //     functions: Array<ReflectFunction>;
+            //     structs: Array<ReflectStruct>;
+            //     constructor(code: string);
+            // };
             export declare type ReflectStruct = {
                 name: string;
                 members: Array<ReflectMember>;
@@ -55,7 +56,7 @@ namespace tesserxel {
              *  }
              * */
             export function parseTypeName(type: ReflectType) {
-                return type.name + (type.format ? `<${parseTypeName(type.format)}>` : "");
+                return type.name + (type.format ? `<${parseTypeName(type.format)}${type.count ? ","+type.count:""}>` : "");
             }
             export function parseAttr(attrs: Array<ReflectAttribute>) {
                 // todo: match just one attribute
@@ -66,7 +67,7 @@ namespace tesserxel {
                 expectInput: { [name: string]: string }, expectOutput: string[]
             ) {
                 let input: Set<string> = new Set();
-                let output: { [name: string]: string } = {
+                let output: { [name: string]: { expr: string, type: string} } = {
                     "return" : "_ouput_of_" + fn.name
                 };
                 let call = `
@@ -97,7 +98,10 @@ namespace tesserxel {
                 function getOutput(type: ReflectType, prefix: string) {
                     let varName = parseAttr(type.attributes);
                     if (expectOutput.includes(varName)) {
-                        output[varName] = prefix; return;
+                        output[varName] = {
+                            expr: prefix,
+                            type: parseTypeName(type)
+                        }; return;
                     } else {
                         let struct = reflect.structs.filter(s => s.name === type.name)[0];
                         if (!struct) { return; }
@@ -1919,7 +1923,9 @@ namespace tesserxel {
              */
 
             export class WgslReflect {
-                constructor(code) {
+                functions: Array<ReflectFunction>;
+                structs: Array<ReflectStruct>;
+                constructor(code:string) {
                     if (code)
                         this.initialize(code);
                 }

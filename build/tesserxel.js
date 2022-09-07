@@ -35,6 +35,22 @@ var tesserxel;
             }
         }
         math.Srand = Srand;
+        // https://github.com/mrdoob/three.js/blob/dev/src/math/MathUtils.js
+        const _lut = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '0a', '0b', '0c', '0d', '0e', '0f', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '1a', '1b', '1c', '1d', '1e', '1f', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '2a', '2b', '2c', '2d', '2e', '2f', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '3a', '3b', '3c', '3d', '3e', '3f', '40', '41', '42', '43', '44', '45', '46', '47', '48', '49', '4a', '4b', '4c', '4d', '4e', '4f', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '5a', '5b', '5c', '5d', '5e', '5f', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '6a', '6b', '6c', '6d', '6e', '6f', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '7a', '7b', '7c', '7d', '7e', '7f', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89', '8a', '8b', '8c', '8d', '8e', '8f', '90', '91', '92', '93', '94', '95', '96', '97', '98', '99', '9a', '9b', '9c', '9d', '9e', '9f', 'a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8', 'a9', 'aa', 'ab', 'ac', 'ad', 'ae', 'af', 'b0', 'b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9', 'ba', 'bb', 'bc', 'bd', 'be', 'bf', 'c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'ca', 'cb', 'cc', 'cd', 'ce', 'cf', 'd0', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'da', 'db', 'dc', 'dd', 'de', 'df', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'ea', 'eb', 'ec', 'ed', 'ee', 'ef', 'f0', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'fa', 'fb', 'fc', 'fd', 'fe', 'ff'];
+        // http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript/21963136#21963136
+        function generateUUID() {
+            const d0 = Math.random() * 0xffffffff | 0;
+            const d1 = Math.random() * 0xffffffff | 0;
+            const d2 = Math.random() * 0xffffffff | 0;
+            const d3 = Math.random() * 0xffffffff | 0;
+            const uuid = _lut[d0 & 0xff] + _lut[d0 >> 8 & 0xff] + _lut[d0 >> 16 & 0xff] + _lut[d0 >> 24 & 0xff] + '-' +
+                _lut[d1 & 0xff] + _lut[d1 >> 8 & 0xff] + '-' + _lut[d1 >> 16 & 0x0f | 0x40] + _lut[d1 >> 24 & 0xff] + '-' +
+                _lut[d2 & 0x3f | 0x80] + _lut[d2 >> 8 & 0xff] + '-' + _lut[d2 >> 16 & 0xff] + _lut[d2 >> 24 & 0xff] +
+                _lut[d3 & 0xff] + _lut[d3 >> 8 & 0xff] + _lut[d3 >> 16 & 0xff] + _lut[d3 >> 24 & 0xff];
+            // .toLowerCase() here flattens concatenated strings to save heap memory space.
+            return uuid.toLowerCase();
+        }
+        math.generateUUID = generateUUID;
     })(math = tesserxel.math || (tesserxel.math = {}));
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
@@ -82,6 +98,30 @@ var tesserxel;
                 this.mat.mulsl(m.mat);
                 return this;
             }
+            setFromObj4(o) {
+                this.mat.setFromRotor(o.rotation);
+                if (o.scale) {
+                    this.mat.mulsr(math.Mat4.diag(o.scale.x, o.scale.y, o.scale.z, o.scale.w));
+                }
+                this.vec.copy(o.position);
+                return this;
+            }
+            setFromObj4inv(o) {
+                this.vec.copy(o.position).negs().rotatesconj(o.rotation);
+                this.mat.setFromRotorconj(o.rotation);
+                if (o.scale) {
+                    let x = 1 / o.scale.x;
+                    let y = 1 / o.scale.y;
+                    let z = 1 / o.scale.z;
+                    let w = 1 / o.scale.w;
+                    this.mat.mulsl(math.Mat4.diag(x, y, z, w));
+                    this.vec.x *= x;
+                    this.vec.y *= y;
+                    this.vec.z *= z;
+                    this.vec.w *= w;
+                }
+                return this;
+            }
         }
         math.AffineMat4 = AffineMat4;
         /** an coordinate transform of rotation translation and scale */
@@ -90,8 +130,8 @@ var tesserxel;
             rotation;
             scale;
             constructor(position = new math.Vec4(), rotation = new math.Rotor(), scale) {
-                this.position = position;
-                this.rotation = rotation;
+                this.position = position ?? new math.Vec4();
+                this.rotation = rotation ?? new math.Rotor();
                 this.scale = scale;
             }
             local2parent(point) {
@@ -141,6 +181,11 @@ var tesserxel;
             rotatesAt(r, center = new math.Vec4()) {
                 this.rotation.mulsl(r);
                 this.position.subs(center).rotates(r).adds(center);
+                return this;
+            }
+            lookAt(direction, target) {
+                let dir = math._vec4.subset(target, this.position);
+                this.rotates(math._r.setFromLookAt(math._vec4_1.copy(direction).rotates(this.rotation), dir.norms()));
                 return this;
             }
         }
@@ -869,6 +914,9 @@ var tesserxel;
                 this.r.norms();
                 return this;
             }
+            /** Apply this to R: this * R;
+             *
+             * [this.l * R.l, R.r * this.r]; */
             mul(R) {
                 return new Rotor(this.l.mul(R.l), R.r.mul(this.r));
             }
@@ -956,22 +1004,44 @@ var tesserxel;
             }
             /** "from" and "to" must be normalized vectors*/
             static lookAt(from, to) {
-                let right = from.wedge(to);
+                let right = math._biv.wedgevvset(from, to);
                 let s = right.norm();
                 let c = from.dot(to);
                 if (s > 0.000001) { // not aligned
                     right.mulfs(Math.atan2(s, c) / s);
                 }
                 else if (c < 0) { // almost n reversely aligned
-                    let v = from.wedge(math.Vec4.x);
+                    let v = math._biv.wedgevvset(from, math.Vec4.x);
                     if (v.norm1() < 0.01) {
-                        v = from.wedge(math.Vec4.y);
+                        v = math._biv.wedgevvset(from, math.Vec4.y);
                     }
                     return v.norms().mulfs(math._180).exp();
                 }
                 return right.exp();
             }
-            // todo: lookAtb(from: Bivec, to: Bivec): Rotor
+            /** "from" and "to" must be normalized vectors*/
+            setFromLookAt(from, to) {
+                let right = math._biv.wedgevvset(from, to);
+                let s = right.norm();
+                let c = from.dot(to);
+                if (s > 0.000001) { // not aligned
+                    right.mulfs(Math.atan2(s, c) / s);
+                }
+                else if (c < 0) { // almost n reversely aligned
+                    let v = math._biv.wedgevvset(from, math.Vec4.x);
+                    if (v.norm1() < 0.01) {
+                        v = math._biv.wedgevvset(from, math.Vec4.y);
+                    }
+                    return this.expset(v.norms().mulfs(math._180));
+                }
+                return this.expset(right);
+            }
+            // todo: lookAtbb(from: Bivec, to: Bivec): Rotor plane to plane
+            // todo: lookAtvb(from: Vec4, to: Bivec): Rotor dir to plane or reverse
+            static lookAtvb(from, to) {
+                let toVect = math._vec4.copy(from).projbs(to).norms();
+                return Rotor.lookAt(from, toVect);
+            }
             static rand() {
                 return new Rotor(Quaternion.rand(), Quaternion.rand());
             }
@@ -990,6 +1060,8 @@ var tesserxel;
             }
         }
         math.Rotor = Rotor;
+        math._biv = new Bivec();
+        math._r = new Rotor();
     })(math = tesserxel.math || (tesserxel.math = {}));
 })(tesserxel || (tesserxel = {}));
 /**  mat.ts: Matrix2|3|4
@@ -1410,14 +1482,14 @@ var tesserxel;
                 let b = m.elem;
                 return new Mat4(a[0] * b[0] + a[1] * b[4] + a[2] * b[8] + a[3] * b[12], a[0] * b[1] + a[1] * b[5] + a[2] * b[9] + a[3] * b[13], a[0] * b[2] + a[1] * b[6] + a[2] * b[10] + a[3] * b[14], a[0] * b[3] + a[1] * b[7] + a[2] * b[11] + a[3] * b[15], a[4] * b[0] + a[5] * b[4] + a[6] * b[8] + a[7] * b[12], a[4] * b[1] + a[5] * b[5] + a[6] * b[9] + a[7] * b[13], a[4] * b[2] + a[5] * b[6] + a[6] * b[10] + a[7] * b[14], a[4] * b[3] + a[5] * b[7] + a[6] * b[11] + a[7] * b[15], a[8] * b[0] + a[9] * b[4] + a[10] * b[8] + a[11] * b[12], a[8] * b[1] + a[9] * b[5] + a[10] * b[9] + a[11] * b[13], a[8] * b[2] + a[9] * b[6] + a[10] * b[10] + a[11] * b[14], a[8] * b[3] + a[9] * b[7] + a[10] * b[11] + a[11] * b[15], a[12] * b[0] + a[13] * b[4] + a[14] * b[8] + a[15] * b[12], a[12] * b[1] + a[13] * b[5] + a[14] * b[9] + a[15] * b[13], a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14], a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15]);
             }
-            /** this = this * m2; */
+            /** this = this * m; */
             mulsr(m) {
                 let a = this.elem;
                 let b = m.elem;
                 this.set(a[0] * b[0] + a[1] * b[4] + a[2] * b[8] + a[3] * b[12], a[0] * b[1] + a[1] * b[5] + a[2] * b[9] + a[3] * b[13], a[0] * b[2] + a[1] * b[6] + a[2] * b[10] + a[3] * b[14], a[0] * b[3] + a[1] * b[7] + a[2] * b[11] + a[3] * b[15], a[4] * b[0] + a[5] * b[4] + a[6] * b[8] + a[7] * b[12], a[4] * b[1] + a[5] * b[5] + a[6] * b[9] + a[7] * b[13], a[4] * b[2] + a[5] * b[6] + a[6] * b[10] + a[7] * b[14], a[4] * b[3] + a[5] * b[7] + a[6] * b[11] + a[7] * b[15], a[8] * b[0] + a[9] * b[4] + a[10] * b[8] + a[11] * b[12], a[8] * b[1] + a[9] * b[5] + a[10] * b[9] + a[11] * b[13], a[8] * b[2] + a[9] * b[6] + a[10] * b[10] + a[11] * b[14], a[8] * b[3] + a[9] * b[7] + a[10] * b[11] + a[11] * b[15], a[12] * b[0] + a[13] * b[4] + a[14] * b[8] + a[15] * b[12], a[12] * b[1] + a[13] * b[5] + a[14] * b[9] + a[15] * b[13], a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14], a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15]);
                 return this;
             }
-            /** this = m2 * this; */
+            /** this = m * this; */
             mulsl(m) {
                 let b = this.elem;
                 let a = m.elem;
@@ -1452,6 +1524,9 @@ var tesserxel;
             }
             setFromRotor(r) {
                 return this.setFromQuaternionL(r.l).mulsr(math._mat4.setFromQuaternionR(r.r));
+            }
+            setFromRotorconj(r) {
+                return this.setFromQuaternionL(r.l.conj()).mulsr(math._mat4.setFromQuaternionR(r.r.conj()));
             }
             det() {
                 let me = this.elem;
@@ -1971,6 +2046,10 @@ var tesserxel;
             static y = new Vec4(0, 1, 0, 0);
             static z = new Vec4(0, 0, 1, 0);
             static w = new Vec4(0, 0, 0, 1);
+            static xNeg = new Vec4(-1, 0, 0, 0);
+            static yNeg = new Vec4(0, -1, 0, 0);
+            static zNeg = new Vec4(0, 0, -1, 0);
+            static wNeg = new Vec4(0, 0, 0, -1);
             constructor(x = 0, y = 0, z = 0, w = 0) {
                 this.x = x;
                 this.y = y;
@@ -2107,6 +2186,10 @@ var tesserxel;
                 this.w *= v2;
                 return this;
             }
+            mulmatvset(mat4, v) {
+                let a = mat4.elem;
+                return this.set(v.x * a[0] + v.y * a[1] + v.z * a[2] + v.w * a[3], v.x * a[4] + v.y * a[5] + v.z * a[6] + v.w * a[7], v.x * a[8] + v.y * a[9] + v.z * a[10] + v.w * a[11], v.x * a[12] + v.y * a[13] + v.z * a[14] + v.w * a[15]);
+            }
             /** this += v * k */
             addmulfs(v, k) {
                 this.x += v.x * k;
@@ -2192,8 +2275,15 @@ var tesserxel;
             dotb(B) {
                 return new Vec4(-B.xy * this.y - B.xz * this.z - B.xw * this.w, B.xy * this.x - B.yz * this.z - B.yw * this.w, B.xz * this.x + B.yz * this.y - B.zw * this.w, B.xw * this.x + B.yw * this.y + B.zw * this.z);
             }
-            dotbset(B, v) {
-                return v.set(-B.xy * this.y - B.xz * this.z - B.xw * this.w, B.xy * this.x - B.yz * this.z - B.yw * this.w, B.xz * this.x + B.yz * this.y - B.zw * this.w, B.xw * this.x + B.yw * this.y + B.zw * this.z);
+            /** this = this * b;
+             *  Vector part of Geometry Product
+             *  ey * exy = -ex, ex * exy = ey, ex * eyz = 0
+             *  */
+            dotbsr(B) {
+                return this.set(-B.xy * this.y - B.xz * this.z - B.xw * this.w, B.xy * this.x - B.yz * this.z - B.yw * this.w, B.xz * this.x + B.yz * this.y - B.zw * this.w, B.xw * this.x + B.yw * this.y + B.zw * this.z);
+            }
+            dotbset(v, B) {
+                return this.set(-B.xy * v.y - B.xz * v.z - B.xw * v.w, B.xy * v.x - B.yz * v.z - B.yw * v.w, B.xz * v.x + B.yz * v.y - B.zw * v.w, B.xw * v.x + B.yw * v.y + B.zw * v.z);
             }
             /** this = mat * this */
             mulmatls(mat4) {
@@ -2241,6 +2331,15 @@ var tesserxel;
                 let cc = Math.sqrt(1 - c);
                 return this.set(sc * Math.cos(a), sc * Math.sin(a), cc * Math.cos(b), cc * Math.sin(b));
             }
+            /** project vector on a plane determined by bivector.
+             * bivector b must be normalized and simple
+             */
+            projb(b) {
+                return this.dotb(b).dotbsr(b).negs();
+            }
+            projbs(b) {
+                return this.dotbsr(b).dotbsr(b).negs();
+            }
             static rand() {
                 let a = Math.random() * math._360;
                 let b = Math.random() * math._360;
@@ -2265,6 +2364,7 @@ var tesserxel;
         math._vec3_1 = new Vec3();
         math._vec3_2 = new Vec3();
         math._vec4 = new Vec4();
+        math._vec4_1 = new Vec4();
         math._Q = new math.Quaternion();
         math._Q_1 = new math.Quaternion();
         math._Q_2 = new math.Quaternion();
@@ -2560,7 +2660,7 @@ var tesserxel;
                     if (obj.scale) {
                         vp.set(mesh.position[i] * obj.scale.x, mesh.position[i + 1] * obj.scale.y, mesh.position[i + 2] * obj.scale.z, mesh.position[i + 3] * obj.scale.w).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.position, i);
                         if (mesh.normal) {
-                            vp.set(mesh.normal[i] * scaleinv.x, mesh.normal[i + 1] * scaleinv.y, mesh.normal[i + 2] * scaleinv.z, mesh.normal[i + 3] * scaleinv.w).rotates(obj.rotation).writeBuffer(mesh.position, i);
+                            vp.set(mesh.normal[i] * scaleinv.x, mesh.normal[i + 1] * scaleinv.y, mesh.normal[i + 2] * scaleinv.z, mesh.normal[i + 3] * scaleinv.w).rotates(obj.rotation).writeBuffer(mesh.normal, i);
                         }
                     }
                     else {
@@ -2640,15 +2740,17 @@ var tesserxel;
             }
             tetra.clone = clone;
             function tesseract() {
-                let yface = applyObj4(clone(tetra.cube), new tesserxel.math.Obj4(tesserxel.math.Vec4.y));
+                let rotor = new tesserxel.math.Rotor();
+                let biv = new tesserxel.math.Bivec();
+                let yface = applyObj4(clone(tetra.cube), new tesserxel.math.Obj4(tesserxel.math.Vec4.y, rotor.expset(biv.set(0, tesserxel.math._90))));
                 let meshes = [
-                    new tesserxel.math.Bivec(tesserxel.math._90).exp(),
-                    new tesserxel.math.Bivec(-tesserxel.math._90).exp(),
-                    new tesserxel.math.Bivec(0, 0, 0, tesserxel.math._90).exp(),
-                    new tesserxel.math.Bivec(0, 0, 0, -tesserxel.math._90).exp(),
-                    new tesserxel.math.Bivec(0, 0, 0, 0, tesserxel.math._90).exp(),
-                    new tesserxel.math.Bivec(0, 0, 0, 0, -tesserxel.math._90).exp(),
-                    new tesserxel.math.Bivec(tesserxel.math._180).exp(),
+                    biv.set(tesserxel.math._90).exp(),
+                    biv.set(-tesserxel.math._90).exp().mulsl(rotor.expset(biv.set(0, 0, 0, 0, tesserxel.math._180))),
+                    biv.set(0, 0, 0, tesserxel.math._90).exp().mulsl(rotor.expset(biv.set(tesserxel.math._90, 0, 0, 0, 0))),
+                    biv.set(0, 0, 0, -tesserxel.math._90).exp().mulsl(rotor.expset(biv.set(tesserxel.math._90, 0, 0, 0, 0))),
+                    biv.set(0, 0, 0, 0, tesserxel.math._90).exp().mulsl(rotor.expset(biv.set(tesserxel.math._90, 0, 0, 0, 0))),
+                    biv.set(0, 0, 0, 0, -tesserxel.math._90).exp().mulsl(rotor.expset(biv.set(tesserxel.math._90, 0, 0, 0, 0))),
+                    biv.set(tesserxel.math._180).exp(),
                 ].map(r => applyObj4(clone(yface), new tesserxel.math.Obj4(new tesserxel.math.Vec4(), r)));
                 meshes.push(yface);
                 let m = concatarr(meshes);
@@ -3666,7 +3768,7 @@ var tesserxel;
                 this.dom = dom;
                 dom.tabIndex = 1;
                 this.ctrls = ctrls;
-                this.requsetPointerLock = config.requsetPointerLock;
+                this.requsetPointerLock = config?.requsetPointerLock;
                 this.states.isKeyHold = (code) => {
                     for (let key of code.split("+")) {
                         if (key[0] === '.') {
@@ -3794,7 +3896,10 @@ var tesserxel;
             };
             _bivec = new tesserxel.math.Bivec();
             normalisePeriodMask = 15;
-            constructor() { }
+            constructor(object) {
+                if (object)
+                    this.object = object;
+            }
             update(state) {
                 let disabled = state.queryDisabled(this.keyConfig);
                 let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
@@ -3838,6 +3943,10 @@ var tesserxel;
             keyMoveSpeed = 0.001;
             keyRotateSpeed = 0.001;
             damp = 0.01;
+            constructor(object) {
+                if (object)
+                    this.object = object;
+            }
             keyConfig = {
                 front: "KeyW",
                 back: "KeyS",
@@ -3964,7 +4073,21 @@ var tesserxel;
             normalisePeriodMask = 15;
             horizontalRotor = new tesserxel.math.Rotor();
             verticalRotor = new tesserxel.math.Rotor();
-            constructor() { }
+            constructor(object) {
+                if (object)
+                    this.object = object;
+                this.updateObj();
+            }
+            updateObj() {
+                // rotate obj's yw plane to world's y axis
+                this.object.rotates(tesserxel.math.Rotor.lookAtvb(tesserxel.math.Vec4.y, tesserxel.math.Bivec.yw.rotate(this.object.rotation)).conjs());
+                // now check angle between obj's y axis and world's y axis
+                let objY = tesserxel.math.Vec4.y.rotate(this.object.rotation);
+                let r = tesserxel.math.Rotor.lookAt(objY, tesserxel.math.Vec4.y);
+                this.horizontalRotor.copy(r.mul(this.object.rotation));
+                console.log(this.horizontalRotor.log());
+                this.verticalRotor.copy(this.horizontalRotor.mul(r.conjs()).mulsrconj(this.horizontalRotor));
+            }
             update(state) {
                 let on = state.isKeyHold;
                 let key = this.keyConfig;
@@ -4291,6 +4414,8 @@ var tesserxel;
             opacityKeySpeed = 0.01;
             damp = 0.1;
             mouseButton = 0;
+            retinaEyeOffset = 0.1;
+            sectionEyeOffset = 0.1;
             sectionPresets;
             sliceConfig;
             currentSectionConfig = "retina+sections";
@@ -4375,8 +4500,8 @@ var tesserxel;
                 let delta;
                 let sliceConfig = this.sliceConfig;
                 if (!disabled && state.isKeyHold(this.keyConfig.toggle3D)) {
-                    sliceConfig.retinaEyeOffset = sliceConfig.retinaEyeOffset ? 0 : 0.1;
-                    sliceConfig.sectionEyeOffset = sliceConfig.sectionEyeOffset ? 0 : 0.1;
+                    sliceConfig.retinaEyeOffset = sliceConfig.retinaEyeOffset ? 0 : this.retinaEyeOffset;
+                    sliceConfig.sectionEyeOffset = sliceConfig.sectionEyeOffset ? 0 : this.sectionEyeOffset;
                     sliceConfig.sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(sliceConfig.sectionEyeOffset ? "eye2" : "eye1")];
                     this.sliceNeedUpdate = true;
                 }
@@ -4442,6 +4567,23 @@ var tesserxel;
                 }
                 if (this.sliceNeedUpdate)
                     this.renderer.setSlice(this.sliceConfig);
+                this.sliceNeedUpdate = false;
+            }
+            setStereo(stereo) {
+                this.sliceConfig.sectionEyeOffset = stereo ? this.sectionEyeOffset : 0;
+                this.sliceConfig.retinaEyeOffset = stereo ? this.retinaEyeOffset : 0;
+                this.sliceConfig.sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(stereo ? "eye2" : "eye1")];
+                this.renderer.setSlice(this.sliceConfig);
+                this.sliceNeedUpdate = false;
+            }
+            setLayers(layers) {
+                this.sliceConfig.layers = layers;
+                this.renderer.setSlice(this.sliceConfig);
+                this.sliceNeedUpdate = false;
+            }
+            setOpacity(opacity) {
+                this.sliceConfig.opacity = opacity;
+                this.renderer.setSlice(this.sliceConfig);
                 this.sliceNeedUpdate = false;
             }
             setSlice(sliceConfig) {
@@ -4577,7 +4719,6 @@ var tesserxel;
             // readonly ATTRIBUTE = 1;
             // configurations
             maxSlicesNumber;
-            maxVertexOutputNumber;
             maxCrossSectionBufferSize;
             sliceResolution;
             /** On each computeshader slice calling numbers, should be 2^n */
@@ -4601,7 +4742,7 @@ var tesserxel;
             screenRenderPipeline;
             retinaBindGroup;
             screenBindGroup;
-            outputVaryBuffer;
+            outputVaryBufferPool = []; // all the vary buffers for pipelines
             outputClearBuffer;
             sliceOffsetBuffer;
             emitIndexSliceBuffer;
@@ -4616,6 +4757,7 @@ var tesserxel;
             screenAspectBuffer;
             layerOpacityBuffer;
             camProjBuffer;
+            static outputAttributeUsage = GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX;
             // CPU caches for retina and screen
             retinaViewMatrix = new tesserxel.math.Mat4();
             retinaMVMatJsBuffer = new Float32Array(16);
@@ -4640,7 +4782,6 @@ var tesserxel;
                 let outputBufferSize = (options?.maxCrossSectionBufferSize ?? DefaultMaxCrossSectionBufferSize);
                 let outputBufferStride = outputBufferSize >> sliceGroupSizeBit;
                 let maxSlicesNumber = options?.maxSlicesNumber ?? DefaultMaxSlicesNumber;
-                let maxVertexOutputNumber = options?.maxVertexOutputNumber ?? DefaultMaxVertexOutputNumber;
                 let enableFloat16Blend = (options?.enableFloat16Blend ?? DefaultEnableFloat16Blend);
                 let blendFormat = enableFloat16Blend === true ? 'rgba16float' : gpu.preferredFormat;
                 this.sliceResolution = sliceResolution;
@@ -4650,7 +4791,6 @@ var tesserxel;
                 this.outputBufferStride = outputBufferStride;
                 this.maxSlicesNumber = maxSlicesNumber;
                 this.blendFormat = blendFormat;
-                this.maxVertexOutputNumber = maxVertexOutputNumber;
                 // buffers
                 this.readBuffer = gpu.createBuffer(GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ, outputBufferSize);
                 // external declaration : let mvpBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 6);
@@ -4661,11 +4801,8 @@ var tesserxel;
                 let refacingBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
                 let eyeBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 8);
                 let thumbnailViewportBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 16 * 16 * 4);
-                let outputAttributeUsage = GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX;
-                let outputVaryBuffer = [];
-                for (let i = 0; i < maxVertexOutputNumber; i++) {
-                    outputVaryBuffer.push(gpu.createBuffer(outputAttributeUsage, outputBufferSize, "OutputBuffer[" + i + "]"));
-                }
+                // here is the default builtin(position) outputbuffer
+                this.outputVaryBufferPool.push(gpu.createBuffer(SliceRenderer.outputAttributeUsage, outputBufferSize, "Output buffer for builtin(position)"));
                 let outputClearBuffer = gpu.createBuffer(GPUBufferUsage.COPY_SRC, outputBufferSize);
                 let sliceGroupOffsetBuffer = gpu.createBuffer(GPUBufferUsage.COPY_SRC, _genSlicesOffsetJsBuffer());
                 let screenAspectBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
@@ -4679,7 +4816,6 @@ var tesserxel;
                     }
                     return sliceGroupOffsets;
                 }
-                this.outputVaryBuffer = outputVaryBuffer;
                 this.outputClearBuffer = outputClearBuffer;
                 this.sliceOffsetBuffer = sliceOffsetBuffer;
                 this.emitIndexSliceBuffer = emitIndexSliceBuffer;
@@ -4956,17 +5092,8 @@ struct fInputType{
     );
     return vOutputType(vec4<f32>(pos[index], 0.0, 1.0), uv[index]);
 }
-fn acesFilm(x: vec3<f32>)-> vec3<f32> {
-    const a: f32 = 2.51;
-    const b: f32 = 0.03;
-    const c: f32 = 2.43;
-    const d: f32 = 0.59;
-    const e: f32 = 0.14;
-    return clamp((x * (a * x + b)) / (x * (c * x + d ) + e), vec3<f32>(0.0), vec3<f32>(1.0));
-}
 @fragment fn mainFragment(input: fInputType) -> @location(0) vec4<f32> {
     let color = textureSample(txt, splr, input.fragPosition);
-    // return vec4<f32>(clamp(acesFilm(color.rgb*1.0), vec3<f32>(0.0), vec3<f32>(1.0)), 1.0);
     return vec4<f32>(color.rgb, 1.0);
 }
 `;
@@ -4991,7 +5118,7 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
                 this.gpu = gpu;
                 this.context = context;
                 // default retina settings
-                if (options.defaultConfigs !== false) {
+                if (options?.defaultConfigs !== false) {
                     let size = 0.2;
                     this.setSlice({
                         layers: 64,
@@ -5039,12 +5166,25 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
                 }
                 return this;
             } // end init
-            createBindGroup(pipeline, index, buffers) {
+            /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
+             *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
+             */
+            createVertexShaderBindGroup(pipeline, index, buffers) {
                 if (index == 0)
                     console.error("Unable to create BindGroup 0, which is occupied by internal usages.");
                 return this.gpu.createBindGroup((pipeline.computePipeline ?
                     pipeline.computePipeline :
-                    pipeline.pipeline), index, buffers.map(e => ({ buffer: e })), "SlicePipelineBindGroup");
+                    pipeline.pipeline), index, buffers.map(e => ({ buffer: e })), "VertexShaderBindGroup");
+            }
+            /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
+             *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
+             */
+            createFragmentShaderBindGroup(pipeline, index, buffers) {
+                if (index == 0 && pipeline.pipeline)
+                    console.error("Unable to create BindGroup 0, which is occupied by internal usages.");
+                return this.gpu.createBindGroup((pipeline.computePipeline ?
+                    pipeline.renderPipeline :
+                    pipeline.pipeline), index, buffers.map(e => ({ buffer: e })), "FragmentShaderBindGroup");
             }
             async createTetraSlicePipeline(desc) {
                 let vertexState = desc.vertex;
@@ -5087,8 +5227,15 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
                     { buffer: this.camProjBuffer },
                     { buffer: this.thumbnailViewportBuffer }
                 ];
+                let indicesInOutputBufferPool = new Set();
+                indicesInOutputBufferPool.add(0); // default builtin(position) buffer
+                let outputVaryBuffer = [this.outputVaryBufferPool[0]];
                 for (let attr in output) {
                     let id;
+                    if (attr === "return")
+                        continue;
+                    let packedType = output[attr].type; // unpack matrix4x4
+                    let rawType = packedType.replace("mat4x4<f32>", "vec4<f32>");
                     if (attr === "builtin(position)") {
                         id = 0;
                     }
@@ -5098,11 +5245,8 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
                     }
                     if (id >= 0) {
                         vertexOutNum++;
-                        bindGroup0declare += `@group(0) @binding(${bindGroup0declareIndex + id}) var<storage, read_write> _output${id} : array<vec4<f32>>;\n`;
-                        if (!this.outputVaryBuffer[id]) {
-                            console.error("Reached maximum tetra vertex shader output");
-                        }
-                        varInterpolate += `var output${id}s : array<vec4<f32>,4>;\n`;
+                        bindGroup0declare += `@group(0) @binding(${bindGroup0declareIndex + id}) var<storage, read_write> _output${id} : array<${rawType}>;\n`;
+                        varInterpolate += `var output${id}s : array<${rawType},4>;\n`;
                         emitOutput1 += `
             _output${id}[outOffset] =   output${id}s[0];
             _output${id}[outOffset+1] = output${id}s[1];
@@ -5111,19 +5255,57 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
                 _output${id}[outOffset+3] = output${id}s[2];
                 _output${id}[outOffset+4] = output${id}s[1];
                 _output${id}[outOffset+5] = output${id}s[3];`;
-                        buffers.push({ buffer: this.outputVaryBuffer[id] });
-                        vinputVert += `@location(${id}) member${id}: vec4<f32>,\n`;
-                        voutputVert += `@${attr} member${id}: vec4<f32>,\n`;
-                        vcallVert += `data.member${id},`;
-                        vertexBufferAttributes.push({
-                            arrayStride: 16,
-                            attributes: [{
+                        let jeg = rawType.match(/array<(.+),(.+)>/);
+                        if (jeg) {
+                            let typeArrLength = Number(jeg[2]);
+                            let attributes = [];
+                            for (let i = 0; i < typeArrLength; i++) {
+                                attributes.push({
                                     shaderLocation: id,
                                     format: 'float32x4',
-                                    offset: 0
-                                }]
-                        });
+                                    offset: i << 4
+                                });
+                            }
+                            vertexBufferAttributes.push({
+                                arrayStride: typeArrLength << 4,
+                                attributes
+                            });
+                            buffers.push({ buffer: requireOutputBuffer(this, id, typeArrLength) });
+                        }
+                        else {
+                            buffers.push({ buffer: requireOutputBuffer(this, id, 1) });
+                            vertexBufferAttributes.push({
+                                arrayStride: 16,
+                                attributes: [{
+                                        shaderLocation: id,
+                                        format: 'float32x4',
+                                        offset: 0
+                                    }]
+                            });
+                        }
                     }
+                }
+                function requireOutputBuffer(self, id, size) {
+                    if (id === 0)
+                        return self.outputVaryBufferPool[0];
+                    let expectedSize = self.maxCrossSectionBufferSize * size;
+                    for (let i = 0; i < self.outputVaryBufferPool.length; i++) {
+                        if (indicesInOutputBufferPool.has(i))
+                            continue; // we can't bind the same buffer again
+                        let buffer = self.outputVaryBufferPool[i];
+                        if (buffer.size === expectedSize) {
+                            // found unused exactly sized buffer
+                            indicesInOutputBufferPool.add(i);
+                            outputVaryBuffer.push(buffer);
+                            return buffer;
+                        }
+                    }
+                    // no buffer found, we need to create
+                    let buffer = self.gpu.createBuffer(SliceRenderer.outputAttributeUsage, expectedSize, "Output buffer for " + size + " vec4(s)");
+                    indicesInOutputBufferPool.add(self.outputVaryBufferPool.length);
+                    self.outputVaryBufferPool.push(buffer);
+                    outputVaryBuffer.push(buffer);
+                    return buffer;
                 }
                 let bindGroup1declare = '';
                 for (let attr of input) {
@@ -5136,11 +5318,19 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
                 function makeInterpolate(a, b) {
                     let str = '';
                     for (let attr in output) {
-                        let name = attr.startsWith("location(") ? output[attr] : attr == "builtin(position)" ? "refPosMat" : "";
+                        let jeg = output[attr].type?.match(/array<(.+),(.+)>/);
+                        let name = attr.startsWith("location(") ? output[attr].expr : attr == "builtin(position)" ? "refPosMat" : "";
                         if (!name)
                             continue;
                         let i = attr.startsWith("location(") ? Number(attr.charAt(9)) + 1 : 0;
-                        str += `output${i}s[offset] = mix(${name}[${a}],${name}[${b}],alpha);\n`;
+                        if (jeg) {
+                            let typeArrLength = Number(jeg[2]);
+                            for (let idx = 0; idx < typeArrLength; idx++)
+                                str += `output${i}s[offset][${idx}] = mix(${name}[${idx}][${a}],${name}[${idx}][${b}],alpha);\n`;
+                        }
+                        else {
+                            str += `output${i}s[offset] = mix(${name}[${a}],${name}[${b}],alpha);\n`;
+                        }
                     }
                     return str;
                 }
@@ -5181,7 +5371,7 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
     // calculate camera space coordinate : builtin(position) and other output need to be interpolated : location(x)
     // call user defined code 
     ${call}
-    let cameraPosMat = ${output["builtin(position)"]};
+    let cameraPosMat = ${output["builtin(position)"].expr};
     let preclipW = cameraPosMat[0].w >= 0 && cameraPosMat[1].w >= 0 && cameraPosMat[2].w >= 0  && cameraPosMat[3].w >= 0;
     if(preclipW){ return; }
     let projBiais:mat4x4<f32> = mat4x4<f32>(
@@ -5307,6 +5497,19 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
                         entryPoint: '_mainCompute'
                     }
                 });
+                vertexBufferAttributes.sort((a, b) => (a.attributes[0].shaderLocation - b.attributes[0].shaderLocation));
+                let shaderLocationCounter = 0;
+                for (let vba of vertexBufferAttributes) {
+                    for (let attr of vba.attributes) {
+                        attr.shaderLocation = shaderLocationCounter++;
+                    }
+                }
+                for (let i = 0; i < shaderLocationCounter; i++) {
+                    let attr = i ? `location(${i - 1})` : "builtin(position)";
+                    vinputVert += `@location(${i}) member${i}: vec4<f32>,\n`;
+                    voutputVert += `@${attr} member${i}: vec4<f32>,\n`;
+                    vcallVert += `data.member${i},`;
+                }
                 this.crossRenderVertexShaderModule = this.gpu.device.createShaderModule({
                     code: `
 struct vInputType{
@@ -5345,7 +5548,8 @@ struct vOutputType{
                     computePipeline,
                     computeBindGroup0: this.gpu.createBindGroup(computePipeline, 0, buffers, "TetraComputePipeline"),
                     renderPipeline,
-                    vertexOutNum
+                    vertexOutNum,
+                    outputVaryBuffer
                 };
             }
             setSize(size) {
@@ -5547,7 +5751,7 @@ struct vOutputType{
             beginTetras(pipeline) {
                 let { commandEncoder, sliceIndex, needClear } = this.renderState;
                 commandEncoder.copyBufferToBuffer(this.outputClearBuffer, 0, this.emitIndexSliceBuffer, this.maxSlicesNumber << 4, 4 << this.sliceGroupSizeBit);
-                commandEncoder.copyBufferToBuffer(this.outputClearBuffer, 0, this.outputVaryBuffer[0], 0, this.maxCrossSectionBufferSize);
+                commandEncoder.copyBufferToBuffer(this.outputClearBuffer, 0, pipeline.outputVaryBuffer[0], 0, this.maxCrossSectionBufferSize);
                 if (needClear)
                     commandEncoder.copyBufferToBuffer(this.sliceGroupOffsetBuffer, sliceIndex << 2, this.sliceOffsetBuffer, 0, 4);
                 let computePassEncoder = commandEncoder.beginComputePass();
@@ -5571,7 +5775,7 @@ struct vOutputType{
             setScreenClearColor(color) {
                 this.screenClearColor = color;
             }
-            drawTetras() {
+            drawTetras(bindGroups) {
                 let { commandEncoder, computePassEncoder, pipeline, needClear } = this.renderState;
                 computePassEncoder.end();
                 let slicePassEncoder = commandEncoder.beginRenderPass(
@@ -5579,7 +5783,12 @@ struct vOutputType{
                 needClear ? this.crossRenderPassDescClear : this.crossRenderPassDescLoad);
                 slicePassEncoder.setPipeline(pipeline.renderPipeline);
                 for (let i = 0; i < pipeline.vertexOutNum; i++) {
-                    slicePassEncoder.setVertexBuffer(i, this.outputVaryBuffer[i]);
+                    slicePassEncoder.setVertexBuffer(i, pipeline.outputVaryBuffer[i]);
+                }
+                if (bindGroups) {
+                    for (let { group, binding } of bindGroups) {
+                        slicePassEncoder.setBindGroup(group, binding);
+                    }
                 }
                 // bitshift: outputBufferSize / 16 for vertices number, / sliceGroupSize for one stride
                 let bitshift = 4 + this.sliceGroupSizeBit;
@@ -5615,14 +5824,14 @@ struct vOutputType{
                 let retunTypeMembers;
                 let outputMembers;
                 if (mainRayFn.return.attributes) {
-                    outputMembers = output["return"];
+                    outputMembers = output["return"].expr;
                     retunTypeMembers = `@${renderer.wgslreflect.parseAttr(mainRayFn.return.attributes)} ${renderer.wgslreflect.parseTypeName(mainRayFn.return)}`;
                 }
                 else {
                     let st = reflect.structs.filter(s => s.name === mainRayFn.return.name)[0];
                     if (!st)
                         console.error("No attribute found");
-                    outputMembers = st.members.map(m => output[renderer.wgslreflect.parseAttr(m.attributes)]).join(",\n");
+                    outputMembers = st.members.map(m => output[renderer.wgslreflect.parseAttr(m.attributes)].expr).join(",\n");
                     retunTypeMembers = st.members.map(m => `@${renderer.wgslreflect.parseAttr(m.attributes)} ${m.name}: ${renderer.wgslreflect.parseTypeName(m.type)}`).join(",\n");
                 }
                 // ${wgslreflect.parseAttr(mainRayFn.return.attributes)} userRayOut: ${wgslreflect.parseTypeName(mainRayFn.return)}
@@ -5826,7 +6035,6 @@ var tesserxel;
     (function (renderer) {
         let wgslreflect;
         (function (wgslreflect) {
-            ;
             /** expectedInput:
              *  {
              *      "location(0)": "_attribute0",
@@ -5841,7 +6049,7 @@ var tesserxel;
              *  }
              * */
             function parseTypeName(type) {
-                return type.name + (type.format ? `<${parseTypeName(type.format)}>` : "");
+                return type.name + (type.format ? `<${parseTypeName(type.format)}${type.count ? "," + type.count : ""}>` : "");
             }
             wgslreflect.parseTypeName = parseTypeName;
             function parseAttr(attrs) {
@@ -5882,7 +6090,10 @@ var tesserxel;
                 function getOutput(type, prefix) {
                     let varName = parseAttr(type.attributes);
                     if (expectOutput.includes(varName)) {
-                        output[varName] = prefix;
+                        output[varName] = {
+                            expr: prefix,
+                            type: parseTypeName(type)
+                        };
                         return;
                     }
                     else {
@@ -7430,6 +7641,8 @@ var tesserxel;
              * @author Brendan Duncan / https://github.com/brendan-duncan
              */
             class WgslReflect {
+                functions;
+                structs;
                 constructor(code) {
                     if (code)
                         this.initialize(code);
@@ -7797,6 +8010,652 @@ var tesserxel;
         })(wgslreflect = renderer.wgslreflect || (renderer.wgslreflect = {}));
     })(renderer = tesserxel.renderer || (tesserxel.renderer = {}));
 })(tesserxel || (tesserxel = {}));
+var tesserxel;
+(function (tesserxel) {
+    let four;
+    (function (four) {
+        class Scene {
+            child = [];
+            backGroundColor;
+            add(obj) {
+                this.child.push(obj);
+            }
+            setBackgroudColor(color) {
+                this.backGroundColor = color;
+            }
+        }
+        four.Scene = Scene;
+        class Object extends tesserxel.math.Obj4 {
+            child = [];
+            worldCoord;
+            needsUpdateCoord = true;
+            constructor() {
+                super();
+                this.worldCoord = new tesserxel.math.AffineMat4();
+            }
+            add(obj) {
+                this.child.push(obj);
+            }
+        }
+        four.Object = Object;
+        class Camera extends Object {
+            fov = 90;
+            near = 0.1;
+            far = 100;
+            needsUpdate = true;
+        }
+        four.Camera = Camera;
+        class Mesh extends Object {
+            geometry;
+            material;
+            uObjMatBuffer;
+            bindGroup;
+            visible = true;
+            constructor(geometry, material) {
+                super();
+                this.geometry = geometry;
+                this.material = material;
+            }
+        }
+        four.Mesh = Mesh;
+        class Geometry {
+            jsBuffer;
+            gpuBuffer;
+            needsUpdate = true;
+            constructor(data) {
+                this.jsBuffer = data;
+            }
+        }
+        four.Geometry = Geometry;
+        class TesseractGeometry extends Geometry {
+            constructor(size) {
+                super(tesserxel.mesh.tetra.tesseract());
+                if (size)
+                    tesserxel.mesh.tetra.applyObj4(this.jsBuffer, new tesserxel.math.Obj4(null, null, size instanceof tesserxel.math.Vec4 ? size : new tesserxel.math.Vec4(size, size, size, size)));
+            }
+        }
+        four.TesseractGeometry = TesseractGeometry;
+        class CubeGeometry extends Geometry {
+            constructor(size) {
+                super(tesserxel.mesh.tetra.clone(tesserxel.mesh.tetra.cube));
+                if (size)
+                    tesserxel.mesh.tetra.applyObj4(this.jsBuffer, new tesserxel.math.Obj4(null, null, size instanceof tesserxel.math.Vec3 ? new tesserxel.math.Vec4(size.x, 1, size.y, size.z) : new tesserxel.math.Vec4(size, 1, size, size)));
+            }
+        }
+        four.CubeGeometry = CubeGeometry;
+        class GlomeGeometry extends Geometry {
+            constructor(size) {
+                super(tesserxel.mesh.tetra.glome(size ?? 1, 16, 16, 12));
+            }
+        }
+        four.GlomeGeometry = GlomeGeometry;
+    })(four = tesserxel.four || (tesserxel.four = {}));
+})(tesserxel || (tesserxel = {}));
+var tesserxel;
+(function (tesserxel) {
+    let four;
+    (function (four) {
+        class Light extends four.Object {
+            density;
+            constructor(density) {
+                super();
+                this.density = color2Vec3(density);
+            }
+        }
+        four.Light = Light;
+        function color2Vec3(density) {
+            if (density instanceof tesserxel.math.Vec3)
+                return density;
+            if (density.r) {
+                return new tesserxel.math.Vec3(density.r, density.g, density.b);
+            }
+            if (typeof density === "number") {
+                return new tesserxel.math.Vec3(density, density, density);
+            }
+            if (density.length === 3) {
+                return new tesserxel.math.Vec3(density[0], density[1], density[2]);
+            }
+        }
+        class AmbientLight extends Light {
+            needsUpdateCoord = false;
+            constructor(density) {
+                super(density);
+            }
+        }
+        four.AmbientLight = AmbientLight;
+        class DirectionalLight extends Light {
+            worldDirection = new tesserxel.math.Vec4;
+            direction;
+            constructor(density, direction) {
+                super(density ?? 1.0);
+                this.direction = direction ?? tesserxel.math.Vec4.y.clone();
+            }
+        }
+        four.DirectionalLight = DirectionalLight;
+        class SpotLight extends Light {
+            worldDirection = new tesserxel.math.Vec4;
+            direction;
+            angle;
+            penumbra;
+            decayPower = 3;
+            constructor(density, angle, penumbra, direction) {
+                super(density ?? 1.0);
+                this.direction = direction ?? tesserxel.math.Vec4.y.clone();
+                this.angle = angle;
+                this.penumbra = penumbra;
+            }
+        }
+        four.SpotLight = SpotLight;
+        class PointLight extends Light {
+            decayPower = 3;
+            constructor(density) {
+                super(density);
+            }
+        }
+        four.PointLight = PointLight;
+        const ambientLightSize = 4 * 4;
+        const structPosDirLightSize = 8 * 4;
+        const structSpotLightLightSize = 16 * 4;
+        const posdirLightsNumber = 8;
+        const spotLightsNumber = 4;
+        const spotLightOffset = ambientLightSize + posdirLightsNumber * structPosDirLightSize;
+        const uWorldLightBufferSize = spotLightOffset + spotLightsNumber * structSpotLightLightSize;
+        const lightCode = `
+        struct PosDirLight{
+            density: vec4<f32>,
+            pos_dir: vec4<f32>,
+        }
+        struct SpotLight{
+            density: vec4<f32>,
+            pos: vec4<f32>,
+            dir: vec4<f32>,
+            params: vec4<f32>
+        }
+        const blackColor = vec3<f32>(0.02);
+        struct WorldLight{
+            ambientLightDensity: vec4<f32>,
+            posdirLights: array<PosDirLight,${posdirLightsNumber}>,
+            spotLights: array<SpotLight,${spotLightsNumber}>,
+        }
+        fn acesFilm(x: vec3<f32>)-> vec3<f32> {
+            const a: f32 = 2.51;
+            const b: f32 = 0.03;
+            const c: f32 = 2.43;
+            const d: f32 = 0.59;
+            const e: f32 = 0.14;
+            return clamp((x * (a * x + b)) / (x * (c * x + d ) + e), vec3<f32>(0.0), vec3<f32>(1.0));
+        }
+        @group(1) @binding(0) var<uniform> uWorldLight: WorldLight;
+        `;
+        function _initLightShader() {
+            return { posdirLightsNumber, spotLightsNumber, lightCode, uWorldLightBufferSize };
+        }
+        four._initLightShader = _initLightShader;
+        function _updateWorldLight(r) {
+            let offset = 0;
+            r.jsBuffer.fill(0);
+            r.ambientLightDensity.writeBuffer(r.jsBuffer);
+            offset += 4;
+            for (let dir of r.directionalLights) {
+                dir.density.writeBuffer(r.jsBuffer, offset);
+                offset += 4;
+                r.jsBuffer[offset - 1] = -1.0; // marker for directional light ( < -0.5 in shader )
+                dir.worldDirection.writeBuffer(r.jsBuffer, offset);
+                offset += 4;
+            }
+            for (let pt of r.pointLights) {
+                pt.density.writeBuffer(r.jsBuffer, offset);
+                offset += 4;
+                r.jsBuffer[offset - 1] = Math.abs(pt.decayPower) + 1; // decay power and also marker for point light ( > 0.5 in shader )
+                pt.worldCoord.vec.writeBuffer(r.jsBuffer, offset);
+                offset += 4;
+            }
+            offset = spotLightOffset >> 2;
+            for (let spt of r.spotLights) {
+                spt.density.writeBuffer(r.jsBuffer, offset);
+                offset += 4;
+                r.jsBuffer[offset - 1] = 1.0; // marker for spotLight
+                spt.worldCoord.vec.writeBuffer(r.jsBuffer, offset);
+                offset += 4;
+                spt.worldDirection.writeBuffer(r.jsBuffer, offset);
+                offset += 4;
+                let cosineinv = 1 / (1 - Math.cos(spt.angle * tesserxel.math._DEG2RAD * 0.5));
+                r.jsBuffer[offset] = cosineinv;
+                r.jsBuffer[offset + 1] = 1 - cosineinv;
+                r.jsBuffer[offset + 2] = spt.penumbra;
+                r.jsBuffer[offset + 3] = Math.abs(spt.decayPower) + 1;
+                offset += 4;
+            }
+            r.gpu.device.queue.writeBuffer(r.uWorldLightBuffer, 0, r.jsBuffer, 0, uWorldLightBufferSize >> 2);
+        }
+        four._updateWorldLight = _updateWorldLight;
+    })(four = tesserxel.four || (tesserxel.four = {}));
+})(tesserxel || (tesserxel = {}));
+var tesserxel;
+(function (tesserxel) {
+    let four;
+    (function (four) {
+        /** An iterative structure for Material */
+        class MaterialNode {
+            identifier;
+            input = {};
+            output;
+            static constFractionDigits = 4;
+            getCode(r, root, outputToken) { return ""; }
+            getInputCode(r, root, token) {
+                let out = {};
+                let code = "";
+                for (let [name, node] of globalThis.Object.entries(this.input)) {
+                    let inputToken = token + "_" + name;
+                    out[name] = inputToken;
+                    code += node.getCode(r, root, inputToken) + "\n";
+                }
+                ;
+                return { token: out, code };
+            }
+            update(r) {
+                for (let node of globalThis.Object.values(this.input)) {
+                    node.update(r);
+                }
+            }
+            constructor(identifier) { this.identifier = identifier; }
+        }
+        /** Material is the top node of MaterialNode */
+        class Material extends MaterialNode {
+            cullFace;
+            compiling = false;
+            needsUpdate = true;
+            output = "shader";
+            pipeline;
+            uuid;
+            bindGroup;
+            bindGroupBuffers = [];
+            fetchBuffers = [];
+            declUniforms = {};
+            declUniformLocation = 0;
+            declVarys = [];
+            createBindGroup(r, p) {
+                this.bindGroup = this.bindGroupBuffers.length ? [r.core.createFragmentShaderBindGroup(p, 0, this.bindGroupBuffers)] : [];
+            }
+            async compile(r) {
+                this.compiling = true;
+                r.pullPipeline(this.identifier, "compiling");
+                let { vs, fs } = this.getShaderCode(r);
+                this.pipeline = await r.core.createTetraSlicePipeline({
+                    vertex: { code: vs, entryPoint: "main" },
+                    fragment: { code: fs, entryPoint: "main" }
+                });
+                r.pullPipeline(this.identifier, this.pipeline);
+                this.compiling = false;
+            }
+            // when a subnode uses vary input, call this function to check attribute buffer and construct input structure
+            addVary(a) {
+                if (!this.declVarys.includes(a)) {
+                    this.declVarys.push(a);
+                }
+                if (a == "pos")
+                    return;
+                if (!this.fetchBuffers.includes(a)) {
+                    this.fetchBuffers.push(a);
+                }
+            }
+            // when a subnode uses uniform, call this function to add uniform globally
+            addUniform(type, u, buffer) {
+                if (!this.declUniforms[u]) {
+                    this.declUniforms[u] = { location: this.declUniformLocation++, type, buffer };
+                    this.bindGroupBuffers.push(buffer);
+                }
+            }
+            fetchBuffer(g) {
+                //sort buffer fetchBuffers
+                return [g.gpuBuffer["position"], ...this.fetchBuffers.map(b => g.gpuBuffer[b])];
+            }
+            getShaderCode(r) {
+                this.fetchBuffers = [];
+                this.declUniforms = {};
+                this.declVarys = [];
+                this.bindGroupBuffers = [];
+                this.declUniformLocation = 0;
+                // iteratively generate code
+                let code = this.getCode(r, this, "");
+                let fsIn = this.declVarys.length ? 'vary: fourInputType' : "";
+                let lightCode = r.lightShaderInfomation.lightCode;
+                if (this.declUniformLocation === 0) {
+                    lightCode = lightCode.replace("@group(1)", "@group(0)");
+                }
+                let header = lightCode + `
+    struct AffineMat{
+        matrix: mat4x4<f32>,
+        vector: vec4<f32>,
+    }
+    @fragment fn main(${fsIn}) -> @location(0) vec4<f32> {
+        let ambientLightDensity = uWorldLight.ambientLightDensity.xyz;`; // avoid basic material doesn't call this uniform at all
+                // if frag shader has input, we need to construct a struct fourInputType
+                if (fsIn) {
+                    let struct = `    struct fourInputType{\n`;
+                    for (let i = 0, l = this.declVarys.length; i < l; i++) {
+                        struct += `        @location(${i}) ${this.declVarys[i]}: vec4<f32>,\n`;
+                    }
+                    struct += "    }\n";
+                    header = struct + header;
+                }
+                for (let [u, { location, type }] of globalThis.Object.entries(this.declUniforms)) {
+                    header = `   @group(0) @binding(${location}) var<uniform> ${u}:${type};\n` + header;
+                }
+                // we use the result from getCode to generate needed vertex variables
+                return { vs: four._generateVertShader(this.fetchBuffers, this.declVarys), fs: header + code + `\n   }` };
+            }
+            constructor(identifiers) {
+                super(identifiers);
+                this.uuid = tesserxel.math.generateUUID();
+            }
+            gpuUniformBuffer;
+        }
+        four.Material = Material;
+        /** ConstValue will be hardcoded in shader */
+        class ConstValue extends MaterialNode {
+            getCode(r, root, outputToken) {
+                return `
+                const ${outputToken} = ${this.identifier};`;
+            }
+            constructor(identifier) {
+                super(identifier);
+            }
+        }
+        class ColorConstValue extends ConstValue {
+            constructor(color) {
+                let r = color?.r ?? color[0] ?? 0;
+                let g = color?.g ?? color[1] ?? 0;
+                let b = color?.b ?? color[2] ?? 0;
+                let a = color?.a ?? color[3] ?? 1;
+                super(`vec4<f32>(${r.toFixed(MaterialNode.constFractionDigits)},${g.toFixed(MaterialNode.constFractionDigits)},${b.toFixed(MaterialNode.constFractionDigits)},${a.toFixed(MaterialNode.constFractionDigits)})`);
+            }
+        }
+        class Vec4ConstValue extends ConstValue {
+            constructor(vec) {
+                super(`vec4<f32>(${vec.flat().map(n => n.toFixed(MaterialNode.constFractionDigits)).join(",")})`);
+            }
+        }
+        class FloatConstValue extends ConstValue {
+            constructor(f) {
+                super(f.toFixed(MaterialNode.constFractionDigits));
+            }
+        }
+        class TransformConstValue extends ConstValue {
+            constructor(v) {
+                let afmat = v.getAffineMat4();
+                let matEntries = afmat.mat.ts().elem.map(n => n.toFixed(MaterialNode.constFractionDigits)).join(",");
+                let vecEntries = afmat.vec.flat().map(n => n.toFixed(MaterialNode.constFractionDigits)).join(",");
+                super(`AffineMat(mat4x4<f32>(${matEntries}),vec4<f32>(${vecEntries}))`);
+            }
+        }
+        /** the same UniformValue instance will share one uniform buffer */
+        class UniformValue extends MaterialNode {
+            gpuBuffer;
+            gpuBufferSize;
+            jsBufferSize;
+            type;
+            needsUpdate = true;
+            constructor() {
+                super("u" + tesserxel.math.generateUUID().replace(/\-/g, "").slice(16));
+            }
+            getCode(r, root, outputToken) {
+                if (!this.gpuBuffer) {
+                    this.createBuffer(r);
+                }
+                root.addUniform(this.type, this.identifier, this.gpuBuffer);
+                return `
+                let ${outputToken} = ${this.identifier};`;
+            }
+            createBuffer(r) {
+                this.gpuBuffer = r.gpu.createBuffer(GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM, this.gpuBufferSize, "uConstValueBuffer");
+                this.jsBufferSize = this.gpuBufferSize >> 2;
+            }
+            _update(r) { }
+            update(r) {
+                if (!this.needsUpdate)
+                    return;
+                this._update(r);
+                r.gpu.device.queue.writeBuffer(this.gpuBuffer, 0, r.jsBuffer, 0, this.jsBufferSize);
+                this.needsUpdate = false;
+            }
+        }
+        class ColorUniformValue extends UniformValue {
+            type = "vec4<f32>";
+            gpuBufferSize = 4 * 4;
+            value;
+            _update(r) {
+                r.jsBuffer[0] = this.value?.r ?? this.value[0] ?? 0;
+                r.jsBuffer[1] = this.value?.g ?? this.value[1] ?? 0;
+                r.jsBuffer[2] = this.value?.b ?? this.value[2] ?? 0;
+                r.jsBuffer[3] = this.value?.a ?? this.value[3] ?? 1;
+            }
+            write(value) {
+                this.value = value;
+                this.needsUpdate = true;
+            }
+        }
+        four.ColorUniformValue = ColorUniformValue;
+        class Vec4UniformValue extends UniformValue {
+            type = "vec4<f32>";
+            gpuBufferSize = 4 * 4;
+            value;
+            _update(r) {
+                this.value.writeBuffer(r.jsBuffer);
+            }
+            write(value) {
+                this.value = value;
+                this.needsUpdate = true;
+            }
+        }
+        four.Vec4UniformValue = Vec4UniformValue;
+        class FloatUniformValue extends UniformValue {
+            type = "f32";
+            gpuBufferSize = 4;
+            value;
+            _update(r) {
+                r.jsBuffer[0] = this.value;
+            }
+            write(value) {
+                this.value = value;
+                this.needsUpdate = true;
+            }
+        }
+        four.FloatUniformValue = FloatUniformValue;
+        class TransformUniformValue extends UniformValue {
+            type = "AffineMat";
+            gpuBufferSize = 20 * 4;
+            value;
+            affineMatValue = new tesserxel.math.AffineMat4();
+            _update(r) {
+                this.affineMatValue.setFromObj4(this.value).writeBuffer(r.jsBuffer);
+            }
+            write(value) {
+                this.value = value;
+                this.needsUpdate = true;
+            }
+        }
+        four.TransformUniformValue = TransformUniformValue;
+        /** A shortcut path for writing a constant color */
+        function makeColorOutput(color) {
+            if (!(color instanceof MaterialNode))
+                color = new ColorConstValue(color);
+            return color;
+        }
+        /** A shortcut path for writing a constant color */
+        function makeFloatOutput(f) {
+            if (!(f instanceof MaterialNode))
+                f = new FloatConstValue(f);
+            return f;
+        }
+        /** Basic material just return color node's output color  */
+        class BasicMaterial extends Material {
+            constructor(color) {
+                color = makeColorOutput(color);
+                super("Basic(" + color.identifier + ")");
+                this.input = { color };
+            }
+            getCode(r, root, outputToken) {
+                let color = this.input.color.getCode(r, root, "color");
+                return color + `
+                return color;`;
+            }
+        }
+        four.BasicMaterial = BasicMaterial;
+        class LambertMaterial extends Material {
+            getCode(r, root, outputToken) {
+                root.addVary("normal");
+                root.addVary("pos");
+                let color = this.input.color.getCode(r, root, "color");
+                return color + `
+                var radiance = ambientLightDensity;
+                for(var i=0;i<${r.lightShaderInfomation.posdirLightsNumber};i++){
+                    var N = vec4<f32>(0.0);
+                    if(uWorldLight.posdirLights[i].density.w<-0.5){
+                        N = uWorldLight.posdirLights[i].pos_dir;
+                    }else if(uWorldLight.posdirLights[i].density.w>0.5){
+                        N = uWorldLight.posdirLights[i].pos_dir - vary.pos;
+                        N *= pow(length(N),-uWorldLight.posdirLights[i].density.w); // decay by distance
+                    }
+                    radiance += uWorldLight.posdirLights[i].density.rgb * max(0.0,dot(vary.normal,N));
+                }
+                for(var i=0;i<${r.lightShaderInfomation.spotLightsNumber};i++){
+                    if(uWorldLight.spotLights[i].density.w>0.5){
+                        var N = uWorldLight.spotLights[i].pos - vary.pos;
+                        let len = length(N);
+                        let penumbra = max(0.0,dot(N / len,uWorldLight.spotLights[i].dir)*uWorldLight.spotLights[i].params.x + uWorldLight.spotLights[i].params.y);
+                        N *= pow(len,-uWorldLight.spotLights[i].params.w) * pow(penumbra, uWorldLight.spotLights[i].params.z);
+                        radiance += uWorldLight.spotLights[i].density.rgb * max(0.0,dot(vary.normal,N));
+                    }
+                }
+                return vec4<f32>(acesFilm((color.rgb + blackColor) * radiance), color.a);`;
+            }
+            constructor(color) {
+                color = makeColorOutput(color);
+                super("Lambert(" + color.identifier + ")");
+                this.input = { color };
+            }
+        }
+        four.LambertMaterial = LambertMaterial;
+        /** Blinn Phong */
+        class PhongMaterial extends Material {
+            getCode(r, root, outputToken) {
+                root.addVary("normal");
+                root.addVary("pos");
+                root.addUniform("array<AffineMat,2>", "uCamMat", r.uCamMatBuffer);
+                let { code } = this.getInputCode(r, root, outputToken);
+                return code + `
+                var radiance = ambientLightDensity;
+                var specularRadiance = vec3<f32>(0.0);
+                let viewRay = -normalize(vary.pos - uCamMat[1].vector);
+                for(var i=0;i<${r.lightShaderInfomation.posdirLightsNumber};i++){
+                    var N = vec4<f32>(0.0);
+                    var D = 0.0;
+                    if(uWorldLight.posdirLights[i].density.w<-0.5){
+                        D = 1.0;
+                        N = uWorldLight.posdirLights[i].pos_dir;
+                    }else
+                     if(uWorldLight.posdirLights[i].density.w>0.5){
+                        N = uWorldLight.posdirLights[i].pos_dir - vary.pos;
+                        let len = length(N);
+                        D = pow(len,1.0 - uWorldLight.posdirLights[i].density.w); // decay by distance
+                        N /= len;
+                    }else{
+                        continue;
+                    }
+                    let halfvec = normalize(N + viewRay);
+                    radiance += uWorldLight.posdirLights[i].density.rgb *  D * max(0.0,dot(vary.normal,N));
+                    specularRadiance += uWorldLight.posdirLights[i].density.rgb *  D * max(0.0,pow(dot(vary.normal,halfvec),_shininess) ) ;
+                }
+                for(var i=0;i<${r.lightShaderInfomation.spotLightsNumber};i++){
+                    if(uWorldLight.spotLights[i].density.w>0.5){
+                        
+                        var N = uWorldLight.spotLights[i].pos - vary.pos;
+                        let len = length(N);
+                        N /= len;
+                        let penumbra = max(0.0,dot(N,uWorldLight.spotLights[i].dir)*uWorldLight.spotLights[i].params.x + uWorldLight.spotLights[i].params.y);
+                        let D = pow(len,1.0-uWorldLight.spotLights[i].params.w) * pow(penumbra, uWorldLight.spotLights[i].params.z);
+                        let halfvec = normalize(N + viewRay);
+                        
+                        radiance += uWorldLight.spotLights[i].density.rgb *  D * max(0.0,dot(vary.normal,N));
+                        specularRadiance += uWorldLight.spotLights[i].density.rgb *  D * max(0.0,pow(dot(vary.normal,halfvec),_shininess) ) ;
+                    }
+                }
+                return vec4<f32>(acesFilm((_color.rgb+blackColor) * radiance + _specular.rgb * specularRadiance), _color.a);`;
+            }
+            constructor(color, shininess, specular) {
+                color = makeColorOutput(color);
+                specular = makeColorOutput(specular ?? [1, 1, 1]);
+                shininess = makeFloatOutput(shininess ?? 20.0);
+                super("Phong(" + color.identifier + "," + specular.identifier + "," + shininess.identifier + ")");
+                this.input = { color, shininess, specular };
+            }
+        }
+        four.PhongMaterial = PhongMaterial;
+        class CheckerTexture extends MaterialNode {
+            getCode(r, root, outputToken) {
+                // Tell root material that CheckerTexture needs deal dependency of vary input uvw
+                let { token, code } = this.getInputCode(r, root, outputToken);
+                return code + `
+                let ${outputToken}_checker = fract(${token.uvw}) - vec4<f32>(0.5);
+                let ${outputToken} = mix(${token.color1},${token.color2},step( ${outputToken}_checker.x * ${outputToken}_checker.y * ${outputToken}_checker.z * ${outputToken}_checker.w, 0.0));
+                `;
+            }
+            constructor(color1, color2, uvw) {
+                color1 = makeColorOutput(color1);
+                color2 = makeColorOutput(color2);
+                uvw ??= new UVWVec4Input();
+                super(`Checker(${color1.identifier},${color2.identifier},${uvw.identifier})`);
+                this.input = { color1, color2, uvw };
+            }
+        }
+        four.CheckerTexture = CheckerTexture;
+        class GridTexture extends MaterialNode {
+            getCode(r, root, outputToken) {
+                // Tell root material that CheckerTexture needs deal dependency of vary input uvw
+                let { token, code } = this.getInputCode(r, root, outputToken);
+                return code + `
+                let ${outputToken}_grid = step(${token.gridWidth}, fract(${token.uvw}));
+                let ${outputToken} = mix(${token.color1},${token.color2},${outputToken}_grid.x*${outputToken}_grid.y*${outputToken}_grid.z*${outputToken}_grid.w);
+                `;
+            }
+            constructor(color1, color2, gridWidth, uvw) {
+                color1 = makeColorOutput(color1);
+                color2 = makeColorOutput(color2);
+                gridWidth = !(gridWidth instanceof MaterialNode) ? new Vec4ConstValue((gridWidth instanceof tesserxel.math.Vec4) ? gridWidth : new tesserxel.math.Vec4(gridWidth, gridWidth, gridWidth, gridWidth)) : gridWidth;
+                uvw ??= new UVWVec4Input();
+                super(`Grid(${color1.identifier},${color2.identifier}),${gridWidth.identifier},${uvw.identifier}`);
+                this.input = { color1, color2, gridWidth, uvw };
+            }
+        }
+        four.GridTexture = GridTexture;
+        class UVWVec4Input extends MaterialNode {
+            getCode(r, root, outputToken) {
+                root.addVary("uvw");
+                return `
+                let ${outputToken} = vary.uvw;`;
+            }
+            constructor() {
+                super("vary.uvw");
+            }
+        }
+        four.UVWVec4Input = UVWVec4Input;
+        class Vec4TransformNode extends MaterialNode {
+            getCode(r, root, outputToken) {
+                let input = this.getInputCode(r, root, outputToken);
+                let affine = input.token.transform;
+                return input.code + `
+                let ${outputToken} = ${affine}.matrix * ${input.token.vec4} + ${affine}.vector;`;
+            }
+            constructor(vec4, transform) {
+                transform = (!(transform instanceof MaterialNode)) ? new TransformConstValue(transform) : transform;
+                super("vec4tr(" + vec4.identifier + "," + transform.identifier + ")");
+                this.input = { vec4, transform };
+            }
+        }
+        four.Vec4TransformNode = Vec4TransformNode;
+    })(four = tesserxel.four || (tesserxel.four = {}));
+})(tesserxel || (tesserxel = {}));
 /** threejs like 4D lib */
 var tesserxel;
 (function (tesserxel) {
@@ -7806,24 +8665,122 @@ var tesserxel;
             core;
             gpu;
             canvas;
-            pipelines;
+            pipelines = {};
+            jsBuffer = new Float32Array(1024);
+            uCamMatBuffer; // contain inv and uninv affineMat
+            uWorldLightBuffer;
+            lightShaderInfomation = four._initLightShader();
             constructor(canvas) {
                 this.canvas = canvas;
                 this.core = new tesserxel.renderer.SliceRenderer();
             }
+            setBackgroudColor(color) {
+                this.core.setScreenClearColor(color);
+            }
             async init() {
                 this.gpu = await tesserxel.renderer.createGPU();
                 await this.core.init(this.gpu, this.gpu.getContext(this.canvas));
+                this.uCamMatBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, (4 * 5 * 2) * 4, "uCamMat");
+                this.uWorldLightBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, this.lightShaderInfomation.uWorldLightBufferSize, "uWorldLight");
+                this.core.setSize({ width: this.canvas.width * devicePixelRatio, height: this.canvas.height * devicePixelRatio });
+                return this;
+            }
+            // todo: add computePipeLinePool
+            fetchPipelineName(identifier) {
+                return identifier;
+            }
+            fetchPipeline(identifier) {
+                return this.pipelines[this.fetchPipelineName(identifier)];
+            }
+            pullPipeline(identifier, pipeline) {
+                if (this.pipelines[identifier] && this.pipelines[identifier] !== "compiling")
+                    console.error("FOUR Renderer: Repetitive material pipeline creation occured.");
+                this.pipelines[identifier] = pipeline;
+            }
+            updateObject(o) {
+                for (let c of o.child) {
+                    if (c.needsUpdateCoord || o.needsUpdateCoord) {
+                        c.worldCoord.setFromObj4(c).mulsl(o.worldCoord);
+                        c.needsUpdateCoord = true;
+                    }
+                    this.updateObject(c);
+                    c.needsUpdateCoord = false;
+                }
+                if (o instanceof four.Mesh) {
+                    this.updateMesh(o);
+                }
+                else if (o instanceof four.AmbientLight) {
+                    this.ambientLightDensity.adds(o.density);
+                }
+                else if (o instanceof four.PointLight) {
+                    this.pointLights.push(o);
+                }
+                else if (o instanceof four.SpotLight) {
+                    if (o.needsUpdateCoord) {
+                        o.worldDirection.mulmatvset(o.worldCoord.mat, o.direction);
+                    }
+                    this.spotLights.push(o);
+                }
+                else if (o instanceof four.DirectionalLight) {
+                    if (o.needsUpdateCoord) {
+                        o.worldDirection.mulmatvset(o.worldCoord.mat, o.direction);
+                    }
+                    this.directionalLights.push(o);
+                }
+                else if (o.needsUpdateCoord && o === this.activeCamera) {
+                    o.worldCoord.inv().writeBuffer(this.jsBuffer);
+                    o.worldCoord.writeBuffer(this.jsBuffer, 20);
+                    this.gpu.device.queue.writeBuffer(this.uCamMatBuffer, 0, this.jsBuffer, 0, 40);
+                }
+            }
+            // this may fail to add to drawlist if pipeline creation is not finished yet
+            addToDrawList(m) {
+                let pipeline = this.fetchPipeline(m.material.identifier);
+                // attention: this is an async function, rendering will be in the future tick
+                if (!pipeline) {
+                    m.material.bindGroup = null;
+                    m.bindGroup = null;
+                    m.material.compile(this);
+                    return;
+                }
+                if (pipeline === "compiling")
+                    return;
+                let groupName = m.material.uuid;
+                let group = m.material.declUniformLocation ? 1 : 0;
+                let bindGroup = this.core.createFragmentShaderBindGroup(pipeline, group, [this.uWorldLightBuffer]);
+                this.drawList[groupName] ??= { pipeline: pipeline, meshes: [], bindGroup: { group, binding: bindGroup } };
+                this.drawList[groupName].meshes.push(m);
+                if (!m.bindGroup) {
+                    m.bindGroup = this.core.createVertexShaderBindGroup(pipeline, 1, [
+                        ...m.material.fetchBuffer(m.geometry),
+                        m.uObjMatBuffer,
+                        this.uCamMatBuffer
+                    ]);
+                }
+                if (!m.material.bindGroup) {
+                    m.material.createBindGroup(this, pipeline);
+                }
+                m.material.update(this);
             }
             updateMesh(m) {
-                m.needsUpdate = false;
+                if (m.visible)
+                    this.addToDrawList(m);
+                if (m.needsUpdateCoord) {
+                    m.worldCoord.writeBuffer(this.jsBuffer, 0);
+                    m.worldCoord.mat.inv().ts().writeBuffer(this.jsBuffer, 20);
+                    if (!m.uObjMatBuffer) {
+                        m.uObjMatBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, (20 + 16) * 4, "uObjMatBuffer");
+                    }
+                    this.gpu.device.queue.writeBuffer(m.uObjMatBuffer, 0, this.jsBuffer, 0, 20 + 16);
+                }
                 if (m.geometry.needsUpdate) {
                     let g = m.geometry;
                     g.needsUpdate = false;
                     if (!g.gpuBuffer) {
+                        g.gpuBuffer = {};
                         for (let [label, value] of globalThis.Object.entries(g.jsBuffer)) {
                             if (value instanceof Float32Array) {
-                                g.gpuBuffer[label] = this.gpu.createBuffer(GPUBufferUsage.STORAGE, value, label);
+                                g.gpuBuffer[label] = this.gpu.createBuffer(GPUBufferUsage.STORAGE, value, "AttributeBuffer." + label);
                             }
                         }
                     }
@@ -7835,100 +8792,140 @@ var tesserxel;
                 }
             }
             updateScene(scene) {
+                this.core.setWorldClearColor(scene.backGroundColor);
                 for (let c of scene.child) {
-                    if (!c.needsUpdate)
-                        return;
-                    if (c instanceof Mesh) {
-                        this.updateMesh(c);
+                    if (c.needsUpdateCoord) {
+                        c.worldCoord.setFromObj4(c);
                     }
+                    this.updateObject(c);
+                    c.needsUpdateCoord = false;
                 }
+                four._updateWorldLight(this);
             }
-            render(scene) {
+            ambientLightDensity = new tesserxel.math.Vec3;
+            directionalLights;
+            spotLights;
+            pointLights;
+            drawList;
+            activeCamera;
+            setCamera(camera) {
+                if (camera.needsUpdate) {
+                    this.core.set4DCameraProjectMatrix(camera);
+                    camera.needsUpdate = false;
+                }
+                this.activeCamera = camera;
+            }
+            render(scene, camera) {
+                this.clearState();
+                this.setCamera(camera);
                 this.updateScene(scene);
+                this.core.render(() => {
+                    for (let { pipeline, meshes, bindGroup } of globalThis.Object.values(this.drawList)) {
+                        this.core.beginTetras(pipeline);
+                        for (let mesh of meshes) {
+                            this.core.sliceTetras(mesh.bindGroup, mesh.geometry.jsBuffer.tetraCount);
+                        }
+                        this.core.drawTetras([
+                            ...meshes[0].material.bindGroup.map((bg, binding) => ({ group: binding, binding: bg })),
+                            bindGroup
+                        ]);
+                    }
+                });
+            }
+            setSize(size) {
+                if (size.height) {
+                    this.canvas.width = size.width;
+                    this.canvas.height = size.height;
+                }
+                else {
+                    this.canvas.width = size[0];
+                    this.canvas.height = size[1];
+                }
+                this.core.setSize(size);
+            }
+            clearState() {
+                this.ambientLightDensity.set();
+                this.directionalLights = [];
+                this.spotLights = [];
+                this.pointLights = [];
+                this.drawList = {};
             }
         }
-        class Object extends tesserxel.math.Obj4 {
-            child;
-            worldCoord;
-            needsUpdate = true;
-            add(obj) {
-                this.child.push(obj);
-            }
-        }
-        class Scene {
-            child;
-            add(obj) {
-                this.child.push(obj);
-            }
-        }
-        class Geometry {
-            jsBuffer;
-            gpuBuffer;
-            needsUpdate = true;
-            constructor(data) {
-                this.jsBuffer = data;
-            }
-        }
-        class Mesh extends Object {
-            geometry;
-            material;
-        }
-        class Material {
-            cullFace;
-            needsUpdate = true;
-            identifier;
-            constructor(identifier) {
-                this.identifier = identifier;
-            }
-            gpuUniformBuffer;
-            code;
-        }
-        class BasicMaterial extends Material {
-            color;
-            constructor(color) {
-                super("BasicMaterial");
-                this.color = color;
-            }
-        }
-        class PhoneMaterial extends Material {
-            color;
-            specular;
-            constructor(color, specular) {
-                super("PhoneMaterial");
-                this.color = color;
-                this.specular = specular;
-            }
-        }
+        four.Renderer = Renderer;
     })(four = tesserxel.four || (tesserxel.four = {}));
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
 (function (tesserxel) {
     let four;
     (function (four) {
-        let basicVertShader = `
-        struct _fourInputType{
-            @location(0) pos: mat4x4<f32>,
-            @location(1) uvw: mat4x4<f32>,
-            @location(2) normal: mat4x4<f32>,
-        }
-        struct _fourOutputType{
-            @builtin(position) pos: mat4x4<f32>,
-            @location(0) uvw: mat4x4<f32>,
-            @location(1) normal: mat4x4<f32>,
-        }
+        //  tetra vertex shaders
+        let commonHeader = `
         struct AffineMat{
             matrix: mat4x4<f32>,
             vector: vec4<f32>,
         }
-        @group(1) @binding(3) var<uniform> camMat: AffineMat;
+        struct UObjMats{
+            pos: AffineMat,
+            normal: mat4x4<f32>,
+        }
+        struct fourInputType{
+            @location(0) pos: mat4x4<f32>,{fourInputType}
+        }
+        struct fourOutputType{
+            @builtin(position) position: mat4x4<f32>,
+            {fourOutputType}
+        }
+        @group(1) @binding({0}) var<uniform> uObjMat: UObjMats;
+        @group(1) @binding({1}) var<uniform> uCamMat: AffineMat;
         fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
             let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
-            return afmat.matrix* points + biais;
+            return afmat.matrix * points + biais;
         }
-        @tetra fn main(input : InputType, @builtin(instance_index) index: u32) -> OutputType{
-            return OutputType(apply(camMat,input.pos), input.uvw, input.normal);
+        @tetra fn main(input : fourInputType, @builtin(instance_index) index: u32) -> fourOutputType{
+            let worldPos = apply(uObjMat.pos,input.pos);
+            return fourOutputType({fourOutputReturn});
         }
         `;
+        const outputReturn = {
+            position: `apply(uCamMat,worldPos)`,
+            uvw: `input.uvw`,
+            normal: `uObjMat.normal * input.normal`,
+            pos: `worldPos`
+        };
+        function _generateVertShader(inputs, outputs) {
+            const bindingOffset = inputs.length + 1;
+            let header = commonHeader;
+            let fourInputType = "";
+            let fourOutputType = "";
+            let fourOutputReturn = outputReturn.position;
+            for (let i = 0, l = inputs.length; i < l; i++) {
+                fourInputType += `
+                @location(${i + 1}) ${inputs[i]}: mat4x4<f32>,`;
+            }
+            if (outputs.length === 1) {
+                fourOutputType = `
+                @location(0) ${outputs[0]}: mat4x4<f32>,`;
+                fourOutputReturn += "," + outputReturn[outputs[0]];
+            }
+            else if (outputs.length === 2) {
+                fourOutputType = `
+                @location(0) ${outputs[0]}: mat4x4<f32>,
+                @location(1) ${outputs[1]}: mat4x4<f32>`;
+                fourOutputReturn += "," + outputReturn[outputs[0]] + "," + outputReturn[outputs[1]];
+            }
+            else if (outputs.length === 3) {
+                fourOutputType = `
+                @location(0) ${outputs[0]}_${outputs[1]}: array<mat4x4<f32>,2>,
+                @location(1) ${outputs[2]}: mat4x4<f32>`;
+                fourOutputReturn += ", array<mat4x4<f32>,2>(" + outputReturn[outputs[0]] + "," +
+                    outputReturn[outputs[1]] + ")," + outputReturn[outputs[2]];
+            }
+            for (let i = 0; i < 32; i++) {
+                header = header.replace(`@binding({${i}})`, `@binding(${i + bindingOffset})`);
+            }
+            return header.replace("{fourOutputReturn}", fourOutputReturn).replace("{fourOutputType}", fourOutputType).replace("{fourInputType}", fourInputType);
+        }
+        four._generateVertShader = _generateVertShader;
     })(four = tesserxel.four || (tesserxel.four = {}));
 })(tesserxel || (tesserxel = {}));
 //# sourceMappingURL=tesserxel.js.map

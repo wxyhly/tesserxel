@@ -10,8 +10,8 @@ namespace examples {
         // output position in camera space and data sent to fragment shader to be interpolated
         struct OutputType{
             @builtin(position) pos: mat4x4<f32>,
-            @location(0) normal: mat4x4<f32>,
-            @location(1) uvw: mat4x4<f32>,
+            @location(0) normal_uvw: array<mat4x4<f32>,2>,
+            @location(1) position: mat4x4<f32>,
         }
         // we define an affineMat to store rotation and transform since there's no mat5x5 in wgsl
         struct AffineMat{
@@ -28,7 +28,10 @@ namespace examples {
         }
         // tell compiler that this is tetra slice pipeline's entry function by '@tetra'
         @tetra fn main(input : InputType) -> OutputType{
-            return OutputType(apply(camMat,input.pos), camMat.matrix * input.normal, input.uvw);
+            let campos = apply(camMat,input.pos);
+            return OutputType(campos, array<mat4x4<f32>,2>(
+                camMat.matrix * input.normal, input.uvw), campos
+            );
         }
         `;
         fragHeaderCode = `
@@ -36,6 +39,7 @@ namespace examples {
         struct fInputType{
             @location(0) normal : vec4<f32>,
             @location(1) uvw : vec4<f32>,
+            @location(2) pos : vec4<f32>,
         };
         // a color space conversion function
         fn hsb2rgb( c:vec3<f32> )->vec3<f32>{
@@ -91,7 +95,7 @@ namespace examples {
             // camera affinemat buffer on gpu
             this.camBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
             // bind these buffers to group(1) in pipeline
-            this.vertBindGroup = this.renderer.createBindGroup(this.pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, this.camBuffer]);
+            this.vertBindGroup = this.renderer.createVertexShaderBindGroup(this.pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, this.camBuffer]);
             // init a trackball controller in order to drag 4d object by mouse and keys
             this.trackBallController = new tesserxel.controller.TrackBallController();
             // randomize the initial orientation of the object controlled by trackball controller
@@ -135,12 +139,14 @@ namespace examples {
                 const frontLightColor = vec3<f32>(5.0,4.6,3.5);
                 const backLightColor = vec3<f32>(0.1,1.2,1.4);
                 const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
+                let halfvec = normalize(directionalLight_dir - normalize(vary.pos));
+                let highLight = pow(max(0.0,dot(vary.normal,halfvec)),30);
                 let checkerboard = fract(vary.uvw.xyz *vec3<f32>(40.0, 40.0, 20.0)) - vec3<f32>(0.5);
                 let factor = step( checkerboard.x * checkerboard.y * checkerboard.z, 0.0);
                 var color:vec3<f32> = mix(hsb2rgb(vec3<f32>(vary.uvw.x,0.7,1.0)), hsb2rgb(vec3<f32>(vary.uvw.y,1.0,0.7)), factor);
                 color = color * (
                     frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
-                );
+                )* (0.4 + 0.8*highLight);
                 return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
             }`;
             let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.tiger(0.3 + Math.random() * 0.05, 32, 0.5, 32, 0.14 + Math.random() * 0.03, 16));
@@ -206,10 +212,8 @@ namespace examples {
                 return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 0.2 + f32(count>=2.0));
             }`;
             let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.tesseract());
-            let config = app.renderer.getSliceConfig();
-            config.opacity = 10.0;
             // retina controller will own the slice config, so we should not call renderer.setSlice() directly
-            app.retinaController.setSlice(config);
+            app.retinaController.setOpacity(10.0);
             app.renderer.set4DCameraProjectMatrix({ fov: 110, near: 0.01, far: 10.0 });
             app.trackBallController.object.rotation.l.set();
             app.trackBallController.object.rotation.r.set();

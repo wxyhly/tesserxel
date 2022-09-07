@@ -143,8 +143,8 @@ namespace examples {
             }
             struct OutputType{
                 @builtin(position) pos: mat4x4<f32>,
-                @location(0) uvw: mat4x4<f32>,
-                @location(1) normal: mat4x4<f32>,
+                @location(0) normal_uvw: array<mat4x4<f32>,2>,
+                @location(1) camRay: mat4x4<f32>,
             }
             struct AffineMat{
                 matrix: mat4x4<f32>,
@@ -156,13 +156,18 @@ namespace examples {
                 return afmat.matrix* points + biais;
             }
             @tetra fn main(input : InputType, @builtin(instance_index) index: u32) -> OutputType{
-                return OutputType(apply(camMat,input.pos), input.uvw, input.normal);
+                let camInvVec = transpose(camMat.matrix) * camMat.vector;
+                return OutputType(apply(camMat,input.pos),
+                    array<mat4x4<f32>,2>(input.uvw, input.normal),
+                    input.pos + mat4x4<f32>(camInvVec,camInvVec,camInvVec,camInvVec)
+                );
             }
             `;
             let roadfragCode = `
             struct fInputType{
                 @location(0) uvw : vec4<f32>,
-                @location(1) normal : vec4<f32>
+                @location(1) normal : vec4<f32>,
+                @location(2) camRay : vec4<f32>
             };
             const xLanes = ${xLanes};
             const yLanes = ${yLanes};
@@ -175,7 +180,7 @@ namespace examples {
             fn maxComp(p: vec2<f32>)->f32{
                 return max(p.x,p.y);
             }
-            fn roadTexture(uvw:vec3<f32>)->vec4<f32>{
+            fn roadTexture(uvw:vec3<f32>, phong: f32)->vec4<f32>{
                 let uv = vec3<f32>((abs(uvw.x) - 0.5)*2.0, uvw.yz);
                 // outter lines
                 var online = step(0.0,maxComp(abs(uv.xy) - outterLine1));
@@ -191,22 +196,26 @@ namespace examples {
                 }
                 online += separatorx * dashx + separatory * dashy;
                 online *= step(maxComp(abs(uv.xy) - outterLine2),0.0);
-                return mix(roadBaseColor,roadLineColor,online);
+                return mix(roadBaseColor * (0.3 + 1.0*pow(phong,2.0)),roadLineColor,online);
             }
             const directionalLight_dir = vec4<f32>(${directionalLight_dir});
-            fn roadSeparatorTexture(normal:vec4<f32>,uvw_w:f32)->vec4<f32>{
+            fn roadSeparatorTexture(normal:vec4<f32>,uvw_w:f32, phong: f32)->vec4<f32>{
                 const color = vec3<f32>(0.1,0.9,0.3);
-                if(fract(uvw_w * 3.5) > 0.3){ discard; };
-                return vec4<f32>((abs(dot(normal, directionalLight_dir))*0.2 + 0.5)*color,1.0);
+                if(fract(uvw_w * 3.5) > 0.3){ discard; }
+                let blinnphong = pow(phong,2.0);
+                return vec4<f32>(((dot(normal, directionalLight_dir))*0.2 + 0.5)*color*(0.5+0.9*blinnphong),1.0);
             }
             @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
                 let color = vec3<f32>(1.0,1.0,1.0);
                 if(vary.uvw.x > 1.1){
-                    return roadSeparatorTexture(vary.normal,vary.uvw.w);
+                    let normal = vary.normal * (step(dot(vary.normal,vary.camRay),0.0)*2.0 - 1.0);
+                    let phong = max(0.0,dot(normal,normalize(directionalLight_dir - normalize(vary.camRay))));
+                    return roadSeparatorTexture(normal,vary.uvw.w, phong);
                 }else if(vary.uvw.x > 0.1){
                     return vec4<f32>(max(0.0,dot(vary.normal, directionalLight_dir)*0.2+0.5)*color,1.0);
                 }else{
-                    return roadTexture(vary.uvw.yzw);
+                    let phong = max(0.0,dot(vary.normal,normalize(directionalLight_dir - normalize(vary.camRay))));
+                    return roadTexture(vary.uvw.yzw, phong);
                 }
             }`;
             return { path, roadmesh, roadfragCode, roadvertCode };
@@ -273,7 +282,7 @@ namespace examples {
                     vec3<f32>(0.9,0.8,0.7),
                 );
                 let XZ = step(vec2<f32>(0.3,0.2), fract(uvw.xz * 4.0));
-                let Y =  step(0.2+f32(floorId)*0.1, fract(uvw.y * 30.0 - f32(floorId)));
+                let Y =  step(0.2+f32(floorId)*0.1, fract(uvw.y * 8.0 - f32(floorId)));
                 return vec4<f32>(
                     mix(
                         mix(colorWallTable[colorId],vec3<f32>(0.5,0.8,0.9),XZ.x+XZ.y),
@@ -458,7 +467,7 @@ namespace examples {
                 cullMode: "front"
             });
             let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
-            let roadmeshBindGroup = renderer.createBindGroup(roadpipeline, 1, [
+            let roadmeshBindGroup = renderer.createVertexShaderBindGroup(roadpipeline, 1, [
                 gpu.createBuffer(GPUBufferUsage.STORAGE, roadmesh.position),
                 gpu.createBuffer(GPUBufferUsage.STORAGE, roadmesh.uvw),
                 gpu.createBuffer(GPUBufferUsage.STORAGE, roadmesh.normal),
@@ -472,14 +481,14 @@ namespace examples {
             for (let i = 0; i < terrainMesh.uvw.length; i += 4) {
                 terrainMesh.uvw[i + 3] = 0;
             }
-            let buildingBindGroup = renderer.createBindGroup(buildingPipeline, 1, [
+            let buildingBindGroup = renderer.createVertexShaderBindGroup(buildingPipeline, 1, [
                 gpu.createBuffer(GPUBufferUsage.STORAGE, buildingMesh.position),
                 gpu.createBuffer(GPUBufferUsage.STORAGE, buildingMesh.uvw),
                 gpu.createBuffer(GPUBufferUsage.STORAGE, buildingMesh.normal),
                 camBuffer,
                 gpu.createBuffer(GPUBufferUsage.STORAGE, buildingTransformBuffer)
             ]);
-            let terrainBindGroup = renderer.createBindGroup(buildingPipeline, 1, [
+            let terrainBindGroup = renderer.createVertexShaderBindGroup(buildingPipeline, 1, [
                 gpu.createBuffer(GPUBufferUsage.STORAGE, terrainMesh.position),
                 gpu.createBuffer(GPUBufferUsage.STORAGE, terrainMesh.uvw),
                 gpu.createBuffer(GPUBufferUsage.STORAGE, terrainMesh.normal),
@@ -491,7 +500,7 @@ namespace examples {
                 rayEntryPoint: "mainRay",
                 fragmentEntryPoint: "mainFragment"
             });
-            let rtBindGroup = [renderer.createBindGroup(rtPipeline, 1, [camBuffer])];
+            let rtBindGroup = [renderer.createVertexShaderBindGroup(rtPipeline, 1, [camBuffer])];
             let camController = new tesserxel.controller.KeepUpController();
             camController.object.position.set(0.5, 0.5, 0.5, 3);
             camController.keyMoveSpeed *= 5;

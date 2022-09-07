@@ -373,10 +373,14 @@ namespace tesserxel {
             y: number;
             z: number;
             w: number;
-            static x = new Vec4(1, 0, 0, 0);
-            static y = new Vec4(0, 1, 0, 0);
-            static z = new Vec4(0, 0, 1, 0);
-            static w = new Vec4(0, 0, 0, 1);
+            static readonly x = new Vec4(1, 0, 0, 0);
+            static readonly y = new Vec4(0, 1, 0, 0);
+            static readonly z = new Vec4(0, 0, 1, 0);
+            static readonly w = new Vec4(0, 0, 0, 1);
+            static readonly xNeg = new Vec4(-1, 0, 0, 0);
+            static readonly yNeg = new Vec4(0, -1, 0, 0);
+            static readonly zNeg = new Vec4(0, 0, -1, 0);
+            static readonly wNeg = new Vec4(0, 0, 0, -1);
             constructor(x: number = 0, y: number = 0, z: number = 0, w: number = 0) {
                 this.x = x; this.y = y; this.z = z; this.w = w;
             }
@@ -475,6 +479,15 @@ namespace tesserxel {
             mulfs(v2: number): Vec4 {
                 this.x *= v2; this.y *= v2; this.z *= v2; this.w *= v2; return this;
             }
+            mulmatvset(mat4:Mat4,v: Vec4): Vec4 {
+                let a = mat4.elem;
+                return this.set(
+                    v.x * a[0] + v.y * a[1] + v.z * a[2] + v.w * a[3],
+                    v.x * a[4] + v.y * a[5] + v.z * a[6] + v.w * a[7],
+                    v.x * a[8] + v.y * a[9] + v.z * a[10] + v.w * a[11],
+                    v.x * a[12] + v.y * a[13] + v.z * a[14] + v.w * a[15]
+                );
+            }
             /** this += v * k */
             addmulfs(v: Vec4, k: number) {
                 this.x += v.x * k; this.y += v.y * k; this.z += v.z * k; this.w += v.w * k; return this;
@@ -559,12 +572,24 @@ namespace tesserxel {
                     B.xw * this.x + B.yw * this.y + B.zw * this.z
                 );
             }
-            dotbset(B: Bivec, v: Vec4): Vec4 {
-                return v.set(
+            /** this = this * b;
+             *  Vector part of Geometry Product 
+             *  ey * exy = -ex, ex * exy = ey, ex * eyz = 0
+             *  */
+            dotbsr(B: Bivec): Vec4 {
+                return this.set(
                     -B.xy * this.y - B.xz * this.z - B.xw * this.w,
                     B.xy * this.x - B.yz * this.z - B.yw * this.w,
                     B.xz * this.x + B.yz * this.y - B.zw * this.w,
                     B.xw * this.x + B.yw * this.y + B.zw * this.z
+                );
+            }
+            dotbset(v: Vec4, B: Bivec): Vec4 {
+                return this.set(
+                    -B.xy * v.y - B.xz * v.z - B.xw * v.w,
+                    B.xy * v.x - B.yz * v.z - B.yw * v.w,
+                    B.xz * v.x + B.yz * v.y - B.zw * v.w,
+                    B.xw * v.x + B.yw * v.y + B.zw * v.z
                 );
             }
             /** this = mat * this */
@@ -618,6 +643,15 @@ namespace tesserxel {
                 let cc = Math.sqrt(1 - c);
                 return this.set(sc * Math.cos(a), sc * Math.sin(a), cc * Math.cos(b), cc * Math.sin(b));
             }
+            /** project vector on a plane determined by bivector.
+             * bivector b must be normalized and simple
+             */
+            projb(b:Bivec){
+                return this.dotb(b).dotbsr(b).negs();
+            }
+            projbs(b:Bivec){
+                return this.dotbsr(b).dotbsr(b).negs();
+            }
             static rand(): Vec4 {
                 let a = Math.random() * _360;
                 let b = Math.random() * _360;
@@ -641,6 +675,7 @@ namespace tesserxel {
         export let _vec3_1 = new Vec3();
         export let _vec3_2 = new Vec3();
         export let _vec4 = new Vec4();
+        export let _vec4_1 = new Vec4();
         export let _Q = new Quaternion();
         export let _Q_1 = new Quaternion();
         export let _Q_2 = new Quaternion();

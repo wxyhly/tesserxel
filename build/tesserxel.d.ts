@@ -18,6 +18,7 @@ declare namespace tesserxel {
             /** return a random int of [0,n-1] if n is given, else range is same as int */
             nexti(n?: number): number;
         }
+        function generateUUID(): string;
     }
 }
 declare namespace tesserxel {
@@ -40,6 +41,8 @@ declare namespace tesserxel {
             mulsr(m: AffineMat4): AffineMat4;
             /** this = m * this */
             mulsl(m: AffineMat4): AffineMat4;
+            setFromObj4(o: Obj4): this;
+            setFromObj4inv(o: Obj4): this;
         }
         /** an coordinate transform of rotation translation and scale */
         class Obj4 {
@@ -56,6 +59,7 @@ declare namespace tesserxel {
             translates(v: Vec4): Obj4;
             rotates(r: Rotor): Obj4;
             rotatesAt(r: Rotor, center?: Vec4): Obj4;
+            lookAt(direction: Vec4, target: Vec4): this;
         }
     }
 }
@@ -254,6 +258,9 @@ declare namespace tesserxel {
             conj(): Rotor;
             conjs(): Rotor;
             norms(): Rotor;
+            /** Apply this to R: this * R;
+             *
+             * [this.l * R.l, R.r * this.r]; */
             mul(R: Rotor): Rotor;
             /** Apply this to R: this = this * R;
              *
@@ -283,11 +290,16 @@ declare namespace tesserxel {
             static fromPlane(plane: Bivec, angle1: number, angle2?: number): Rotor;
             /** "from" and "to" must be normalized vectors*/
             static lookAt(from: Vec4, to: Vec4): Rotor;
+            /** "from" and "to" must be normalized vectors*/
+            setFromLookAt(from: Vec4, to: Vec4): Rotor;
+            static lookAtvb(from: Vec4, to: Bivec): Rotor;
             static rand(): Rotor;
             static srand(seed: Srand): Rotor;
             randset(): Rotor;
             srandset(seed: Srand): Rotor;
         }
+        let _biv: Bivec;
+        let _r: Rotor;
     }
 }
 /**  mat.ts: Matrix2|3|4
@@ -378,9 +390,9 @@ declare namespace tesserxel {
             mulfs(k: number): Mat4;
             mulv(v: Vec4): Vec4;
             mul(m: Mat4): Mat4;
-            /** this = this * m2; */
+            /** this = this * m; */
             mulsr(m: Mat4): Mat4;
-            /** this = m2 * this; */
+            /** this = m * this; */
             mulsl(m: Mat4): Mat4;
             /** this = m1 * m2; */
             mulset(m1: Mat4, m2: Mat4): Mat4;
@@ -388,6 +400,7 @@ declare namespace tesserxel {
             setFromQuaternionL(q: Quaternion): Mat4;
             setFromQuaternionR(q: Quaternion): Mat4;
             setFromRotor(r: Rotor): Mat4;
+            setFromRotorconj(r: Rotor): Mat4;
             det(): number;
             inv(): Mat4;
             invs(): Mat4;
@@ -535,10 +548,14 @@ declare namespace tesserxel {
             y: number;
             z: number;
             w: number;
-            static x: Vec4;
-            static y: Vec4;
-            static z: Vec4;
-            static w: Vec4;
+            static readonly x: Vec4;
+            static readonly y: Vec4;
+            static readonly z: Vec4;
+            static readonly w: Vec4;
+            static readonly xNeg: Vec4;
+            static readonly yNeg: Vec4;
+            static readonly zNeg: Vec4;
+            static readonly wNeg: Vec4;
             constructor(x?: number, y?: number, z?: number, w?: number);
             flat(): number[];
             writeBuffer(b: Float32Array, offset?: number): void;
@@ -589,6 +606,7 @@ declare namespace tesserxel {
             subfs(v2: number): Vec4;
             mulf(v2: number): Vec4;
             mulfs(v2: number): Vec4;
+            mulmatvset(mat4: Mat4, v: Vec4): Vec4;
             /** this += v * k */
             addmulfs(v: Vec4, k: number): this;
             mul(v2: Vec4): Vec4;
@@ -611,7 +629,12 @@ declare namespace tesserxel {
              * ey * exy = -ex, ex * exy = ey, ex * eyz = 0
              *  */
             dotb(B: Bivec): Vec4;
-            dotbset(B: Bivec, v: Vec4): Vec4;
+            /** this = this * b;
+             *  Vector part of Geometry Product
+             *  ey * exy = -ex, ex * exy = ey, ex * eyz = 0
+             *  */
+            dotbsr(B: Bivec): Vec4;
+            dotbset(v: Vec4, B: Bivec): Vec4;
             /** this = mat * this */
             mulmatls(mat4: Mat4): Vec4;
             rotate(r: Rotor): Vec4;
@@ -622,6 +645,11 @@ declare namespace tesserxel {
             reflects(normal: Vec4): Vec4;
             randset(): Vec4;
             srandset(seed: Srand): Vec4;
+            /** project vector on a plane determined by bivector.
+             * bivector b must be normalized and simple
+             */
+            projb(b: Bivec): Vec4;
+            projbs(b: Bivec): Vec4;
             static rand(): Vec4;
             static srand(seed: Srand): Vec4;
         }
@@ -630,6 +658,7 @@ declare namespace tesserxel {
         let _vec3_1: Vec3;
         let _vec3_2: Vec3;
         let _vec4: Vec4;
+        let _vec4_1: Vec4;
         let _Q: Quaternion;
         let _Q_1: Quaternion;
         let _Q_2: Quaternion;
@@ -832,7 +861,7 @@ declare namespace tesserxel {
                 private _vec4b;
                 private _bivec;
                 constructor(a: Object, b: Object | null, pointA: math.Vec4, pointB: math.Vec4, k: number, damp?: number, length?: number);
-                apply(time: null): void;
+                apply(time: number): void;
             }
         }
     }
@@ -939,7 +968,7 @@ declare namespace tesserxel {
             };
             private _bivec;
             private normalisePeriodMask;
-            constructor();
+            constructor(object?: math.Obj4);
             update(state: ControllerState): void;
             lookAtCenter(): void;
         }
@@ -951,6 +980,7 @@ declare namespace tesserxel {
             keyMoveSpeed: number;
             keyRotateSpeed: number;
             damp: number;
+            constructor(object?: math.Obj4);
             keyConfig: {
                 front: string;
                 back: string;
@@ -1019,7 +1049,8 @@ declare namespace tesserxel {
             private normalisePeriodMask;
             private horizontalRotor;
             private verticalRotor;
-            constructor();
+            constructor(object?: math.Obj4);
+            updateObj(): void;
             update(state: ControllerState): void;
         }
         interface SectionPreset {
@@ -1051,6 +1082,8 @@ declare namespace tesserxel {
             opacityKeySpeed: number;
             damp: number;
             mouseButton: number;
+            retinaEyeOffset: number;
+            sectionEyeOffset: number;
             sectionPresets: (aspect: number) => {
                 [label: string]: SectionPreset;
             };
@@ -1091,6 +1124,9 @@ declare namespace tesserxel {
             private sliceNeedUpdate;
             retinaZDistance: number;
             update(state: ControllerState): void;
+            setStereo(stereo: boolean): void;
+            setLayers(layers: number): void;
+            setOpacity(opacity: number): void;
             setSlice(sliceConfig: renderer.SliceConfig): void;
             toggleSectionConfig(index: string): void;
             setSize(size: GPUExtent3DStrict): void;
@@ -1134,8 +1170,6 @@ declare namespace tesserxel {
             sliceGroupSize?: number;
             /** Caution: enable this may cause performance issue */
             enableFloat16Blend: boolean;
-            /** Caution: large number can waste lots GPU memory */
-            maxVertexOutputNumber?: number;
             /** whether initiate default confiuration like sliceconfigs and retina configs */
             defaultConfigs?: boolean;
         }
@@ -1182,6 +1216,7 @@ declare namespace tesserxel {
             computePipeline: GPUComputePipeline;
             computeBindGroup0: GPUBindGroup;
             renderPipeline: GPURenderPipeline;
+            outputVaryBuffer: GPUBuffer[];
             vertexOutNum: number;
         }
         interface RaytracingPipeline {
@@ -1201,7 +1236,6 @@ declare namespace tesserxel {
         }
         class SliceRenderer {
             private maxSlicesNumber;
-            private maxVertexOutputNumber;
             private maxCrossSectionBufferSize;
             private sliceResolution;
             /** On each computeshader slice calling numbers, should be 2^n */
@@ -1224,7 +1258,7 @@ declare namespace tesserxel {
             private screenRenderPipeline;
             private retinaBindGroup;
             private screenBindGroup;
-            private outputVaryBuffer;
+            private outputVaryBufferPool;
             private outputClearBuffer;
             private sliceOffsetBuffer;
             private emitIndexSliceBuffer;
@@ -1239,6 +1273,7 @@ declare namespace tesserxel {
             private screenAspectBuffer;
             private layerOpacityBuffer;
             private camProjBuffer;
+            static readonly outputAttributeUsage: number;
             private retinaViewMatrix;
             private retinaMVMatJsBuffer;
             private currentRetinaFacing;
@@ -1251,7 +1286,14 @@ declare namespace tesserxel {
             private totalGroupNum;
             private sliceGroupNum;
             init(gpu: GPU, context: GPUCanvasContext, options?: SliceRendererOption): Promise<this>;
-            createBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[]): GPUBindGroup;
+            /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
+             *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
+             */
+            createVertexShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[]): GPUBindGroup;
+            /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
+             *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
+             */
+            createFragmentShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[]): GPUBindGroup;
             createTetraSlicePipeline(desc: TetraSlicePipelineDescriptor): Promise<TetraSlicePipeline>;
             setSize(size: GPUExtent3DStrict): void;
             getScreenAspect(): number;
@@ -1266,7 +1308,10 @@ declare namespace tesserxel {
             sliceTetras(vertexBindGroup: GPUBindGroup, tetraCount: number, instanceCount?: number): void;
             setWorldClearColor(color: GPUColor): void;
             setScreenClearColor(color: GPUColor): void;
-            drawTetras(): void;
+            drawTetras(bindGroups?: {
+                group: number;
+                binding: GPUBindGroup;
+            }[]): void;
             createRaytracingPipeline(desc: RaytracingPipelineDescriptor): Promise<{
                 pipeline: GPURenderPipeline;
                 bindGroup0: GPUBindGroup;
@@ -1282,40 +1327,36 @@ declare namespace tesserxel {
 declare namespace tesserxel {
     namespace renderer {
         namespace wgslreflect {
-            type ReflectAttribute = {
+            export type ReflectAttribute = {
                 name: string;
                 value?: string;
             };
-            type ReflectType = {
+            export type ReflectType = {
                 name: string;
                 attributes: Array<ReflectAttribute>;
                 format?: ReflectType;
+                count?: string;
             };
-            type ReflectArg = {
+            export type ReflectArg = {
                 name: string;
                 type: ReflectType;
                 attributes: Array<ReflectAttribute>;
                 _type: "arg";
             };
-            type ReflectMember = {
+            export type ReflectMember = {
                 name: string;
                 type: ReflectType;
                 attributes: Array<ReflectAttribute>;
                 _type: "member";
             };
-            type ReflectFunction = {
+            export type ReflectFunction = {
                 args: Array<ReflectArg>;
                 attributes: Array<ReflectAttribute>;
                 name: string;
                 return: ReflectType;
                 _type: "function";
             };
-            class WgslReflect {
-                functions: Array<ReflectFunction>;
-                structs: Array<ReflectStruct>;
-                constructor(code: string);
-            }
-            type ReflectStruct = {
+            export type ReflectStruct = {
                 name: string;
                 members: Array<ReflectMember>;
                 attributes: Array<ReflectAttribute>;
@@ -1334,22 +1375,33 @@ declare namespace tesserxel {
              *      ...
              *  }
              * */
-            function parseTypeName(type: ReflectType): any;
-            function parseAttr(attrs: Array<ReflectAttribute>): string;
-            function getFnInputAndOutput(reflect: WgslReflect, fn: ReflectFunction, expectInput: {
+            export function parseTypeName(type: ReflectType): any;
+            export function parseAttr(attrs: Array<ReflectAttribute>): string;
+            export function getFnInputAndOutput(reflect: WgslReflect, fn: ReflectFunction, expectInput: {
                 [name: string]: string;
             }, expectOutput: string[]): {
                 input: Set<string>;
                 call: string;
                 output: {
-                    [name: string]: string;
+                    [name: string]: {
+                        expr: string;
+                        type: string;
+                    };
                 };
             };
             /**
              * @author Brendan Duncan / https://github.com/brendan-duncan
              */
-            class WgslReflect {
-                constructor(code: any);
+            class AST {
+                constructor(type: any, options: any);
+            }
+            /**
+             * @author Brendan Duncan / https://github.com/brendan-duncan
+             */
+            export class WgslReflect {
+                functions: Array<ReflectFunction>;
+                structs: Array<ReflectStruct>;
+                constructor(code: string);
                 initialize(code: any): void;
                 isTextureVar(node: any): boolean;
                 isSamplerVar(node: any): boolean;
@@ -1365,7 +1417,7 @@ declare namespace tesserxel {
                 };
                 _parseInt(s: any): any;
                 getAlias(name: any): any;
-                getStruct(name: any): any;
+                getStruct(name: any): AST;
                 getAttribute(node: any, name: any): any;
                 getBindGroups(): any[];
                 getStorageBufferInfo(node: any): {
@@ -1389,15 +1441,330 @@ declare namespace tesserxel {
                 };
                 _roundUp(k: any, n: any): number;
             }
+            export {};
         }
+    }
+}
+declare namespace tesserxel {
+    namespace four {
+        class Scene {
+            child: Object[];
+            backGroundColor: GPUColor;
+            add(obj: Object): void;
+            setBackgroudColor(color: GPUColor): void;
+        }
+        class Object extends math.Obj4 {
+            child: Object[];
+            worldCoord: math.AffineMat4;
+            needsUpdateCoord: boolean;
+            constructor();
+            add(obj: Object): void;
+        }
+        class Camera extends Object implements math.PerspectiveCamera {
+            fov: number;
+            near: number;
+            far: number;
+            needsUpdate: boolean;
+        }
+        class Mesh extends Object {
+            geometry: Geometry;
+            material: Material;
+            uObjMatBuffer: GPUBuffer;
+            bindGroup: GPUBindGroup;
+            visible: boolean;
+            constructor(geometry: Geometry, material: Material);
+        }
+        class Geometry {
+            jsBuffer: mesh.TetraMesh;
+            gpuBuffer: {
+                [name: string]: GPUBuffer;
+            };
+            needsUpdate: boolean;
+            constructor(data: mesh.TetraMesh);
+        }
+        class TesseractGeometry extends Geometry {
+            constructor(size?: number | math.Vec4);
+        }
+        class CubeGeometry extends Geometry {
+            constructor(size?: number | math.Vec3);
+        }
+        class GlomeGeometry extends Geometry {
+            constructor(size?: number);
+        }
+    }
+}
+declare namespace tesserxel {
+    namespace four {
+        type LightDensity = {
+            r: number;
+            g: number;
+            b: number;
+        } | math.Vec3 | number[] | number;
+        export class Light extends Object {
+            density: math.Vec3;
+            constructor(density: LightDensity);
+        }
+        export class AmbientLight extends Light {
+            needsUpdateCoord: boolean;
+            constructor(density: LightDensity);
+        }
+        export class DirectionalLight extends Light {
+            worldDirection: math.Vec4;
+            direction: math.Vec4;
+            constructor(density: LightDensity, direction?: math.Vec4);
+        }
+        export class SpotLight extends Light {
+            worldDirection: math.Vec4;
+            direction: math.Vec4;
+            angle: number;
+            penumbra: number;
+            decayPower: number;
+            constructor(density: LightDensity, angle: number, penumbra: number, direction?: math.Vec4);
+        }
+        export class PointLight extends Light {
+            decayPower: number;
+            constructor(density: LightDensity);
+        }
+        export function _initLightShader(): {
+            posdirLightsNumber: number;
+            spotLightsNumber: number;
+            lightCode: string;
+            uWorldLightBufferSize: number;
+        };
+        export function _updateWorldLight(r: Renderer): void;
+        export {};
+    }
+}
+declare namespace tesserxel {
+    namespace four {
+        type ColorOutputNode = MaterialNode & {
+            output: "color";
+        };
+        type Vec4OutputNode = MaterialNode & {
+            output: "vec4";
+        };
+        type FloatOutputNode = MaterialNode & {
+            output: "f32";
+        };
+        type TransformOutputNode = MaterialNode & {
+            output: "affineMat4";
+        };
+        /** An iterative structure for Material */
+        class MaterialNode {
+            identifier: string;
+            input: {
+                [name: string]: MaterialNode;
+            };
+            output: string;
+            static constFractionDigits: number;
+            getCode(r: Renderer, root: Material, outputToken: string): string;
+            getInputCode(r: Renderer, root: Material, token: string): {
+                token: {
+                    [name: string]: string;
+                };
+                code: string;
+            };
+            update(r: Renderer): void;
+            constructor(identifier: string);
+        }
+        /** Material is the top node of MaterialNode */
+        export class Material extends MaterialNode {
+            cullFace: GPUCullMode;
+            compiling: boolean;
+            needsUpdate: boolean;
+            output: string;
+            pipeline: renderer.TetraSlicePipeline;
+            uuid: string;
+            bindGroup: GPUBindGroup[];
+            bindGroupBuffers: GPUBuffer[];
+            fetchBuffers: string[];
+            declUniforms: {
+                [name: string]: {
+                    location: number;
+                    type: string;
+                    buffer: GPUBuffer;
+                };
+            };
+            declUniformLocation: number;
+            declVarys: string[];
+            createBindGroup(r: Renderer, p: renderer.TetraSlicePipeline): void;
+            compile(r: Renderer): Promise<void>;
+            addVary(a: string): void;
+            addUniform(type: string, u: string, buffer: GPUBuffer): void;
+            fetchBuffer(g: Geometry): GPUBuffer[];
+            getShaderCode(r: Renderer): {
+                vs: string;
+                fs: string;
+            };
+            constructor(identifiers: string);
+            gpuUniformBuffer: {
+                [name: string]: GPUBuffer;
+            };
+        }
+        /** the same UniformValue instance will share one uniform buffer */
+        class UniformValue extends MaterialNode {
+            gpuBuffer: GPUBuffer;
+            gpuBufferSize: number;
+            jsBufferSize: number;
+            type: string;
+            needsUpdate: boolean;
+            constructor();
+            getCode(r: Renderer, root: Material, outputToken: string): string;
+            createBuffer(r: Renderer): void;
+            _update(r: Renderer): void;
+            update(r: Renderer): void;
+        }
+        export class ColorUniformValue extends UniformValue {
+            output: "color";
+            type: string;
+            gpuBufferSize: number;
+            value: GPUColor;
+            _update(r: Renderer): void;
+            write(value: GPUColor): void;
+        }
+        export class Vec4UniformValue extends UniformValue {
+            output: "vec4";
+            type: string;
+            gpuBufferSize: number;
+            value: math.Vec4;
+            _update(r: Renderer): void;
+            write(value: math.Vec4): void;
+        }
+        export class FloatUniformValue extends UniformValue {
+            output: "f32";
+            type: string;
+            gpuBufferSize: number;
+            value: number;
+            _update(r: Renderer): void;
+            write(value: number): void;
+        }
+        export class TransformUniformValue extends UniformValue {
+            output: "affineMat4";
+            type: string;
+            gpuBufferSize: number;
+            value: math.Obj4;
+            private affineMatValue;
+            _update(r: Renderer): void;
+            write(value: math.Obj4): void;
+        }
+        export type Color = GPUColor | ColorOutputNode;
+        export type Float = number | FloatOutputNode;
+        /** Basic material just return color node's output color  */
+        export class BasicMaterial extends Material {
+            input: {
+                color: ColorOutputNode;
+            };
+            constructor(color: Color);
+            getCode(r: Renderer, root: Material, outputToken: string): string;
+        }
+        export class LambertMaterial extends Material {
+            input: {
+                color: ColorOutputNode;
+            };
+            getCode(r: Renderer, root: Material, outputToken: string): string;
+            constructor(color: Color);
+        }
+        /** Blinn Phong */
+        export class PhongMaterial extends Material {
+            input: {
+                color: ColorOutputNode;
+                specular: ColorOutputNode;
+                shininess: FloatOutputNode;
+            };
+            getCode(r: Renderer, root: Material, outputToken: string): string;
+            constructor(color: Color, shininess?: Float, specular?: Color);
+        }
+        export class CheckerTexture extends MaterialNode {
+            output: "color";
+            input: {
+                color1: ColorOutputNode;
+                color2: ColorOutputNode;
+                uvw: Vec4OutputNode;
+            };
+            getCode(r: Renderer, root: Material, outputToken: string): string;
+            constructor(color1: Color, color2: Color, uvw?: Vec4OutputNode);
+        }
+        export class GridTexture extends MaterialNode {
+            output: "color";
+            input: {
+                color1: ColorOutputNode;
+                color2: ColorOutputNode;
+                gridWidth: Vec4OutputNode;
+                uvw: Vec4OutputNode;
+            };
+            getCode(r: Renderer, root: Material, outputToken: string): string;
+            constructor(color1: Color, color2: Color, gridWidth: number | math.Vec4 | Vec4OutputNode, uvw?: Vec4OutputNode);
+        }
+        export class UVWVec4Input extends MaterialNode {
+            output: "vec4";
+            getCode(r: Renderer, root: Material, outputToken: string): string;
+            constructor();
+        }
+        export class Vec4TransformNode extends MaterialNode {
+            output: "vec4";
+            input: {
+                vec4: Vec4OutputNode;
+                transform: TransformOutputNode;
+            };
+            getCode(r: Renderer, root: Material, outputToken: string): string;
+            constructor(vec4: Vec4OutputNode, transform: math.Obj4 | TransformOutputNode);
+        }
+        export {};
     }
 }
 /** threejs like 4D lib */
 declare namespace tesserxel {
     namespace four {
+        class Renderer {
+            core: renderer.SliceRenderer;
+            gpu: renderer.GPU;
+            canvas: HTMLCanvasElement;
+            pipelines: {
+                [label: string]: renderer.TetraSlicePipeline | "compiling";
+            };
+            jsBuffer: Float32Array;
+            uCamMatBuffer: GPUBuffer;
+            uWorldLightBuffer: GPUBuffer;
+            lightShaderInfomation: {
+                posdirLightsNumber: number;
+                spotLightsNumber: number;
+                lightCode: string;
+                uWorldLightBufferSize: number;
+            };
+            constructor(canvas: HTMLCanvasElement);
+            setBackgroudColor(color: GPUColor): void;
+            init(): Promise<this>;
+            fetchPipelineName(identifier: string): string;
+            fetchPipeline(identifier: string): renderer.TetraSlicePipeline | "compiling";
+            pullPipeline(identifier: string, pipeline: renderer.TetraSlicePipeline | "compiling"): void;
+            updateObject(o: Object): void;
+            addToDrawList(m: Mesh): void;
+            updateMesh(m: Mesh): void;
+            updateScene(scene: Scene): void;
+            ambientLightDensity: math.Vec3;
+            directionalLights: DirectionalLight[];
+            spotLights: SpotLight[];
+            pointLights: PointLight[];
+            drawList: {
+                [group: string]: {
+                    pipeline: renderer.TetraSlicePipeline;
+                    meshes: Mesh[];
+                    bindGroup: {
+                        group: number;
+                        binding: GPUBindGroup;
+                    };
+                };
+            };
+            activeCamera: Camera;
+            setCamera(camera: Camera): void;
+            render(scene: Scene, camera: Camera): void;
+            setSize(size: GPUExtent3DStrict): void;
+            private clearState;
+        }
     }
 }
 declare namespace tesserxel {
     namespace four {
+        function _generateVertShader(inputs: string[], outputs: string[]): string;
     }
 }

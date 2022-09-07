@@ -172,7 +172,7 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
                 rayEntryPoint: "mainRay",
                 fragmentEntryPoint: "mainFragment"
             });
-            let bindgroups = [renderer.createBindGroup(pipeline, 1, [camBuffer])];
+            let bindgroups = [renderer.createVertexShaderBindGroup(pipeline, 1, [camBuffer])];
             this.run = () => {
                 ctrlreg.update();
                 camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);

@@ -51,7 +51,7 @@ namespace tesserxel {
                 this.dom = dom;
                 dom.tabIndex = 1;
                 this.ctrls = ctrls;
-                this.requsetPointerLock = config.requsetPointerLock;
+                this.requsetPointerLock = config?.requsetPointerLock;
                 this.states.isKeyHold = (code) => {
                     for (let key of code.split("+")) {
                         if (key[0] === '.') {
@@ -170,7 +170,9 @@ namespace tesserxel {
             }
             private _bivec = new math.Bivec();
             private normalisePeriodMask = 15;
-            constructor() { }
+            constructor(object?: math.Obj4) {
+                if (object) this.object = object;
+            }
             update(state: ControllerState) {
                 let disabled = state.queryDisabled(this.keyConfig);
                 let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
@@ -212,6 +214,9 @@ namespace tesserxel {
             keyMoveSpeed = 0.001;
             keyRotateSpeed = 0.001;
             damp = 0.01;
+            constructor(object?: math.Obj4) {
+                if (object) this.object = object;
+            }
             keyConfig = {
                 front: "KeyW",
                 back: "KeyS",
@@ -331,8 +336,21 @@ namespace tesserxel {
             private normalisePeriodMask = 15;
             private horizontalRotor = new math.Rotor();
             private verticalRotor = new math.Rotor();
-            constructor() { }
 
+            constructor(object?: math.Obj4) {
+                if (object) this.object = object;
+                this.updateObj();
+            }
+            updateObj(){
+                // rotate obj's yw plane to world's y axis
+                this.object.rotates(math.Rotor.lookAtvb(math.Vec4.y,math.Bivec.yw.rotate(this.object.rotation)).conjs());
+                // now check angle between obj's y axis and world's y axis
+                let objY = math.Vec4.y.rotate(this.object.rotation);
+                let r = math.Rotor.lookAt(objY,math.Vec4.y);
+                this.horizontalRotor.copy(r.mul(this.object.rotation));
+                console.log(this.horizontalRotor.log());
+                this.verticalRotor.copy(this.horizontalRotor.mul(r.conjs()).mulsrconj(this.horizontalRotor));
+            }
             update(state: ControllerState) {
                 let on = state.isKeyHold;
                 let key = this.keyConfig;
@@ -648,6 +666,8 @@ namespace tesserxel {
             opacityKeySpeed = 0.01;
             damp = 0.1;
             mouseButton = 0;
+            retinaEyeOffset = 0.1;
+            sectionEyeOffset = 0.1;
             sectionPresets: (aspect: number) => { [label: string]: SectionPreset };
             private sliceConfig: renderer.SliceConfig;
             private currentSectionConfig: string = "retina+sections";
@@ -733,8 +753,8 @@ namespace tesserxel {
                 let delta: number;
                 let sliceConfig = this.sliceConfig;
                 if (!disabled && state.isKeyHold(this.keyConfig.toggle3D)) {
-                    sliceConfig.retinaEyeOffset = sliceConfig.retinaEyeOffset ? 0 : 0.1;
-                    sliceConfig.sectionEyeOffset = sliceConfig.sectionEyeOffset ? 0 : 0.1;
+                    sliceConfig.retinaEyeOffset = sliceConfig.retinaEyeOffset ? 0 : this.retinaEyeOffset;
+                    sliceConfig.sectionEyeOffset = sliceConfig.sectionEyeOffset ? 0 : this.sectionEyeOffset;
                     sliceConfig.sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(
                         sliceConfig.sectionEyeOffset ? "eye2" : "eye1"
                     )];
@@ -800,6 +820,25 @@ namespace tesserxel {
                 if (this.sliceNeedUpdate) this.renderer.setSlice(this.sliceConfig);
                 this.sliceNeedUpdate = false;
             }
+            setStereo(stereo: boolean) {
+                this.sliceConfig.sectionEyeOffset = stereo ? this.sectionEyeOffset : 0;
+                this.sliceConfig.retinaEyeOffset = stereo ? this.retinaEyeOffset : 0;
+                this.sliceConfig.sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(
+                    stereo ? "eye2" : "eye1"
+                )];
+                this.renderer.setSlice(this.sliceConfig);
+                this.sliceNeedUpdate = false;
+            }
+            setLayers(layers: number) {
+                this.sliceConfig.layers = layers;
+                this.renderer.setSlice(this.sliceConfig);
+                this.sliceNeedUpdate = false;
+            }
+            setOpacity(opacity: number) {
+                this.sliceConfig.opacity = opacity;
+                this.renderer.setSlice(this.sliceConfig);
+                this.sliceNeedUpdate = false;
+            }
             setSlice(sliceConfig: renderer.SliceConfig) {
                 this.sliceConfig = sliceConfig;
                 this.renderer.setSlice(this.sliceConfig);
@@ -809,7 +848,7 @@ namespace tesserxel {
                 if (this.currentSectionConfig === index) return;
                 this.sliceNeedUpdate = true;
                 let preset = this.sectionPresets(this.renderer.getScreenAspect())[index];
-                if(!preset) console.error(`Section Configuration "${index}" does not exsit.`);
+                if (!preset) console.error(`Section Configuration "${index}" does not exsit.`);
                 if (preset.retina === false && this.sliceConfig.layers > 0) {
                     this.rembemerLastLayers = this.sliceConfig.layers;
                     this.sliceConfig.layers = 0;

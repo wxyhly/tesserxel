@@ -209,7 +209,7 @@ namespace tesserxel {
                     this.pointA = pointA; this.pointB = pointB;
                     this.length = length;
                 }
-                apply(time: null) {
+                apply(time: number) {
                     const pa = this.a.geometry.position;
                     const pb = this.b?.geometry?.position;
                     this._vec4a.copy(this.pointA).rotates(this.a.geometry.rotation).adds(pa);

@@ -10,6 +10,8 @@ let examples = [
     { target: "instanced_cubes", zh: "实例化多方块", en: "Instanced Hypercubes" },
     { target: "city_highway", zh: "城市高速", en: "City Highway" },
     { target: "pendulum", zh: "摆", en: "Pendulum" },
+    { target: "four_basic_scene", zh: "创建简单Four场景", en: "Basic Four Scene Creation" },
+    { target: "four_materials", zh: "Four基本材质", en: "Basic Four Materials" },
     // { target: "convexhull", zh: "凸包算法", en: "Convex Hull" },
 ];
 let info = {

@@ -13,8 +13,6 @@ namespace tesserxel {
             sliceGroupSize?: number;
             /** Caution: enable this may cause performance issue */
             enableFloat16Blend: boolean;
-            /** Caution: large number can waste lots GPU memory */
-            maxVertexOutputNumber?: number;
             /** whether initiate default confiuration like sliceconfigs and retina configs */
             defaultConfigs?: boolean;
         }
@@ -61,6 +59,7 @@ namespace tesserxel {
             computePipeline: GPUComputePipeline;
             computeBindGroup0: GPUBindGroup;
             renderPipeline: GPURenderPipeline;
+            outputVaryBuffer: GPUBuffer[];
             vertexOutNum: number;
         };
         export interface RaytracingPipeline {
@@ -94,7 +93,6 @@ namespace tesserxel {
             // configurations
 
             private maxSlicesNumber: number;
-            private maxVertexOutputNumber: number;
             private maxCrossSectionBufferSize: number;
             private sliceResolution: number;
             /** On each computeshader slice calling numbers, should be 2^n */
@@ -122,7 +120,7 @@ namespace tesserxel {
             private retinaBindGroup: GPUBindGroup;
             private screenBindGroup: GPUBindGroup;
 
-            private outputVaryBuffer: Array<GPUBuffer>;
+            private outputVaryBufferPool: Array<GPUBuffer> = []; // all the vary buffers for pipelines
             private outputClearBuffer: GPUBuffer;
             private sliceOffsetBuffer: GPUBuffer;
             private emitIndexSliceBuffer: GPUBuffer;
@@ -137,6 +135,7 @@ namespace tesserxel {
             private screenAspectBuffer: GPUBuffer;
             private layerOpacityBuffer: GPUBuffer;
             private camProjBuffer: GPUBuffer;
+            static readonly outputAttributeUsage = GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX;
 
             // CPU caches for retina and screen
 
@@ -168,7 +167,6 @@ namespace tesserxel {
                 let outputBufferSize = (options?.maxCrossSectionBufferSize ?? DefaultMaxCrossSectionBufferSize);
                 let outputBufferStride = outputBufferSize >> sliceGroupSizeBit;
                 let maxSlicesNumber = options?.maxSlicesNumber ?? DefaultMaxSlicesNumber;
-                let maxVertexOutputNumber = options?.maxVertexOutputNumber ?? DefaultMaxVertexOutputNumber;
                 let enableFloat16Blend = (options?.enableFloat16Blend ?? DefaultEnableFloat16Blend);
                 let blendFormat: GPUTextureFormat = enableFloat16Blend === true ? 'rgba16float' : gpu.preferredFormat;
 
@@ -179,7 +177,6 @@ namespace tesserxel {
                 this.outputBufferStride = outputBufferStride;
                 this.maxSlicesNumber = maxSlicesNumber;
                 this.blendFormat = blendFormat;
-                this.maxVertexOutputNumber = maxVertexOutputNumber;
 
                 // buffers
 
@@ -193,12 +190,8 @@ namespace tesserxel {
                 let refacingBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
                 let eyeBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 8);
                 let thumbnailViewportBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 16 * 16 * 4);
-                let outputAttributeUsage = GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX;
-
-                let outputVaryBuffer = [];
-                for (let i = 0; i < maxVertexOutputNumber; i++) {
-                    outputVaryBuffer.push(gpu.createBuffer(outputAttributeUsage, outputBufferSize, "OutputBuffer[" + i + "]"));
-                }
+                // here is the default builtin(position) outputbuffer
+                this.outputVaryBufferPool.push(gpu.createBuffer(SliceRenderer.outputAttributeUsage, outputBufferSize, "Output buffer for builtin(position)"));
                 let outputClearBuffer = gpu.createBuffer(GPUBufferUsage.COPY_SRC, outputBufferSize);
                 let sliceGroupOffsetBuffer = gpu.createBuffer(GPUBufferUsage.COPY_SRC, _genSlicesOffsetJsBuffer());
                 let screenAspectBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
@@ -213,7 +206,6 @@ namespace tesserxel {
                     }
                     return sliceGroupOffsets;
                 }
-                this.outputVaryBuffer = outputVaryBuffer;
                 this.outputClearBuffer = outputClearBuffer;
                 this.sliceOffsetBuffer = sliceOffsetBuffer;
                 this.emitIndexSliceBuffer = emitIndexSliceBuffer;
@@ -499,17 +491,8 @@ struct fInputType{
     );
     return vOutputType(vec4<f32>(pos[index], 0.0, 1.0), uv[index]);
 }
-fn acesFilm(x: vec3<f32>)-> vec3<f32> {
-    const a: f32 = 2.51;
-    const b: f32 = 0.03;
-    const c: f32 = 2.43;
-    const d: f32 = 0.59;
-    const e: f32 = 0.14;
-    return clamp((x * (a * x + b)) / (x * (c * x + d ) + e), vec3<f32>(0.0), vec3<f32>(1.0));
-}
 @fragment fn mainFragment(input: fInputType) -> @location(0) vec4<f32> {
     let color = textureSample(txt, splr, input.fragPosition);
-    // return vec4<f32>(clamp(acesFilm(color.rgb*1.0), vec3<f32>(0.0), vec3<f32>(1.0)), 1.0);
     return vec4<f32>(color.rgb, 1.0);
 }
 `;
@@ -534,7 +517,7 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
                 this.gpu = gpu;
                 this.context = context;
                 // default retina settings
-                if (options.defaultConfigs !== false) {
+                if (options?.defaultConfigs !== false) {
                     let size = 0.2;
                     this.setSlice({
                         layers: 64,
@@ -582,13 +565,28 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
                 }
                 return this;
             } // end init
-            createBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[]) {
+            /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
+             *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
+             */
+            createVertexShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[]) {
                 if (index == 0) console.error("Unable to create BindGroup 0, which is occupied by internal usages.")
                 return this.gpu.createBindGroup(
                     ((pipeline as TetraSlicePipeline).computePipeline ?
                         (pipeline as TetraSlicePipeline).computePipeline :
                         (pipeline as RaytracingPipeline).pipeline
-                    ), index, buffers.map(e => ({ buffer: e })), "SlicePipelineBindGroup"
+                    ), index, buffers.map(e => ({ buffer: e })), "VertexShaderBindGroup"
+                );
+            }
+            /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
+             *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
+             */
+            createFragmentShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[]) {
+                if (index == 0 && (pipeline as RaytracingPipeline).pipeline) console.error("Unable to create BindGroup 0, which is occupied by internal usages.")
+                return this.gpu.createBindGroup(
+                    ((pipeline as TetraSlicePipeline).computePipeline ?
+                        (pipeline as TetraSlicePipeline).renderPipeline :
+                        (pipeline as RaytracingPipeline).pipeline
+                    ), index, buffers.map(e => ({ buffer: e })), "FragmentShaderBindGroup"
                 );
             }
             async createTetraSlicePipeline(desc: TetraSlicePipelineDescriptor): Promise<TetraSlicePipeline> {
@@ -623,7 +621,7 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
                 let vinputVert = '';
                 let voutputVert = '';
                 let vcallVert = "";
-                let vertexBufferAttributes = [];
+                let vertexBufferAttributes: GPUVertexBufferLayout[] = [];
                 let vertexOutNum = 0;
                 let buffers = [
                     { buffer: this.emitIndexSliceBuffer },
@@ -633,8 +631,14 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
                     { buffer: this.camProjBuffer },
                     { buffer: this.thumbnailViewportBuffer }
                 ];
+                let indicesInOutputBufferPool = new Set<number>();
+                indicesInOutputBufferPool.add(0); // default builtin(position) buffer
+                let outputVaryBuffer = [this.outputVaryBufferPool[0]];
                 for (let attr in output) {
                     let id: number;
+                    if (attr === "return") continue;
+                    let packedType = output[attr].type; // unpack matrix4x4
+                    let rawType = packedType.replace("mat4x4<f32>", "vec4<f32>");
                     if (attr === "builtin(position)") {
                         id = 0;
                     } else if (attr.startsWith("location(")) {
@@ -643,12 +647,10 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
                     }
                     if (id >= 0) {
                         vertexOutNum++;
-                        bindGroup0declare += `@group(0) @binding(${bindGroup0declareIndex + id}) var<storage, read_write> _output${id} : array<vec4<f32>>;\n`;
-                        if (!this.outputVaryBuffer[id]) {
-                            console.error("Reached maximum tetra vertex shader output");
-                        }
+                        bindGroup0declare += `@group(0) @binding(${bindGroup0declareIndex + id}) var<storage, read_write> _output${id} : array<${rawType}>;\n`;
 
-                        varInterpolate += `var output${id}s : array<vec4<f32>,4>;\n`;
+
+                        varInterpolate += `var output${id}s : array<${rawType},4>;\n`;
                         emitOutput1 += `
             _output${id}[outOffset] =   output${id}s[0];
             _output${id}[outOffset+1] = output${id}s[1];
@@ -657,19 +659,55 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
                 _output${id}[outOffset+3] = output${id}s[2];
                 _output${id}[outOffset+4] = output${id}s[1];
                 _output${id}[outOffset+5] = output${id}s[3];`
-                        buffers.push({ buffer: this.outputVaryBuffer[id] });
-                        vinputVert += `@location(${id}) member${id}: vec4<f32>,\n`;
-                        voutputVert += `@${attr} member${id}: vec4<f32>,\n`;
-                        vcallVert += `data.member${id},`;
-                        vertexBufferAttributes.push({
-                            arrayStride: 16,
-                            attributes: [{
-                                shaderLocation: id,
-                                format: 'float32x4' as GPUVertexFormat,
-                                offset: 0
-                            }]
-                        });
+                        let jeg = rawType.match(/array<(.+),(.+)>/);
+                        if (jeg) {
+                            let typeArrLength = Number(jeg[2]);
+                            let attributes = [];
+                            for (let i = 0; i < typeArrLength; i++) {
+                                attributes.push({
+                                    shaderLocation: id, // here we keep same id, we'll deal this later
+                                    format: 'float32x4',
+                                    offset: i << 4
+                                })
+                            }
+                            vertexBufferAttributes.push({
+                                arrayStride: typeArrLength << 4,
+                                attributes
+                            });
+                            buffers.push({ buffer: requireOutputBuffer(this, id, typeArrLength) });
+                        } else {
+                            buffers.push({ buffer: requireOutputBuffer(this, id, 1) });
+                            vertexBufferAttributes.push({
+                                arrayStride: 16,
+                                attributes: [{
+                                    shaderLocation: id,
+                                    format: 'float32x4' as GPUVertexFormat,
+                                    offset: 0
+                                }]
+                            });
+                        }
+
                     }
+                }
+                function requireOutputBuffer(self: SliceRenderer, id: number, size: number): GPUBuffer {
+                    if (id === 0) return self.outputVaryBufferPool[0];
+                    let expectedSize = self.maxCrossSectionBufferSize * size;
+                    for (let i = 0; i < self.outputVaryBufferPool.length; i++) {
+                        if (indicesInOutputBufferPool.has(i)) continue; // we can't bind the same buffer again
+                        let buffer = self.outputVaryBufferPool[i];
+                        if (buffer.size === expectedSize) {
+                            // found unused exactly sized buffer
+                            indicesInOutputBufferPool.add(i);
+                            outputVaryBuffer.push(buffer);
+                            return buffer;
+                        }
+                    }
+                    // no buffer found, we need to create
+                    let buffer = self.gpu.createBuffer(SliceRenderer.outputAttributeUsage, expectedSize, "Output buffer for " + size + " vec4(s)");
+                    indicesInOutputBufferPool.add(self.outputVaryBufferPool.length);
+                    self.outputVaryBufferPool.push(buffer);
+                    outputVaryBuffer.push(buffer);
+                    return buffer;
                 }
                 let bindGroup1declare = '';
                 for (let attr of input) {
@@ -681,11 +719,18 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
                 function makeInterpolate(a: number, b: number) {
                     let str = '';
                     for (let attr in output) {
+                        let jeg = output[attr].type?.match(/array<(.+),(.+)>/);
 
-                        let name = attr.startsWith("location(") ? output[attr] : attr == "builtin(position)" ? "refPosMat" : "";
+                        let name = attr.startsWith("location(") ? output[attr].expr : attr == "builtin(position)" ? "refPosMat" : "";
                         if (!name) continue;
                         let i = attr.startsWith("location(") ? Number(attr.charAt(9)) + 1 : 0;
-                        str += `output${i}s[offset] = mix(${name}[${a}],${name}[${b}],alpha);\n`;
+                        if (jeg) {
+                            let typeArrLength = Number(jeg[2]);
+                            for (let idx = 0; idx < typeArrLength; idx++)
+                                str += `output${i}s[offset][${idx}] = mix(${name}[${idx}][${a}],${name}[${idx}][${b}],alpha);\n`;
+                        } else {
+                            str += `output${i}s[offset] = mix(${name}[${a}],${name}[${b}],alpha);\n`;
+                        }
                     }
                     return str;
                 }
@@ -726,7 +771,7 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
     // calculate camera space coordinate : builtin(position) and other output need to be interpolated : location(x)
     // call user defined code 
     ${call}
-    let cameraPosMat = ${output["builtin(position)"]};
+    let cameraPosMat = ${output["builtin(position)"].expr};
     let preclipW = cameraPosMat[0].w >= 0 && cameraPosMat[1].w >= 0 && cameraPosMat[2].w >= 0  && cameraPosMat[3].w >= 0;
     if(preclipW){ return; }
     let projBiais:mat4x4<f32> = mat4x4<f32>(
@@ -852,6 +897,21 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
                         entryPoint: '_mainCompute'
                     }
                 });
+                vertexBufferAttributes.sort((a, b) =>
+                    (a.attributes[0].shaderLocation - b.attributes[0].shaderLocation)
+                );
+                let shaderLocationCounter = 0;
+                for (let vba of vertexBufferAttributes) {
+                    for (let attr of vba.attributes) {
+                        attr.shaderLocation = shaderLocationCounter++;
+                    }
+                }
+                for (let i = 0; i < shaderLocationCounter; i++) {
+                    let attr = i ? `location(${i - 1})` : "builtin(position)";
+                    vinputVert += `@location(${i}) member${i}: vec4<f32>,\n`;
+                    voutputVert += `@${attr} member${i}: vec4<f32>,\n`;
+                    vcallVert += `data.member${i},`;
+                }
                 this.crossRenderVertexShaderModule = this.gpu.device.createShaderModule({
                     code: `
 struct vInputType{
@@ -891,7 +951,8 @@ struct vOutputType{
                     computePipeline,
                     computeBindGroup0: this.gpu.createBindGroup(computePipeline, 0, buffers, "TetraComputePipeline"),
                     renderPipeline,
-                    vertexOutNum
+                    vertexOutNum,
+                    outputVaryBuffer
                 };
             }
             setSize(size: GPUExtent3DStrict) {
@@ -1094,7 +1155,7 @@ struct vOutputType{
             beginTetras(pipeline: TetraSlicePipeline) {
                 let { commandEncoder, sliceIndex, needClear } = this.renderState;
                 commandEncoder.copyBufferToBuffer(this.outputClearBuffer, 0, this.emitIndexSliceBuffer, this.maxSlicesNumber << 4, 4 << this.sliceGroupSizeBit);
-                commandEncoder.copyBufferToBuffer(this.outputClearBuffer, 0, this.outputVaryBuffer[0], 0, this.maxCrossSectionBufferSize);
+                commandEncoder.copyBufferToBuffer(this.outputClearBuffer, 0, pipeline.outputVaryBuffer[0], 0, this.maxCrossSectionBufferSize);
                 if (needClear) commandEncoder.copyBufferToBuffer(this.sliceGroupOffsetBuffer, sliceIndex << 2, this.sliceOffsetBuffer, 0, 4);
 
                 let computePassEncoder = commandEncoder.beginComputePass();
@@ -1118,7 +1179,7 @@ struct vOutputType{
             setScreenClearColor(color: GPUColor) {
                 this.screenClearColor = color;
             }
-            drawTetras() {
+            drawTetras(bindGroups?: { group: number, binding: GPUBindGroup }[]) {
                 let { commandEncoder, computePassEncoder, pipeline, needClear } = this.renderState;
                 computePassEncoder.end();
 
@@ -1128,7 +1189,12 @@ struct vOutputType{
                 );
                 slicePassEncoder.setPipeline(pipeline.renderPipeline);
                 for (let i = 0; i < pipeline.vertexOutNum; i++) {
-                    slicePassEncoder.setVertexBuffer(i, this.outputVaryBuffer[i]);
+                    slicePassEncoder.setVertexBuffer(i, pipeline.outputVaryBuffer[i]);
+                }
+                if (bindGroups) {
+                    for (let { group, binding } of bindGroups) {
+                        slicePassEncoder.setBindGroup(group, binding);
+                    }
                 }
                 // bitshift: outputBufferSize / 16 for vertices number, / sliceGroupSize for one stride
                 let bitshift = 4 + this.sliceGroupSizeBit;
@@ -1161,19 +1227,19 @@ struct vOutputType{
                     ["location(0)", "location(1)", "location(2)", "location(3)", "location(4)", "location(5)"]
                 );
                 let dealRefacingCall = "";
-                if(input.has("builtin(aspect_matrix)")){
+                if (input.has("builtin(aspect_matrix)")) {
                     dealRefacingCall = "let refacingMat3 = mat3x3<f32>(refacingMat[0].xyz,refacingMat[1].xyz,refacingMat[2].xyz);"
                 }
                 let retunTypeMembers: string;
                 let outputMembers: string;
                 if (mainRayFn.return.attributes) {
-                    outputMembers = output["return"];
+                    outputMembers = output["return"].expr;
                     retunTypeMembers = `@${wgslreflect.parseAttr(mainRayFn.return.attributes)} ${wgslreflect.parseTypeName(mainRayFn.return)}`;
-                }else{
-                    let st = reflect.structs.filter(s=>s.name === mainRayFn.return.name)[0];
-                    if(!st) console.error("No attribute found");
-                    outputMembers = st.members.map(m=>output[wgslreflect.parseAttr(m.attributes)]).join(",\n");
-                    retunTypeMembers = st.members.map(m=>`@${wgslreflect.parseAttr(m.attributes)} ${m.name}: ${wgslreflect.parseTypeName(m.type)}`).join(",\n"); 
+                } else {
+                    let st = reflect.structs.filter(s => s.name === mainRayFn.return.name)[0];
+                    if (!st) console.error("No attribute found");
+                    outputMembers = st.members.map(m => output[wgslreflect.parseAttr(m.attributes)].expr).join(",\n");
+                    retunTypeMembers = st.members.map(m => `@${wgslreflect.parseAttr(m.attributes)} ${m.name}: ${wgslreflect.parseTypeName(m.type)}`).join(",\n");
                 }
 
                 // ${wgslreflect.parseAttr(mainRayFn.return.attributes)} userRayOut: ${wgslreflect.parseTypeName(mainRayFn.return)}

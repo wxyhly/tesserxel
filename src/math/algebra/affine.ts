@@ -13,7 +13,7 @@ namespace tesserxel {
                 this.mat = mat; this.vec = vec;
             }
             writeBuffer(b: Float32Array, offset: number = 0) {
-                this.mat.writeBuffer(b,offset);
+                this.mat.writeBuffer(b, offset);
                 this.vec.writeBuffer(b, offset + 16);
             }
             inv(): AffineMat4 {
@@ -40,6 +40,27 @@ namespace tesserxel {
                 this.mat.mulsl(m.mat);
                 return this;
             }
+            setFromObj4(o: Obj4) {
+                this.mat.setFromRotor(o.rotation);
+                if (o.scale) {
+                    this.mat.mulsr(Mat4.diag(o.scale.x, o.scale.y, o.scale.z, o.scale.w));
+                }
+                this.vec.copy(o.position);
+                return this;
+            }
+            setFromObj4inv(o: Obj4) {
+                this.vec.copy(o.position).negs().rotatesconj(o.rotation);
+                this.mat.setFromRotorconj(o.rotation);
+                if (o.scale) {
+                    let x = 1 / o.scale.x;
+                    let y = 1 / o.scale.y;
+                    let z = 1 / o.scale.z;
+                    let w = 1 / o.scale.w;
+                    this.mat.mulsl(Mat4.diag(x, y, z, w));
+                    this.vec.x *= x; this.vec.y *= y; this.vec.z *= z; this.vec.w *= w;
+                }
+                return this;
+            }
         }
         /** an coordinate transform of rotation translation and scale */
         export class Obj4 {
@@ -50,53 +71,53 @@ namespace tesserxel {
                 position: Vec4 = new Vec4(), rotation: Rotor = new Rotor(),
                 scale?: Vec4
             ) {
-                this.position = position;
-                this.rotation = rotation;
+                this.position = position ?? new Vec4();
+                this.rotation = rotation ?? new Rotor();
                 this.scale = scale;
             }
             local2parent(point: Vec4): Vec4 {
-                if(this.scale)
-                return new Vec4(
-                    this.scale.x * point.x, this.scale.y * point.y,
-                    this.scale.z * point.z, this.scale.w * point.w
-                ).rotates(this.rotation).adds(this.position);
-                
+                if (this.scale)
+                    return new Vec4(
+                        this.scale.x * point.x, this.scale.y * point.y,
+                        this.scale.z * point.z, this.scale.w * point.w
+                    ).rotates(this.rotation).adds(this.position);
+
                 return point.rotate(this.rotation).adds(this.position);
             }
             parent2local(point: Vec4): Vec4 {
                 let a = point.sub(this.position).rotatesconj(this.rotation);
-                if(this.scale) return new Vec4(
+                if (this.scale) return new Vec4(
                     a.x / this.scale.x, a.y / this.scale.y,
                     a.z / this.scale.z, a.w / this.scale.w
                 );
                 return a;
             }
             getMat4(): Mat4 {
-                if(this.scale)
-                return this.rotation.toMat4().mul(
-                    Mat4.diag(this.scale.x, this.scale.y, this.scale.z, this.scale.w)
-                );
+                if (this.scale)
+                    return this.rotation.toMat4().mul(
+                        Mat4.diag(this.scale.x, this.scale.y, this.scale.z, this.scale.w)
+                    );
                 return this.rotation.toMat4();
             }
             getMat4inv(): Mat4 {
-                if(this.scale)
-                return Mat4.diag(1 / this.scale.x, 1 / this.scale.y, 1 / this.scale.z, 1 / this.scale.w).mul(
-                    this.rotation.conj().toMat4()
-                );
+                if (this.scale)
+                    return Mat4.diag(1 / this.scale.x, 1 / this.scale.y, 1 / this.scale.z, 1 / this.scale.w).mul(
+                        this.rotation.conj().toMat4()
+                    );
                 return this.rotation.conj().toMat4();
             }
             getAffineMat4(): AffineMat4 {
-                if(this.scale)
-                return new AffineMat4(this.rotation.toMat4().mulsr(
-                    Mat4.diag(this.scale.x, this.scale.y, this.scale.z, this.scale.w)
-                ), this.position.clone());
+                if (this.scale)
+                    return new AffineMat4(this.rotation.toMat4().mulsr(
+                        Mat4.diag(this.scale.x, this.scale.y, this.scale.z, this.scale.w)
+                    ), this.position.clone());
                 return new AffineMat4(this.rotation.toMat4(), this.position.clone());
             }
             getAffineMat4inv(): AffineMat4 {
                 let b = this.position.neg().rotatesconj(this.rotation);
-                if(!this.scale) return new AffineMat4(
-                    this.rotation.conj().toMat4()
-                ,b);
+                if (!this.scale) return new AffineMat4(
+                    this.rotation.conj().toMat4(), b
+                );
                 let x = 1 / this.scale.x;
                 let y = 1 / this.scale.y;
                 let z = 1 / this.scale.z;
@@ -116,6 +137,11 @@ namespace tesserxel {
             rotatesAt(r: Rotor, center: Vec4 = new Vec4()): Obj4 {
                 this.rotation.mulsl(r);
                 this.position.subs(center).rotates(r).adds(center);
+                return this;
+            }
+            lookAt(direction: Vec4, target: Vec4) {
+                let dir = _vec4.subset(target,this.position);
+                this.rotates(_r.setFromLookAt(_vec4_1.copy(direction).rotates(this.rotation), dir.norms()));
                 return this;
             }
         }

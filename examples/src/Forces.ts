@@ -102,7 +102,7 @@ namespace examples {
                 fragmentEntryPoint: "mainFragment"
             });
             let buffers = genBuffersToBind(gpu);
-            let bindgroups = [renderer.createBindGroup(pipeline, 1, [camBuffer, ...buffers])];
+            let bindgroups = [renderer.createVertexShaderBindGroup(pipeline, 1, [camBuffer, ...buffers])];
             this.ctrlreg = ctrlreg;
             this.run = () => {
                 runWorld(gpu);

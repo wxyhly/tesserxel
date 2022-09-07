@@ -524,7 +524,7 @@ namespace tesserxel {
                     a[12] * b[0] + a[13] * b[4] + a[14] * b[8] + a[15] * b[12], a[12] * b[1] + a[13] * b[5] + a[14] * b[9] + a[15] * b[13], a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14], a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15],
                 );
             }
-            /** this = this * m2; */
+            /** this = this * m; */
             mulsr(m: Mat4): Mat4 {
                 let a = this.elem; let b = m.elem;
                 this.set(
@@ -535,7 +535,7 @@ namespace tesserxel {
                 );
                 return this;
             }
-            /** this = m2 * this; */
+            /** this = m * this; */
             mulsl(m: Mat4): Mat4 {
                 let b = this.elem; let a = m.elem;
                 this.set(
@@ -595,6 +595,9 @@ namespace tesserxel {
             }
             setFromRotor(r:Rotor): Mat4 {
                 return this.setFromQuaternionL(r.l).mulsr(_mat4.setFromQuaternionR(r.r));
+            }
+            setFromRotorconj(r:Rotor): Mat4 {
+                return this.setFromQuaternionL(r.l.conj()).mulsr(_mat4.setFromQuaternionR(r.r.conj()));
             }
             det(): number {
                 let me = this.elem;
