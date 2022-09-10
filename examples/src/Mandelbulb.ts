@@ -128,9 +128,7 @@ namespace examples {
                     camController.object.position
                 );
                 camController.keyMoveSpeed = de * 0.001;
-                let config = renderer.getSliceConfig();
-                config.sectionEyeOffset = de * 0.2;
-                retinaController.setSlice(config);
+                retinaController.setSectionEyeOffset(de * 0.2);
                 ctrlreg.update();
                 camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
                 gpu.device.queue.writeBuffer(camBuffer, 0, matModelViewJSBuffer);

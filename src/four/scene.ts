@@ -14,9 +14,14 @@ namespace tesserxel {
             child: Object[] = [];
             worldCoord: math.AffineMat4;
             needsUpdateCoord = true;
+            alwaysUpdateCoord = false;
             constructor() {
                 super();
                 this.worldCoord = new math.AffineMat4();
+            }
+            updateCoord(){
+                this.needsUpdateCoord = true;
+                return this;
             }
             add(obj: Object) {
                 this.child.push(obj);
@@ -26,6 +31,7 @@ namespace tesserxel {
             fov: number = 90;
             near: number = 0.1;
             far: number = 100;
+            alwaysUpdateCoord = true;
             needsUpdate = true;
         }
         export class Mesh extends Object {
@@ -44,8 +50,26 @@ namespace tesserxel {
             jsBuffer: mesh.TetraMesh;
             gpuBuffer: { [name: string]: GPUBuffer };
             needsUpdate = true;
+            dynamic: boolean = false;
+            obb = new math.AABB;
             constructor(data: mesh.TetraMesh) {
                 this.jsBuffer = data;
+            }
+            updateOBB(){
+                let obb = this.obb;
+                let pos= this.jsBuffer.position;
+                obb.min.set(Infinity,Infinity,Infinity,Infinity);
+                obb.max.set(-Infinity,-Infinity,-Infinity,-Infinity);
+                for (let i=0,l=this.jsBuffer.tetraCount<<4;i<l;i+=4) {
+                    obb.min.x = Math.min(obb.min.x, pos[i]);
+                    obb.min.y = Math.min(obb.min.y, pos[i+1]);
+                    obb.min.z = Math.min(obb.min.z, pos[i+2]);
+                    obb.min.w = Math.min(obb.min.w, pos[i+3]);
+                    obb.max.x = Math.max(obb.max.x, pos[i]);
+                    obb.max.y = Math.max(obb.max.y, pos[i+1]);
+                    obb.max.z = Math.max(obb.max.z, pos[i+2]);
+                    obb.max.w = Math.max(obb.max.w, pos[i+3]);
+                }
             }
         }
         export class TesseractGeometry extends Geometry {

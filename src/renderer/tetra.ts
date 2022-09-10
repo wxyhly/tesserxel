@@ -16,11 +16,18 @@ namespace tesserxel {
             /** whether initiate default confiuration like sliceconfigs and retina configs */
             defaultConfigs?: boolean;
         }
+        // internal config state
+        interface DisplayConfig {
+            layers: number
+            retinaEyeOffset: number
+            sectionEyeOffset: number
+            opacity: number
+            sections: Array<SectionConfig>;
+            sliceNum: number;
+        }
+        // config for user
         export interface SliceConfig {
-            layers: number;
-            retinaEyeOffset?: number;
-            sectionEyeOffset?: number;
-            opacity?: number;
+            layers?: number;
             sections?: Array<SectionConfig>;
         }
         export enum SliceFacing {
@@ -61,6 +68,7 @@ namespace tesserxel {
             renderPipeline: GPURenderPipeline;
             outputVaryBuffer: GPUBuffer[];
             vertexOutNum: number;
+            descriptor: TetraSlicePipelineDescriptor
         };
         export interface RaytracingPipeline {
             pipeline: GPURenderPipeline;
@@ -80,7 +88,6 @@ namespace tesserxel {
             pipeline?: TetraSlicePipeline;
             needClear: boolean;
         }
-        const DefaultMaxVertexOutputNumber = 4;
         const DefaultWorkGroupSize = 256;
         const DefaultSliceResolution = 512;
         const DefaultMaxSlicesNumber = 256;
@@ -88,7 +95,12 @@ namespace tesserxel {
         const DefaultEnableFloat16Blend = true;
         export class SliceRenderer {
 
-            // readonly ATTRIBUTE = 1;
+            getSafeTetraNumInOnePass() {
+                // maximum vertices per slice
+                let maxVertices = this.maxCrossSectionBufferSize >> (this.sliceGroupSizeBit + 4);
+                // one tetra generate at most 6 vertices
+                return Math.floor(maxVertices / 6);
+            }
 
             // configurations
 
@@ -101,7 +113,7 @@ namespace tesserxel {
             private screenSize: GPUExtent3DStrict;
             private outputBufferStride: number;
             private blendFormat: GPUTextureFormat;
-            private sliceConfig: SliceConfig;
+            private displayConfig: DisplayConfig;
 
             // GPU resources
 
@@ -115,20 +127,21 @@ namespace tesserxel {
 
             private crossRenderPassDescClear: GPURenderPassDescriptor;
             private crossRenderPassDescLoad: GPURenderPassDescriptor;
+            private clearRenderPipeline: GPURenderPipeline;
             private retinaRenderPipeline: GPURenderPipeline;
             private screenRenderPipeline: GPURenderPipeline;
             private retinaBindGroup: GPUBindGroup;
             private screenBindGroup: GPUBindGroup;
+            private sliceView: GPUTextureView;
+            private depthView: GPUTextureView;
 
             private outputVaryBufferPool: Array<GPUBuffer> = []; // all the vary buffers for pipelines
-            private outputClearBuffer: GPUBuffer;
             private sliceOffsetBuffer: GPUBuffer;
             private emitIndexSliceBuffer: GPUBuffer;
             private refacingBuffer: GPUBuffer; // refacing buffer stores not only refacing but also retina slices
             private eyeBuffer: GPUBuffer;
             private thumbnailViewportBuffer: GPUBuffer;
             private readBuffer: GPUBuffer;
-            private slicesBuffer: GPUBuffer;
             private sliceGroupOffsetBuffer: GPUBuffer;
             private retinaMVBuffer: GPUBuffer;
             private retinaPBuffer: GPUBuffer;
@@ -139,14 +152,16 @@ namespace tesserxel {
 
             // CPU caches for retina and screen
 
-            private retinaViewMatrix = new math.Mat4();
+            private slicesJsBuffer: Float32Array;
+            private camProjJsBuffer: Float32Array = new Float32Array(4);
+            private retinaProjecJsBuffer = new Float32Array(16);
             private retinaMVMatJsBuffer = new Float32Array(16);
             private currentRetinaFacing: SliceFacing;
             private retinaMatrixChanged: boolean = true;
             private retinaFacingChanged: boolean = true;
             private screenClearColor: GPUColor = { r: 0, g: 0, b: 0, a: 0.0 };
             private renderState: RenderState;
-            private enableEye3D: boolean = false;
+            private enableEye3D: boolean;
             private refacingMatsCode: string;
 
             // section thumbnail
@@ -192,7 +207,6 @@ namespace tesserxel {
                 let thumbnailViewportBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 16 * 16 * 4);
                 // here is the default builtin(position) outputbuffer
                 this.outputVaryBufferPool.push(gpu.createBuffer(SliceRenderer.outputAttributeUsage, outputBufferSize, "Output buffer for builtin(position)"));
-                let outputClearBuffer = gpu.createBuffer(GPUBufferUsage.COPY_SRC, outputBufferSize);
                 let sliceGroupOffsetBuffer = gpu.createBuffer(GPUBufferUsage.COPY_SRC, _genSlicesOffsetJsBuffer());
                 let screenAspectBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
                 let layerOpacityBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
@@ -206,14 +220,12 @@ namespace tesserxel {
                     }
                     return sliceGroupOffsets;
                 }
-                this.outputClearBuffer = outputClearBuffer;
                 this.sliceOffsetBuffer = sliceOffsetBuffer;
                 this.emitIndexSliceBuffer = emitIndexSliceBuffer;
                 this.retinaMVBuffer = retinaMVBuffer;
                 this.retinaPBuffer = retinaPBuffer;
                 this.refacingBuffer = refacingBuffer;
                 this.eyeBuffer = eyeBuffer;
-                // this.slicesBuffer = slicesBuffer;
                 this.sliceGroupOffsetBuffer = sliceGroupOffsetBuffer;
                 this.screenAspectBuffer = screenAspectBuffer;
                 this.layerOpacityBuffer = layerOpacityBuffer;
@@ -226,11 +238,13 @@ namespace tesserxel {
                     usage: GPUTextureUsage.RENDER_ATTACHMENT,
                 });
                 let depthView = depthTexture.createView();
+                this.depthView = depthView;
                 let sliceTexture = gpu.device.createTexture({
                     size: sliceTextureSize, format: gpu.preferredFormat,
                     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
                 });
                 let sliceView = sliceTexture.createView();
+                this.sliceView = sliceView;
                 this.linearTextureSampler = gpu.device.createSampler({
                     magFilter: 'linear',
                     minFilter: 'linear'
@@ -422,6 +436,25 @@ struct _SliceInfo{
                 let retinaRenderShaderModule = gpu.device.createShaderModule({
                     code: retinaRenderCode
                 });
+                let clearModule = gpu.device.createShaderModule({
+                    code:
+                        "@vertex fn v()->@builtin(position) vec4<f32>{ return vec4<f32>();} @fragment fn f()->@location(0) vec4<f32>{ return vec4<f32>();}"
+                });
+                this.clearRenderPipeline = await gpu.device.createRenderPipelineAsync({
+                    layout: 'auto',
+                    vertex: {
+                        module: clearModule,
+                        entryPoint: 'v',
+                    },
+                    fragment: {
+                        module: clearModule,
+                        entryPoint: 'f',
+                        targets: [{ format: gpu.preferredFormat }]
+                    },
+                    depthStencil: {
+                        format: 'depth24plus',
+                    }
+                });
                 this.retinaRenderPipeline = await gpu.device.createRenderPipelineAsync({
                     layout: 'auto',
                     vertex: {
@@ -516,14 +549,19 @@ struct fInputType{
                 });
                 this.gpu = gpu;
                 this.context = context;
+                this.displayConfig = {
+                    layers: null,
+                    retinaEyeOffset: 0,
+                    sectionEyeOffset: 0,
+                    opacity: 0,
+                    sections: [],
+                    sliceNum: 0
+                };
                 // default retina settings
                 if (options?.defaultConfigs !== false) {
                     let size = 0.2;
-                    this.setSlice({
+                    this.setSliceConfig({
                         layers: 64,
-                        sectionEyeOffset: 0.1,
-                        retinaEyeOffset: 0.1,
-                        opacity: 1.0,
                         sections: [
                             {
                                 facing: tesserxel.renderer.SliceFacing.NEGX,
@@ -556,7 +594,9 @@ struct fInputType{
                                 viewport: { x: size, y: size - 1, width: size, height: size }
                             },
                         ]
-                    });
+                    });                    
+                    this.setEyeOffset(0.1, 0.1);
+                    this.setOpacity(1);
                     this.set4DCameraProjectMatrix({ fov: 90, near: 0.01, far: 10 });
                     this.setRetinaProjectMatrix({
                         fov: 40, near: 0.01, far: 10
@@ -568,25 +608,25 @@ struct fInputType{
             /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
              *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
              */
-            createVertexShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[]) {
+            createVertexShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[], label?: string) {
                 if (index == 0) console.error("Unable to create BindGroup 0, which is occupied by internal usages.")
                 return this.gpu.createBindGroup(
                     ((pipeline as TetraSlicePipeline).computePipeline ?
                         (pipeline as TetraSlicePipeline).computePipeline :
                         (pipeline as RaytracingPipeline).pipeline
-                    ), index, buffers.map(e => ({ buffer: e })), "VertexShaderBindGroup"
+                    ), index, buffers.map(e => ({ buffer: e })), "VertexShaderBindGroup<" + label + ">"
                 );
             }
             /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
              *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
              */
-            createFragmentShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[]) {
+            createFragmentShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[], label?: string) {
                 if (index == 0 && (pipeline as RaytracingPipeline).pipeline) console.error("Unable to create BindGroup 0, which is occupied by internal usages.")
                 return this.gpu.createBindGroup(
                     ((pipeline as TetraSlicePipeline).computePipeline ?
                         (pipeline as TetraSlicePipeline).renderPipeline :
                         (pipeline as RaytracingPipeline).pipeline
-                    ), index, buffers.map(e => ({ buffer: e })), "FragmentShaderBindGroup"
+                    ), index, buffers.map(e => ({ buffer: e })), "FragmentShaderBindGroup<" + label + ">"
                 );
             }
             async createTetraSlicePipeline(desc: TetraSlicePipelineDescriptor): Promise<TetraSlicePipeline> {
@@ -952,7 +992,8 @@ struct vOutputType{
                     computeBindGroup0: this.gpu.createBindGroup(computePipeline, 0, buffers, "TetraComputePipeline"),
                     renderPipeline,
                     vertexOutNum,
-                    outputVaryBuffer
+                    outputVaryBuffer,
+                    descriptor: desc
                 };
             }
             setSize(size: GPUExtent3DStrict) {
@@ -981,14 +1022,12 @@ struct vOutputType{
                 return this.screenTexture.height / this.screenTexture.width;
             }
             set4DCameraProjectMatrix(camera: math.PerspectiveCamera) {
-                this.gpu.device.queue.writeBuffer(this.camProjBuffer, 0, new Float32Array(
-                    tesserxel.math.getPerspectiveMatrix(camera).vec4.flat()
-                ));
+                math.getPerspectiveMatrix(camera).vec4.writeBuffer(this.camProjJsBuffer);
+                this.gpu.device.queue.writeBuffer(this.camProjBuffer, 0, this.camProjJsBuffer);
             }
             setRetinaProjectMatrix(camera: math.PerspectiveCamera) {
-                let buffer = new Float32Array(16);
-                tesserxel.math.getPerspectiveMatrix(camera).mat4.writeBuffer(buffer);
-                this.gpu.device.queue.writeBuffer(this.retinaPBuffer, 0, buffer);
+                math.getPerspectiveMatrix(camera).mat4.writeBuffer(this.retinaProjecJsBuffer);
+                this.gpu.device.queue.writeBuffer(this.retinaPBuffer, 0, this.retinaProjecJsBuffer);
             }
             setRetinaViewMatrix(m: math.Mat4) {
                 let e = m.elem;
@@ -1013,58 +1052,83 @@ struct vOutputType{
                     }
                 }
             }
-            getSliceConfig(): SliceConfig {
-                if (!this.sliceConfig) return null;
-                let sections = this.sliceConfig.sections ?? [];
-                let config: SliceConfig = {
-                    layers: this.sliceConfig.layers,
-                    retinaEyeOffset: this.sliceConfig.retinaEyeOffset ?? 0,
-                    sectionEyeOffset: this.sliceConfig.sectionEyeOffset ?? 0,
-                    opacity: this.sliceConfig.opacity ?? 1,
-                    sections:
-                        sections.map(e => ({
-                            eyeOffset: e.eyeOffset ?? EyeOffset.None,
-                            facing: e.facing,
-                            slicePos: e.slicePos ?? 0,
-                            viewport: {
-                                x: e.viewport.x,
-                                y: e.viewport.y,
-                                width: e.viewport.width,
-                                height: e.viewport.height,
-                            }
-                        }))
-                };
-                return config;
+            getOpacity() { return this.displayConfig.opacity; }
+            getSectionEyeOffset() { return this.displayConfig.sectionEyeOffset; }
+            getRetinaEyeOffset() { return this.displayConfig.retinaEyeOffset; }
+            getLayers() { return this.displayConfig.layers; }
+            getStereoMode() { return this.enableEye3D; }
+            setOpacity(opacity: number) {
+                this.displayConfig.opacity = opacity;
+                let value = this.displayConfig.sliceNum ? opacity / this.displayConfig.sliceNum : 1.0;
+                this.gpu.device.queue.writeBuffer(this.layerOpacityBuffer, 0, new Float32Array([value]));
             }
-            setSlice(sliceConfig: SliceConfig) {
-                sliceConfig.sections ??= [];
-                sliceConfig.retinaEyeOffset ??= 0;
-                sliceConfig.sectionEyeOffset ??= 0;
-                this.enableEye3D = sliceConfig.retinaEyeOffset !== 0;
-                this.gpu.device.queue.writeBuffer(this.eyeBuffer, 0, new Float32Array([
-                    sliceConfig.sectionEyeOffset, sliceConfig.retinaEyeOffset
-                ]));
-                let sliceStep = 2 / sliceConfig.layers;
+            setEyeOffset(sectionEyeOffset?: number, retinaEyeOffset?: number) {
+                let s = typeof sectionEyeOffset === "number";
+                let r = typeof retinaEyeOffset === "number";
+
+                if (s && r) {
+                    this.gpu.device.queue.writeBuffer(this.eyeBuffer, 0, new Float32Array([
+                        sectionEyeOffset, retinaEyeOffset
+                    ]));
+                } else if (s) {
+                    this.gpu.device.queue.writeBuffer(this.eyeBuffer, 0, new Float32Array([
+                        sectionEyeOffset
+                    ]));
+                } else if (r) {
+                    this.gpu.device.queue.writeBuffer(this.eyeBuffer, 4, new Float32Array([
+                        retinaEyeOffset
+                    ]));
+                }
+                if (s) this.displayConfig.sectionEyeOffset = sectionEyeOffset;
+                if (r) this.displayConfig.retinaEyeOffset = retinaEyeOffset;
+                this.enableEye3D = this.displayConfig.sectionEyeOffset > 0 || this.displayConfig.retinaEyeOffset > 0;
+            }
+            setSliceConfig(sliceConfig: SliceConfig) {
+                if (sliceConfig.sections) {
+                    // deepcopy
+                    this.displayConfig.sections = sliceConfig.sections.map(e => ({
+                        eyeOffset: e.eyeOffset ?? EyeOffset.None,
+                        facing: e.facing,
+                        slicePos: e.slicePos ?? 0,
+                        viewport: {
+                            x: e.viewport.x,
+                            y: e.viewport.y,
+                            width: e.viewport.width,
+                            height: e.viewport.height,
+                        }
+                    }))
+                }
+                this.displayConfig.sections ??= [];
+                if ((!sliceConfig.sections) && ((typeof sliceConfig.layers !== "number") || this.displayConfig.layers == sliceConfig.layers)) return;
+                sliceConfig.layers ??= this.displayConfig.layers ?? 0;
+                this.displayConfig.layers = sliceConfig.layers;
+                let sections = this.displayConfig.sections;
+                let sliceStep = 2 / sliceConfig.layers; // slice from -1 to 1
                 let sliceGroupNum = Math.ceil(sliceConfig.layers / this.sliceGroupSize);
                 let sliceNum = sliceGroupNum << this.sliceGroupSizeBit;
-                let sectionNum = sliceConfig.sections?.length ?? 0;
+                if (this.displayConfig.sliceNum !== sliceNum) {
+                    this.displayConfig.sliceNum = sliceNum;
+                    this.setOpacity(this.displayConfig.opacity ?? 1);
+                }
+                let sectionNum = sections.length ?? 0;
                 let sectionGroupNum = Math.ceil(sectionNum / this.sliceGroupSize);
                 let totalNum = sliceNum + (sectionGroupNum << this.sliceGroupSizeBit);
-                let slices = new Float32Array(totalNum << 2);
+                let slices = (this.slicesJsBuffer?.length === totalNum << 2) ? this.slicesJsBuffer : new Float32Array(totalNum << 2);
+                this.slicesJsBuffer = slices;
+                slices.fill(0);// todo : check neccesity?
                 for (let slice = -1, i = 0; i < sliceNum; slice += sliceStep, i++) {
                     slices[(i << 2)] = slice; // if slice > 1, discard in shader
                     slices[(i << 2) + 1] = 0;
                     slices[(i << 2) + 2] = 0;
                 }
-                this.sliceConfig = sliceConfig;
                 this.sliceGroupNum = sliceGroupNum;
                 this.totalGroupNum = sliceGroupNum + sectionGroupNum;
                 if (sectionNum) {
                     let thumbnailViewportJsBuffer = new Float32Array(4 * 16);
                     let lastGroupPosition = sectionGroupNum - 1 << this.sliceGroupSizeBit;
-                    let lastGroupSlices = this.sliceConfig.sections.length - lastGroupPosition;
+                    let lastGroupSlices = sections.length - lastGroupPosition;
                     for (let i = sliceNum, j = 0; i < totalNum; i++, j++) {
-                        let config = this.sliceConfig.sections[j];
+                        let config = sections[j];
                         slices[(i << 2)] = config?.slicePos ?? 0;
                         slices[(i << 2) + 1] = u32_to_f32(((config?.facing) ?? 0) | ((config?.eyeOffset ?? 1) << 3));
                         slices[(i << 2) + 2] = u32_to_f32(j < lastGroupPosition ? this.sliceGroupSize : lastGroupSlices);
@@ -1077,8 +1141,6 @@ struct vOutputType{
                     }
                     this.gpu.device.queue.writeBuffer(this.thumbnailViewportBuffer, 0, thumbnailViewportJsBuffer);
                 }
-                let opacity = sliceNum ? (sliceConfig.opacity ?? 1.0) / sliceNum : 1.0;
-                this.gpu.device.queue.writeBuffer(this.layerOpacityBuffer, 0, new Float32Array([opacity]));
                 this.gpu.device.queue.writeBuffer(this.emitIndexSliceBuffer, 0, slices);
                 this.retinaFacingChanged = true; // force to reload retina slice num into refacing buffer
                 function u32_to_f32(u32: number) {
@@ -1104,14 +1166,34 @@ struct vOutputType{
 
                 for (let sliceIndex = 0; sliceIndex < this.totalGroupNum; sliceIndex++) {
 
-                    // commandEncoder.copyBufferToBuffer(this.outputPositionBuffer, 0, this.readBuffer, 0, this.maxCrossSectionBufferSize);
                     this.renderState = {
                         commandEncoder,
                         sliceIndex,
-                        needClear: true
+                        needClear: true,
                     };
+                    // set new slicegroup offset
+                    commandEncoder.copyBufferToBuffer(this.sliceGroupOffsetBuffer, sliceIndex << 2, this.sliceOffsetBuffer, 0, 4);
                     drawCall();
-
+                    if (this.renderState.needClear) {
+                        // if drawCall is empty, we also need to clear texture
+                        let clearPassEncoder = commandEncoder.beginRenderPass({
+                            colorAttachments: [{
+                                view: this.sliceView,
+                                clearValue: { r: 0, g: 0, b: 0, a: 0.0 },
+                                loadOp: 'clear' as GPULoadOp,
+                                storeOp: 'discard' as GPUStoreOp
+                            }],
+                            depthStencilAttachment: {
+                                view: this.depthView,
+                                depthClearValue: 1.0,
+                                depthLoadOp: 'clear' as GPULoadOp,
+                                depthStoreOp: 'discard' as GPUStoreOp,
+                            }
+                        })
+                        clearPassEncoder.setPipeline(this.clearRenderPipeline);
+                        clearPassEncoder.draw(0);
+                        clearPassEncoder.end();
+                    }
                     let retinaPassEncoder = commandEncoder.beginRenderPass({
                         colorAttachments: [{
                             view: this.screenView,
@@ -1122,8 +1204,8 @@ struct vOutputType{
                     });
                     retinaPassEncoder.setPipeline(this.retinaRenderPipeline);
                     retinaPassEncoder.setBindGroup(0, this.retinaBindGroup);
-                    let isSectionCount = this.sliceConfig.sections.length && sliceIndex >= this.sliceGroupNum;
-                    let lastCount = isSectionCount ? this.sliceConfig.sections.length % this.sliceGroupSize : 0;
+                    let isSectionCount = this.displayConfig.sections.length && sliceIndex >= this.sliceGroupNum;
+                    let lastCount = isSectionCount ? this.displayConfig.sections.length % this.sliceGroupSize : 0;
                     let count = isSectionCount ? (
                         // if is section group
                         sliceIndex == this.totalGroupNum - 1 && lastCount ? lastCount : this.sliceGroupSize
@@ -1146,17 +1228,18 @@ struct vOutputType{
                 screenPassEncoder.draw(4);
                 screenPassEncoder.end();
                 gpu.device.queue.submit([commandEncoder.finish()]);
-                // this.readBuffer.mapAsync(GPUMapMode.READ).then(()=>{
-                //     const copyArrayBuffer = new Float32Array(this.readBuffer.getMappedRange()).slice(0);
-                //     this.readBuffer.unmap();
-                //     console.log(copyArrayBuffer);
-                // });
+                this.renderState = null;
             } // end render
+            /** Set TetraSlicePipeline and prepare GPU resources.
+             *  Next calls should be function sliceTetras or setBindGroup.
+             */
             beginTetras(pipeline: TetraSlicePipeline) {
+                if (!this.renderState) console.error("beginTetras should be called in a closure passed to render function");
                 let { commandEncoder, sliceIndex, needClear } = this.renderState;
-                commandEncoder.copyBufferToBuffer(this.outputClearBuffer, 0, this.emitIndexSliceBuffer, this.maxSlicesNumber << 4, 4 << this.sliceGroupSizeBit);
-                commandEncoder.copyBufferToBuffer(this.outputClearBuffer, 0, pipeline.outputVaryBuffer[0], 0, this.maxCrossSectionBufferSize);
-                if (needClear) commandEncoder.copyBufferToBuffer(this.sliceGroupOffsetBuffer, sliceIndex << 2, this.sliceOffsetBuffer, 0, 4);
+                // clear triagle slice vertex output pointer to zero (emitIndex part)
+                commandEncoder.clearBuffer(this.emitIndexSliceBuffer, this.maxSlicesNumber << 4, 4 << this.sliceGroupSizeBit);
+                // clear triagle slice vertex output data to zero
+                commandEncoder.clearBuffer(pipeline.outputVaryBuffer[0]);
 
                 let computePassEncoder = commandEncoder.beginComputePass();
                 computePassEncoder.setPipeline(pipeline.computePipeline);
@@ -1164,11 +1247,57 @@ struct vOutputType{
                 this.renderState.computePassEncoder = computePassEncoder;
                 this.renderState.pipeline = pipeline;
             }
+            getFrustumRange() {
+                if (!this.renderState) console.error("getFrustum should be called in a closure passed to render function");
+                let minslice = this.renderState.sliceIndex << this.sliceGroupSizeBit;
+                let maxslice = minslice + this.sliceGroupSize - 1;
+                let isRetinaGroup = this.slicesJsBuffer[(minslice << 2) + 1];
+                let frustum: number[];
+                // let refacing;
+                let camProj = 1 / this.camProjJsBuffer[1];
+                if (isRetinaGroup === 0) {
+                    minslice = this.slicesJsBuffer[minslice << 2] * camProj;
+                    maxslice = this.slicesJsBuffer[maxslice << 2] * camProj;
+                    switch (this.currentRetinaFacing) {
+                        case SliceFacing.POSZ:
+                            frustum = [-camProj, camProj, -camProj, camProj, minslice, maxslice];
+                            break;
+                        case SliceFacing.NEGZ:
+                            frustum = [-camProj, camProj, -camProj, camProj, -maxslice, -minslice];
+                            break;
+                        case SliceFacing.POSX:
+                            frustum = [minslice, maxslice, -camProj, camProj, -camProj, camProj];
+                            break;
+                        case SliceFacing.NEGX:
+                            frustum = [-maxslice, -minslice, -camProj, camProj, -camProj, camProj];
+                            break;
+                        case SliceFacing.POSY:
+                            frustum = [-camProj, camProj, minslice, maxslice, -camProj, camProj];
+                            break;
+                        case SliceFacing.NEGY:
+                            frustum = [-camProj, camProj, -maxslice, -minslice, -camProj, camProj];
+                            break;
+                    }
+                    // frustum = frustum.join(",");
+                    // refacing = SliceFacing[this.currentRetinaFacing];
+                } else {
+                    // isRetinaGroup = new Uint32Array(new Float32Array([isRetinaGroup]).buffer)[0];
+                    // todo
+                }
+                return frustum;
+                // console.log({ isRetinaGroup, frustum,  refacing});
+            }
             setBindGroup(index: number, bindGroup: GPUBindGroup) {
+                if (!this.renderState) console.error("setBindGroup should be called in a closure passed to render function");
                 let { computePassEncoder } = this.renderState;
                 computePassEncoder.setBindGroup(index, bindGroup);
             }
+            /** Compute slice of given bindgroup attribute data.
+             *  beginTetras should be called at first to specify a tetraSlicePipeline
+             *  Next calls should be function sliceTetras, setBindGroup or drawTetras.
+             */
             sliceTetras(vertexBindGroup: GPUBindGroup, tetraCount: number, instanceCount?: number) {
+                if (!this.renderState) console.error("sliceTetras should be called in a closure passed to render function");
                 let { computePassEncoder } = this.renderState;
                 computePassEncoder.setBindGroup(1, vertexBindGroup);
                 computePassEncoder.dispatchWorkgroups(Math.ceil(tetraCount / 256), instanceCount); // todo: change workgroups
@@ -1179,7 +1308,11 @@ struct vOutputType{
             setScreenClearColor(color: GPUColor) {
                 this.screenClearColor = color;
             }
+            /** This function draw slices on a internal framebuffer
+             *  Every beginTetras call should be end with drawTetras call
+             */
             drawTetras(bindGroups?: { group: number, binding: GPUBindGroup }[]) {
+                if (!this.renderState) console.error("drawTetras should be called in a closure passed to render function");
                 let { commandEncoder, computePassEncoder, pipeline, needClear } = this.renderState;
                 computePassEncoder.end();
 
@@ -1356,10 +1489,8 @@ fn calDepth(distance: f32)->f32{
                 };
             }
             drawRaytracing(pipeline: RaytracingPipeline, bindGroups?: GPUBindGroup[]) {
+                if (!this.renderState) console.error("drawRaytracing should be called in a closure passed to render function");
                 let { commandEncoder, needClear, sliceIndex } = this.renderState;
-                if (needClear) commandEncoder.copyBufferToBuffer(
-                    this.sliceGroupOffsetBuffer, sliceIndex << 2, this.sliceOffsetBuffer, 0, 4
-                );
                 let slicePassEncoder = commandEncoder.beginRenderPass(
                     needClear ? this.crossRenderPassDescClear : this.crossRenderPassDescLoad
                 );

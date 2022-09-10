@@ -75,7 +75,12 @@ namespace tesserxel {
                 this.rotation = rotation ?? new Rotor();
                 this.scale = scale;
             }
-            local2parent(point: Vec4): Vec4 {
+            copyObj4(o:math.Obj4){
+                if(o.position) this.position.copy(o.position);
+                if(o.rotation) this.rotation.copy(o.rotation);
+                if(o.scale) this.scale.copy(o.scale);
+            }
+            local2world(point: Vec4): Vec4 {
                 if (this.scale)
                     return new Vec4(
                         this.scale.x * point.x, this.scale.y * point.y,
@@ -84,7 +89,7 @@ namespace tesserxel {
 
                 return point.rotate(this.rotation).adds(this.position);
             }
-            parent2local(point: Vec4): Vec4 {
+            world2local(point: Vec4): Vec4 {
                 let a = point.sub(this.position).rotatesconj(this.rotation);
                 if (this.scale) return new Vec4(
                     a.x / this.scale.x, a.y / this.scale.y,

@@ -19,6 +19,45 @@ declare namespace tesserxel {
             nexti(n?: number): number;
         }
         function generateUUID(): string;
+        abstract class Pool<T> {
+            objects: T[];
+            abstract constructObject(): T;
+            pop(): T;
+            push(...args: T[]): void;
+            resize(size: number): this;
+        }
+        class Vec2Pool extends Pool<Vec2> {
+            constructObject(): Vec2;
+        }
+        class Vec3Pool extends Pool<Vec3> {
+            constructObject(): Vec3;
+        }
+        class Vec4Pool extends Pool<Vec4> {
+            constructObject(): Vec4;
+        }
+        class BivecPool extends Pool<Bivec> {
+            constructObject(): Bivec;
+        }
+        class Mat2Pool extends Pool<Mat2> {
+            constructObject(): Mat2;
+        }
+        class Mat3Pool extends Pool<Mat3> {
+            constructObject(): Mat3;
+        }
+        class Mat4Pool extends Pool<Mat4> {
+            constructObject(): Mat4;
+        }
+        class QuaternionPool extends Pool<Quaternion> {
+            constructObject(): Quaternion;
+        }
+        const vec2Pool: Vec2Pool;
+        const vec3Pool: Vec3Pool;
+        const vec4Pool: Vec4Pool;
+        const bivecPool: BivecPool;
+        const mat2Pool: Mat2Pool;
+        const mat3Pool: Mat3Pool;
+        const mat4Pool: Mat4Pool;
+        const qPool: QuaternionPool;
     }
 }
 declare namespace tesserxel {
@@ -50,8 +89,9 @@ declare namespace tesserxel {
             rotation: Rotor;
             scale: Vec4;
             constructor(position?: Vec4, rotation?: Rotor, scale?: Vec4);
-            local2parent(point: Vec4): Vec4;
-            parent2local(point: Vec4): Vec4;
+            copyObj4(o: math.Obj4): void;
+            local2world(point: Vec4): Vec4;
+            world2local(point: Vec4): Vec4;
             getMat4(): Mat4;
             getMat4inv(): Mat4;
             getAffineMat4(): AffineMat4;
@@ -183,16 +223,20 @@ declare namespace tesserxel {
              *  */
             dotv(V: Vec4): Vec4;
             cross(V: Bivec): Bivec;
+            crossrs(V: Bivec): Bivec;
             exp(): Rotor;
             /** return two angles [max, min] between a and b
              * "a" and "b" must be normalized simple bivectors*/
             static angle(a: Bivec, b: Bivec): number[];
             rotate(r: Rotor): Bivec;
             rotates(r: Rotor): Bivec;
+            rotatesconj(r: Rotor): Bivec;
+            rotateset(bivec: Bivec, r: Rotor): Bivec;
             /** return a random oriented simple normalized bivector */
             static rand(): Bivec;
             /** return a random oriented simple normalized bivector by seed */
             static srand(seed: Srand): Bivec;
+            pushPool(pool?: BivecPool): void;
         }
         class Quaternion {
             x: number;
@@ -219,15 +263,15 @@ declare namespace tesserxel {
             clone(): Quaternion;
             neg(): Quaternion;
             negs(): Quaternion;
-            mul(q: Quaternion): Quaternion;
+            mul(q: Quaternion | Vec4): Quaternion;
             /** this = this * q; */
-            mulsr(q: Quaternion): Quaternion;
+            mulsr(q: Quaternion | Vec4): Quaternion;
             /** this = q * this; */
-            mulsl(q: Quaternion): Quaternion;
+            mulsl(q: Quaternion | Vec4): Quaternion;
             /** this = this * conj(q); */
-            mulsrconj(q: Quaternion): Quaternion;
+            mulsrconj(q: Quaternion | Vec4): Quaternion;
             /** this = conj(q) * this; */
-            mulslconj(q: Quaternion): Quaternion;
+            mulslconj(q: Quaternion | Vec4): Quaternion;
             conj(): Quaternion;
             conjs(): Quaternion;
             norm(): number;
@@ -248,6 +292,7 @@ declare namespace tesserxel {
             static srand(seed: Srand): Quaternion;
             randset(): Quaternion;
             srandset(seed: Srand): Quaternion;
+            pushPool(pool?: QuaternionPool): void;
         }
         class Rotor {
             l: Quaternion;
@@ -315,6 +360,7 @@ declare namespace tesserxel {
             static diag(a: number, b: number): Mat2;
             constructor(a?: number, b?: number, c?: number, d?: number);
             set(a?: number, b?: number, c?: number, d?: number): Mat2;
+            setid(): this;
             ts(): Mat2;
             t(): Mat2;
             copy(m2: Mat2): Mat2;
@@ -331,6 +377,7 @@ declare namespace tesserxel {
             muls(m: Mat2): Mat2;
             inv(): Mat2;
             invs(): Mat2;
+            pushPool(pool?: Mat2Pool): void;
         }
         class Mat3 {
             elem: number[];
@@ -339,6 +386,7 @@ declare namespace tesserxel {
             static diag(a: number, b: number, c: number): Mat3;
             constructor(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number, i?: number);
             set(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number, i?: number): Mat3;
+            setid(): Mat3;
             ts(): Mat3;
             t(): Mat3;
             copy(m2: Mat3): Mat3;
@@ -356,6 +404,7 @@ declare namespace tesserxel {
             inv(): Mat3;
             invs(): Mat3;
             setFromRotaion(q: Quaternion): Mat3;
+            pushPool(pool?: Mat3Pool): void;
         }
         class Mat4 {
             elem: number[];
@@ -367,7 +416,9 @@ declare namespace tesserxel {
             augVec4set(a: Vec4, b: Vec4, c: Vec4, d: Vec4): Mat4;
             augMat3set(a: Mat3, b: Vec3, c: Vec3, d: number): Mat4;
             constructor(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number, i?: number, j?: number, k?: number, l?: number, m?: number, n?: number, o?: number, p?: number);
+            clone(): Mat4;
             writeBuffer(b: Float32Array, offset?: number): void;
+            setid(): this;
             set(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number, i?: number, j?: number, k?: number, l?: number, m?: number, n?: number, o?: number, p?: number): this;
             ts(): Mat4;
             t(): Mat4;
@@ -404,6 +455,7 @@ declare namespace tesserxel {
             det(): number;
             inv(): Mat4;
             invs(): Mat4;
+            pushPool(pool?: Mat4Pool): void;
         }
         interface PerspectiveCamera {
             fov: number;
@@ -475,6 +527,7 @@ declare namespace tesserxel {
             rotates(angle: number): Vec2;
             static rand(): Vec2;
             static srand(seed: Srand): Vec2;
+            pushPool(pool?: Vec2Pool): void;
         }
         class Vec3 {
             x: number;
@@ -542,6 +595,7 @@ declare namespace tesserxel {
             static srand(seed: Srand): Vec3;
             reflect(normal: Vec3): Vec3;
             reflects(normal: Vec3): Vec3;
+            pushPool(pool?: Vec3Pool): void;
         }
         class Vec4 {
             x: number;
@@ -652,6 +706,7 @@ declare namespace tesserxel {
             projbs(b: Bivec): Vec4;
             static rand(): Vec4;
             static srand(seed: Srand): Vec4;
+            pushPool(pool?: Vec4Pool): void;
         }
         let _vec2: Vec2;
         let _vec3: Vec3;
@@ -667,6 +722,29 @@ declare namespace tesserxel {
 }
 declare namespace tesserxel {
     namespace math {
+        class Ray {
+            origin: Vec4;
+            direction: Vec4;
+        }
+        export class Plane {
+            /** normal need to be normalized */
+            normal: Vec4;
+            offset: number;
+            constructor(normal: Vec4, offset: number);
+            distanceToPoint(p: Vec4): void;
+            /** regard r as an infinity line */
+            distanceToLine(r: Ray): void;
+        }
+        export class AABB {
+            min: Vec4;
+            max: Vec4;
+            testAABB(aabb: AABB): boolean;
+            /** when intersected return 0, when aabb is along the normal direction return 1, otherwise -1 */
+            testPlane(plane: Plane): 1 | -1 | 0;
+            constructor();
+            static fromPoints(points: Vec4[]): AABB;
+        }
+        export {};
     }
 }
 declare namespace tesserxel {
@@ -778,68 +856,91 @@ declare namespace tesserxel {
 }
 declare namespace tesserxel {
     namespace physics {
-        class Engine {
-            forceAccumulator: ForceAccumulator;
-            constructor(forceAccumulator?: ForceAccumulator);
-            runCollisionDetector(): void;
-            runCollisionSolver(): void;
-            update(world: World, dt: number): void;
-            getObjectsAccelerations(world: World): void;
+        interface BroadPhaseConstructor {
+            new (): BroadPhase;
         }
-        class World {
-            gravity: math.Vec4;
-            objects: Object[];
-            forces: Force[];
-            collisions: IntersectedResult[];
-            time: number;
-            frameCount: number;
-            addObject(o: Object): void;
-            addForce(f: Force): void;
+        type BroadPhaseList = [Rigid, Rigid][];
+        abstract class BroadPhase {
+            checkList: BroadPhaseList;
+            protected clearCheckList(): void;
+            abstract run(world: World): void;
         }
-        class Object {
-            geometry: Geometry;
-            invMass: number;
-            invInertia: math.Matrix;
-            velocity: math.Vec4;
-            angularVelocity: math.Bivec;
-            /** sleeping objects are still.
-             *  it only do collision test will active objects
-             *  */
-            sleep: boolean;
-            force: math.Vec4;
-            torque: math.Bivec;
-            acceleration: math.Vec4;
-            angularAcceleration: math.Bivec;
-            getlinearVelocity(position: math.Vec4): math.Vec4;
-            constructor(geometry: Geometry, mass?: number);
+        class NaiveBroadPhase extends BroadPhase {
+            run(world: World): void;
+        }
+        class IgnoreAllBroadPhase extends BroadPhase {
+            run(world: World): void;
         }
     }
 }
 declare namespace tesserxel {
     namespace physics {
-        interface ForceAccumulator {
-            run(engine: Engine, world: World, dt: number): void;
+        interface EngineOption {
+            forceAccumulator?: ForceAccumulatorConstructor;
+            broadPhase?: BroadPhaseConstructor;
+            solver?: SolverConstructor;
+        }
+        export class Engine {
+            forceAccumulator: ForceAccumulator;
+            broadPhase: BroadPhase;
+            narrowPhase: NarrowPhase;
+            solver: Solver;
+            constructor(option?: EngineOption);
+            runCollisionSolver(): void;
+            update(world: World, dt: number): void;
+        }
+        export class World {
+            gravity: math.Vec4;
+            rigids: Rigid[];
+            forces: Force[];
+            time: number;
+            frameCount: number;
+            add(o: Rigid | Force): void;
+        }
+        export class Material {
+            friction: number;
+            restitution: number;
+            constructor(friction: number, restitution: number);
+            static getContactRestitution(a: Material, b: Material): number;
+            static getContactFriction(a: Material, b: Material): number;
+        }
+        /** a helper function for applying inertia to bivec */
+        export function mulBivec(self: math.Bivec, a: math.Bivec, b: math.Bivec): math.Bivec;
+        export {};
+    }
+}
+declare namespace tesserxel {
+    namespace physics {
+        interface ForceAccumulatorConstructor {
+            new (): ForceAccumulator;
+        }
+        class ForceAccumulator {
+            run(world: World, dt: number): void;
+            private _biv1;
+            private _biv2;
+            private readonly _bivec0;
+            getState(world: World): void;
         }
         namespace force_accumulator {
-            class Euler2 {
+            class Euler2 extends ForceAccumulator {
                 private _bivec;
                 private _rotor;
-                run(engine: Engine, world: World, dt: number): void;
+                run(world: World, dt: number): void;
             }
-            class Predict3 {
+            class Predict3 extends ForceAccumulator {
                 private _bivec1;
                 private _bivec2;
                 private _rotor;
                 private _vec;
-                run(engine: Engine, world: World, dt: number): void;
+                run(world: World, dt: number): void;
             }
-            class RK4 {
+            class RK4 extends ForceAccumulator {
                 private _bivec1;
                 private _rotor;
-                run(engine: Engine, world: World, dt: number): void;
+                run(world: World, dt: number): void;
             }
         }
-        interface Force {
+        class Force {
             apply(time: number): void;
         }
         namespace force {
@@ -848,10 +949,10 @@ declare namespace tesserxel {
              *  refering connect point of spring's two ends.
              *  b can be null for attaching spring to a fixed point in the world.
              *  f = k dx - damp * dv */
-            class Spring implements Force {
-                a: Object;
+            class Spring extends Force {
+                a: Rigid;
                 pointA: math.Vec4;
-                b: Object | null;
+                b: Rigid | null;
                 pointB: math.Vec4;
                 k: number;
                 damp: number;
@@ -860,7 +961,7 @@ declare namespace tesserxel {
                 private _vec4a;
                 private _vec4b;
                 private _bivec;
-                constructor(a: Object, b: Object | null, pointA: math.Vec4, pointB: math.Vec4, k: number, damp?: number, length?: number);
+                constructor(a: Rigid, b: Rigid | null, pointA: math.Vec4, pointB: math.Vec4, k: number, damp?: number, length?: number);
                 apply(time: number): void;
             }
         }
@@ -868,46 +969,136 @@ declare namespace tesserxel {
 }
 declare namespace tesserxel {
     namespace physics {
-        interface Geometry {
-            type: string;
-            position?: math.Vec4;
-            rotation?: math.Rotor;
-            intersectGeometry(g: Geometry): IntersectResult;
-        }
-        class Glome implements Geometry {
-            radius: number;
-            position: math.Vec4;
-            rotation: math.Rotor;
-            type: "glome";
-            constructor(radius: number);
-            intersectGeometry(g: Geometry): any;
-        }
-        /** equation: dot(normal,positon) == offset
-         *  => when offset > 0, plane is shifted to normal direction
-         *  from origin by distance = offset
-         */
-        class Plane implements Geometry {
+        interface Collision {
+            point: math.Vec4;
+            depth: number;
+            /** normal is defined from a to b */
             normal: math.Vec4;
-            offset: number;
-            type: "plane";
-            intersectGeometry(g: Geometry): IntersectedResult;
+            a: Rigid;
+            b: Rigid;
+        }
+        class NarrowPhase {
+            collisionList: Collision[];
+            clearCollisionList(): void;
+            run(list: BroadPhaseList): void;
+            detectCollision(rigidA: Rigid, rigidB: Rigid): any;
+            private detectGlomeGlome;
+            private detectGlomePlane;
+            private detectConvexPlane;
+            private detectConvexConvex;
         }
     }
 }
 declare namespace tesserxel {
     namespace physics {
-        type IntersectResult = IntersectedResult | null;
-        interface IntersectedResult {
-            point: math.Vec4;
-            depth: number;
-            /** normal is defined from a to b */
-            normal: math.Vec4;
-            a: Geometry;
-            b: Geometry;
+        export type RigidType = "still" | "passive" | "active";
+        interface SimpleRigidDescriptor {
+            /** mass set to 0 to specify non-active rigid */
+            mass: number | null;
+            /** RigidGeometry instance cannot be shared between Rigid instances */
+            geometry: RigidGeometry;
+            material: Material;
+            type?: RigidType;
         }
-        function intersetGlomeGlome(a: Glome, b: Glome): IntersectResult;
-        function inverseIntersectOrder(r: IntersectResult): IntersectResult;
-        function intersetGlomePlane(a: Glome, b: Plane): IntersectResult;
+        type UnionRigidDescriptor = Rigid[];
+        /** all properities hold by class Rigid should not be modified
+         *  exceptions are position/rotation and (angular)velocity.
+         *  pass RigidDescriptor into constructor instead.
+         *  */
+        export class Rigid extends math.Obj4 {
+            scale: null;
+            material: Material;
+            geometry: RigidGeometry;
+            type: RigidType;
+            mass: number;
+            invMass: number;
+            inertia: math.Bivec;
+            invInertia: math.Bivec;
+            inertiaIsotroy: boolean;
+            sleep: boolean;
+            velocity: math.Vec4;
+            angularVelocity: math.Bivec;
+            force: math.Vec4;
+            torque: math.Bivec;
+            acceleration: math.Vec4;
+            angularAcceleration: math.Bivec;
+            constructor(param: SimpleRigidDescriptor | UnionRigidDescriptor);
+            getlinearVelocity(out: math.Vec4, point: math.Vec4): math.Vec4;
+        }
+        export abstract class RigidGeometry {
+            type: string;
+            rigid: Rigid;
+            isUnion: boolean;
+            initialize(rigid: Rigid): void;
+            abstract initializeMassInertia(rigid: Rigid): void;
+        }
+        export namespace rigid {
+            class Union extends RigidGeometry {
+                components: Rigid[];
+                isUnion: true;
+                constructor(components: Rigid[]);
+                initializeMassInertia(rigid: Rigid): void;
+            }
+            class Glome extends RigidGeometry {
+                radius: number;
+                radiusSqr: number;
+                type: "glome";
+                constructor(radius: number);
+                initializeMassInertia(rigid: Rigid): void;
+            }
+            class Convex extends RigidGeometry {
+                points: math.Vec4[];
+                constructor(points: math.Vec4[]);
+                initializeMassInertia(rigid: Rigid): void;
+            }
+            class Tesseractoid extends Convex {
+                size: math.Vec4;
+                type: "tesseractoid";
+                constructor(size: math.Vec4 | number);
+                initializeMassInertia(rigid: Rigid): void;
+            }
+            /** equation: dot(normal,positon) == offset
+             *  => when offset > 0, plane is shifted to normal direction
+             *  from origin by distance = offset
+             */
+            class Plane extends RigidGeometry {
+                normal: math.Vec4;
+                offset: number;
+                type: "plane";
+                constructor(normal?: math.Vec4, offset?: number);
+                initializeMassInertia(rigid: Rigid): void;
+            }
+        }
+        export {};
+    }
+}
+declare namespace tesserxel {
+    namespace physics {
+        interface SolverConstructor {
+            new (): Solver;
+        }
+        abstract class Solver {
+            abstract run(collisionList: Collision[]): void;
+        }
+        interface PreparedCollision extends Collision {
+            separateSpeed: number;
+            relativeVelocity: math.Vec4;
+            dvA?: math.Vec4;
+            dvB?: math.Vec4;
+            dwA?: math.Bivec;
+            dwB?: math.Bivec;
+        }
+        class IterativeImpulseSolver extends Solver {
+            maxPositionIterations: number;
+            maxVelocityIterations: number;
+            collisionList: PreparedCollision[];
+            run(collisionList: Collision[]): void;
+            prepare(collisionList: Collision[]): void;
+            resolvePosition(): void;
+            resolveVelocity(): void;
+            updateSeparateSpeeds(collision: PreparedCollision): void;
+            updateSeparateSpeed(collision: PreparedCollision, rigidIsA: boolean, rigid: Rigid, dv: math.Vec4, dw: math.Bivec): void;
+        }
     }
 }
 declare namespace tesserxel {
@@ -1060,16 +1251,16 @@ declare namespace tesserxel {
         }
         export namespace sliceconfig {
             let size: number;
-            function singlezslice1eye(aspect: number): renderer.SliceConfig;
-            function singlezslice2eye(aspect: number): renderer.SliceConfig;
-            function singleyslice1eye(aspect: number): renderer.SliceConfig;
-            function singleyslice2eye(aspect: number): renderer.SliceConfig;
-            function zslices1eye(step: number, maxpos: number, aspect: number): renderer.SliceConfig;
-            function zslices2eye(step: number, maxpos: number, aspect: number): renderer.SliceConfig;
-            function yslices1eye(step: number, maxpos: number, aspect: number): renderer.SliceConfig;
-            function yslices2eye(step: number, maxpos: number, aspect: number): renderer.SliceConfig;
-            function default2eye(size: number, aspect: number): renderer.SliceConfig;
-            function default1eye(size: number, aspect: number): renderer.SliceConfig;
+            function singlezslice1eye(aspect: number): renderer.SectionConfig[];
+            function singlezslice2eye(aspect: number): renderer.SectionConfig[];
+            function singleyslice1eye(aspect: number): renderer.SectionConfig[];
+            function singleyslice2eye(aspect: number): renderer.SectionConfig[];
+            function zslices1eye(step: number, maxpos: number, aspect: number): renderer.SectionConfig[];
+            function zslices2eye(step: number, maxpos: number, aspect: number): renderer.SectionConfig[];
+            function yslices1eye(step: number, maxpos: number, aspect: number): renderer.SectionConfig[];
+            function yslices2eye(step: number, maxpos: number, aspect: number): renderer.SectionConfig[];
+            function default2eye(size: number, aspect: number): renderer.SectionConfig[];
+            function default1eye(size: number, aspect: number): renderer.SectionConfig[];
         }
         export class RetinaController implements IController {
             enabled: boolean;
@@ -1125,9 +1316,10 @@ declare namespace tesserxel {
             retinaZDistance: number;
             update(state: ControllerState): void;
             setStereo(stereo: boolean): void;
+            setSectionEyeOffset(offset: number): void;
+            setRetinaEyeOffset(offset: number): void;
             setLayers(layers: number): void;
             setOpacity(opacity: number): void;
-            setSlice(sliceConfig: renderer.SliceConfig): void;
             toggleSectionConfig(index: string): void;
             setSize(size: GPUExtent3DStrict): void;
         }
@@ -1174,10 +1366,7 @@ declare namespace tesserxel {
             defaultConfigs?: boolean;
         }
         interface SliceConfig {
-            layers: number;
-            retinaEyeOffset?: number;
-            sectionEyeOffset?: number;
-            opacity?: number;
+            layers?: number;
             sections?: Array<SectionConfig>;
         }
         enum SliceFacing {
@@ -1218,6 +1407,7 @@ declare namespace tesserxel {
             renderPipeline: GPURenderPipeline;
             outputVaryBuffer: GPUBuffer[];
             vertexOutNum: number;
+            descriptor: TetraSlicePipelineDescriptor;
         }
         interface RaytracingPipeline {
             pipeline: GPURenderPipeline;
@@ -1235,6 +1425,7 @@ declare namespace tesserxel {
             };
         }
         class SliceRenderer {
+            getSafeTetraNumInOnePass(): number;
             private maxSlicesNumber;
             private maxCrossSectionBufferSize;
             private sliceResolution;
@@ -1244,7 +1435,7 @@ declare namespace tesserxel {
             private screenSize;
             private outputBufferStride;
             private blendFormat;
-            private sliceConfig;
+            private displayConfig;
             private gpu;
             private context;
             private crossRenderVertexShaderModule;
@@ -1254,19 +1445,20 @@ declare namespace tesserxel {
             private nearestTextureSampler;
             private crossRenderPassDescClear;
             private crossRenderPassDescLoad;
+            private clearRenderPipeline;
             private retinaRenderPipeline;
             private screenRenderPipeline;
             private retinaBindGroup;
             private screenBindGroup;
+            private sliceView;
+            private depthView;
             private outputVaryBufferPool;
-            private outputClearBuffer;
             private sliceOffsetBuffer;
             private emitIndexSliceBuffer;
             private refacingBuffer;
             private eyeBuffer;
             private thumbnailViewportBuffer;
             private readBuffer;
-            private slicesBuffer;
             private sliceGroupOffsetBuffer;
             private retinaMVBuffer;
             private retinaPBuffer;
@@ -1274,7 +1466,9 @@ declare namespace tesserxel {
             private layerOpacityBuffer;
             private camProjBuffer;
             static readonly outputAttributeUsage: number;
-            private retinaViewMatrix;
+            private slicesJsBuffer;
+            private camProjJsBuffer;
+            private retinaProjecJsBuffer;
             private retinaMVMatJsBuffer;
             private currentRetinaFacing;
             private retinaMatrixChanged;
@@ -1289,25 +1483,42 @@ declare namespace tesserxel {
             /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
              *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
              */
-            createVertexShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[]): GPUBindGroup;
+            createVertexShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[], label?: string): GPUBindGroup;
             /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
              *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
              */
-            createFragmentShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[]): GPUBindGroup;
+            createFragmentShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[], label?: string): GPUBindGroup;
             createTetraSlicePipeline(desc: TetraSlicePipelineDescriptor): Promise<TetraSlicePipeline>;
             setSize(size: GPUExtent3DStrict): void;
             getScreenAspect(): number;
             set4DCameraProjectMatrix(camera: math.PerspectiveCamera): void;
             setRetinaProjectMatrix(camera: math.PerspectiveCamera): void;
             setRetinaViewMatrix(m: math.Mat4): void;
-            getSliceConfig(): SliceConfig;
-            setSlice(sliceConfig: SliceConfig): void;
+            getOpacity(): number;
+            getSectionEyeOffset(): number;
+            getRetinaEyeOffset(): number;
+            getLayers(): number;
+            getStereoMode(): boolean;
+            setOpacity(opacity: number): void;
+            setEyeOffset(sectionEyeOffset?: number, retinaEyeOffset?: number): void;
+            setSliceConfig(sliceConfig: SliceConfig): void;
             render(drawCall: () => void): void;
+            /** Set TetraSlicePipeline and prepare GPU resources.
+             *  Next calls should be function sliceTetras or setBindGroup.
+             */
             beginTetras(pipeline: TetraSlicePipeline): void;
+            getFrustumRange(): number[];
             setBindGroup(index: number, bindGroup: GPUBindGroup): void;
+            /** Compute slice of given bindgroup attribute data.
+             *  beginTetras should be called at first to specify a tetraSlicePipeline
+             *  Next calls should be function sliceTetras, setBindGroup or drawTetras.
+             */
             sliceTetras(vertexBindGroup: GPUBindGroup, tetraCount: number, instanceCount?: number): void;
             setWorldClearColor(color: GPUColor): void;
             setScreenClearColor(color: GPUColor): void;
+            /** This function draw slices on a internal framebuffer
+             *  Every beginTetras call should be end with drawTetras call
+             */
             drawTetras(bindGroups?: {
                 group: number;
                 binding: GPUBindGroup;
@@ -1457,13 +1668,16 @@ declare namespace tesserxel {
             child: Object[];
             worldCoord: math.AffineMat4;
             needsUpdateCoord: boolean;
+            alwaysUpdateCoord: boolean;
             constructor();
+            updateCoord(): this;
             add(obj: Object): void;
         }
         class Camera extends Object implements math.PerspectiveCamera {
             fov: number;
             near: number;
             far: number;
+            alwaysUpdateCoord: boolean;
             needsUpdate: boolean;
         }
         class Mesh extends Object {
@@ -1480,7 +1694,10 @@ declare namespace tesserxel {
                 [name: string]: GPUBuffer;
             };
             needsUpdate: boolean;
+            dynamic: boolean;
+            obb: math.AABB;
             constructor(data: mesh.TetraMesh);
+            updateOBB(): void;
         }
         class TesseractGeometry extends Geometry {
             constructor(size?: number | math.Vec4);
@@ -1569,8 +1786,9 @@ declare namespace tesserxel {
         }
         /** Material is the top node of MaterialNode */
         export class Material extends MaterialNode {
-            cullFace: GPUCullMode;
+            cullMode: GPUCullMode;
             compiling: boolean;
+            compiled: boolean;
             needsUpdate: boolean;
             output: string;
             pipeline: renderer.TetraSlicePipeline;
@@ -1588,6 +1806,7 @@ declare namespace tesserxel {
             declUniformLocation: number;
             declVarys: string[];
             createBindGroup(r: Renderer, p: renderer.TetraSlicePipeline): void;
+            init(r: Renderer): void;
             compile(r: Renderer): Promise<void>;
             addVary(a: string): void;
             addUniform(type: string, u: string, buffer: GPUBuffer): void;
@@ -1715,7 +1934,7 @@ declare namespace tesserxel {
 /** threejs like 4D lib */
 declare namespace tesserxel {
     namespace four {
-        class Renderer {
+        export class Renderer {
             core: renderer.SliceRenderer;
             gpu: renderer.GPU;
             canvas: HTMLCanvasElement;
@@ -1731,6 +1950,10 @@ declare namespace tesserxel {
                 lightCode: string;
                 uWorldLightBufferSize: number;
             };
+            private cameraInScene;
+            private safeTetraNumInOnePass;
+            private tetraNumOccupancyRatio;
+            private maxTetraNumInOnePass;
             constructor(canvas: HTMLCanvasElement);
             setBackgroudColor(color: GPUColor): void;
             init(): Promise<this>;
@@ -1745,22 +1968,28 @@ declare namespace tesserxel {
             directionalLights: DirectionalLight[];
             spotLights: SpotLight[];
             pointLights: PointLight[];
-            drawList: {
-                [group: string]: {
-                    pipeline: renderer.TetraSlicePipeline;
-                    meshes: Mesh[];
-                    bindGroup: {
-                        group: number;
-                        binding: GPUBindGroup;
-                    };
-                };
-            };
+            drawList: DrawList;
             activeCamera: Camera;
             setCamera(camera: Camera): void;
+            computeFrustumRange(range: number[]): math.Vec4[];
+            private _testWithFrustumData;
             render(scene: Scene, camera: Camera): void;
             setSize(size: GPUExtent3DStrict): void;
             private clearState;
         }
+        interface DrawList {
+            [group: string]: {
+                pipeline: renderer.TetraSlicePipeline;
+                meshes: Mesh[];
+                bindGroup: {
+                    group: number;
+                    binding: GPUBindGroup;
+                };
+                tetraCount: number;
+                next?: string;
+            };
+        }
+        export {};
     }
 }
 declare namespace tesserxel {

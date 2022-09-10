@@ -1,0 +1,190 @@
+namespace tesserxel {
+    export namespace physics {
+        export type RigidType = "still" | "passive" | "active";
+        interface SimpleRigidDescriptor {
+            /** mass set to 0 to specify non-active rigid */
+            mass: number | null;
+            /** RigidGeometry instance cannot be shared between Rigid instances */
+            geometry: RigidGeometry;
+            material: Material;
+            type?: RigidType;
+        };
+        type UnionRigidDescriptor = Rigid[];
+        /** all properities hold by class Rigid should not be modified
+         *  exceptions are position/rotation and (angular)velocity.
+         *  pass RigidDescriptor into constructor instead.
+         *  */
+        export class Rigid extends math.Obj4 {
+            // Rigid extends math.Obj4, it has position and rotation, but no scale
+            declare scale: null;
+            material: Material;
+            // Caution: Two Rigids cannot share the same RigidGeometry instance
+            geometry: RigidGeometry;
+            type: RigidType;
+            mass: number;
+            invMass: number;
+            // inertia is a 6x6 Matrix for angularVelocity -> angularMomentum
+            // this is diagonalbMatrix under principal axes coordinates
+            inertia = new math.Bivec();
+            invInertia = new math.Bivec();
+            inertiaIsotroy: boolean; // whether using scalar inertia
+
+            // only apply to active type object
+            sleep: boolean = false;
+
+            velocity: math.Vec4 = new math.Vec4();
+            angularVelocity: math.Bivec = new math.Bivec();
+            force: math.Vec4 = new math.Vec4();
+            torque: math.Bivec = new math.Bivec();
+            acceleration: math.Vec4 = new math.Vec4();
+            angularAcceleration: math.Bivec = new math.Bivec();
+            constructor(param: SimpleRigidDescriptor | UnionRigidDescriptor) {
+                super();
+                if ((param as UnionRigidDescriptor).length) {
+                    this.geometry = new rigid.Union(param as UnionRigidDescriptor);
+                } else {
+                    let option = param as SimpleRigidDescriptor;
+                    this.geometry = option.geometry;
+                    this.mass = option.mass;
+                    this.type = option.type ?? "active";
+                    this.invMass = option.mass > 0 && (this.type === "active") ? 1 / option.mass : 0;
+                    this.material = option.material;
+                }
+                this.geometry.initialize(this);
+            }
+
+            getlinearVelocity(out: math.Vec4, point: math.Vec4) {
+                if (this.type === "still") return new math.Vec4();
+                let relPosition = out.subset(point, this.position);
+                return out.dotbset(relPosition, this.angularVelocity).adds(this.velocity);
+            }
+        }
+        export abstract class RigidGeometry {
+            type: string;
+            rigid: Rigid;
+            isUnion: boolean = false;
+            initialize(rigid: Rigid) {
+                this.rigid = rigid;
+                this.initializeMassInertia(rigid);
+                if (!rigid.mass && rigid.type === "active") rigid.type = "still";
+                if (rigid.inertia) {
+                    rigid.invInertia.xy = 1 / rigid.inertia.xy;
+                    if (!rigid.inertiaIsotroy) {
+                        rigid.invInertia.xz = 1 / rigid.inertia.xz;
+                        rigid.invInertia.yz = 1 / rigid.inertia.yz;
+                        rigid.invInertia.xw = 1 / rigid.inertia.xw;
+                        rigid.invInertia.yw = 1 / rigid.inertia.yw;
+                        rigid.invInertia.zw = 1 / rigid.inertia.zw;
+                    } else {
+                        rigid.invInertia.xz = rigid.invInertia.xy;
+                        rigid.invInertia.yz = rigid.invInertia.xy;
+                        rigid.invInertia.xw = rigid.invInertia.xy;
+                        rigid.invInertia.yw = rigid.invInertia.xy;
+                        rigid.invInertia.zw = rigid.invInertia.xy;
+                        rigid.inertia.xz = rigid.inertia.xy;
+                        rigid.inertia.yz = rigid.inertia.xy;
+                        rigid.inertia.xw = rigid.inertia.xy;
+                        rigid.inertia.yw = rigid.inertia.xy;
+                        rigid.inertia.zw = rigid.inertia.xy;
+                    }
+                }
+            };
+            abstract initializeMassInertia(rigid: Rigid): void;
+        }
+        export namespace rigid {
+            export class Union extends RigidGeometry {
+                components: Rigid[];
+                isUnion: true = true;
+                constructor(components: Rigid[]) { super(); this.components = components; }
+                // todo: union gen
+                initializeMassInertia(rigid: Rigid) { };
+            }
+            export class Glome extends RigidGeometry {
+                radius: number = 1;
+                radiusSqr: number = 1;
+                type: "glome" = "glome";
+                constructor(radius: number) {
+                    super();
+                    this.radius = radius;
+                    this.radiusSqr = radius * radius;
+                }
+                initializeMassInertia(rigid: Rigid) {
+                    rigid.inertiaIsotroy = true;
+                    rigid.inertia.xy = rigid.mass * this.radiusSqr * 0.25;
+                }
+            }
+            export class Convex extends RigidGeometry {
+                points: math.Vec4[];
+                constructor(points: math.Vec4[]) {
+                    super();
+                    this.points = points;
+                }
+                initializeMassInertia(rigid: Rigid) {
+                    // todo inertia calc
+                }
+            }
+            export class Tesseractoid extends Convex {
+                size: math.Vec4;
+                type: "tesseractoid" = "tesseractoid";
+                constructor(size: math.Vec4 | number) {
+                    let s = typeof size === "number" ? new math.Vec4(size, size, size, size) : size;
+                    super([
+                        new math.Vec4(s.x, s.y, s.z, s.w),
+                        new math.Vec4(-s.x, s.y, s.z, s.w),
+                        new math.Vec4(s.x, -s.y, s.z, s.w),
+                        new math.Vec4(-s.x, -s.y, s.z, s.w),
+                        new math.Vec4(s.x, s.y, -s.z, s.w),
+                        new math.Vec4(-s.x, s.y, -s.z, s.w),
+                        new math.Vec4(s.x, -s.y, -s.z, s.w),
+                        new math.Vec4(-s.x, -s.y, -s.z, s.w),
+                        new math.Vec4(s.x, s.y, s.z, -s.w),
+                        new math.Vec4(-s.x, s.y, s.z, -s.w),
+                        new math.Vec4(s.x, -s.y, s.z, -s.w),
+                        new math.Vec4(-s.x, -s.y, s.z, -s.w),
+                        new math.Vec4(s.x, s.y, -s.z, -s.w),
+                        new math.Vec4(-s.x, s.y, -s.z, -s.w),
+                        new math.Vec4(s.x, -s.y, -s.z, -s.w),
+                        new math.Vec4(-s.x, -s.y, -s.z, -s.w),
+                    ]);
+                    this.size = s;
+                }
+                initializeMassInertia(rigid: Rigid) {
+                    let mins = Math.min(this.size.x, this.size.y, this.size.z, this.size.w);
+                    let maxs = Math.max(this.size.x, this.size.y, this.size.z, this.size.w);
+                    let isoratio = mins / maxs;
+                    rigid.inertiaIsotroy = isoratio > 0.95;
+                    if (rigid.inertiaIsotroy) {
+                        rigid.inertia.xy = rigid.mass * (mins + maxs) * (mins + maxs) * 0.2;
+                    } else {
+                        let x = this.size.x * this.size.x;
+                        let y = this.size.y * this.size.y;
+                        let z = this.size.z * this.size.z;
+                        let w = this.size.w * this.size.w;
+                        rigid.inertia.set(x + y, x + z, x + w, y + z, y + w, z + w).mulfs(rigid.mass * 0.2);
+                    }
+                }
+            }
+            /** equation: dot(normal,positon) == offset
+             *  => when offset > 0, plane is shifted to normal direction
+             *  from origin by distance = offset
+             */
+            export class Plane extends RigidGeometry {
+                normal: math.Vec4;
+                offset: number;
+                type: "plane" = "plane";
+                constructor(normal?: math.Vec4, offset?: number) {
+                    super();
+                    this.normal = normal ?? math.Vec4.y.clone();
+                    this.offset = offset ?? 0;
+                }
+                initializeMassInertia(rigid: Rigid) {
+                    if (rigid.mass) console.warn("Infinitive Plane cannot have a finitive mass.");
+                    rigid.mass = null;
+                    rigid.invMass = 0;
+                    rigid.inertia = null;
+                    rigid.invInertia = null;
+                }
+            }
+        }
+    }
+}

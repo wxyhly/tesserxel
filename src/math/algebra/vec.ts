@@ -145,6 +145,10 @@ namespace tesserxel {
                 let a = seed.nextf() * _360;
                 return new Vec2(Math.cos(a), Math.sin(a));
             }
+
+            pushPool(pool: Vec2Pool = vec2Pool) {
+                pool.push(this);
+            }
         }
 
         export class Vec3 {
@@ -366,6 +370,10 @@ namespace tesserxel {
             reflects(normal: Vec3): Vec3 {
                 return this.subs(normal.mulf(this.dot(normal) * 2));
             }
+
+            pushPool(pool: Vec3Pool = vec3Pool) {
+                pool.push(this);
+            }
         }
 
         export class Vec4 {
@@ -479,7 +487,7 @@ namespace tesserxel {
             mulfs(v2: number): Vec4 {
                 this.x *= v2; this.y *= v2; this.z *= v2; this.w *= v2; return this;
             }
-            mulmatvset(mat4:Mat4,v: Vec4): Vec4 {
+            mulmatvset(mat4: Mat4, v: Vec4): Vec4 {
                 let a = mat4.elem;
                 return this.set(
                     v.x * a[0] + v.y * a[1] + v.z * a[2] + v.w * a[3],
@@ -646,10 +654,10 @@ namespace tesserxel {
             /** project vector on a plane determined by bivector.
              * bivector b must be normalized and simple
              */
-            projb(b:Bivec){
+            projb(b: Bivec) {
                 return this.dotb(b).dotbsr(b).negs();
             }
-            projbs(b:Bivec){
+            projbs(b: Bivec) {
                 return this.dotbsr(b).dotbsr(b).negs();
             }
             static rand(): Vec4 {
@@ -667,6 +675,9 @@ namespace tesserxel {
                 let sc = Math.sqrt(c);
                 let cc = Math.sqrt(1 - c);
                 return new Vec4(sc * Math.cos(a), sc * Math.sin(a), cc * Math.cos(b), cc * Math.sin(b));
+            }
+            pushPool(pool: Vec4Pool = vec4Pool) {
+                pool.push(this);
             }
         }
         // temporary variables

@@ -47,5 +47,62 @@ namespace tesserxel {
             return uuid.toLowerCase();
 
         }
+        // from cannon.js: src/utils/pool.js
+        export abstract class Pool<T> {
+            objects: T[] = [];
+            abstract constructObject(): T;
+            pop() {
+                if (this.objects.length === 0) {
+                    return this.constructObject();
+                } else {
+                    return this.objects.pop();
+                }
+            }
+            push(...args: T[]) {
+                this.objects.push(...args);
+            }
+            resize(size: number) {
+                let objects = this.objects;
+                while (objects.length > size) {
+                    objects.pop();
+                }
+                while (objects.length < size) {
+                    objects.push(this.constructObject());
+                }
+                return this;
+            }
+        }
+        export class Vec2Pool extends Pool<Vec2>{
+            constructObject() { return new Vec2; }
+        }
+        export class Vec3Pool extends Pool<Vec3>{
+            constructObject() { return new Vec3; }
+        }
+        export class Vec4Pool extends Pool<Vec4>{
+            constructObject() { return new Vec4; }
+        }
+        export class BivecPool extends Pool<Bivec>{
+            constructObject() { return new Bivec; }
+        }
+        export class Mat2Pool extends Pool<Mat2>{
+            constructObject() { return new Mat2; }
+        }
+        export class Mat3Pool extends Pool<Mat3>{
+            constructObject() { return new Mat3; }
+        }
+        export class Mat4Pool extends Pool<Mat4>{
+            constructObject() { return new Mat4; }
+        }
+        export class QuaternionPool extends Pool<Quaternion>{
+            constructObject() { return new Quaternion; }
+        }
+        export const vec2Pool = new Vec2Pool;
+        export const vec3Pool = new Vec3Pool;
+        export const vec4Pool = new Vec4Pool;
+        export const bivecPool = new BivecPool;
+        export const mat2Pool = new Mat2Pool;
+        export const mat3Pool = new Mat3Pool;
+        export const mat4Pool = new Mat4Pool;
+        export const qPool = new QuaternionPool;
     }
 }

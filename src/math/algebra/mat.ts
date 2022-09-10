@@ -19,9 +19,10 @@ namespace tesserxel {
                 c: number = 0, d: number = 1
             ) { this.elem = [a, b, c, d]; }
             set(
-                a: number = 1, b: number = 0,
-                c: number = 0, d: number = 1
-            ): Mat2 { this.elem = [a, b, c, d]; return this; }
+                a: number = 0, b: number = 0,
+                c: number = 0, d: number = 0
+            ): Mat2 { this.elem[0] = a; this.elem[1] = b; this.elem[2] = c; this.elem[3] = d; return this; }
+            setid() { this.elem[0] = 1; this.elem[1] = 0; this.elem[2] = 0; this.elem[3] = 1; return this; }
             ts(): Mat2 {
                 let tmp = this.elem[1]; this.elem[1] = this.elem[2]; this.elem[2] = tmp;
                 return this;
@@ -145,6 +146,9 @@ namespace tesserxel {
                 me[3] = a * detInv;
                 return this;
             }
+            pushPool(pool:Mat2Pool = mat2Pool){
+                pool.push(this);
+            }
         }
         export class Mat3 {
             elem: number[];
@@ -163,10 +167,12 @@ namespace tesserxel {
                 g: number = 0, h: number = 0, i: number = 1
             ) { this.elem = [a, b, c, d, e, f, g, h, i]; }
             set(
-                a: number = 1, b: number = 0, c: number = 0,
-                d: number = 0, e: number = 1, f: number = 0,
-                g: number = 0, h: number = 0, i: number = 1
+                a: number = 0, b: number = 0, c: number = 0,
+                d: number = 0, e: number = 0, f: number = 0,
+                g: number = 0, h: number = 0, i: number = 0
             ): Mat3 { this.elem = [a, b, c, d, e, f, g, h, i]; return this; }
+            setid(): Mat3 { this.elem = [1, 0, 0, 0, 1, 0, 0, 0, 1]; return this; }
+
             ts(): Mat3 {
                 let me = this.elem;
                 let tmp = me[1]; me[1] = me[3]; me[3] = tmp;
@@ -318,8 +324,8 @@ namespace tesserxel {
                 me[8] = (n22 * n11 - n21 * n12) * detInv;
                 return this;
             }
-            
-            setFromRotaion(q:Quaternion): Mat3 {
+
+            setFromRotaion(q: Quaternion): Mat3 {
                 let xt2 = q.y + q.y, yt2 = q.z + q.z, zt2 = q.w + q.w;
                 let x2 = q.y * xt2;
                 let y2 = q.z * yt2;
@@ -337,6 +343,9 @@ namespace tesserxel {
                     xy + wz, 1 - x2 - z2, yz - wx,
                     xz - wy, yz + wx, 1 - x2 - y2
                 );
+            }
+            pushPool(pool:Mat3Pool = mat3Pool){
+                pool.push(this);
             }
         }
         export class Mat4 {
@@ -392,6 +401,10 @@ namespace tesserxel {
                 i: number = 0, j: number = 0, k: number = 1, l: number = 0,
                 m: number = 0, n: number = 0, o: number = 0, p: number = 1
             ) { this.elem = [a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p]; }
+            clone(): Mat4 {
+                let e = this.elem;
+                return new Mat4(...e);
+            }
             writeBuffer(b: Float32Array, offset: number = 0) {
                 b[offset++] = this.elem[0];
                 b[offset++] = this.elem[4];
@@ -410,11 +423,17 @@ namespace tesserxel {
                 b[offset++] = this.elem[11];
                 b[offset++] = this.elem[15];
             }
+            setid() {
+                this.elem[0] = 1, this.elem[1] = 0, this.elem[2] = 0, this.elem[3] = 0;
+                this.elem[4] = 0, this.elem[5] = 1, this.elem[6] = 0, this.elem[7] = 0;
+                this.elem[8] = 0, this.elem[9] = 0, this.elem[10] = 1, this.elem[11] = 0;
+                this.elem[12] = 0, this.elem[13] = 0, this.elem[14] = 0, this.elem[15] = 1; return this;
+            }
             set(
-                a: number = 1, b: number = 0, c: number = 0, d: number = 0,
-                e: number = 0, f: number = 1, g: number = 0, h: number = 0,
-                i: number = 0, j: number = 0, k: number = 1, l: number = 0,
-                m: number = 0, n: number = 0, o: number = 0, p: number = 1
+                a: number = 0, b: number = 0, c: number = 0, d: number = 0,
+                e: number = 0, f: number = 0, g: number = 0, h: number = 0,
+                i: number = 0, j: number = 0, k: number = 0, l: number = 0,
+                m: number = 0, n: number = 0, o: number = 0, p: number = 0
             ) {
                 this.elem[0] = a, this.elem[1] = b, this.elem[2] = c, this.elem[3] = d;
                 this.elem[4] = e, this.elem[5] = f, this.elem[6] = g, this.elem[7] = h;
@@ -557,7 +576,7 @@ namespace tesserxel {
                 );
                 return this;
             }
-            setFrom3DRotation(q:Quaternion): Mat4 {
+            setFrom3DRotation(q: Quaternion): Mat4 {
                 let xt2 = q.y + q.y, yt2 = q.z + q.z, zt2 = q.w + q.w;
                 let x2 = q.y * xt2;
                 let y2 = q.z * yt2;
@@ -577,7 +596,7 @@ namespace tesserxel {
                     0, 0, 0, 1
                 );
             }
-            setFromQuaternionL(q:Quaternion): Mat4 {
+            setFromQuaternionL(q: Quaternion): Mat4 {
                 return this.set(
                     q.x, -q.y, -q.z, -q.w,
                     q.y, q.x, -q.w, q.z,
@@ -585,7 +604,7 @@ namespace tesserxel {
                     q.w, -q.z, q.y, q.x
                 );
             }
-            setFromQuaternionR(q:Quaternion): Mat4 {
+            setFromQuaternionR(q: Quaternion): Mat4 {
                 return this.set(
                     q.x, -q.y, -q.z, -q.w,
                     q.y, q.x, q.w, -q.z,
@@ -593,10 +612,10 @@ namespace tesserxel {
                     q.w, q.z, -q.y, q.x
                 );
             }
-            setFromRotor(r:Rotor): Mat4 {
+            setFromRotor(r: Rotor): Mat4 {
                 return this.setFromQuaternionL(r.l).mulsr(_mat4.setFromQuaternionR(r.r));
             }
-            setFromRotorconj(r:Rotor): Mat4 {
+            setFromRotorconj(r: Rotor): Mat4 {
                 return this.setFromQuaternionL(r.l.conj()).mulsr(_mat4.setFromQuaternionR(r.r.conj()));
             }
             det(): number {
@@ -682,6 +701,9 @@ namespace tesserxel {
                 me[15] = (n12 * n23 * n31 - n13 * n22 * n31 + n13 * n21 * n32 - n11 * n23 * n32 - n12 * n21 * n33 + n11 * n22 * n33) * detInv;
                 return this;
             }
+            pushPool(pool:Mat4Pool = mat4Pool){
+                pool.push(this);
+            }
         }
         export interface PerspectiveCamera {
             fov: number;
@@ -713,7 +735,6 @@ namespace tesserxel {
                 vec4: new math.Vec4(kxz, ky, a, b)
             }
         }
-
         export let _mat2 = new Mat2();
         export let _mat3 = new Mat3();
         export let _mat4 = new Mat4();

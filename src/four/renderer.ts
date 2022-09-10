@@ -10,6 +10,10 @@ namespace tesserxel {
             uCamMatBuffer: GPUBuffer; // contain inv and uninv affineMat
             uWorldLightBuffer: GPUBuffer;
             lightShaderInfomation = _initLightShader();
+            private cameraInScene: boolean;
+            private safeTetraNumInOnePass: number;
+            private tetraNumOccupancyRatio: number = 0.05;
+            private maxTetraNumInOnePass: number;
             constructor(canvas: HTMLCanvasElement) {
                 this.canvas = canvas;
                 this.core = new renderer.SliceRenderer();
@@ -23,6 +27,7 @@ namespace tesserxel {
                 this.uCamMatBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, (4 * 5 * 2) * 4, "uCamMat");
                 this.uWorldLightBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, this.lightShaderInfomation.uWorldLightBufferSize, "uWorldLight");
                 this.core.setSize({ width: this.canvas.width * devicePixelRatio, height: this.canvas.height * devicePixelRatio });
+                this.safeTetraNumInOnePass = this.core.getSafeTetraNumInOnePass();
                 return this;
             }
             // todo: add computePipeLinePool
@@ -39,6 +44,9 @@ namespace tesserxel {
             }
             updateObject(o: Object) {
                 for (let c of o.child) {
+                    if(c.alwaysUpdateCoord){
+                        c.needsUpdateCoord = true;
+                    }
                     if (c.needsUpdateCoord || o.needsUpdateCoord) {
                         c.worldCoord.setFromObj4(c).mulsl(o.worldCoord);
 
@@ -64,6 +72,7 @@ namespace tesserxel {
                     }
                     this.directionalLights.push(o);
                 } else if (o.needsUpdateCoord && o === this.activeCamera) {
+                    this.cameraInScene = true;
                     o.worldCoord.inv().writeBuffer(this.jsBuffer);
                     o.worldCoord.writeBuffer(this.jsBuffer, 20);
                     this.gpu.device.queue.writeBuffer(this.uCamMatBuffer, 0, this.jsBuffer, 0, 40);
@@ -75,17 +84,38 @@ namespace tesserxel {
                 // attention: this is an async function, rendering will be in the future tick
                 if (!pipeline) { m.material.bindGroup = null; m.bindGroup = null; m.material.compile(this); return; }
                 if (pipeline === "compiling") return;
+                // if this material can use other's pipeline, it hasn't compiled but also need some initiations
+                if (!m.material.compiled) { m.material.init(this); }
                 let groupName = m.material.uuid;
                 let group = m.material.declUniformLocation ? 1 : 0;
-                let bindGroup = this.core.createFragmentShaderBindGroup(pipeline, group, [this.uWorldLightBuffer]);
-                this.drawList[groupName] ??= { pipeline: pipeline, meshes: [], bindGroup: { group, binding: bindGroup } };
-                this.drawList[groupName].meshes.push(m);
+                if (!this.drawList[groupName]) {
+                    let bindGroup = this.core.createFragmentShaderBindGroup(pipeline, group, [this.uWorldLightBuffer], "WorldLightGroup");
+                    this.drawList[groupName] = {
+                        pipeline: pipeline, meshes: [],
+                        bindGroup: { group, binding: bindGroup }, tetraCount: 0
+                    };
+                }
+                let list = this.drawList[groupName];
+                // while (list.next) {
+                //     list = this.drawList[list.next]; //go to the end of chain table
+                // }
+                // list.tetraCount += m.geometry.jsBuffer.tetraCount;
+                list.meshes.push(m);
+                // if (list.tetraCount > this.maxTetraNumInOnePass) {
+                //     // append a new node to chain, wait for accept new objects next time
+                //     groupName = list.next = math.generateUUID();
+                //     this.drawList[groupName] = {
+                //         pipeline: pipeline, meshes: [],
+                //         bindGroup: list.bindGroup, tetraCount: 0
+                //     };
+                // }
                 if (!m.bindGroup) {
-                    m.bindGroup = this.core.createVertexShaderBindGroup(pipeline, 1, [
+                    let buffers = [
                         ...m.material.fetchBuffer(m.geometry),
                         m.uObjMatBuffer,
                         this.uCamMatBuffer
-                    ]);
+                    ];
+                    m.bindGroup = this.core.createVertexShaderBindGroup(pipeline, 1, buffers, m.material.identifier);
                 }
                 if (!m.material.bindGroup) {
                     m.material.createBindGroup(this, pipeline);
@@ -107,16 +137,18 @@ namespace tesserxel {
                 if (m.geometry.needsUpdate) {
                     let g = m.geometry;
                     g.needsUpdate = false;
+                    g.updateOBB();
                     if (!g.gpuBuffer) {
                         g.gpuBuffer = {};
+                        let dyn = g.dynamic ? GPUBufferUsage.COPY_DST : 0;
                         for (let [label, value] of globalThis.Object.entries(g.jsBuffer)) {
                             if (value instanceof Float32Array) {
                                 g.gpuBuffer[label] = this.gpu.createBuffer(
-                                    GPUBufferUsage.STORAGE, value, "AttributeBuffer." + label
+                                    GPUBufferUsage.STORAGE | dyn, value, "AttributeBuffer." + label
                                 );
                             }
                         }
-                    } else {
+                    } else if (g.dynamic) {
                         for (let [label, buffer] of globalThis.Object.entries(g.gpuBuffer)) {
                             this.gpu.device.queue.writeBuffer(buffer, 0, g.jsBuffer[label]);
                         }
@@ -125,21 +157,27 @@ namespace tesserxel {
             }
             updateScene(scene: Scene) {
                 this.core.setWorldClearColor(scene.backGroundColor);
+                this.cameraInScene = false;
+                this.maxTetraNumInOnePass = this.safeTetraNumInOnePass / this.tetraNumOccupancyRatio;
                 for (let c of scene.child) {
+                    if(c.alwaysUpdateCoord){
+                        c.needsUpdateCoord = true;
+                    }
                     if (c.needsUpdateCoord) {
                         c.worldCoord.setFromObj4(c);
                     }
                     this.updateObject(c);
                     c.needsUpdateCoord = false;
                 }
+                if (this.cameraInScene === false) console.error("Target camera is not in the scene. Forget to add it?");
                 _updateWorldLight(this);
             }
-
             ambientLightDensity = new math.Vec3;
             directionalLights: DirectionalLight[];
             spotLights: SpotLight[];
             pointLights: PointLight[];
-            drawList: { [group: string]: { pipeline: renderer.TetraSlicePipeline, meshes: Mesh[], bindGroup: { group: number, binding: GPUBindGroup } } };
+
+            drawList: DrawList;
             activeCamera: Camera;
             setCamera(camera: Camera) {
                 if (camera.needsUpdate) {
@@ -148,20 +186,58 @@ namespace tesserxel {
                 }
                 this.activeCamera = camera;
             }
+            computeFrustumRange(range: number[]) {
+                return range ? [
+                    new math.Vec4(-1, 0, 0, -range[0]).mulmatls(this.activeCamera.worldCoord.mat),
+                    new math.Vec4(1, 0, 0, range[1]).mulmatls(this.activeCamera.worldCoord.mat),
+                    new math.Vec4(0, -1, 0, -range[2]).mulmatls(this.activeCamera.worldCoord.mat),
+                    new math.Vec4(0, 1, 0, range[3]).mulmatls(this.activeCamera.worldCoord.mat),
+                    new math.Vec4(0, 0, -1, -range[4]).mulmatls(this.activeCamera.worldCoord.mat),
+                    new math.Vec4(0, 0, 1, range[5]).mulmatls(this.activeCamera.worldCoord.mat),
+                ] : null;
+            }
+            private _testWithFrustumData(m: Mesh, data: math.Vec4[]): boolean {
+                if (!data) return true;
+                let relP = this.activeCamera.worldCoord.vec.sub(m.worldCoord.vec);
+                let obb = m.geometry.obb;
+                let matModel = m.worldCoord.mat.t();
+                for (let f of data) {
+                    if (obb.testPlane(new math.Plane(matModel.mulv(f), f.dot(relP))) === 1) return false;
+                }
+                return true;
+            }
             render(scene: Scene, camera: Camera) {
                 this.clearState();
                 this.setCamera(camera);
                 this.updateScene(scene);
                 this.core.render(() => {
+                    let frustumData = this.computeFrustumRange(this.core.getFrustumRange());
                     for (let { pipeline, meshes, bindGroup } of globalThis.Object.values(this.drawList)) {
-                        this.core.beginTetras(pipeline);
-                        for (let mesh of meshes) {
-                            this.core.sliceTetras(mesh.bindGroup, mesh.geometry.jsBuffer.tetraCount);
-                        }
-                        this.core.drawTetras([
+                        if (!meshes.length) continue; // skip empty (may caused by safe tetranum check)
+                        let tetraState = false;
+                        let tetraCount = 0;
+                        let binding = [
                             ...meshes[0].material.bindGroup.map((bg, binding) => ({ group: binding, binding: bg })),
                             bindGroup
-                        ]);
+                        ];
+                        for (let mesh of meshes) {
+                            if (!this._testWithFrustumData(mesh, frustumData)) continue;
+                            if (tetraState === false) {
+                                this.core.beginTetras(pipeline);
+                                tetraCount = 0;
+                                tetraState = true;
+                            }
+                            this.core.sliceTetras(mesh.bindGroup, mesh.geometry.jsBuffer.tetraCount);
+                            tetraCount += mesh.geometry.jsBuffer.tetraCount;
+                            if (tetraCount > this.maxTetraNumInOnePass) {
+                                this.core.drawTetras(binding);
+                                tetraState = false;
+                                tetraCount = 0;
+                            }
+                        }
+                        if (tetraState === true) {
+                            this.core.drawTetras(binding);
+                        }
                     }
                 });
             }
@@ -181,6 +257,15 @@ namespace tesserxel {
                 this.spotLights = [];
                 this.pointLights = [];
                 this.drawList = {};
+            }
+        }
+        interface DrawList {
+            [group: string]: {
+                pipeline: renderer.TetraSlicePipeline,
+                meshes: Mesh[],
+                bindGroup: { group: number, binding: GPUBindGroup },
+                tetraCount: number
+                next?: string // if too many objs in drawlist, split into a list table
             }
         }
     }

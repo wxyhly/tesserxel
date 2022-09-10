@@ -31,8 +31,9 @@ namespace tesserxel {
         }
         /** Material is the top node of MaterialNode */
         export class Material extends MaterialNode {
-            cullFace: GPUCullMode;
+            cullMode: GPUCullMode = "front";
             compiling = false;
+            compiled = false;
             needsUpdate = true;
             output = "shader";
             pipeline: renderer.TetraSlicePipeline;
@@ -46,16 +47,23 @@ namespace tesserxel {
             createBindGroup(r: Renderer, p: renderer.TetraSlicePipeline) {
                 this.bindGroup = this.bindGroupBuffers.length ? [r.core.createFragmentShaderBindGroup(p, 0, this.bindGroupBuffers)] : [];
             }
+            init(r: Renderer) {
+                this.getShaderCode(r); // scan code to get binding infomations
+                this.compiling = false;
+                this.compiled = true;
+            }
             async compile(r: Renderer) {
                 this.compiling = true;
                 r.pullPipeline(this.identifier, "compiling");
                 let { vs, fs } = this.getShaderCode(r);
                 this.pipeline = await r.core.createTetraSlicePipeline({
                     vertex: { code: vs, entryPoint: "main" },
-                    fragment: { code: fs, entryPoint: "main" }
+                    fragment: { code: fs, entryPoint: "main" },
+                    cullMode: this.cullMode
                 });
                 r.pullPipeline(this.identifier, this.pipeline);
                 this.compiling = false;
+                this.compiled = true;
             }
             // when a subnode uses vary input, call this function to check attribute buffer and construct input structure
             addVary(a: string) {
@@ -79,15 +87,21 @@ namespace tesserxel {
                 return [g.gpuBuffer["position"], ...this.fetchBuffers.map(b => g.gpuBuffer[b])];
             }
             getShaderCode(r: Renderer): { vs: string, fs: string } {
+                // what we need in jsData except for position buffer
                 this.fetchBuffers = [];
+                // renderPipeline's uniform variables except for world light (in another group)
                 this.declUniforms = {};
+                // output of computeShader, also input for fragment shader
                 this.declVarys = [];
                 this.bindGroupBuffers = [];
+                // renderPipeline's uniform bindgroup's location number
                 this.declUniformLocation = 0;
                 // iteratively generate code
                 let code = this.getCode(r, this, "");
+                // deal no need for vary input
                 let fsIn = this.declVarys.length ? 'vary: fourInputType' : "";
                 let lightCode = r.lightShaderInfomation.lightCode;
+                // if no uniform at group0, then bind lights on 0, or 1
                 if (this.declUniformLocation === 0) { lightCode = lightCode.replace("@group(1)", "@group(0)") }
                 let header = lightCode + `
     struct AffineMat{
@@ -410,7 +424,7 @@ namespace tesserxel {
                 let { token, code } = this.getInputCode(r, root, outputToken);
                 return code + `
                 let ${outputToken}_grid = step(${token.gridWidth}, fract(${token.uvw}));
-                let ${outputToken} = mix(${token.color1},${token.color2},${outputToken}_grid.x*${outputToken}_grid.y*${outputToken}_grid.z*${outputToken}_grid.w);
+                let ${outputToken} = mix(${token.color1},${token.color2},${outputToken}_grid.x*${outputToken}_grid.y*${outputToken}_grid.z);
                 `;
             }
             constructor(color1: Color, color2: Color, gridWidth: number | math.Vec4 | Vec4OutputNode, uvw?: Vec4OutputNode) {

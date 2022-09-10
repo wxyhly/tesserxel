@@ -51,6 +51,72 @@ var tesserxel;
             return uuid.toLowerCase();
         }
         math.generateUUID = generateUUID;
+        // from cannon.js: src/utils/pool.js
+        class Pool {
+            objects = [];
+            pop() {
+                if (this.objects.length === 0) {
+                    return this.constructObject();
+                }
+                else {
+                    return this.objects.pop();
+                }
+            }
+            push(...args) {
+                this.objects.push(...args);
+            }
+            resize(size) {
+                let objects = this.objects;
+                while (objects.length > size) {
+                    objects.pop();
+                }
+                while (objects.length < size) {
+                    objects.push(this.constructObject());
+                }
+                return this;
+            }
+        }
+        math.Pool = Pool;
+        class Vec2Pool extends Pool {
+            constructObject() { return new math.Vec2; }
+        }
+        math.Vec2Pool = Vec2Pool;
+        class Vec3Pool extends Pool {
+            constructObject() { return new math.Vec3; }
+        }
+        math.Vec3Pool = Vec3Pool;
+        class Vec4Pool extends Pool {
+            constructObject() { return new math.Vec4; }
+        }
+        math.Vec4Pool = Vec4Pool;
+        class BivecPool extends Pool {
+            constructObject() { return new math.Bivec; }
+        }
+        math.BivecPool = BivecPool;
+        class Mat2Pool extends Pool {
+            constructObject() { return new math.Mat2; }
+        }
+        math.Mat2Pool = Mat2Pool;
+        class Mat3Pool extends Pool {
+            constructObject() { return new math.Mat3; }
+        }
+        math.Mat3Pool = Mat3Pool;
+        class Mat4Pool extends Pool {
+            constructObject() { return new math.Mat4; }
+        }
+        math.Mat4Pool = Mat4Pool;
+        class QuaternionPool extends Pool {
+            constructObject() { return new math.Quaternion; }
+        }
+        math.QuaternionPool = QuaternionPool;
+        math.vec2Pool = new Vec2Pool;
+        math.vec3Pool = new Vec3Pool;
+        math.vec4Pool = new Vec4Pool;
+        math.bivecPool = new BivecPool;
+        math.mat2Pool = new Mat2Pool;
+        math.mat3Pool = new Mat3Pool;
+        math.mat4Pool = new Mat4Pool;
+        math.qPool = new QuaternionPool;
     })(math = tesserxel.math || (tesserxel.math = {}));
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
@@ -134,12 +200,20 @@ var tesserxel;
                 this.rotation = rotation ?? new math.Rotor();
                 this.scale = scale;
             }
-            local2parent(point) {
+            copyObj4(o) {
+                if (o.position)
+                    this.position.copy(o.position);
+                if (o.rotation)
+                    this.rotation.copy(o.rotation);
+                if (o.scale)
+                    this.scale.copy(o.scale);
+            }
+            local2world(point) {
                 if (this.scale)
                     return new math.Vec4(this.scale.x * point.x, this.scale.y * point.y, this.scale.z * point.z, this.scale.w * point.w).rotates(this.rotation).adds(this.position);
                 return point.rotate(this.rotation).adds(this.position);
             }
-            parent2local(point) {
+            world2local(point) {
                 let a = point.sub(this.position).rotatesconj(this.rotation);
                 if (this.scale)
                     return new math.Vec4(a.x / this.scale.x, a.y / this.scale.y, a.z / this.scale.z, a.w / this.scale.w);
@@ -585,6 +659,9 @@ var tesserxel;
             cross(V) {
                 return new Bivec(V.xz * this.yz - this.xz * V.yz + V.xw * this.yw - this.xw * V.yw, -V.xy * this.yz + this.xy * V.yz + V.xw * this.zw - this.xw * V.zw, -V.xy * this.yw + this.xy * V.yw - V.xz * this.zw + this.xz * V.zw, V.xy * this.xz - this.xy * V.xz + V.yw * this.zw - this.yw * V.zw, V.xy * this.xw - this.xy * V.xw - V.yz * this.zw + this.yz * V.zw, V.xz * this.xw - this.xz * V.xw + V.yz * this.yw - this.yz * V.yw);
             }
+            crossrs(V) {
+                return this.set(V.xz * this.yz - this.xz * V.yz + V.xw * this.yw - this.xw * V.yw, -V.xy * this.yz + this.xy * V.yz + V.xw * this.zw - this.xw * V.zw, -V.xy * this.yw + this.xy * V.yw - V.xz * this.zw + this.xz * V.zw, V.xy * this.xz - this.xy * V.xz + V.yw * this.zw - this.yw * V.zw, V.xy * this.xw - this.xy * V.xw - V.yz * this.zw + this.yz * V.zw, V.xz * this.xw - this.xz * V.xw + V.yz * this.yw - this.yz * V.yw);
+            }
             exp() {
                 // Hodge Dual decompose this to:
                 // A : self-dual part (*A = A)
@@ -638,7 +715,36 @@ var tesserxel;
                 B.mulslconj(r.r).mulsr(r.r);
                 this.xy = (A.y + B.y) * 0.5;
                 this.xz = (A.z + B.z) * 0.5;
-                this.xw = (A.w + B.w) * 0.5, A.w - B.w, B.z - A.z, A.y - B.y;
+                this.xw = (A.w + B.w) * 0.5;
+                this.yz = (A.w - B.w) * 0.5;
+                this.yw = (B.z - A.z) * 0.5;
+                this.zw = (A.y - B.y) * 0.5;
+                return this;
+            }
+            rotatesconj(r) {
+                let A = math._Q_1.set(0, this.xy + this.zw, this.xz - this.yw, this.xw + this.yz);
+                let B = math._Q_2.set(0, this.xy - this.zw, this.xz + this.yw, this.xw - this.yz);
+                A.mulslconj(r.l).mulsr(r.l);
+                B.mulsl(r.r).mulsrconj(r.r);
+                this.xy = (A.y + B.y) * 0.5;
+                this.xz = (A.z + B.z) * 0.5;
+                this.xw = (A.w + B.w) * 0.5;
+                this.yz = (A.w - B.w) * 0.5;
+                this.yw = (B.z - A.z) * 0.5;
+                this.zw = (A.y - B.y) * 0.5;
+                return this;
+            }
+            rotateset(bivec, r) {
+                let A = math._Q_1.set(0, bivec.xy + bivec.zw, bivec.xz - bivec.yw, bivec.xw + bivec.yz);
+                let B = math._Q_2.set(0, bivec.xy - bivec.zw, bivec.xz + bivec.yw, bivec.xw - bivec.yz);
+                A.mulsl(r.l).mulsrconj(r.l);
+                B.mulslconj(r.r).mulsr(r.r);
+                this.xy = (A.y + B.y) * 0.5;
+                this.xz = (A.z + B.z) * 0.5;
+                this.xw = (A.w + B.w) * 0.5;
+                this.yz = (A.w - B.w) * 0.5;
+                this.yw = (B.z - A.z) * 0.5;
+                this.zw = (A.y - B.y) * 0.5;
                 return this;
             }
             /** return a random oriented simple normalized bivector */
@@ -653,6 +759,9 @@ var tesserxel;
                 let a = math._vec3_1.srandset(seed).mulfs(0.5);
                 let b = math._vec3_2.srandset(seed).mulfs(0.5);
                 return new Bivec(a.x + b.x, a.y + b.y, a.z + b.z, a.z - b.z, b.y - a.y, a.x - b.x);
+            }
+            pushPool(pool = math.bivecPool) {
+                pool.push(this);
             }
         }
         math.Bivec = Bivec;
@@ -885,6 +994,9 @@ var tesserxel;
                 let cc = Math.sqrt(1 - c);
                 return this.set(sc * Math.cos(a), sc * Math.sin(a), cc * Math.cos(b), cc * Math.sin(b));
             }
+            pushPool(pool = math.qPool) {
+                pool.push(this);
+            }
         }
         math.Quaternion = Quaternion;
         class Rotor {
@@ -1080,7 +1192,8 @@ var tesserxel;
                 return new Mat2(a, 0, 0, b);
             }
             constructor(a = 1, b = 0, c = 0, d = 1) { this.elem = [a, b, c, d]; }
-            set(a = 1, b = 0, c = 0, d = 1) { this.elem = [a, b, c, d]; return this; }
+            set(a = 0, b = 0, c = 0, d = 0) { this.elem[0] = a; this.elem[1] = b; this.elem[2] = c; this.elem[3] = d; return this; }
+            setid() { this.elem[0] = 1; this.elem[1] = 0; this.elem[2] = 0; this.elem[3] = 1; return this; }
             ts() {
                 let tmp = this.elem[1];
                 this.elem[1] = this.elem[2];
@@ -1189,6 +1302,9 @@ var tesserxel;
                 me[3] = a * detInv;
                 return this;
             }
+            pushPool(pool = math.mat2Pool) {
+                pool.push(this);
+            }
         }
         math.Mat2 = Mat2;
         class Mat3 {
@@ -1199,7 +1315,8 @@ var tesserxel;
                 return new Mat3(a, 0, 0, 0, b, 0, 0, 0, c);
             }
             constructor(a = 1, b = 0, c = 0, d = 0, e = 1, f = 0, g = 0, h = 0, i = 1) { this.elem = [a, b, c, d, e, f, g, h, i]; }
-            set(a = 1, b = 0, c = 0, d = 0, e = 1, f = 0, g = 0, h = 0, i = 1) { this.elem = [a, b, c, d, e, f, g, h, i]; return this; }
+            set(a = 0, b = 0, c = 0, d = 0, e = 0, f = 0, g = 0, h = 0, i = 0) { this.elem = [a, b, c, d, e, f, g, h, i]; return this; }
+            setid() { this.elem = [1, 0, 0, 0, 1, 0, 0, 0, 1]; return this; }
             ts() {
                 let me = this.elem;
                 let tmp = me[1];
@@ -1333,6 +1450,9 @@ var tesserxel;
                 let wz = q.x * zt2;
                 return this.set(1 - (y2 + z2), xy - wz, xz + wy, xy + wz, 1 - x2 - z2, yz - wx, xz - wy, yz + wx, 1 - x2 - y2);
             }
+            pushPool(pool = math.mat3Pool) {
+                pool.push(this);
+            }
         }
         math.Mat3 = Mat3;
         class Mat4 {
@@ -1357,6 +1477,10 @@ var tesserxel;
                 return this.set(a.elem[0], a.elem[1], a.elem[2], b?.x ?? 0, a.elem[3], a.elem[4], a.elem[5], b?.y ?? 0, a.elem[6], a.elem[7], a.elem[8], b?.z ?? 0, c?.x ?? 0, c?.y ?? 0, c?.z ?? 0, d);
             }
             constructor(a = 1, b = 0, c = 0, d = 0, e = 0, f = 1, g = 0, h = 0, i = 0, j = 0, k = 1, l = 0, m = 0, n = 0, o = 0, p = 1) { this.elem = [a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p]; }
+            clone() {
+                let e = this.elem;
+                return new Mat4(...e);
+            }
             writeBuffer(b, offset = 0) {
                 b[offset++] = this.elem[0];
                 b[offset++] = this.elem[4];
@@ -1375,7 +1499,14 @@ var tesserxel;
                 b[offset++] = this.elem[11];
                 b[offset++] = this.elem[15];
             }
-            set(a = 1, b = 0, c = 0, d = 0, e = 0, f = 1, g = 0, h = 0, i = 0, j = 0, k = 1, l = 0, m = 0, n = 0, o = 0, p = 1) {
+            setid() {
+                this.elem[0] = 1, this.elem[1] = 0, this.elem[2] = 0, this.elem[3] = 0;
+                this.elem[4] = 0, this.elem[5] = 1, this.elem[6] = 0, this.elem[7] = 0;
+                this.elem[8] = 0, this.elem[9] = 0, this.elem[10] = 1, this.elem[11] = 0;
+                this.elem[12] = 0, this.elem[13] = 0, this.elem[14] = 0, this.elem[15] = 1;
+                return this;
+            }
+            set(a = 0, b = 0, c = 0, d = 0, e = 0, f = 0, g = 0, h = 0, i = 0, j = 0, k = 0, l = 0, m = 0, n = 0, o = 0, p = 0) {
                 this.elem[0] = a, this.elem[1] = b, this.elem[2] = c, this.elem[3] = d;
                 this.elem[4] = e, this.elem[5] = f, this.elem[6] = g, this.elem[7] = h;
                 this.elem[8] = i, this.elem[9] = j, this.elem[10] = k, this.elem[11] = l;
@@ -1572,6 +1703,9 @@ var tesserxel;
                 me[14] = (n14 * n22 * n31 - n12 * n24 * n31 - n14 * n21 * n32 + n11 * n24 * n32 + n12 * n21 * n34 - n11 * n22 * n34) * detInv;
                 me[15] = (n12 * n23 * n31 - n13 * n22 * n31 + n13 * n21 * n32 - n11 * n23 * n32 - n12 * n21 * n33 + n11 * n22 * n33) * detInv;
                 return this;
+            }
+            pushPool(pool = math.mat4Pool) {
+                pool.push(this);
             }
         }
         math.Mat4 = Mat4;
@@ -1778,6 +1912,9 @@ var tesserxel;
             static srand(seed) {
                 let a = seed.nextf() * math._360;
                 return new Vec2(Math.cos(a), Math.sin(a));
+            }
+            pushPool(pool = math.vec2Pool) {
+                pool.push(this);
             }
         }
         math.Vec2 = Vec2;
@@ -2034,6 +2171,9 @@ var tesserxel;
             }
             reflects(normal) {
                 return this.subs(normal.mulf(this.dot(normal) * 2));
+            }
+            pushPool(pool = math.vec3Pool) {
+                pool.push(this);
             }
         }
         math.Vec3 = Vec3;
@@ -2356,6 +2496,9 @@ var tesserxel;
                 let cc = Math.sqrt(1 - c);
                 return new Vec4(sc * Math.cos(a), sc * Math.sin(a), cc * Math.cos(b), cc * Math.sin(b));
             }
+            pushPool(pool = math.vec4Pool) {
+                pool.push(this);
+            }
         }
         math.Vec4 = Vec4;
         // temporary variables
@@ -2382,12 +2525,17 @@ var tesserxel;
             /** normal need to be normalized */
             normal;
             offset;
+            constructor(normal, offset) {
+                this.normal = normal;
+                this.offset = offset;
+            }
             distanceToPoint(p) {
             }
             /** regard r as an infinity line */
             distanceToLine(r) {
             }
         }
+        math.Plane = Plane;
         class AABB {
             min;
             max;
@@ -2397,7 +2545,71 @@ var tesserxel;
                     (this.min.z <= aabb.max.z && this.max.z >= aabb.min.z) &&
                     (this.min.w <= aabb.max.w && this.max.w >= aabb.min.w));
             }
+            /** when intersected return 0, when aabb is along the normal direction return 1, otherwise -1 */
+            testPlane(plane) {
+                let min, max;
+                if (plane.normal.x > 0) {
+                    min = plane.normal.x * this.min.x;
+                    max = plane.normal.x * this.max.x;
+                }
+                else {
+                    min = plane.normal.x * this.max.x;
+                    max = plane.normal.x * this.min.x;
+                }
+                if (plane.normal.y > 0) {
+                    min += plane.normal.y * this.min.y;
+                    max += plane.normal.y * this.max.y;
+                }
+                else {
+                    min += plane.normal.y * this.max.y;
+                    max += plane.normal.y * this.min.y;
+                }
+                if (plane.normal.z > 0) {
+                    min += plane.normal.z * this.min.z;
+                    max += plane.normal.z * this.max.z;
+                }
+                else {
+                    min += plane.normal.z * this.max.z;
+                    max += plane.normal.z * this.min.z;
+                }
+                if (plane.normal.w > 0) {
+                    min += plane.normal.w * this.min.w;
+                    max += plane.normal.w * this.max.w;
+                }
+                else {
+                    min += plane.normal.w * this.max.w;
+                    max += plane.normal.w * this.min.w;
+                }
+                if (min <= plane.offset && max >= plane.offset) {
+                    return 0;
+                }
+                if (min <= plane.offset && max <= plane.offset) {
+                    return -1;
+                }
+                if (min >= plane.offset && max >= plane.offset) {
+                    return 1;
+                }
+            }
+            constructor() {
+                this.min = new math.Vec4(Infinity, Infinity, Infinity, Infinity);
+                this.max = new math.Vec4(-Infinity, -Infinity, -Infinity, -Infinity);
+            }
+            static fromPoints(points) {
+                let aabb = new AABB();
+                for (let p of points) {
+                    aabb.min.x = Math.min(aabb.min.x, p.x);
+                    aabb.min.y = Math.min(aabb.min.y, p.y);
+                    aabb.min.z = Math.min(aabb.min.z, p.z);
+                    aabb.min.w = Math.min(aabb.min.w, p.w);
+                    aabb.max.x = Math.max(aabb.max.x, p.x);
+                    aabb.max.y = Math.max(aabb.max.y, p.y);
+                    aabb.max.z = Math.max(aabb.max.z, p.z);
+                    aabb.max.w = Math.max(aabb.max.w, p.w);
+                }
+                return aabb;
+            }
         }
+        math.AABB = AABB;
     })(math = tesserxel.math || (tesserxel.math = {}));
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
@@ -2660,7 +2872,7 @@ var tesserxel;
                     if (obj.scale) {
                         vp.set(mesh.position[i] * obj.scale.x, mesh.position[i + 1] * obj.scale.y, mesh.position[i + 2] * obj.scale.z, mesh.position[i + 3] * obj.scale.w).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.position, i);
                         if (mesh.normal) {
-                            vp.set(mesh.normal[i] * scaleinv.x, mesh.normal[i + 1] * scaleinv.y, mesh.normal[i + 2] * scaleinv.z, mesh.normal[i + 3] * scaleinv.w).rotates(obj.rotation).writeBuffer(mesh.normal, i);
+                            vp.set(mesh.normal[i] * scaleinv.x, mesh.normal[i + 1] * scaleinv.y, mesh.normal[i + 2] * scaleinv.z, mesh.normal[i + 3] * scaleinv.w).rotates(obj.rotation).norms().writeBuffer(mesh.normal, i);
                         }
                     }
                     else {
@@ -3357,144 +3569,198 @@ var tesserxel;
 (function (tesserxel) {
     let physics;
     (function (physics) {
-        class Engine {
-            forceAccumulator;
-            constructor(forceAccumulator) {
-                this.forceAccumulator = forceAccumulator ?? new physics.force_accumulator.Euler2();
+        ;
+        class BroadPhase {
+            checkList = [];
+            clearCheckList() {
+                this.checkList = [];
             }
-            runCollisionDetector() {
-                // this.collisions = [];
-                // for (let i = 0; i < this.objects.length; i++) {
-                //     for (let j = i + 1; j < this.objects.length; j++) {
-                //         let r = this.objects[i].geometry.intersectGeometry(this.objects[j].geometry);
-                //         if (r) this.collisions.push(r);
-                //     }
-                // }
-            }
-            runCollisionSolver() {
-                // todo
-            }
-            update(world, dt) {
-                this.forceAccumulator.run(this, world, dt);
-                this.runCollisionDetector();
-                this.runCollisionSolver();
-                world.frameCount++;
-            }
-            getObjectsAccelerations(world) {
-                // clear
-                for (let o of world.objects) {
-                    o.force.set();
-                    if (o.invMass)
-                        o.acceleration.copy(world.gravity);
-                    o.torque.set();
-                }
-                // apply force
-                for (let f of world.forces) {
-                    f.apply(world.time);
-                }
-                for (let o of world.objects) {
-                    if (o.force.norm1() > 0) {
-                        o.acceleration.addmulfs(o.force, o.invMass);
-                    }
-                    if (o.torque.norm1() > 0) {
-                        // todo
-                        // o.angularAcceleration.addmulfs(o.torque, o.invMass);
+        }
+        physics.BroadPhase = BroadPhase;
+        class NaiveBroadPhase extends BroadPhase {
+            run(world) {
+                this.clearCheckList();
+                for (let i = 0; i < world.rigids.length; i++) {
+                    for (let j = i + 1; j < world.rigids.length; j++) {
+                        this.checkList.push([world.rigids[i], world.rigids[j]]);
                     }
                 }
             }
         }
-        physics.Engine = Engine;
-        class World {
-            gravity = new tesserxel.math.Vec4(0, -9.8);
-            objects = [];
-            forces = [];
-            collisions = [];
-            time = 0;
-            frameCount = 0;
-            addObject(o) {
-                this.objects.push(o);
-            }
-            addForce(f) {
-                this.forces.push(f);
+        physics.NaiveBroadPhase = NaiveBroadPhase;
+        class IgnoreAllBroadPhase extends BroadPhase {
+            run(world) {
+                this.clearCheckList();
             }
         }
-        physics.World = World;
-        class Object {
-            geometry;
-            invMass;
-            // inertia is a 6x6 Matrix for angularVelocity -> angularMomentum
-            invInertia;
-            velocity = new tesserxel.math.Vec4();
-            angularVelocity = new tesserxel.math.Bivec();
-            /** sleeping objects are still.
-             *  it only do collision test will active objects
-             *  */
-            sleep = false;
-            // accumulators:
-            force = new tesserxel.math.Vec4();
-            torque = new tesserxel.math.Bivec();
-            acceleration = new tesserxel.math.Vec4();
-            angularAcceleration = new tesserxel.math.Bivec();
-            getlinearVelocity(position) {
-                if (!this.geometry.position)
-                    return new tesserxel.math.Vec4();
-                let relPosition = position.sub(this.geometry.position);
-                return relPosition.dotbset(this.angularVelocity, relPosition).add(this.velocity);
-            }
-            constructor(geometry, mass) {
-                this.geometry = geometry;
-                this.invMass = mass > 0 ? 1 / mass : null;
-            }
-        }
-        physics.Object = Object;
+        physics.IgnoreAllBroadPhase = IgnoreAllBroadPhase;
     })(physics = tesserxel.physics || (tesserxel.physics = {}));
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
 (function (tesserxel) {
     let physics;
     (function (physics) {
+        class Engine {
+            forceAccumulator;
+            broadPhase;
+            narrowPhase;
+            solver;
+            constructor(option) {
+                this.forceAccumulator = new (option?.forceAccumulator ?? physics.force_accumulator.Predict3)();
+                this.broadPhase = new (option?.broadPhase ?? physics.NaiveBroadPhase)();
+                this.narrowPhase = new physics.NarrowPhase();
+                this.solver = new (option?.solver ?? physics.IterativeImpulseSolver)();
+            }
+            runCollisionSolver() {
+                // todo
+            }
+            update(world, dt) {
+                this.forceAccumulator.run(world, dt);
+                this.broadPhase.run(world);
+                this.narrowPhase.run(this.broadPhase.checkList);
+                this.solver.run(this.narrowPhase.collisionList);
+                world.frameCount++;
+            }
+        }
+        physics.Engine = Engine;
+        class World {
+            gravity = new tesserxel.math.Vec4(0, -9.8);
+            rigids = [];
+            forces = [];
+            time = 0;
+            frameCount = 0;
+            add(o) {
+                if (o instanceof physics.Rigid) {
+                    this.rigids.push(o);
+                    return;
+                }
+                if (o instanceof physics.Force) {
+                    this.forces.push(o);
+                    return;
+                }
+            }
+        }
+        physics.World = World;
+        class Material {
+            friction;
+            restitution;
+            constructor(friction, restitution) {
+                this.restitution = restitution;
+                this.friction = friction;
+            }
+            static getContactRestitution(a, b) {
+                return a.restitution * b.restitution;
+            }
+            static getContactFriction(a, b) {
+                return a.friction * b.friction;
+            }
+        }
+        physics.Material = Material;
+        /** a helper function for applying inertia to bivec */
+        function mulBivec(self, a, b) {
+            return self.set(a.xy * b.xy, a.xz * b.xz, a.xw * b.xw, a.yz * b.yz, a.yw * b.yw, a.zw * b.zw);
+        }
+        physics.mulBivec = mulBivec;
+    })(physics = tesserxel.physics || (tesserxel.physics = {}));
+})(tesserxel || (tesserxel = {}));
+var tesserxel;
+(function (tesserxel) {
+    let physics;
+    (function (physics) {
+        ;
+        class ForceAccumulator {
+            run(world, dt) { }
+            ;
+            _biv1 = new tesserxel.math.Bivec;
+            _biv2 = new tesserxel.math.Bivec;
+            _bivec0 = new tesserxel.math.Bivec;
+            getState(world) {
+                // clear
+                for (let o of world.rigids) {
+                    if (!o.invMass)
+                        continue;
+                    o.force.set();
+                    o.torque.set();
+                }
+                // apply force
+                for (let f of world.forces) {
+                    f.apply(world.time);
+                }
+                for (let o of world.rigids) {
+                    if (!o.invMass)
+                        continue;
+                    o.acceleration.copy(world.gravity);
+                    if (o.force.norm1() > 0) {
+                        o.acceleration.addmulfs(o.force, o.invMass);
+                    }
+                    if (o.inertiaIsotroy) {
+                        if (o.torque.norm1() > 0)
+                            o.angularAcceleration.set().addmulfs(o.torque, o.invInertia.xy);
+                    }
+                    else {
+                        // Euler equation of motion
+                        let localT = (o.torque.norm1() > 0) ? this._biv2.rotateset(o.torque, o.rotation) : this._bivec0;
+                        let localW = this._biv1.rotateset(o.angularVelocity, o.rotation);
+                        let localL = physics.mulBivec(o.angularAcceleration, localW, o.inertia);
+                        physics.mulBivec(o.angularAcceleration, localL.crossrs(localW).adds(localT), o.invInertia);
+                        o.angularAcceleration.rotatesconj(o.rotation);
+                    }
+                }
+            }
+        }
+        physics.ForceAccumulator = ForceAccumulator;
         let force_accumulator;
         (function (force_accumulator) {
-            class Euler2 {
+            class Euler2 extends ForceAccumulator {
                 _bivec = new tesserxel.math.Bivec;
                 _rotor = new tesserxel.math.Rotor;
-                run(engine, world, dt) {
-                    engine.getObjectsAccelerations(world);
+                run(world, dt) {
+                    for (let o of world.rigids) {
+                        if (!o.invMass)
+                            continue;
+                        o.rotation.norms();
+                    }
+                    this.getState(world);
                     world.time += dt;
                     let dtsqrhalf = dt * dt / 2;
-                    for (let o of world.objects) {
-                        if (o.sleep || !o.geometry.position)
+                    for (let o of world.rigids) {
+                        if (o.sleep || !o.position)
                             continue;
                         // x1 = x0 + v0 t + a0 t^2/2
                         // v1 = v0 + a0 t/2
-                        o.geometry.position.addmulfs(o.velocity, dt).addmulfs(o.acceleration, dtsqrhalf);
+                        o.position.addmulfs(o.velocity, dt).addmulfs(o.acceleration, dtsqrhalf);
                         o.velocity.addmulfs(o.acceleration, dt);
-                        if (!o.geometry.rotation)
+                        if (!o.rotation)
                             continue;
-                        o.geometry.rotation.mulsl(this._rotor.expset(this._bivec.copy(o.angularVelocity).mulfs(dt).addmulfs(o.angularAcceleration, dtsqrhalf)));
+                        o.rotation.mulsl(this._rotor.expset(this._bivec.copy(o.angularVelocity).mulfs(dt).addmulfs(o.angularAcceleration, dtsqrhalf)));
                         o.angularVelocity.addmulfs(o.angularAcceleration, dt);
                     }
                 }
             }
             force_accumulator.Euler2 = Euler2;
-            class Predict3 {
+            class Predict3 extends ForceAccumulator {
                 _bivec1 = new tesserxel.math.Bivec;
                 _bivec2 = new tesserxel.math.Bivec;
                 _rotor = new tesserxel.math.Rotor;
                 _vec = new tesserxel.math.Vec4;
-                run(engine, world, dt) {
-                    let prevStates = world.objects.map(obj => ({
+                run(world, dt) {
+                    for (let o of world.rigids) {
+                        if (!o.invMass)
+                            continue;
+                        o.rotation.norms();
+                    }
+                    let prevStates = world.rigids.map(obj => ({
                         acceleration: obj.acceleration.clone(),
                         angularAcceleration: obj.angularAcceleration.clone(),
                     }));
-                    engine.getObjectsAccelerations(world);
+                    this.getState(world);
                     world.time += dt;
                     let dthalf = dt * 0.5;
                     let dtsqrdiv6 = dt * dthalf / 3;
-                    for (let idx = 0, len = world.objects.length; idx < len; idx++) {
-                        let o = world.objects[idx];
+                    for (let idx = 0, len = world.rigids.length; idx < len; idx++) {
+                        let o = world.rigids[idx];
                         let prevO = prevStates[idx];
-                        if (o.sleep || !o.geometry.position)
+                        if (o.sleep || !o.position)
                             continue;
                         // if we know a1, then:
                         // x1 = x0 + v0 t + (2/3 a0 + 1/3 a1) t^2/2
@@ -3502,27 +3768,33 @@ var tesserxel;
                         // predict a1 = 2a0 - a{-1}, got:
                         // x1 = x0 + v0 t + (4/3 a0 - 1/3 a{-1}) t^2/2
                         // v1 = v0 + (3/2 a0 - 1/2 a{-1}) t
-                        o.geometry.position.addmulfs(o.velocity, dt).addmulfs(this._vec.copy(prevO.acceleration).addmulfs(o.acceleration, -4), -dtsqrdiv6);
+                        o.position.addmulfs(o.velocity, dt).addmulfs(this._vec.copy(prevO.acceleration).addmulfs(o.acceleration, -4), -dtsqrdiv6);
                         o.velocity.addmulfs(prevO.acceleration.addmulfs(o.acceleration, -3), -dthalf);
-                        if (!o.geometry.rotation)
+                        if (!o.rotation)
                             continue;
-                        o.geometry.rotation.mulsl(this._rotor.expset(this._bivec1.copy(o.angularVelocity).mulfs(dt).addmulfs(this._bivec2.copy(prevO.angularAcceleration).addmulfs(o.angularAcceleration, -4), -dtsqrdiv6)));
+                        o.rotation.mulsl(this._rotor.expset(this._bivec1.copy(o.angularVelocity).mulfs(dt).addmulfs(this._bivec2.copy(prevO.angularAcceleration).addmulfs(o.angularAcceleration, -4), -dtsqrdiv6)));
                         o.angularVelocity.addmulfs(prevO.angularAcceleration.addmulfs(o.angularAcceleration, -3), -dthalf);
                     }
                 }
             }
             force_accumulator.Predict3 = Predict3;
-            class RK4 {
+            class RK4 extends ForceAccumulator {
                 _bivec1 = new tesserxel.math.Bivec;
                 _rotor = new tesserxel.math.Rotor;
-                run(engine, world, dt) {
+                run(world, dt) {
+                    for (let o of world.rigids) {
+                        if (!o.invMass)
+                            continue;
+                        o.rotation.norms();
+                    }
                     let dthalf = dt * 0.5;
                     let dtdiv6 = dt / 6;
+                    let self = this;
                     function storeState(states) {
-                        engine.getObjectsAccelerations(world);
-                        states.push(world.objects.map(obj => ({
-                            position: obj.geometry.position?.clone(),
-                            rotation: obj.geometry.rotation?.clone(),
+                        self.getState(world);
+                        states.push(world.rigids.map(obj => ({
+                            position: obj.position?.clone(),
+                            rotation: obj.rotation?.clone(),
                             velocity: obj.velocity.clone(),
                             angularVelocity: obj.angularVelocity.clone(),
                             acceleration: obj.acceleration.clone(),
@@ -3531,11 +3803,11 @@ var tesserxel;
                     }
                     function loadState(states, index) {
                         let state = states[index];
-                        for (let idx = 0, len = world.objects.length; idx < len; idx++) {
-                            let o = world.objects[idx];
+                        for (let idx = 0, len = world.rigids.length; idx < len; idx++) {
+                            let o = world.rigids[idx];
                             let s = state[idx];
-                            o.geometry.position?.copy(s?.position);
-                            o.geometry.rotation?.copy(s?.rotation);
+                            o.position?.copy(s?.position);
+                            o.rotation?.copy(s?.rotation);
                             o.velocity.copy(s.velocity);
                             o.angularVelocity.copy(s.angularVelocity);
                             o.acceleration.copy(s.acceleration);
@@ -3544,69 +3816,74 @@ var tesserxel;
                     }
                     let states = [];
                     storeState(states); // 0: k1 = f(yn, tn)
-                    for (let o of world.objects) {
-                        if (o.sleep || !o.geometry.position)
+                    for (let o of world.rigids) {
+                        if (o.sleep || !o.position)
                             continue;
-                        o.geometry.position.addmulfs(o.velocity, dthalf);
+                        o.position.addmulfs(o.velocity, dthalf);
                         o.velocity.addmulfs(o.acceleration, dthalf);
-                        if (!o.geometry.rotation)
+                        if (!o.rotation)
                             continue;
-                        o.geometry.rotation.mulsl(this._rotor.expset(this._bivec1.copy(o.angularVelocity).mulfs(dthalf)));
+                        o.rotation.mulsl(this._rotor.expset(this._bivec1.copy(o.angularVelocity).mulfs(dthalf)));
                         o.angularVelocity.addmulfs(o.angularAcceleration, dthalf);
                     }
                     world.time += dthalf;
                     storeState(states); // 1: k2 = f(yn + h/2 k1, tn + h/2)
                     loadState(states, 0);
                     let state = states[1];
-                    for (let idx = 0, len = world.objects.length; idx < len; idx++) {
-                        let o = world.objects[idx];
-                        if (o.sleep || !o.geometry.position)
+                    for (let idx = 0, len = world.rigids.length; idx < len; idx++) {
+                        let o = world.rigids[idx];
+                        if (o.sleep || !o.position)
                             continue;
                         let s = state[idx];
-                        o.geometry.position.addmulfs(s.velocity, dthalf);
+                        o.position.addmulfs(s.velocity, dthalf);
                         o.velocity.addmulfs(s.acceleration, dthalf);
-                        if (!o.geometry.rotation)
+                        if (!o.rotation)
                             continue;
-                        o.geometry.rotation.mulsl(this._rotor.expset(this._bivec1.copy(s.angularVelocity).mulfs(dthalf)));
+                        o.rotation.mulsl(this._rotor.expset(this._bivec1.copy(s.angularVelocity).mulfs(dthalf)));
                         o.angularVelocity.addmulfs(s.angularAcceleration, dthalf);
                     }
                     storeState(states); // 2: k3 = f(yn + h/2 k2, tn + h/2)
                     loadState(states, 0);
                     state = states[2];
-                    for (let idx = 0, len = world.objects.length; idx < len; idx++) {
-                        let o = world.objects[idx];
-                        if (o.sleep || !o.geometry.position)
+                    for (let idx = 0, len = world.rigids.length; idx < len; idx++) {
+                        let o = world.rigids[idx];
+                        if (o.sleep || !o.position)
                             continue;
                         let s = state[idx];
-                        o.geometry.position.addmulfs(s.velocity, dt);
+                        o.position.addmulfs(s.velocity, dt);
                         o.velocity.addmulfs(s.acceleration, dt);
-                        if (!o.geometry.rotation)
+                        if (!o.rotation)
                             continue;
-                        o.geometry.rotation.mulsl(this._rotor.expset(this._bivec1.copy(s.angularVelocity).mulfs(dt)));
+                        o.rotation.mulsl(this._rotor.expset(this._bivec1.copy(s.angularVelocity).mulfs(dt)));
                         o.angularVelocity.addmulfs(s.angularAcceleration, dt);
                     }
                     world.time += dthalf;
                     storeState(states); // 3: k4 = f(yn + h k3, tn + h)
                     loadState(states, 0);
-                    for (let idx = 0, len = world.objects.length; idx < len; idx++) {
-                        let o = world.objects[idx];
-                        if (o.sleep || !o.geometry.position)
+                    for (let idx = 0, len = world.rigids.length; idx < len; idx++) {
+                        let o = world.rigids[idx];
+                        if (o.sleep || !o.position)
                             continue;
                         let k1 = states[0][idx];
                         let k2 = states[1][idx];
                         let k3 = states[2][idx];
                         let k4 = states[3][idx];
-                        o.geometry.position.addmulfs(k1.velocity.adds(k4.velocity).addmulfs(k2.velocity.adds(k3.velocity), 2), dtdiv6);
+                        o.position.addmulfs(k1.velocity.adds(k4.velocity).addmulfs(k2.velocity.adds(k3.velocity), 2), dtdiv6);
                         o.velocity.addmulfs(k1.acceleration.adds(k4.acceleration).addmulfs(k2.acceleration.adds(k3.acceleration), 2), dtdiv6);
-                        if (!o.geometry.rotation)
+                        if (!o.rotation)
                             continue;
-                        o.geometry.rotation.mulsl(this._rotor.expset(k1.angularVelocity.adds(k4.angularVelocity).addmulfs(k2.angularVelocity.adds(k3.angularVelocity), 2).mulfs(dtdiv6)));
+                        o.rotation.mulsl(this._rotor.expset(k1.angularVelocity.adds(k4.angularVelocity).addmulfs(k2.angularVelocity.adds(k3.angularVelocity), 2).mulfs(dtdiv6)));
                         o.angularVelocity.addmulfs(k1.angularAcceleration.adds(k4.angularAcceleration).addmulfs(k2.angularAcceleration.adds(k3.angularAcceleration), 2), dtdiv6);
                     }
                 }
             }
             force_accumulator.RK4 = RK4;
         })(force_accumulator = physics.force_accumulator || (physics.force_accumulator = {}));
+        class Force {
+            apply(time) { }
+            ;
+        }
+        physics.Force = Force;
         let force;
         (function (force) {
             /** apply a spring force between object a and b
@@ -3614,7 +3891,7 @@ var tesserxel;
              *  refering connect point of spring's two ends.
              *  b can be null for attaching spring to a fixed point in the world.
              *  f = k dx - damp * dv */
-            class Spring {
+            class Spring extends Force {
                 a;
                 pointA;
                 b;
@@ -3627,6 +3904,7 @@ var tesserxel;
                 _vec4b = new tesserxel.math.Vec4();
                 _bivec = new tesserxel.math.Bivec();
                 constructor(a, b, pointA, pointB, k, damp = 0, length = 0) {
+                    super();
                     this.a = a;
                     this.b = b;
                     this.k = k;
@@ -3636,12 +3914,12 @@ var tesserxel;
                     this.length = length;
                 }
                 apply(time) {
-                    const pa = this.a.geometry.position;
-                    const pb = this.b?.geometry?.position;
-                    this._vec4a.copy(this.pointA).rotates(this.a.geometry.rotation).adds(pa);
+                    const pa = this.a.position;
+                    const pb = this.b?.position;
+                    this._vec4a.copy(this.pointA).rotates(this.a.rotation).adds(pa);
                     this._vec4b.copy(this.pointB);
                     if (this.b)
-                        this._vec4b.rotates(this.b.geometry.rotation).adds(pb);
+                        this._vec4b.rotates(this.b.rotation).adds(pb);
                     let k = this.k;
                     this._vec4f.subset(this._vec4b, this._vec4a);
                     if (this.length > 0) {
@@ -3668,76 +3946,444 @@ var tesserxel;
 (function (tesserxel) {
     let physics;
     (function (physics) {
-        class Glome {
-            radius = 1;
-            position = new tesserxel.math.Vec4;
-            rotation = new tesserxel.math.Rotor;
-            type;
-            constructor(radius) {
-                this.radius = radius;
+        let _vec4 = new tesserxel.math.Vec4; // cache
+        let _vec41 = new tesserxel.math.Vec4;
+        class NarrowPhase {
+            collisionList = [];
+            clearCollisionList() {
+                this.collisionList = [];
             }
-            intersectGeometry(g) {
-                switch (g.type) {
-                    case "glome": return physics.intersetGlomeGlome(this, g);
-                    case "plane": return physics.intersetGlomePlane(this, g);
+            run(list) {
+                this.clearCollisionList();
+                for (let [a, b] of list) {
+                    this.detectCollision(a, b);
                 }
-                return null;
+            }
+            detectCollision(rigidA, rigidB) {
+                let a = rigidA.geometry, b = rigidB.geometry;
+                if (a instanceof physics.rigid.Glome) {
+                    if (b instanceof physics.rigid.Glome)
+                        return this.detectGlomeGlome(a, b);
+                    if (b instanceof physics.rigid.Plane)
+                        return this.detectGlomePlane(a, b);
+                }
+                if (a instanceof physics.rigid.Plane) {
+                    if (b instanceof physics.rigid.Glome)
+                        return this.detectGlomePlane(b, a);
+                    if (b instanceof physics.rigid.Tesseractoid) {
+                        // todo: fast detection for tesseractoid return this.detectTesseractoidPlane(b,a);
+                    }
+                    if (b instanceof physics.rigid.Convex)
+                        return this.detectConvexPlane(b, a);
+                }
+                if (a instanceof physics.rigid.Tesseractoid) {
+                    //todo
+                }
+                if (a instanceof physics.rigid.Convex) {
+                    if (b instanceof physics.rigid.Plane)
+                        return this.detectConvexPlane(a, b);
+                    if (b instanceof physics.rigid.Convex)
+                        return this.detectConvexConvex(a, b);
+                }
+            }
+            detectGlomeGlome(a, b) {
+                _vec4.subset(b.rigid.position, a.rigid.position);
+                let d = _vec4.norm();
+                let depth = a.radius + b.radius - d;
+                if (depth < 0)
+                    return null;
+                // todo: check whether clone can be removed
+                let normal = _vec4.divfs(d).clone();
+                let point = _vec4.mulfs((a.radius - b.radius + d) * 0.5).clone();
+                this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
+            }
+            detectGlomePlane(a, b) {
+                let depth = a.radius - (a.rigid.position.dot(b.normal) - b.offset);
+                if (depth < 0)
+                    return null;
+                let point = a.rigid.position.clone().addmulfs(b.normal, depth * 0.5 - a.radius);
+                this.collisionList.push({ point, normal: b.normal.neg(), depth, a: a.rigid, b: b.rigid });
+            }
+            detectConvexPlane(a, b) {
+                // convert plane to convex's coord
+                let normal = _vec4.copy(b.normal).rotateconj(a.rigid.rotation);
+                var offset = a.rigid.position.dot(b.normal) - b.offset;
+                for (let v of a.points) {
+                    var depth = -(v.dot(normal) + offset);
+                    if (depth < 0)
+                        continue;
+                    let point = v.clone().rotates(a.rigid.rotation).adds(a.rigid.position).addmulfs(b.normal, depth / 2);
+                    this.collisionList.push({ point, normal: b.normal.neg(), depth, a: a.rigid, b: b.rigid });
+                }
+            }
+            detectConvexConvex(a, b) {
+                // GJK here !
             }
         }
-        physics.Glome = Glome;
-        /** equation: dot(normal,positon) == offset
-         *  => when offset > 0, plane is shifted to normal direction
-         *  from origin by distance = offset
-         */
-        class Plane {
-            normal;
-            offset;
-            type;
-            intersectGeometry(g) {
-                switch (g.type) {
-                    case "glome": return physics.inverseIntersectOrder(physics.intersetGlomePlane(g, this));
-                }
-                return null;
-            }
-        }
-        physics.Plane = Plane;
+        physics.NarrowPhase = NarrowPhase;
     })(physics = tesserxel.physics || (tesserxel.physics = {}));
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
 (function (tesserxel) {
     let physics;
     (function (physics) {
-        let _vec4 = new tesserxel.math.Vec4; // cache
-        function intersetGlomeGlome(a, b) {
-            _vec4.subset(b.position, a.position);
-            let d = _vec4.norm();
-            let depth = a.radius + b.radius - d;
-            if (depth < 0)
-                return null;
-            // todo: check whether clone can be removed
-            let normal = _vec4.divfs(d).clone();
-            let point = _vec4.mulfs((a.radius - b.radius + d) * 0.5).clone();
-            return { point, normal, depth, a, b };
+        ;
+        /** all properities hold by class Rigid should not be modified
+         *  exceptions are position/rotation and (angular)velocity.
+         *  pass RigidDescriptor into constructor instead.
+         *  */
+        class Rigid extends tesserxel.math.Obj4 {
+            material;
+            // Caution: Two Rigids cannot share the same RigidGeometry instance
+            geometry;
+            type;
+            mass;
+            invMass;
+            // inertia is a 6x6 Matrix for angularVelocity -> angularMomentum
+            // this is diagonalbMatrix under principal axes coordinates
+            inertia = new tesserxel.math.Bivec();
+            invInertia = new tesserxel.math.Bivec();
+            inertiaIsotroy; // whether using scalar inertia
+            // only apply to active type object
+            sleep = false;
+            velocity = new tesserxel.math.Vec4();
+            angularVelocity = new tesserxel.math.Bivec();
+            force = new tesserxel.math.Vec4();
+            torque = new tesserxel.math.Bivec();
+            acceleration = new tesserxel.math.Vec4();
+            angularAcceleration = new tesserxel.math.Bivec();
+            constructor(param) {
+                super();
+                if (param.length) {
+                    this.geometry = new rigid.Union(param);
+                }
+                else {
+                    let option = param;
+                    this.geometry = option.geometry;
+                    this.mass = option.mass;
+                    this.type = option.type ?? "active";
+                    this.invMass = option.mass > 0 && (this.type === "active") ? 1 / option.mass : 0;
+                    this.material = option.material;
+                }
+                this.geometry.initialize(this);
+            }
+            getlinearVelocity(out, point) {
+                if (this.type === "still")
+                    return new tesserxel.math.Vec4();
+                let relPosition = out.subset(point, this.position);
+                return out.dotbset(relPosition, this.angularVelocity).adds(this.velocity);
+            }
         }
-        physics.intersetGlomeGlome = intersetGlomeGlome;
-        function inverseIntersectOrder(r) {
-            if (!r)
-                return null;
-            let temp = r.a;
-            r.a = r.b;
-            r.b = temp;
-            r.normal.negs();
-            return r;
+        physics.Rigid = Rigid;
+        class RigidGeometry {
+            type;
+            rigid;
+            isUnion = false;
+            initialize(rigid) {
+                this.rigid = rigid;
+                this.initializeMassInertia(rigid);
+                if (!rigid.mass && rigid.type === "active")
+                    rigid.type = "still";
+                if (rigid.inertia) {
+                    rigid.invInertia.xy = 1 / rigid.inertia.xy;
+                    if (!rigid.inertiaIsotroy) {
+                        rigid.invInertia.xz = 1 / rigid.inertia.xz;
+                        rigid.invInertia.yz = 1 / rigid.inertia.yz;
+                        rigid.invInertia.xw = 1 / rigid.inertia.xw;
+                        rigid.invInertia.yw = 1 / rigid.inertia.yw;
+                        rigid.invInertia.zw = 1 / rigid.inertia.zw;
+                    }
+                    else {
+                        rigid.invInertia.xz = rigid.invInertia.xy;
+                        rigid.invInertia.yz = rigid.invInertia.xy;
+                        rigid.invInertia.xw = rigid.invInertia.xy;
+                        rigid.invInertia.yw = rigid.invInertia.xy;
+                        rigid.invInertia.zw = rigid.invInertia.xy;
+                        rigid.inertia.xz = rigid.inertia.xy;
+                        rigid.inertia.yz = rigid.inertia.xy;
+                        rigid.inertia.xw = rigid.inertia.xy;
+                        rigid.inertia.yw = rigid.inertia.xy;
+                        rigid.inertia.zw = rigid.inertia.xy;
+                    }
+                }
+            }
+            ;
         }
-        physics.inverseIntersectOrder = inverseIntersectOrder;
-        function intersetGlomePlane(a, b) {
-            let depth = a.radius - (a.position.dot(b.normal) - b.offset);
-            if (depth < 0)
-                return null;
-            let point = a.position.addmulfs(b.normal, depth * 0.5 - a.radius).clone();
-            return { point, normal: b.normal.neg(), depth, a, b };
+        physics.RigidGeometry = RigidGeometry;
+        let rigid;
+        (function (rigid_1) {
+            class Union extends RigidGeometry {
+                components;
+                isUnion = true;
+                constructor(components) { super(); this.components = components; }
+                // todo: union gen
+                initializeMassInertia(rigid) { }
+                ;
+            }
+            rigid_1.Union = Union;
+            class Glome extends RigidGeometry {
+                radius = 1;
+                radiusSqr = 1;
+                type = "glome";
+                constructor(radius) {
+                    super();
+                    this.radius = radius;
+                    this.radiusSqr = radius * radius;
+                }
+                initializeMassInertia(rigid) {
+                    rigid.inertiaIsotroy = true;
+                    rigid.inertia.xy = rigid.mass * this.radiusSqr * 0.25;
+                }
+            }
+            rigid_1.Glome = Glome;
+            class Convex extends RigidGeometry {
+                points;
+                constructor(points) {
+                    super();
+                    this.points = points;
+                }
+                initializeMassInertia(rigid) {
+                    // todo inertia calc
+                }
+            }
+            rigid_1.Convex = Convex;
+            class Tesseractoid extends Convex {
+                size;
+                type = "tesseractoid";
+                constructor(size) {
+                    let s = typeof size === "number" ? new tesserxel.math.Vec4(size, size, size, size) : size;
+                    super([
+                        new tesserxel.math.Vec4(s.x, s.y, s.z, s.w),
+                        new tesserxel.math.Vec4(-s.x, s.y, s.z, s.w),
+                        new tesserxel.math.Vec4(s.x, -s.y, s.z, s.w),
+                        new tesserxel.math.Vec4(-s.x, -s.y, s.z, s.w),
+                        new tesserxel.math.Vec4(s.x, s.y, -s.z, s.w),
+                        new tesserxel.math.Vec4(-s.x, s.y, -s.z, s.w),
+                        new tesserxel.math.Vec4(s.x, -s.y, -s.z, s.w),
+                        new tesserxel.math.Vec4(-s.x, -s.y, -s.z, s.w),
+                        new tesserxel.math.Vec4(s.x, s.y, s.z, -s.w),
+                        new tesserxel.math.Vec4(-s.x, s.y, s.z, -s.w),
+                        new tesserxel.math.Vec4(s.x, -s.y, s.z, -s.w),
+                        new tesserxel.math.Vec4(-s.x, -s.y, s.z, -s.w),
+                        new tesserxel.math.Vec4(s.x, s.y, -s.z, -s.w),
+                        new tesserxel.math.Vec4(-s.x, s.y, -s.z, -s.w),
+                        new tesserxel.math.Vec4(s.x, -s.y, -s.z, -s.w),
+                        new tesserxel.math.Vec4(-s.x, -s.y, -s.z, -s.w),
+                    ]);
+                    this.size = s;
+                }
+                initializeMassInertia(rigid) {
+                    let mins = Math.min(this.size.x, this.size.y, this.size.z, this.size.w);
+                    let maxs = Math.max(this.size.x, this.size.y, this.size.z, this.size.w);
+                    let isoratio = mins / maxs;
+                    rigid.inertiaIsotroy = isoratio > 0.95;
+                    if (rigid.inertiaIsotroy) {
+                        rigid.inertia.xy = rigid.mass * (mins + maxs) * (mins + maxs) * 0.2;
+                    }
+                    else {
+                        let x = this.size.x * this.size.x;
+                        let y = this.size.y * this.size.y;
+                        let z = this.size.z * this.size.z;
+                        let w = this.size.w * this.size.w;
+                        rigid.inertia.set(x + y, x + z, x + w, y + z, y + w, z + w).mulfs(rigid.mass * 0.2);
+                    }
+                }
+            }
+            rigid_1.Tesseractoid = Tesseractoid;
+            /** equation: dot(normal,positon) == offset
+             *  => when offset > 0, plane is shifted to normal direction
+             *  from origin by distance = offset
+             */
+            class Plane extends RigidGeometry {
+                normal;
+                offset;
+                type = "plane";
+                constructor(normal, offset) {
+                    super();
+                    this.normal = normal ?? tesserxel.math.Vec4.y.clone();
+                    this.offset = offset ?? 0;
+                }
+                initializeMassInertia(rigid) {
+                    if (rigid.mass)
+                        console.warn("Infinitive Plane cannot have a finitive mass.");
+                    rigid.mass = null;
+                    rigid.invMass = 0;
+                    rigid.inertia = null;
+                    rigid.invInertia = null;
+                }
+            }
+            rigid_1.Plane = Plane;
+        })(rigid = physics.rigid || (physics.rigid = {}));
+    })(physics = tesserxel.physics || (tesserxel.physics = {}));
+})(tesserxel || (tesserxel = {}));
+var tesserxel;
+(function (tesserxel) {
+    let physics;
+    (function (physics) {
+        ;
+        class Solver {
         }
-        physics.intersetGlomePlane = intersetGlomePlane;
+        physics.Solver = Solver;
+        class IterativeImpulseSolver extends Solver {
+            maxPositionIterations = 5;
+            maxVelocityIterations = 5;
+            collisionList;
+            run(collisionList) {
+                if (!collisionList.length)
+                    return;
+                this.prepare(collisionList);
+                this.resolveVelocity();
+                this.resolvePosition();
+            }
+            prepare(collisionList) {
+                this.collisionList = collisionList.map(e => {
+                    let { point, a, b, normal } = e;
+                    let collision = e;
+                    let temp = tesserxel.math.vec4Pool.pop();
+                    collision.relativeVelocity = b.getlinearVelocity(tesserxel.math.vec4Pool.pop(), point).subs(a.getlinearVelocity(temp, point));
+                    temp.pushPool();
+                    collision.separateSpeed = collision.relativeVelocity.dot(normal);
+                    return collision;
+                });
+            }
+            resolvePosition() {
+                // iteratively solve the deepest
+                for (let i = 0; i < this.maxPositionIterations; i++) {
+                    let collision = this.collisionList.sort((a, b) => b.depth - a.depth)[0];
+                    let { point, a, b, depth, normal } = collision;
+                    if (depth <= 0)
+                        return;
+                }
+            }
+            resolveVelocity() {
+                // iteratively solve lowest separateSpeed
+                for (let i = 0; i < this.maxVelocityIterations; i++) {
+                    let collision = this.collisionList.sort((a, b) => a.separateSpeed - b.separateSpeed)[0];
+                    let { point, a, b, separateSpeed, normal, relativeVelocity } = collision;
+                    if (separateSpeed >= 0)
+                        return;
+                    let restitution = physics.Material.getContactRestitution(a.material, b.material);
+                    // set target separateSpeed to collision, next we'll solve to reach it
+                    collision.separateSpeed = -separateSpeed * restitution;
+                    let targetRelativeVelocity = normal.mulf(collision.separateSpeed);
+                    let targetDeltaVelocityByImpulse = targetRelativeVelocity.subs(relativeVelocity);
+                    let pointInA, pointInB;
+                    let matA = tesserxel.math.mat4Pool.pop(), matB = tesserxel.math.mat4Pool.pop();
+                    if (a.mass > 0) {
+                        pointInA = tesserxel.math.vec4Pool.pop().subset(point, a.position).rotatesconj(a.rotation);
+                        calcImpulseResponseMat(matA, a, pointInA, pointInA);
+                    }
+                    else {
+                        matA.set();
+                    }
+                    if (b.mass > 0) {
+                        pointInB = tesserxel.math.vec4Pool.pop().subset(point, b.position).rotatesconj(b.rotation);
+                        calcImpulseResponseMat(matB, b, pointInB, pointInB);
+                    }
+                    else {
+                        matB.set();
+                    }
+                    // dv = dvb(Ib) - dva(Ia) == dvb(I) + dva(I) since I = -Ia = Ib
+                    let impulse = matA.adds(matB).invs().mulv(targetDeltaVelocityByImpulse);
+                    tesserxel.math.mat4Pool.push(matA, matB);
+                    // decomposite impulse into normal and tangent to deal with friction
+                    let impulseNValue = impulse.dot(normal);
+                    let impulseN = tesserxel.math.vec4Pool.pop().copy(normal).mulfs(impulseNValue);
+                    let impulseT = tesserxel.math.vec4Pool.pop().subset(impulse, impulseN);
+                    let impulseTValue = impulseT.norm();
+                    let friction = physics.Material.getContactFriction(a.material, b.material);
+                    let maximalFriction = friction * impulseNValue;
+                    if (impulseTValue > maximalFriction) {
+                        // correct tangent impulse for friction
+                        impulseT.mulfs(maximalFriction / impulseTValue);
+                    }
+                    impulse.addset(impulseT, impulseN);
+                    tesserxel.math.vec4Pool.push(impulseT, impulseN);
+                    // resolve velocity by applying final impulse
+                    if (b.mass > 0) {
+                        collision.dvB = tesserxel.math.vec4Pool.pop();
+                        collision.dwB = tesserxel.math.bivecPool.pop();
+                        applyImpulseAndGetDeltaVW(collision.dvB, collision.dwB, b, pointInB, impulse);
+                    }
+                    if (a.mass > 0) {
+                        collision.dvA = tesserxel.math.vec4Pool.pop();
+                        collision.dwA = tesserxel.math.bivecPool.pop();
+                        applyImpulseAndGetDeltaVW(collision.dvA, collision.dwA, a, pointInA, impulse.negs());
+                    }
+                    this.updateSeparateSpeeds(collision);
+                }
+            }
+            updateSeparateSpeeds(collision) {
+                for (let c of this.collisionList) {
+                    if (c === collision)
+                        continue;
+                    if (collision.a.mass > 0) {
+                        if (c.a === collision.a) {
+                            this.updateSeparateSpeed(c, true, c.a, collision.dvA, collision.dwA);
+                            continue;
+                        }
+                        if (c.b === collision.a) {
+                            this.updateSeparateSpeed(c, false, c.b, collision.dvA, collision.dwA);
+                            continue;
+                        }
+                    }
+                    if (collision.b.mass > 0) {
+                        if (c.a === collision.b) {
+                            this.updateSeparateSpeed(c, true, c.a, collision.dvB, collision.dwB);
+                            continue;
+                        }
+                        if (c.b === collision.b) {
+                            this.updateSeparateSpeed(c, false, c.b, collision.dvB, collision.dwB);
+                            continue;
+                        }
+                    }
+                }
+            }
+            updateSeparateSpeed(collision, rigidIsA, rigid, dv, dw) {
+                let a = tesserxel.math.vec4Pool.pop().subset(collision.point, rigid.position);
+                let dss = a.dotbsr(dw).adds(dv).dot(collision.normal);
+                a.pushPool();
+                collision.separateSpeed += rigidIsA ? -dss : dss;
+            }
+        }
+        physics.IterativeImpulseSolver = IterativeImpulseSolver;
+        let _vec4x = new tesserxel.math.Vec4;
+        let _vec4y = new tesserxel.math.Vec4;
+        let _vec4z = new tesserxel.math.Vec4;
+        let _vec4w = new tesserxel.math.Vec4;
+        let _biv = new tesserxel.math.Bivec;
+        let _mat4r = new tesserxel.math.Mat4;
+        function calcDeltaVWByImpulse(outV, outW, rigid, localPoint, impulse) {
+            outV.copy(impulse).mulfs(rigid.invMass);
+            _vec4x.copy(impulse).rotatesconj(rigid.rotation);
+            physics.mulBivec(outW, outW.wedgevvset(localPoint, _vec4x), rigid.invInertia).rotates(rigid.rotation);
+        }
+        ;
+        function applyImpulseAndGetDeltaVW(outV, outW, rigid, localPoint, impulse) {
+            calcDeltaVWByImpulse(outV, outW, rigid, localPoint, impulse);
+            rigid.velocity.adds(outV);
+            rigid.angularVelocity.adds(outW);
+        }
+        /** calculate transfer matrix between impulse applying at src position and response delta velocity at dst position
+         *  src and dst are in rigid's local frame
+         */
+        function calcImpulseResponseMat(out, rigid, src, dst) {
+            let ii = rigid.invInertia;
+            // calculate relativePos cross base vectors and get angular part
+            _vec4x.dotbset(dst, _biv.set(-src.y * ii.xy, -src.z * ii.xz, -src.w * ii.xw));
+            _vec4y.dotbset(dst, _biv.set(src.x * ii.xy, 0, 0, -src.z * ii.yz, -src.w * ii.yw));
+            _vec4z.dotbset(dst, _biv.set(0, src.x * ii.xz, 0, src.y * ii.yz, 0, -src.w * ii.zw));
+            _vec4w.dotbset(dst, _biv.set(0, 0, src.x * ii.xw, 0, src.y * ii.yw, src.z * ii.zw));
+            out.augVec4set(_vec4x, _vec4y, _vec4z, _vec4w);
+            // add linear part (add a diagonal matrix inline)
+            out.elem[0] += rigid.invMass;
+            out.elem[5] += rigid.invMass;
+            out.elem[10] += rigid.invMass;
+            out.elem[15] += rigid.invMass;
+            _mat4r.setFromRotor(rigid.rotation);
+            // convert matrix to world frame by Mworld <= R Mlocal R'
+            return out.mulsl(_mat4r).mulsr(_mat4r.ts());
+        }
     })(physics = tesserxel.physics || (tesserxel.physics = {}));
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
@@ -4158,65 +4804,47 @@ var tesserxel;
         (function (sliceconfig) {
             sliceconfig.size = 0.2;
             function singlezslice1eye(aspect) {
-                return {
-                    layers: 0,
-                    opacity: 1.0,
-                    sections: [{
-                            slicePos: 0,
-                            facing: tesserxel.renderer.SliceFacing.POSZ,
-                            viewport: { x: 0, y: 0, width: 1 / aspect, height: 1.0 }
-                        }]
-                };
+                return [{
+                        slicePos: 0,
+                        facing: tesserxel.renderer.SliceFacing.POSZ,
+                        viewport: { x: 0, y: 0, width: 1 / aspect, height: 1.0 }
+                    }];
             }
             sliceconfig.singlezslice1eye = singlezslice1eye;
             function singlezslice2eye(aspect) {
-                return {
-                    layers: 0,
-                    opacity: 1.0,
-                    sectionEyeOffset: 0.1,
-                    sections: [{
-                            slicePos: 0,
-                            facing: tesserxel.renderer.SliceFacing.POSZ,
-                            eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                            viewport: { x: -0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
-                        }, {
-                            slicePos: 0,
-                            facing: tesserxel.renderer.SliceFacing.POSZ,
-                            eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                            viewport: { x: 0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
-                        }]
-                };
+                return [{
+                        slicePos: 0,
+                        facing: tesserxel.renderer.SliceFacing.POSZ,
+                        eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
+                        viewport: { x: -0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
+                    }, {
+                        slicePos: 0,
+                        facing: tesserxel.renderer.SliceFacing.POSZ,
+                        eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
+                        viewport: { x: 0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
+                    }];
             }
             sliceconfig.singlezslice2eye = singlezslice2eye;
             function singleyslice1eye(aspect) {
-                return {
-                    layers: 0,
-                    opacity: 1.0,
-                    sections: [{
-                            slicePos: 0,
-                            facing: tesserxel.renderer.SliceFacing.NEGY,
-                            viewport: { x: 0, y: 0, width: 1 / aspect, height: 1.0 }
-                        }]
-                };
+                return [{
+                        slicePos: 0,
+                        facing: tesserxel.renderer.SliceFacing.NEGY,
+                        viewport: { x: 0, y: 0, width: 1 / aspect, height: 1.0 }
+                    }];
             }
             sliceconfig.singleyslice1eye = singleyslice1eye;
             function singleyslice2eye(aspect) {
-                return {
-                    layers: 0,
-                    opacity: 1.0,
-                    sectionEyeOffset: 0.1,
-                    sections: [{
-                            slicePos: 0,
-                            facing: tesserxel.renderer.SliceFacing.NEGY,
-                            eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                            viewport: { x: -0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
-                        }, {
-                            slicePos: 0,
-                            facing: tesserxel.renderer.SliceFacing.NEGY,
-                            eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                            viewport: { x: 0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
-                        }]
-                };
+                return [{
+                        slicePos: 0,
+                        facing: tesserxel.renderer.SliceFacing.NEGY,
+                        eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
+                        viewport: { x: -0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
+                    }, {
+                        slicePos: 0,
+                        facing: tesserxel.renderer.SliceFacing.NEGY,
+                        eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
+                        viewport: { x: 0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
+                    }];
             }
             sliceconfig.singleyslice2eye = singleyslice2eye;
             function zslices1eye(step, maxpos, aspect) {
@@ -4228,15 +4856,11 @@ var tesserxel;
                 }
                 let half = 2 / arr.length;
                 let size = 1 / (aspect * arr.length);
-                return {
-                    layers: 64,
-                    opacity: 1.0,
-                    sections: arr.map(pos => ({
-                        slicePos: pos[0],
-                        facing: tesserxel.renderer.SliceFacing.POSZ,
-                        viewport: { x: pos[1] * half, y: size - 1, width: size, height: size }
-                    }))
-                };
+                return arr.map(pos => ({
+                    slicePos: pos[0],
+                    facing: tesserxel.renderer.SliceFacing.POSZ,
+                    viewport: { x: pos[1] * half, y: size - 1, width: size, height: size }
+                }));
             }
             sliceconfig.zslices1eye = zslices1eye;
             function zslices2eye(step, maxpos, aspect) {
@@ -4249,23 +4873,17 @@ var tesserxel;
                 arr.sort((a, b) => a[0] - b[0]);
                 let half = 1 / arr.length;
                 let size = 0.5 / (aspect * arr.length);
-                return {
-                    layers: 64,
-                    sectionEyeOffset: 0.1,
-                    retinaEyeOffset: 0.1,
-                    opacity: 1.0,
-                    sections: arr.map(pos => ({
-                        slicePos: pos[0],
-                        facing: tesserxel.renderer.SliceFacing.POSZ,
-                        eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                        viewport: { x: (pos[1] * half) - 0.5, y: size - 1, width: size, height: size }
-                    })).concat(arr.map(pos => ({
-                        slicePos: pos[0],
-                        facing: tesserxel.renderer.SliceFacing.POSZ,
-                        eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                        viewport: { x: (pos[1] * half) + 0.5, y: size - 1, width: size, height: size }
-                    })))
-                };
+                return arr.map(pos => ({
+                    slicePos: pos[0],
+                    facing: tesserxel.renderer.SliceFacing.POSZ,
+                    eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
+                    viewport: { x: (pos[1] * half) - 0.5, y: size - 1, width: size, height: size }
+                })).concat(arr.map(pos => ({
+                    slicePos: pos[0],
+                    facing: tesserxel.renderer.SliceFacing.POSZ,
+                    eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
+                    viewport: { x: (pos[1] * half) + 0.5, y: size - 1, width: size, height: size }
+                })));
             }
             sliceconfig.zslices2eye = zslices2eye;
             function yslices1eye(step, maxpos, aspect) {
@@ -4277,15 +4895,11 @@ var tesserxel;
                 }
                 let half = 2 / arr.length;
                 let size = 1 / (aspect * arr.length);
-                return {
-                    layers: 64,
-                    opacity: 1.0,
-                    sections: arr.map(pos => ({
-                        slicePos: pos[0],
-                        facing: tesserxel.renderer.SliceFacing.NEGY,
-                        viewport: { x: pos[1] * half, y: size - 1, width: size, height: size }
-                    }))
-                };
+                return arr.map(pos => ({
+                    slicePos: pos[0],
+                    facing: tesserxel.renderer.SliceFacing.NEGY,
+                    viewport: { x: pos[1] * half, y: size - 1, width: size, height: size }
+                }));
             }
             sliceconfig.yslices1eye = yslices1eye;
             function yslices2eye(step, maxpos, aspect) {
@@ -4298,23 +4912,17 @@ var tesserxel;
                 arr.sort((a, b) => a[0] - b[0]);
                 let half = 1 / arr.length;
                 let size = 0.5 / (aspect * arr.length);
-                return {
-                    layers: 64,
-                    sectionEyeOffset: 0.1,
-                    retinaEyeOffset: 0.1,
-                    opacity: 1.0,
-                    sections: arr.map(pos => ({
-                        slicePos: pos[0],
-                        facing: tesserxel.renderer.SliceFacing.NEGY,
-                        eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                        viewport: { x: (pos[1] * half) - 0.5, y: size - 1, width: size, height: size }
-                    })).concat(arr.map(pos => ({
-                        slicePos: pos[0],
-                        facing: tesserxel.renderer.SliceFacing.NEGY,
-                        eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                        viewport: { x: (pos[1] * half) + 0.5, y: size - 1, width: size, height: size }
-                    })))
-                };
+                return arr.map(pos => ({
+                    slicePos: pos[0],
+                    facing: tesserxel.renderer.SliceFacing.NEGY,
+                    eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
+                    viewport: { x: (pos[1] * half) - 0.5, y: size - 1, width: size, height: size }
+                })).concat(arr.map(pos => ({
+                    slicePos: pos[0],
+                    facing: tesserxel.renderer.SliceFacing.NEGY,
+                    eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
+                    viewport: { x: (pos[1] * half) + 0.5, y: size - 1, width: size, height: size }
+                })));
             }
             sliceconfig.yslices2eye = yslices2eye;
             function default2eye(size, aspect) {
@@ -4329,44 +4937,38 @@ var tesserxel;
                     size_aspect = size * aspect;
                     wsize = size;
                 }
-                return {
-                    layers: 64,
-                    sectionEyeOffset: 0.1,
-                    retinaEyeOffset: 0.1,
-                    opacity: 1.0,
-                    sections: [
-                        {
-                            facing: tesserxel.renderer.SliceFacing.NEGX,
-                            eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                            viewport: { x: -size_aspect, y: size - 1, width: wsize, height: size }
-                        },
-                        {
-                            facing: tesserxel.renderer.SliceFacing.NEGX,
-                            eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                            viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size }
-                        },
-                        {
-                            facing: tesserxel.renderer.SliceFacing.NEGY,
-                            eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                            viewport: { x: -size_aspect, y: 1 - size, width: wsize, height: size }
-                        },
-                        {
-                            facing: tesserxel.renderer.SliceFacing.NEGY,
-                            eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                            viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size }
-                        },
-                        {
-                            facing: tesserxel.renderer.SliceFacing.POSZ,
-                            eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                            viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size }
-                        },
-                        {
-                            facing: tesserxel.renderer.SliceFacing.POSZ,
-                            eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                            viewport: { x: size_aspect, y: size - 1, width: wsize, height: size }
-                        },
-                    ]
-                };
+                return [
+                    {
+                        facing: tesserxel.renderer.SliceFacing.NEGX,
+                        eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
+                        viewport: { x: -size_aspect, y: size - 1, width: wsize, height: size }
+                    },
+                    {
+                        facing: tesserxel.renderer.SliceFacing.NEGX,
+                        eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
+                        viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size }
+                    },
+                    {
+                        facing: tesserxel.renderer.SliceFacing.NEGY,
+                        eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
+                        viewport: { x: -size_aspect, y: 1 - size, width: wsize, height: size }
+                    },
+                    {
+                        facing: tesserxel.renderer.SliceFacing.NEGY,
+                        eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
+                        viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size }
+                    },
+                    {
+                        facing: tesserxel.renderer.SliceFacing.POSZ,
+                        eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
+                        viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size }
+                    },
+                    {
+                        facing: tesserxel.renderer.SliceFacing.POSZ,
+                        eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
+                        viewport: { x: size_aspect, y: size - 1, width: wsize, height: size }
+                    },
+                ];
             }
             sliceconfig.default2eye = default2eye;
             ;
@@ -4382,24 +4984,20 @@ var tesserxel;
                     size_aspect = size * aspect;
                     wsize = size;
                 }
-                return {
-                    layers: 64,
-                    opacity: 1.0,
-                    sections: [
-                        {
-                            facing: tesserxel.renderer.SliceFacing.NEGX,
-                            viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size }
-                        },
-                        {
-                            facing: tesserxel.renderer.SliceFacing.NEGY,
-                            viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size }
-                        },
-                        {
-                            facing: tesserxel.renderer.SliceFacing.POSZ,
-                            viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size }
-                        }
-                    ]
-                };
+                return [
+                    {
+                        facing: tesserxel.renderer.SliceFacing.NEGX,
+                        viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size }
+                    },
+                    {
+                        facing: tesserxel.renderer.SliceFacing.NEGY,
+                        viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size }
+                    },
+                    {
+                        facing: tesserxel.renderer.SliceFacing.POSZ,
+                        viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size }
+                    }
+                ];
             }
             sliceconfig.default1eye = default1eye;
         })(sliceconfig = controller.sliceconfig || (controller.sliceconfig = {}));
@@ -4446,11 +5044,10 @@ var tesserxel;
             };
             constructor(r) {
                 this.renderer = r;
-                this.sliceConfig = r.getSliceConfig() ?? sliceconfig.default2eye(0.2, 1.0);
                 this.sectionPresets = (aspect) => ({
                     "retina+sections": {
-                        eye1: sliceconfig.default1eye(0.2, aspect).sections,
-                        eye2: sliceconfig.default2eye(0.2, aspect).sections,
+                        eye1: sliceconfig.default1eye(0.2, aspect),
+                        eye2: sliceconfig.default2eye(0.2, aspect),
                         retina: true
                     },
                     "retina": {
@@ -4459,28 +5056,28 @@ var tesserxel;
                         retina: true
                     },
                     "sections": {
-                        eye1: sliceconfig.default1eye(0.5, aspect).sections,
-                        eye2: sliceconfig.default2eye(0.5, aspect).sections,
+                        eye1: sliceconfig.default1eye(0.5, aspect),
+                        eye2: sliceconfig.default2eye(0.5, aspect),
                         retina: false
                     },
                     "retina+zslices": {
-                        eye1: sliceconfig.zslices1eye(0.15, 0.6, aspect).sections,
-                        eye2: sliceconfig.zslices2eye(0.3, 0.6, aspect).sections,
+                        eye1: sliceconfig.zslices1eye(0.15, 0.6, aspect),
+                        eye2: sliceconfig.zslices2eye(0.3, 0.6, aspect),
                         retina: true
                     },
                     "retina+yslices": {
-                        eye1: sliceconfig.yslices1eye(0.15, 0.6, aspect).sections,
-                        eye2: sliceconfig.yslices2eye(0.3, 0.6, aspect).sections,
+                        eye1: sliceconfig.yslices1eye(0.15, 0.6, aspect),
+                        eye2: sliceconfig.yslices2eye(0.3, 0.6, aspect),
                         retina: true
                     },
                     "zsection": {
-                        eye1: sliceconfig.singlezslice1eye(aspect).sections,
-                        eye2: sliceconfig.singlezslice2eye(aspect).sections,
+                        eye1: sliceconfig.singlezslice1eye(aspect),
+                        eye2: sliceconfig.singlezslice2eye(aspect),
                         retina: false
                     },
                     "ysection": {
-                        eye1: sliceconfig.singleyslice1eye(aspect).sections,
-                        eye2: sliceconfig.singleyslice2eye(aspect).sections,
+                        eye1: sliceconfig.singleyslice1eye(aspect),
+                        eye2: sliceconfig.singleyslice2eye(aspect),
                         retina: false
                     },
                 });
@@ -4498,41 +5095,44 @@ var tesserxel;
                 let on = state.isKeyHold;
                 let key = this.keyConfig;
                 let delta;
-                let sliceConfig = this.sliceConfig;
+                let sliceConfig = {};
                 if (!disabled && state.isKeyHold(this.keyConfig.toggle3D)) {
-                    sliceConfig.retinaEyeOffset = sliceConfig.retinaEyeOffset ? 0 : this.retinaEyeOffset;
-                    sliceConfig.sectionEyeOffset = sliceConfig.sectionEyeOffset ? 0 : this.sectionEyeOffset;
-                    sliceConfig.sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(sliceConfig.sectionEyeOffset ? "eye2" : "eye1")];
-                    this.sliceNeedUpdate = true;
+                    let stereo = this.renderer.getStereoMode();
+                    if (stereo) {
+                        this.renderer.setEyeOffset(0, 0);
+                    }
+                    else {
+                        this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
+                    }
+                    sliceConfig.sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(!stereo ? "eye2" : "eye1")];
                 }
                 else if (this.needResize) {
-                    this.sliceNeedUpdate = true;
-                    sliceConfig.sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(sliceConfig.sectionEyeOffset ? "eye2" : "eye1")];
+                    sliceConfig.sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(this.renderer.getStereoMode() ? "eye2" : "eye1")];
                 }
                 if (!disabled) {
                     this.needResize = false;
                     if (state.isKeyHold(this.keyConfig.addOpacity)) {
-                        this.sliceConfig.opacity *= 1 + this.opacityKeySpeed;
-                        this.sliceNeedUpdate = true;
+                        this.renderer.setOpacity(this.renderer.getOpacity() * (1 + this.opacityKeySpeed));
                     }
                     if (state.isKeyHold(this.keyConfig.subOpacity)) {
-                        this.sliceConfig.opacity /= 1 + this.opacityKeySpeed;
-                        this.sliceNeedUpdate = true;
+                        this.renderer.setOpacity(this.renderer.getOpacity() / (1 + this.opacityKeySpeed));
                     }
                     if (state.isKeyHold(this.keyConfig.addLayer)) {
-                        if (this.sliceConfig.layers > 32 || ((state.updateCount & 3) && (this.sliceConfig.layers > 16 || (state.updateCount & 7)))) {
-                            this.sliceConfig.layers++;
+                        let layers = this.renderer.getLayers();
+                        if (layers > 32 || ((state.updateCount & 3) && (layers > 16 || (state.updateCount & 7)))) {
+                            layers++;
                         }
-                        if (this.sliceConfig.layers > 512)
-                            this.sliceConfig.layers = 512;
-                        this.sliceNeedUpdate = true;
+                        if (layers > 512)
+                            layers = 512;
+                        sliceConfig.layers = layers;
                     }
                     if (state.isKeyHold(this.keyConfig.subLayer)) {
                         // when < 32, we slow down layer speed
-                        if (this.sliceConfig.layers > 32 || ((state.updateCount & 3) && (this.sliceConfig.layers > 16 || (state.updateCount & 7)))) {
-                            if (this.sliceConfig.layers > 0)
-                                this.sliceConfig.layers--;
-                            this.sliceNeedUpdate = true;
+                        let layers = this.renderer.getLayers();
+                        if (layers > 32 || ((state.updateCount & 3) && (layers > 16 || (state.updateCount & 7)))) {
+                            if (layers > 0)
+                                layers--;
+                            sliceConfig.layers = layers;
                         }
                     }
                     for (let [label, keyCode] of Object.entries(this.keyConfig.sectionConfigs)) {
@@ -4565,48 +5165,51 @@ var tesserxel;
                     let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
                     this._vec2damp.mulfs(dampFactor);
                 }
-                if (this.sliceNeedUpdate)
-                    this.renderer.setSlice(this.sliceConfig);
-                this.sliceNeedUpdate = false;
+                this.renderer.setSliceConfig(sliceConfig);
             }
             setStereo(stereo) {
-                this.sliceConfig.sectionEyeOffset = stereo ? this.sectionEyeOffset : 0;
-                this.sliceConfig.retinaEyeOffset = stereo ? this.retinaEyeOffset : 0;
-                this.sliceConfig.sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(stereo ? "eye2" : "eye1")];
-                this.renderer.setSlice(this.sliceConfig);
-                this.sliceNeedUpdate = false;
+                if (!stereo) {
+                    this.renderer.setEyeOffset(0, 0);
+                }
+                else {
+                    this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
+                }
+                let sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(!stereo ? "eye2" : "eye1")];
+                this.renderer.setSliceConfig({ sections });
+            }
+            setSectionEyeOffset(offset) {
+                this.sectionEyeOffset = offset;
+                if (this.renderer.getStereoMode())
+                    this.renderer.setEyeOffset(offset);
+            }
+            setRetinaEyeOffset(offset) {
+                this.retinaEyeOffset = offset;
+                if (this.renderer.getStereoMode())
+                    this.renderer.setEyeOffset(null, offset);
             }
             setLayers(layers) {
-                this.sliceConfig.layers = layers;
-                this.renderer.setSlice(this.sliceConfig);
-                this.sliceNeedUpdate = false;
+                this.renderer.setSliceConfig({ layers });
             }
             setOpacity(opacity) {
-                this.sliceConfig.opacity = opacity;
-                this.renderer.setSlice(this.sliceConfig);
-                this.sliceNeedUpdate = false;
-            }
-            setSlice(sliceConfig) {
-                this.sliceConfig = sliceConfig;
-                this.renderer.setSlice(this.sliceConfig);
-                this.sliceNeedUpdate = false;
+                this.renderer.setOpacity(opacity);
             }
             toggleSectionConfig(index) {
                 if (this.currentSectionConfig === index)
                     return;
-                this.sliceNeedUpdate = true;
                 let preset = this.sectionPresets(this.renderer.getScreenAspect())[index];
                 if (!preset)
                     console.error(`Section Configuration "${index}" does not exsit.`);
-                if (preset.retina === false && this.sliceConfig.layers > 0) {
-                    this.rembemerLastLayers = this.sliceConfig.layers;
-                    this.sliceConfig.layers = 0;
+                let layers = this.renderer.getLayers();
+                if (preset.retina === false && layers > 0) {
+                    this.rembemerLastLayers = layers;
+                    layers = 0;
                 }
                 else if (preset.retina === true && this.rembemerLastLayers) {
-                    this.sliceConfig.layers = this.rembemerLastLayers;
+                    layers = this.rembemerLastLayers;
                     this.rembemerLastLayers = null;
                 }
-                this.sliceConfig.sections = preset[(this.sliceConfig.sectionEyeOffset ? "eye2" : "eye1")];
+                let sections = preset[(this.renderer.getStereoMode() ? "eye2" : "eye1")];
+                this.renderer.setSliceConfig({ layers, sections });
                 this.currentSectionConfig = index;
             }
             setSize(size) {
@@ -4709,14 +5312,18 @@ var tesserxel;
         })(EyeOffset = renderer.EyeOffset || (renderer.EyeOffset = {}));
         ;
         ;
-        const DefaultMaxVertexOutputNumber = 4;
         const DefaultWorkGroupSize = 256;
         const DefaultSliceResolution = 512;
         const DefaultMaxSlicesNumber = 256;
         const DefaultMaxCrossSectionBufferSize = 0x800000;
         const DefaultEnableFloat16Blend = true;
         class SliceRenderer {
-            // readonly ATTRIBUTE = 1;
+            getSafeTetraNumInOnePass() {
+                // maximum vertices per slice
+                let maxVertices = this.maxCrossSectionBufferSize >> (this.sliceGroupSizeBit + 4);
+                // one tetra generate at most 6 vertices
+                return Math.floor(maxVertices / 6);
+            }
             // configurations
             maxSlicesNumber;
             maxCrossSectionBufferSize;
@@ -4727,7 +5334,7 @@ var tesserxel;
             screenSize;
             outputBufferStride;
             blendFormat;
-            sliceConfig;
+            displayConfig;
             // GPU resources
             gpu;
             context;
@@ -4738,19 +5345,20 @@ var tesserxel;
             nearestTextureSampler;
             crossRenderPassDescClear;
             crossRenderPassDescLoad;
+            clearRenderPipeline;
             retinaRenderPipeline;
             screenRenderPipeline;
             retinaBindGroup;
             screenBindGroup;
+            sliceView;
+            depthView;
             outputVaryBufferPool = []; // all the vary buffers for pipelines
-            outputClearBuffer;
             sliceOffsetBuffer;
             emitIndexSliceBuffer;
             refacingBuffer; // refacing buffer stores not only refacing but also retina slices
             eyeBuffer;
             thumbnailViewportBuffer;
             readBuffer;
-            slicesBuffer;
             sliceGroupOffsetBuffer;
             retinaMVBuffer;
             retinaPBuffer;
@@ -4759,14 +5367,16 @@ var tesserxel;
             camProjBuffer;
             static outputAttributeUsage = GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX;
             // CPU caches for retina and screen
-            retinaViewMatrix = new tesserxel.math.Mat4();
+            slicesJsBuffer;
+            camProjJsBuffer = new Float32Array(4);
+            retinaProjecJsBuffer = new Float32Array(16);
             retinaMVMatJsBuffer = new Float32Array(16);
             currentRetinaFacing;
             retinaMatrixChanged = true;
             retinaFacingChanged = true;
             screenClearColor = { r: 0, g: 0, b: 0, a: 0.0 };
             renderState;
-            enableEye3D = false;
+            enableEye3D;
             refacingMatsCode;
             // section thumbnail
             totalGroupNum;
@@ -4803,7 +5413,6 @@ var tesserxel;
                 let thumbnailViewportBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 16 * 16 * 4);
                 // here is the default builtin(position) outputbuffer
                 this.outputVaryBufferPool.push(gpu.createBuffer(SliceRenderer.outputAttributeUsage, outputBufferSize, "Output buffer for builtin(position)"));
-                let outputClearBuffer = gpu.createBuffer(GPUBufferUsage.COPY_SRC, outputBufferSize);
                 let sliceGroupOffsetBuffer = gpu.createBuffer(GPUBufferUsage.COPY_SRC, _genSlicesOffsetJsBuffer());
                 let screenAspectBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
                 let layerOpacityBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
@@ -4816,14 +5425,12 @@ var tesserxel;
                     }
                     return sliceGroupOffsets;
                 }
-                this.outputClearBuffer = outputClearBuffer;
                 this.sliceOffsetBuffer = sliceOffsetBuffer;
                 this.emitIndexSliceBuffer = emitIndexSliceBuffer;
                 this.retinaMVBuffer = retinaMVBuffer;
                 this.retinaPBuffer = retinaPBuffer;
                 this.refacingBuffer = refacingBuffer;
                 this.eyeBuffer = eyeBuffer;
-                // this.slicesBuffer = slicesBuffer;
                 this.sliceGroupOffsetBuffer = sliceGroupOffsetBuffer;
                 this.screenAspectBuffer = screenAspectBuffer;
                 this.layerOpacityBuffer = layerOpacityBuffer;
@@ -4835,11 +5442,13 @@ var tesserxel;
                     usage: GPUTextureUsage.RENDER_ATTACHMENT,
                 });
                 let depthView = depthTexture.createView();
+                this.depthView = depthView;
                 let sliceTexture = gpu.device.createTexture({
                     size: sliceTextureSize, format: gpu.preferredFormat,
                     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
                 });
                 let sliceView = sliceTexture.createView();
+                this.sliceView = sliceView;
                 this.linearTextureSampler = gpu.device.createSampler({
                     magFilter: 'linear',
                     minFilter: 'linear'
@@ -5025,6 +5634,24 @@ struct _SliceInfo{
                 let retinaRenderShaderModule = gpu.device.createShaderModule({
                     code: retinaRenderCode
                 });
+                let clearModule = gpu.device.createShaderModule({
+                    code: "@vertex fn v()->@builtin(position) vec4<f32>{ return vec4<f32>();} @fragment fn f()->@location(0) vec4<f32>{ return vec4<f32>();}"
+                });
+                this.clearRenderPipeline = await gpu.device.createRenderPipelineAsync({
+                    layout: 'auto',
+                    vertex: {
+                        module: clearModule,
+                        entryPoint: 'v',
+                    },
+                    fragment: {
+                        module: clearModule,
+                        entryPoint: 'f',
+                        targets: [{ format: gpu.preferredFormat }]
+                    },
+                    depthStencil: {
+                        format: 'depth24plus',
+                    }
+                });
                 this.retinaRenderPipeline = await gpu.device.createRenderPipelineAsync({
                     layout: 'auto',
                     vertex: {
@@ -5117,14 +5744,19 @@ struct fInputType{
                 });
                 this.gpu = gpu;
                 this.context = context;
+                this.displayConfig = {
+                    layers: null,
+                    retinaEyeOffset: 0,
+                    sectionEyeOffset: 0,
+                    opacity: 0,
+                    sections: [],
+                    sliceNum: 0
+                };
                 // default retina settings
                 if (options?.defaultConfigs !== false) {
                     let size = 0.2;
-                    this.setSlice({
+                    this.setSliceConfig({
                         layers: 64,
-                        sectionEyeOffset: 0.1,
-                        retinaEyeOffset: 0.1,
-                        opacity: 1.0,
                         sections: [
                             {
                                 facing: tesserxel.renderer.SliceFacing.NEGX,
@@ -5158,6 +5790,8 @@ struct fInputType{
                             },
                         ]
                     });
+                    this.setEyeOffset(0.1, 0.1);
+                    this.setOpacity(1);
                     this.set4DCameraProjectMatrix({ fov: 90, near: 0.01, far: 10 });
                     this.setRetinaProjectMatrix({
                         fov: 40, near: 0.01, far: 10
@@ -5169,22 +5803,22 @@ struct fInputType{
             /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
              *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
              */
-            createVertexShaderBindGroup(pipeline, index, buffers) {
+            createVertexShaderBindGroup(pipeline, index, buffers, label) {
                 if (index == 0)
                     console.error("Unable to create BindGroup 0, which is occupied by internal usages.");
                 return this.gpu.createBindGroup((pipeline.computePipeline ?
                     pipeline.computePipeline :
-                    pipeline.pipeline), index, buffers.map(e => ({ buffer: e })), "VertexShaderBindGroup");
+                    pipeline.pipeline), index, buffers.map(e => ({ buffer: e })), "VertexShaderBindGroup<" + label + ">");
             }
             /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
              *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
              */
-            createFragmentShaderBindGroup(pipeline, index, buffers) {
+            createFragmentShaderBindGroup(pipeline, index, buffers, label) {
                 if (index == 0 && pipeline.pipeline)
                     console.error("Unable to create BindGroup 0, which is occupied by internal usages.");
                 return this.gpu.createBindGroup((pipeline.computePipeline ?
                     pipeline.renderPipeline :
-                    pipeline.pipeline), index, buffers.map(e => ({ buffer: e })), "FragmentShaderBindGroup");
+                    pipeline.pipeline), index, buffers.map(e => ({ buffer: e })), "FragmentShaderBindGroup<" + label + ">");
             }
             async createTetraSlicePipeline(desc) {
                 let vertexState = desc.vertex;
@@ -5549,7 +6183,8 @@ struct vOutputType{
                     computeBindGroup0: this.gpu.createBindGroup(computePipeline, 0, buffers, "TetraComputePipeline"),
                     renderPipeline,
                     vertexOutNum,
-                    outputVaryBuffer
+                    outputVaryBuffer,
+                    descriptor: desc
                 };
             }
             setSize(size) {
@@ -5581,12 +6216,12 @@ struct vOutputType{
                 return this.screenTexture.height / this.screenTexture.width;
             }
             set4DCameraProjectMatrix(camera) {
-                this.gpu.device.queue.writeBuffer(this.camProjBuffer, 0, new Float32Array(tesserxel.math.getPerspectiveMatrix(camera).vec4.flat()));
+                tesserxel.math.getPerspectiveMatrix(camera).vec4.writeBuffer(this.camProjJsBuffer);
+                this.gpu.device.queue.writeBuffer(this.camProjBuffer, 0, this.camProjJsBuffer);
             }
             setRetinaProjectMatrix(camera) {
-                let buffer = new Float32Array(16);
-                tesserxel.math.getPerspectiveMatrix(camera).mat4.writeBuffer(buffer);
-                this.gpu.device.queue.writeBuffer(this.retinaPBuffer, 0, buffer);
+                tesserxel.math.getPerspectiveMatrix(camera).mat4.writeBuffer(this.retinaProjecJsBuffer);
+                this.gpu.device.queue.writeBuffer(this.retinaPBuffer, 0, this.retinaProjecJsBuffer);
             }
             setRetinaViewMatrix(m) {
                 let e = m.elem;
@@ -5611,16 +6246,44 @@ struct vOutputType{
                     }
                 }
             }
-            getSliceConfig() {
-                if (!this.sliceConfig)
-                    return null;
-                let sections = this.sliceConfig.sections ?? [];
-                let config = {
-                    layers: this.sliceConfig.layers,
-                    retinaEyeOffset: this.sliceConfig.retinaEyeOffset ?? 0,
-                    sectionEyeOffset: this.sliceConfig.sectionEyeOffset ?? 0,
-                    opacity: this.sliceConfig.opacity ?? 1,
-                    sections: sections.map(e => ({
+            getOpacity() { return this.displayConfig.opacity; }
+            getSectionEyeOffset() { return this.displayConfig.sectionEyeOffset; }
+            getRetinaEyeOffset() { return this.displayConfig.retinaEyeOffset; }
+            getLayers() { return this.displayConfig.layers; }
+            getStereoMode() { return this.enableEye3D; }
+            setOpacity(opacity) {
+                this.displayConfig.opacity = opacity;
+                let value = this.displayConfig.sliceNum ? opacity / this.displayConfig.sliceNum : 1.0;
+                this.gpu.device.queue.writeBuffer(this.layerOpacityBuffer, 0, new Float32Array([value]));
+            }
+            setEyeOffset(sectionEyeOffset, retinaEyeOffset) {
+                let s = typeof sectionEyeOffset === "number";
+                let r = typeof retinaEyeOffset === "number";
+                if (s && r) {
+                    this.gpu.device.queue.writeBuffer(this.eyeBuffer, 0, new Float32Array([
+                        sectionEyeOffset, retinaEyeOffset
+                    ]));
+                }
+                else if (s) {
+                    this.gpu.device.queue.writeBuffer(this.eyeBuffer, 0, new Float32Array([
+                        sectionEyeOffset
+                    ]));
+                }
+                else if (r) {
+                    this.gpu.device.queue.writeBuffer(this.eyeBuffer, 4, new Float32Array([
+                        retinaEyeOffset
+                    ]));
+                }
+                if (s)
+                    this.displayConfig.sectionEyeOffset = sectionEyeOffset;
+                if (r)
+                    this.displayConfig.retinaEyeOffset = retinaEyeOffset;
+                this.enableEye3D = this.displayConfig.sectionEyeOffset > 0 || this.displayConfig.retinaEyeOffset > 0;
+            }
+            setSliceConfig(sliceConfig) {
+                if (sliceConfig.sections) {
+                    // deepcopy
+                    this.displayConfig.sections = sliceConfig.sections.map(e => ({
                         eyeOffset: e.eyeOffset ?? EyeOffset.None,
                         facing: e.facing,
                         slicePos: e.slicePos ?? 0,
@@ -5630,39 +6293,40 @@ struct vOutputType{
                             width: e.viewport.width,
                             height: e.viewport.height,
                         }
-                    }))
-                };
-                return config;
-            }
-            setSlice(sliceConfig) {
-                sliceConfig.sections ??= [];
-                sliceConfig.retinaEyeOffset ??= 0;
-                sliceConfig.sectionEyeOffset ??= 0;
-                this.enableEye3D = sliceConfig.retinaEyeOffset !== 0;
-                this.gpu.device.queue.writeBuffer(this.eyeBuffer, 0, new Float32Array([
-                    sliceConfig.sectionEyeOffset, sliceConfig.retinaEyeOffset
-                ]));
-                let sliceStep = 2 / sliceConfig.layers;
+                    }));
+                }
+                this.displayConfig.sections ??= [];
+                if ((!sliceConfig.sections) && ((typeof sliceConfig.layers !== "number") || this.displayConfig.layers == sliceConfig.layers))
+                    return;
+                sliceConfig.layers ??= this.displayConfig.layers ?? 0;
+                this.displayConfig.layers = sliceConfig.layers;
+                let sections = this.displayConfig.sections;
+                let sliceStep = 2 / sliceConfig.layers; // slice from -1 to 1
                 let sliceGroupNum = Math.ceil(sliceConfig.layers / this.sliceGroupSize);
                 let sliceNum = sliceGroupNum << this.sliceGroupSizeBit;
-                let sectionNum = sliceConfig.sections?.length ?? 0;
+                if (this.displayConfig.sliceNum !== sliceNum) {
+                    this.displayConfig.sliceNum = sliceNum;
+                    this.setOpacity(this.displayConfig.opacity ?? 1);
+                }
+                let sectionNum = sections.length ?? 0;
                 let sectionGroupNum = Math.ceil(sectionNum / this.sliceGroupSize);
                 let totalNum = sliceNum + (sectionGroupNum << this.sliceGroupSizeBit);
-                let slices = new Float32Array(totalNum << 2);
+                let slices = (this.slicesJsBuffer?.length === totalNum << 2) ? this.slicesJsBuffer : new Float32Array(totalNum << 2);
+                this.slicesJsBuffer = slices;
+                slices.fill(0); // todo : check neccesity?
                 for (let slice = -1, i = 0; i < sliceNum; slice += sliceStep, i++) {
                     slices[(i << 2)] = slice; // if slice > 1, discard in shader
                     slices[(i << 2) + 1] = 0;
                     slices[(i << 2) + 2] = 0;
                 }
-                this.sliceConfig = sliceConfig;
                 this.sliceGroupNum = sliceGroupNum;
                 this.totalGroupNum = sliceGroupNum + sectionGroupNum;
                 if (sectionNum) {
                     let thumbnailViewportJsBuffer = new Float32Array(4 * 16);
                     let lastGroupPosition = sectionGroupNum - 1 << this.sliceGroupSizeBit;
-                    let lastGroupSlices = this.sliceConfig.sections.length - lastGroupPosition;
+                    let lastGroupSlices = sections.length - lastGroupPosition;
                     for (let i = sliceNum, j = 0; i < totalNum; i++, j++) {
-                        let config = this.sliceConfig.sections[j];
+                        let config = sections[j];
                         slices[(i << 2)] = config?.slicePos ?? 0;
                         slices[(i << 2) + 1] = u32_to_f32(((config?.facing) ?? 0) | ((config?.eyeOffset ?? 1) << 3));
                         slices[(i << 2) + 2] = u32_to_f32(j < lastGroupPosition ? this.sliceGroupSize : lastGroupSlices);
@@ -5675,8 +6339,6 @@ struct vOutputType{
                     }
                     this.gpu.device.queue.writeBuffer(this.thumbnailViewportBuffer, 0, thumbnailViewportJsBuffer);
                 }
-                let opacity = sliceNum ? (sliceConfig.opacity ?? 1.0) / sliceNum : 1.0;
-                this.gpu.device.queue.writeBuffer(this.layerOpacityBuffer, 0, new Float32Array([opacity]));
                 this.gpu.device.queue.writeBuffer(this.emitIndexSliceBuffer, 0, slices);
                 this.retinaFacingChanged = true; // force to reload retina slice num into refacing buffer
                 function u32_to_f32(u32) {
@@ -5702,13 +6364,34 @@ struct vOutputType{
                 let commandEncoder = gpu.device.createCommandEncoder();
                 let canvasView = this.context.getCurrentTexture().createView();
                 for (let sliceIndex = 0; sliceIndex < this.totalGroupNum; sliceIndex++) {
-                    // commandEncoder.copyBufferToBuffer(this.outputPositionBuffer, 0, this.readBuffer, 0, this.maxCrossSectionBufferSize);
                     this.renderState = {
                         commandEncoder,
                         sliceIndex,
-                        needClear: true
+                        needClear: true,
                     };
+                    // set new slicegroup offset
+                    commandEncoder.copyBufferToBuffer(this.sliceGroupOffsetBuffer, sliceIndex << 2, this.sliceOffsetBuffer, 0, 4);
                     drawCall();
+                    if (this.renderState.needClear) {
+                        // if drawCall is empty, we also need to clear texture
+                        let clearPassEncoder = commandEncoder.beginRenderPass({
+                            colorAttachments: [{
+                                    view: this.sliceView,
+                                    clearValue: { r: 0, g: 0, b: 0, a: 0.0 },
+                                    loadOp: 'clear',
+                                    storeOp: 'discard'
+                                }],
+                            depthStencilAttachment: {
+                                view: this.depthView,
+                                depthClearValue: 1.0,
+                                depthLoadOp: 'clear',
+                                depthStoreOp: 'discard',
+                            }
+                        });
+                        clearPassEncoder.setPipeline(this.clearRenderPipeline);
+                        clearPassEncoder.draw(0);
+                        clearPassEncoder.end();
+                    }
                     let retinaPassEncoder = commandEncoder.beginRenderPass({
                         colorAttachments: [{
                                 view: this.screenView,
@@ -5719,8 +6402,8 @@ struct vOutputType{
                     });
                     retinaPassEncoder.setPipeline(this.retinaRenderPipeline);
                     retinaPassEncoder.setBindGroup(0, this.retinaBindGroup);
-                    let isSectionCount = this.sliceConfig.sections.length && sliceIndex >= this.sliceGroupNum;
-                    let lastCount = isSectionCount ? this.sliceConfig.sections.length % this.sliceGroupSize : 0;
+                    let isSectionCount = this.displayConfig.sections.length && sliceIndex >= this.sliceGroupNum;
+                    let lastCount = isSectionCount ? this.displayConfig.sections.length % this.sliceGroupSize : 0;
                     let count = isSectionCount ? (
                     // if is section group
                     sliceIndex == this.totalGroupNum - 1 && lastCount ? lastCount : this.sliceGroupSize) :
@@ -5742,29 +6425,80 @@ struct vOutputType{
                 screenPassEncoder.draw(4);
                 screenPassEncoder.end();
                 gpu.device.queue.submit([commandEncoder.finish()]);
-                // this.readBuffer.mapAsync(GPUMapMode.READ).then(()=>{
-                //     const copyArrayBuffer = new Float32Array(this.readBuffer.getMappedRange()).slice(0);
-                //     this.readBuffer.unmap();
-                //     console.log(copyArrayBuffer);
-                // });
+                this.renderState = null;
             } // end render
+            /** Set TetraSlicePipeline and prepare GPU resources.
+             *  Next calls should be function sliceTetras or setBindGroup.
+             */
             beginTetras(pipeline) {
+                if (!this.renderState)
+                    console.error("beginTetras should be called in a closure passed to render function");
                 let { commandEncoder, sliceIndex, needClear } = this.renderState;
-                commandEncoder.copyBufferToBuffer(this.outputClearBuffer, 0, this.emitIndexSliceBuffer, this.maxSlicesNumber << 4, 4 << this.sliceGroupSizeBit);
-                commandEncoder.copyBufferToBuffer(this.outputClearBuffer, 0, pipeline.outputVaryBuffer[0], 0, this.maxCrossSectionBufferSize);
-                if (needClear)
-                    commandEncoder.copyBufferToBuffer(this.sliceGroupOffsetBuffer, sliceIndex << 2, this.sliceOffsetBuffer, 0, 4);
+                // clear triagle slice vertex output pointer to zero (emitIndex part)
+                commandEncoder.clearBuffer(this.emitIndexSliceBuffer, this.maxSlicesNumber << 4, 4 << this.sliceGroupSizeBit);
+                // clear triagle slice vertex output data to zero
+                commandEncoder.clearBuffer(pipeline.outputVaryBuffer[0]);
                 let computePassEncoder = commandEncoder.beginComputePass();
                 computePassEncoder.setPipeline(pipeline.computePipeline);
                 computePassEncoder.setBindGroup(0, pipeline.computeBindGroup0);
                 this.renderState.computePassEncoder = computePassEncoder;
                 this.renderState.pipeline = pipeline;
             }
+            getFrustumRange() {
+                if (!this.renderState)
+                    console.error("getFrustum should be called in a closure passed to render function");
+                let minslice = this.renderState.sliceIndex << this.sliceGroupSizeBit;
+                let maxslice = minslice + this.sliceGroupSize - 1;
+                let isRetinaGroup = this.slicesJsBuffer[(minslice << 2) + 1];
+                let frustum;
+                // let refacing;
+                let camProj = 1 / this.camProjJsBuffer[1];
+                if (isRetinaGroup === 0) {
+                    minslice = this.slicesJsBuffer[minslice << 2] * camProj;
+                    maxslice = this.slicesJsBuffer[maxslice << 2] * camProj;
+                    switch (this.currentRetinaFacing) {
+                        case SliceFacing.POSZ:
+                            frustum = [-camProj, camProj, -camProj, camProj, minslice, maxslice];
+                            break;
+                        case SliceFacing.NEGZ:
+                            frustum = [-camProj, camProj, -camProj, camProj, -maxslice, -minslice];
+                            break;
+                        case SliceFacing.POSX:
+                            frustum = [minslice, maxslice, -camProj, camProj, -camProj, camProj];
+                            break;
+                        case SliceFacing.NEGX:
+                            frustum = [-maxslice, -minslice, -camProj, camProj, -camProj, camProj];
+                            break;
+                        case SliceFacing.POSY:
+                            frustum = [-camProj, camProj, minslice, maxslice, -camProj, camProj];
+                            break;
+                        case SliceFacing.NEGY:
+                            frustum = [-camProj, camProj, -maxslice, -minslice, -camProj, camProj];
+                            break;
+                    }
+                    // frustum = frustum.join(",");
+                    // refacing = SliceFacing[this.currentRetinaFacing];
+                }
+                else {
+                    // isRetinaGroup = new Uint32Array(new Float32Array([isRetinaGroup]).buffer)[0];
+                    // todo
+                }
+                return frustum;
+                // console.log({ isRetinaGroup, frustum,  refacing});
+            }
             setBindGroup(index, bindGroup) {
+                if (!this.renderState)
+                    console.error("setBindGroup should be called in a closure passed to render function");
                 let { computePassEncoder } = this.renderState;
                 computePassEncoder.setBindGroup(index, bindGroup);
             }
+            /** Compute slice of given bindgroup attribute data.
+             *  beginTetras should be called at first to specify a tetraSlicePipeline
+             *  Next calls should be function sliceTetras, setBindGroup or drawTetras.
+             */
             sliceTetras(vertexBindGroup, tetraCount, instanceCount) {
+                if (!this.renderState)
+                    console.error("sliceTetras should be called in a closure passed to render function");
                 let { computePassEncoder } = this.renderState;
                 computePassEncoder.setBindGroup(1, vertexBindGroup);
                 computePassEncoder.dispatchWorkgroups(Math.ceil(tetraCount / 256), instanceCount); // todo: change workgroups
@@ -5775,7 +6509,12 @@ struct vOutputType{
             setScreenClearColor(color) {
                 this.screenClearColor = color;
             }
+            /** This function draw slices on a internal framebuffer
+             *  Every beginTetras call should be end with drawTetras call
+             */
             drawTetras(bindGroups) {
+                if (!this.renderState)
+                    console.error("drawTetras should be called in a closure passed to render function");
                 let { commandEncoder, computePassEncoder, pipeline, needClear } = this.renderState;
                 computePassEncoder.end();
                 let slicePassEncoder = commandEncoder.beginRenderPass(
@@ -5947,9 +6686,9 @@ fn calDepth(distance: f32)->f32{
                 };
             }
             drawRaytracing(pipeline, bindGroups) {
+                if (!this.renderState)
+                    console.error("drawRaytracing should be called in a closure passed to render function");
                 let { commandEncoder, needClear, sliceIndex } = this.renderState;
-                if (needClear)
-                    commandEncoder.copyBufferToBuffer(this.sliceGroupOffsetBuffer, sliceIndex << 2, this.sliceOffsetBuffer, 0, 4);
                 let slicePassEncoder = commandEncoder.beginRenderPass(needClear ? this.crossRenderPassDescClear : this.crossRenderPassDescLoad);
                 slicePassEncoder.setPipeline(pipeline.pipeline);
                 slicePassEncoder.setBindGroup(0, pipeline.bindGroup0);
@@ -8029,9 +8768,14 @@ var tesserxel;
             child = [];
             worldCoord;
             needsUpdateCoord = true;
+            alwaysUpdateCoord = false;
             constructor() {
                 super();
                 this.worldCoord = new tesserxel.math.AffineMat4();
+            }
+            updateCoord() {
+                this.needsUpdateCoord = true;
+                return this;
             }
             add(obj) {
                 this.child.push(obj);
@@ -8042,6 +8786,7 @@ var tesserxel;
             fov = 90;
             near = 0.1;
             far = 100;
+            alwaysUpdateCoord = true;
             needsUpdate = true;
         }
         four.Camera = Camera;
@@ -8062,8 +8807,26 @@ var tesserxel;
             jsBuffer;
             gpuBuffer;
             needsUpdate = true;
+            dynamic = false;
+            obb = new tesserxel.math.AABB;
             constructor(data) {
                 this.jsBuffer = data;
+            }
+            updateOBB() {
+                let obb = this.obb;
+                let pos = this.jsBuffer.position;
+                obb.min.set(Infinity, Infinity, Infinity, Infinity);
+                obb.max.set(-Infinity, -Infinity, -Infinity, -Infinity);
+                for (let i = 0, l = this.jsBuffer.tetraCount << 4; i < l; i += 4) {
+                    obb.min.x = Math.min(obb.min.x, pos[i]);
+                    obb.min.y = Math.min(obb.min.y, pos[i + 1]);
+                    obb.min.z = Math.min(obb.min.z, pos[i + 2]);
+                    obb.min.w = Math.min(obb.min.w, pos[i + 3]);
+                    obb.max.x = Math.max(obb.max.x, pos[i]);
+                    obb.max.y = Math.max(obb.max.y, pos[i + 1]);
+                    obb.max.z = Math.max(obb.max.z, pos[i + 2]);
+                    obb.max.w = Math.max(obb.max.w, pos[i + 3]);
+                }
             }
         }
         four.Geometry = Geometry;
@@ -8262,8 +9025,9 @@ var tesserxel;
         }
         /** Material is the top node of MaterialNode */
         class Material extends MaterialNode {
-            cullFace;
+            cullMode = "front";
             compiling = false;
+            compiled = false;
             needsUpdate = true;
             output = "shader";
             pipeline;
@@ -8277,16 +9041,23 @@ var tesserxel;
             createBindGroup(r, p) {
                 this.bindGroup = this.bindGroupBuffers.length ? [r.core.createFragmentShaderBindGroup(p, 0, this.bindGroupBuffers)] : [];
             }
+            init(r) {
+                this.getShaderCode(r); // scan code to get binding infomations
+                this.compiling = false;
+                this.compiled = true;
+            }
             async compile(r) {
                 this.compiling = true;
                 r.pullPipeline(this.identifier, "compiling");
                 let { vs, fs } = this.getShaderCode(r);
                 this.pipeline = await r.core.createTetraSlicePipeline({
                     vertex: { code: vs, entryPoint: "main" },
-                    fragment: { code: fs, entryPoint: "main" }
+                    fragment: { code: fs, entryPoint: "main" },
+                    cullMode: this.cullMode
                 });
                 r.pullPipeline(this.identifier, this.pipeline);
                 this.compiling = false;
+                this.compiled = true;
             }
             // when a subnode uses vary input, call this function to check attribute buffer and construct input structure
             addVary(a) {
@@ -8311,15 +9082,21 @@ var tesserxel;
                 return [g.gpuBuffer["position"], ...this.fetchBuffers.map(b => g.gpuBuffer[b])];
             }
             getShaderCode(r) {
+                // what we need in jsData except for position buffer
                 this.fetchBuffers = [];
+                // renderPipeline's uniform variables except for world light (in another group)
                 this.declUniforms = {};
+                // output of computeShader, also input for fragment shader
                 this.declVarys = [];
                 this.bindGroupBuffers = [];
+                // renderPipeline's uniform bindgroup's location number
                 this.declUniformLocation = 0;
                 // iteratively generate code
                 let code = this.getCode(r, this, "");
+                // deal no need for vary input
                 let fsIn = this.declVarys.length ? 'vary: fourInputType' : "";
                 let lightCode = r.lightShaderInfomation.lightCode;
+                // if no uniform at group0, then bind lights on 0, or 1
                 if (this.declUniformLocation === 0) {
                     lightCode = lightCode.replace("@group(1)", "@group(0)");
                 }
@@ -8616,7 +9393,7 @@ var tesserxel;
                 let { token, code } = this.getInputCode(r, root, outputToken);
                 return code + `
                 let ${outputToken}_grid = step(${token.gridWidth}, fract(${token.uvw}));
-                let ${outputToken} = mix(${token.color1},${token.color2},${outputToken}_grid.x*${outputToken}_grid.y*${outputToken}_grid.z*${outputToken}_grid.w);
+                let ${outputToken} = mix(${token.color1},${token.color2},${outputToken}_grid.x*${outputToken}_grid.y*${outputToken}_grid.z);
                 `;
             }
             constructor(color1, color2, gridWidth, uvw) {
@@ -8670,6 +9447,10 @@ var tesserxel;
             uCamMatBuffer; // contain inv and uninv affineMat
             uWorldLightBuffer;
             lightShaderInfomation = four._initLightShader();
+            cameraInScene;
+            safeTetraNumInOnePass;
+            tetraNumOccupancyRatio = 0.05;
+            maxTetraNumInOnePass;
             constructor(canvas) {
                 this.canvas = canvas;
                 this.core = new tesserxel.renderer.SliceRenderer();
@@ -8683,6 +9464,7 @@ var tesserxel;
                 this.uCamMatBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, (4 * 5 * 2) * 4, "uCamMat");
                 this.uWorldLightBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, this.lightShaderInfomation.uWorldLightBufferSize, "uWorldLight");
                 this.core.setSize({ width: this.canvas.width * devicePixelRatio, height: this.canvas.height * devicePixelRatio });
+                this.safeTetraNumInOnePass = this.core.getSafeTetraNumInOnePass();
                 return this;
             }
             // todo: add computePipeLinePool
@@ -8699,6 +9481,9 @@ var tesserxel;
             }
             updateObject(o) {
                 for (let c of o.child) {
+                    if (c.alwaysUpdateCoord) {
+                        c.needsUpdateCoord = true;
+                    }
                     if (c.needsUpdateCoord || o.needsUpdateCoord) {
                         c.worldCoord.setFromObj4(c).mulsl(o.worldCoord);
                         c.needsUpdateCoord = true;
@@ -8728,6 +9513,7 @@ var tesserxel;
                     this.directionalLights.push(o);
                 }
                 else if (o.needsUpdateCoord && o === this.activeCamera) {
+                    this.cameraInScene = true;
                     o.worldCoord.inv().writeBuffer(this.jsBuffer);
                     o.worldCoord.writeBuffer(this.jsBuffer, 20);
                     this.gpu.device.queue.writeBuffer(this.uCamMatBuffer, 0, this.jsBuffer, 0, 40);
@@ -8745,17 +9531,40 @@ var tesserxel;
                 }
                 if (pipeline === "compiling")
                     return;
+                // if this material can use other's pipeline, it hasn't compiled but also need some initiations
+                if (!m.material.compiled) {
+                    m.material.init(this);
+                }
                 let groupName = m.material.uuid;
                 let group = m.material.declUniformLocation ? 1 : 0;
-                let bindGroup = this.core.createFragmentShaderBindGroup(pipeline, group, [this.uWorldLightBuffer]);
-                this.drawList[groupName] ??= { pipeline: pipeline, meshes: [], bindGroup: { group, binding: bindGroup } };
-                this.drawList[groupName].meshes.push(m);
+                if (!this.drawList[groupName]) {
+                    let bindGroup = this.core.createFragmentShaderBindGroup(pipeline, group, [this.uWorldLightBuffer], "WorldLightGroup");
+                    this.drawList[groupName] = {
+                        pipeline: pipeline, meshes: [],
+                        bindGroup: { group, binding: bindGroup }, tetraCount: 0
+                    };
+                }
+                let list = this.drawList[groupName];
+                // while (list.next) {
+                //     list = this.drawList[list.next]; //go to the end of chain table
+                // }
+                // list.tetraCount += m.geometry.jsBuffer.tetraCount;
+                list.meshes.push(m);
+                // if (list.tetraCount > this.maxTetraNumInOnePass) {
+                //     // append a new node to chain, wait for accept new objects next time
+                //     groupName = list.next = math.generateUUID();
+                //     this.drawList[groupName] = {
+                //         pipeline: pipeline, meshes: [],
+                //         bindGroup: list.bindGroup, tetraCount: 0
+                //     };
+                // }
                 if (!m.bindGroup) {
-                    m.bindGroup = this.core.createVertexShaderBindGroup(pipeline, 1, [
+                    let buffers = [
                         ...m.material.fetchBuffer(m.geometry),
                         m.uObjMatBuffer,
                         this.uCamMatBuffer
-                    ]);
+                    ];
+                    m.bindGroup = this.core.createVertexShaderBindGroup(pipeline, 1, buffers, m.material.identifier);
                 }
                 if (!m.material.bindGroup) {
                     m.material.createBindGroup(this, pipeline);
@@ -8776,15 +9585,17 @@ var tesserxel;
                 if (m.geometry.needsUpdate) {
                     let g = m.geometry;
                     g.needsUpdate = false;
+                    g.updateOBB();
                     if (!g.gpuBuffer) {
                         g.gpuBuffer = {};
+                        let dyn = g.dynamic ? GPUBufferUsage.COPY_DST : 0;
                         for (let [label, value] of globalThis.Object.entries(g.jsBuffer)) {
                             if (value instanceof Float32Array) {
-                                g.gpuBuffer[label] = this.gpu.createBuffer(GPUBufferUsage.STORAGE, value, "AttributeBuffer." + label);
+                                g.gpuBuffer[label] = this.gpu.createBuffer(GPUBufferUsage.STORAGE | dyn, value, "AttributeBuffer." + label);
                             }
                         }
                     }
-                    else {
+                    else if (g.dynamic) {
                         for (let [label, buffer] of globalThis.Object.entries(g.gpuBuffer)) {
                             this.gpu.device.queue.writeBuffer(buffer, 0, g.jsBuffer[label]);
                         }
@@ -8793,13 +9604,20 @@ var tesserxel;
             }
             updateScene(scene) {
                 this.core.setWorldClearColor(scene.backGroundColor);
+                this.cameraInScene = false;
+                this.maxTetraNumInOnePass = this.safeTetraNumInOnePass / this.tetraNumOccupancyRatio;
                 for (let c of scene.child) {
+                    if (c.alwaysUpdateCoord) {
+                        c.needsUpdateCoord = true;
+                    }
                     if (c.needsUpdateCoord) {
                         c.worldCoord.setFromObj4(c);
                     }
                     this.updateObject(c);
                     c.needsUpdateCoord = false;
                 }
+                if (this.cameraInScene === false)
+                    console.error("Target camera is not in the scene. Forget to add it?");
                 four._updateWorldLight(this);
             }
             ambientLightDensity = new tesserxel.math.Vec3;
@@ -8815,20 +9633,62 @@ var tesserxel;
                 }
                 this.activeCamera = camera;
             }
+            computeFrustumRange(range) {
+                return range ? [
+                    new tesserxel.math.Vec4(-1, 0, 0, -range[0]).mulmatls(this.activeCamera.worldCoord.mat),
+                    new tesserxel.math.Vec4(1, 0, 0, range[1]).mulmatls(this.activeCamera.worldCoord.mat),
+                    new tesserxel.math.Vec4(0, -1, 0, -range[2]).mulmatls(this.activeCamera.worldCoord.mat),
+                    new tesserxel.math.Vec4(0, 1, 0, range[3]).mulmatls(this.activeCamera.worldCoord.mat),
+                    new tesserxel.math.Vec4(0, 0, -1, -range[4]).mulmatls(this.activeCamera.worldCoord.mat),
+                    new tesserxel.math.Vec4(0, 0, 1, range[5]).mulmatls(this.activeCamera.worldCoord.mat),
+                ] : null;
+            }
+            _testWithFrustumData(m, data) {
+                if (!data)
+                    return true;
+                let relP = this.activeCamera.worldCoord.vec.sub(m.worldCoord.vec);
+                let obb = m.geometry.obb;
+                let matModel = m.worldCoord.mat.t();
+                for (let f of data) {
+                    if (obb.testPlane(new tesserxel.math.Plane(matModel.mulv(f), f.dot(relP))) === 1)
+                        return false;
+                }
+                return true;
+            }
             render(scene, camera) {
                 this.clearState();
                 this.setCamera(camera);
                 this.updateScene(scene);
                 this.core.render(() => {
+                    let frustumData = this.computeFrustumRange(this.core.getFrustumRange());
                     for (let { pipeline, meshes, bindGroup } of globalThis.Object.values(this.drawList)) {
-                        this.core.beginTetras(pipeline);
-                        for (let mesh of meshes) {
-                            this.core.sliceTetras(mesh.bindGroup, mesh.geometry.jsBuffer.tetraCount);
-                        }
-                        this.core.drawTetras([
+                        if (!meshes.length)
+                            continue; // skip empty (may caused by safe tetranum check)
+                        let tetraState = false;
+                        let tetraCount = 0;
+                        let binding = [
                             ...meshes[0].material.bindGroup.map((bg, binding) => ({ group: binding, binding: bg })),
                             bindGroup
-                        ]);
+                        ];
+                        for (let mesh of meshes) {
+                            if (!this._testWithFrustumData(mesh, frustumData))
+                                continue;
+                            if (tetraState === false) {
+                                this.core.beginTetras(pipeline);
+                                tetraCount = 0;
+                                tetraState = true;
+                            }
+                            this.core.sliceTetras(mesh.bindGroup, mesh.geometry.jsBuffer.tetraCount);
+                            tetraCount += mesh.geometry.jsBuffer.tetraCount;
+                            if (tetraCount > this.maxTetraNumInOnePass) {
+                                this.core.drawTetras(binding);
+                                tetraState = false;
+                                tetraCount = 0;
+                            }
+                        }
+                        if (tetraState === true) {
+                            this.core.drawTetras(binding);
+                        }
                     }
                 });
             }

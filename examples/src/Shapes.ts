@@ -171,10 +171,7 @@ namespace examples {
                 return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, mix(0.2,1.0,factor));
             }`;
             let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.glome(1.5, 32, 32, 16));
-            let config = app.renderer.getSliceConfig();
-            config.opacity = 10.0;
-            // retina controller will own the slice config, so we should not call renderer.setSlice() directly
-            app.retinaController.setSlice(config);
+            app.retinaController.setOpacity(10.0);
             app.run();
         }
     }

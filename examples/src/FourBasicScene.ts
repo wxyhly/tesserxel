@@ -14,6 +14,8 @@ namespace examples {
             let cubeGeometry = new FOUR.TesseractGeometry();
             let material = new FOUR.BasicMaterial({ r: 1.0, g: 0.0, b: 0.0, a: 1.0 });
             let mesh = new FOUR.Mesh(cubeGeometry, material);
+            
+            mesh.alwaysUpdateCoord = true; // to tell renderer to update mesh's orientation in every frame
             scene.add(mesh);
             scene.add(camera);
             // move camera a little back to see hypercube at origin
@@ -34,12 +36,10 @@ namespace examples {
             window.addEventListener("resize", setSize);
             function run() {
                 controllerRegistry.update();
-                camera.needsUpdateCoord = true; // to tell renderer to update camera's orientation
                 // For every frame, we rotate the mesh by angle of 0.01 radius degree in both xw and yz direction
                 // We got a double clifford rotation here
                 mesh.rotates(tesserxel.math.Bivec.xw.mulf(0.01).exp());
                 mesh.rotates(tesserxel.math.Bivec.yz.mulf(0.01).exp());
-                mesh.needsUpdateCoord = true; // to tell renderer to update mesh's orientation
                 renderer.render(scene, camera);
                 window.requestAnimationFrame(run);
             }

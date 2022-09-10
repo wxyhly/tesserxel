@@ -1,187 +1,161 @@
 namespace examples {
-    class ForceApp {
-        renderer: tesserxel.renderer.SliceRenderer;
-        camController: tesserxel.controller.FreeFlyController;
-        retinaController: tesserxel.controller.RetinaController;
-        ctrlreg: tesserxel.controller.ControllerRegistry;
-        headercode = `
-        struct rayOut{
-            @location(0) o: vec4<f32>,
-            @location(1) d: vec4<f32>
-        }
-        @group(1) @binding(0) var<uniform> camMat: AffineMat;
-        @ray fn mainRay(
-            @builtin(ray_direction) rd: vec4<f32>,
-            @builtin(ray_origin) ro: vec4<f32>
-        ) -> rayOut{
-            return rayOut(camMat.matrix*ro+camMat.vector, camMat.matrix*rd);
-        }
-        {replace}
-        @fragment fn mainFragment(@location(0) rayOrigin: vec4<f32>, @location(1) rayDir: vec4<f32>)->@location(0) vec4<f32>{
-        return render(ray(rayOrigin, normalize(rayDir)));
-        }
-        struct ray{
-            o: vec4<f32>,
-            d: vec4<f32>,
-        }
-        struct glome{
-            p: vec4<f32>,
-            r: f32,
-            id: u32
-        }
-        struct plane{
-            n: vec4<f32>,
-            o: f32,
-            id: u32
-        }
-        struct rotor{
-            l: vec4<f32>,
-            r: vec4<f32>
-        }
-        struct obj4{
-            p: vec4<f32>,
-            r: rotor
-        }
-        fn quaternionMul(q1:vec4<f32>,q2:vec4<f32>)->vec4<f32>{
-            return vec4<f32>(
-                q1.x * q2.x - q1.y * q2.y - q1.z * q2.z - q1.w * q2.w,
-                q1.x * q2.y + q1.y * q2.x + q1.z * q2.w - q1.w * q2.z,
-                q1.x * q2.z - q1.y * q2.w + q1.z * q2.x + q1.w * q2.y,
-                q1.x * q2.w + q1.y * q2.z - q1.z * q2.y + q1.w * q2.x
-            );
-        }
-        fn rotate(r:rotor, p:vec4<f32>)->vec4<f32>{
-            return quaternionMul(quaternionMul(r.l,p),r.r);
-        }
-        fn intGlome(r:ray, g:glome)->f32 {
-            let oc = r.o - g.p;
-            let b = dot(oc, r.d);
-            let c = dot(oc, oc) - g.r*g.r;
-            var t = b*b - c;
-            if(t > 0.0) {
-                t = -b - sqrt(t);
-            }
-            if(t < 0.0) {
-                return 10000.0;
-            }
-            return t;
-        }
-        fn intPlane(r:ray, p:plane)->f32 {
-            let t = (p.o - dot(r.o, p.n)) / dot(r.d, p.n);
-            if(t < 0.0) {
-                return 10000.0;
-            }
-            return t;
-        }
-        `
-        async load(code: string,
-            genBuffersToBind: (gpu: tesserxel.renderer.GPU) => GPUBuffer[],
-            runWorld: (gpu: tesserxel.renderer.GPU) => void,
+    export namespace spring_rope {
+        export async function load() {
+            const math = tesserxel.math;
+            const glomeNums = 20;
+            const glomeRadius = 0.1;
+            const pointA = new math.Vec4(-1, 1, 0, 0);
+            const pointB = new math.Vec4(1, 1, 0, 0);
 
-        ) {
-            let gpu = await tesserxel.renderer.createGPU();
-            let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-            let context = gpu.getContext(canvas);
-            let renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, {
-                enableFloat16Blend: false,
-                sliceGroupSize: 8
-            });
-            this.renderer = renderer;
-            renderer.setScreenClearColor({ r: 1, g: 1, b: 1, a: 1 });
-            let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
-            let camController = new tesserxel.controller.FreeFlyController();
-            camController.object.position.set(0.001, 0.00141, 0.00172, 3);
-            this.camController = camController;
-            let retinaController = new tesserxel.controller.RetinaController(renderer);
-            this.retinaController = retinaController;
-            let ctrlreg = new tesserxel.controller.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
-            let matModelViewJSBuffer = new Float32Array(20);
-            let pipeline = await renderer.createRaytracingPipeline({
-                code: this.headercode.replace(/\{replace\}/g, code),
-                rayEntryPoint: "mainRay",
-                fragmentEntryPoint: "mainFragment"
-            });
-            let buffers = genBuffersToBind(gpu);
-            let bindgroups = [renderer.createVertexShaderBindGroup(pipeline, 1, [camBuffer, ...buffers])];
-            this.ctrlreg = ctrlreg;
-            this.run = () => {
-                runWorld(gpu);
-                ctrlreg.update();
-                camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
-                gpu.device.queue.writeBuffer(camBuffer, 0, matModelViewJSBuffer);
+            // init render scene
 
-                renderer.render(() => {
-                    renderer.drawRaytracing(pipeline, bindgroups);
-                });
-                window.requestAnimationFrame(this.run);
+            const FOUR = tesserxel.four;
+            const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+            const renderer = await new FOUR.Renderer(canvas).init();
+            let scene = new FOUR.Scene();
+            renderer.setBackgroudColor([1, 1, 1, 1]);
+            scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+            let camera = new FOUR.Camera();
+            camera.position.w = 2;
+            scene.add(camera);
+            const glomeGeometry = new FOUR.GlomeGeometry(glomeRadius);
+            const materialRed = new FOUR.PhongMaterial({ r: 1.0, g: 0.0, b: 0.0, a: 1.0 });
+            let renderGlomes = [];
+            for (let i = 0; i < glomeNums; i++) {
+                let g = new FOUR.Mesh(glomeGeometry, materialRed);
+                renderGlomes.push(g);
+                scene.add(g);
             }
+            let meshGlome0 = new FOUR.Mesh(glomeGeometry, new FOUR.LambertMaterial({ r: 0.2, g: 0.2, b: 1.0, a: 1.0 }));
+            let meshGlome1 = new FOUR.Mesh(glomeGeometry, new FOUR.LambertMaterial({ r: 0.2, g: 0.2, b: 1.0, a: 1.0 }));
+            scene.add(meshGlome0);
+            scene.add(meshGlome1);
+            meshGlome0.position.copy(pointA);
+            scene.add(new FOUR.DirectionalLight([3.3, 3, 3], new math.Vec4(0, 1, 0, 3).norms()));
+            scene.add(new FOUR.DirectionalLight([0.2, 0.3, 0.4], math.Vec4.yNeg));
+            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+                new tesserxel.controller.RetinaController(renderer.core),
+                new tesserxel.controller.KeepUpController(camera)
+            ], { requsetPointerLock: true });
             function setSize() {
                 let width = window.innerWidth * window.devicePixelRatio;
                 let height = window.innerHeight * window.devicePixelRatio;
-                canvas.width = width;
-                canvas.height = height;
+                renderer.setSize({ width, height });
+            }
+
+            renderer.core.setOpacity(10);
+            setSize();
+            window.addEventListener("resize", setSize);
+
+            // init physic scene
+
+            const phy = tesserxel.physics;
+            const engine = new phy.Engine({ forceAccumulator: phy.force_accumulator.RK4, broadPhase: phy.IgnoreAllBroadPhase });
+            const world = new phy.World();
+            // world.gravity.set();
+            let k = 2000, l = 1.0 * 2 / (glomeNums + 1), v = 30;
+            let physicGlomes = [];
+            for (let i = 0; i < glomeNums; i++) {
+                let g = new phy.Rigid({ geometry: new phy.rigid.Glome(glomeRadius), mass: 0.5, material: null });
+                g.position.y = 1;
+                g.position.x = ((i + 1) / (glomeNums + 1) - 0.5) * 2;
+                g.velocity.randset().mulfs(v);
+                if (i) world.add(new phy.force.Spring(g, physicGlomes[i - 1], new math.Vec4(), new math.Vec4(), k, l));
+                world.add(g);
+                physicGlomes.push(g);
+            }
+            world.add(new phy.force.Spring(physicGlomes[0], null, new math.Vec4(), pointA, k, l));
+            world.add(new phy.force.Spring(physicGlomes[glomeNums - 1], null, new math.Vec4(), pointB, k, l));
+
+            // run everything
+            function run() {
+                for (let i = 0; i < glomeNums; i++) {
+                    renderGlomes[i].copyObj4(physicGlomes[i]);
+                    renderGlomes[i].needsUpdateCoord = true;
+                }
+                camera.needsUpdateCoord = true;
+                pointB.set(0, Math.sin(world.time * 10) * 0.2 + 1, Math.cos(world.time * 10) * 0.2, 0);
+                meshGlome1.position.copy(pointB);
+                meshGlome1.needsUpdateCoord = true;
+                controllerRegistry.update();
+                renderer.render(scene, camera);
+                engine.update(world, 1 / 60)
+                window.requestAnimationFrame(run);
+            }
+            run();
+
+        }
+    }
+    export namespace rigid_test {
+        export async function load() {
+            const math = tesserxel.math;
+            const size = new math.Vec4(5, 4, 3, 2);
+            let slope = 0 * math._DEG2RAD;
+
+            // init render scene
+
+            const FOUR = tesserxel.four;
+            const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+            const renderer = await new FOUR.Renderer(canvas).init();
+            let scene = new FOUR.Scene();
+            renderer.setBackgroudColor([1, 1, 1, 1]);
+            scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+            let camera = new FOUR.Camera();
+            camera.position.w = 8;
+            camera.position.y = 1;
+            scene.add(camera);
+
+            scene.add(new FOUR.AmbientLight(0.3));
+            scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
+            // const geom = new FOUR.GlomeGeometry(1);
+            const geom = new FOUR.TesseractGeometry(size);
+            const materialRed = new FOUR.PhongMaterial(new FOUR.GridTexture([1, 0, 0], [1, 1, 1, 0.5], 0.2));
+            const floor = new FOUR.Mesh(new FOUR.CubeGeometry(50), new FOUR.PhongMaterial([0, 0.6, 0.2]));
+            floor.rotation.expset(math.Bivec.xy.mulf(Math.asin(-slope)));
+            scene.add(floor);
+            let rg = new FOUR.Mesh(geom, materialRed);
+            rg.alwaysUpdateCoord = true;
+            scene.add(rg);
+
+            renderer.core.setEyeOffset(0.5);
+            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+                new tesserxel.controller.RetinaController(renderer.core),
+                new tesserxel.controller.KeepUpController(camera)
+            ], { requsetPointerLock: true });
+            function setSize() {
+                let width = window.innerWidth * window.devicePixelRatio;
+                let height = window.innerHeight * window.devicePixelRatio;
                 renderer.setSize({ width, height });
             }
             setSize();
             window.addEventListener("resize", setSize);
-            return this;
-        }
-        run: () => void;
-    }
-    export namespace pendulum {
-        export async function load() {
-            let objCounts = 2;
-            let sceneCode = `
-            @group(1) @binding(1) var<uniform> positions: array<vec4<f32>,${objCounts}>;
-            fn render(r: ray)->vec4<f32>{
-                let g1 = glome(positions[0],1.0,1);
-                let g2 = glome(positions[1],1.0,2);
-                var t = 10000.0;
-                t = intGlome(r,g1);
-                if(t<10000.0){
-                    return vec4<f32>(0.0,0.0,1.0,1.0);
-                }
-                t = min(t,intGlome(r,g2));
-                // t = min(t,intPlane(,plane()));
-                if(t<10000.0){return vec4<f32>(1.0,0.0,0.0,1.0);}
-                return vec4<f32>(1.0,1.0,1.0,0.0);
-            }
-            `;
-            let posBuffer: GPUBuffer;
-            let posJsBuffer = new Float32Array(objCounts << 4);
+
+            // init physic scene
 
             const phy = tesserxel.physics;
-            const vec = tesserxel.math.Vec4;
-            let engin = new phy.Engine(new phy.force_accumulator.RK4());
-            let world = new phy.World();
-            world.gravity.set();
-            let glome1 = new phy.Object(new phy.Glome(1), 1);
-            let glome2 = new phy.Object(new phy.Glome(2), 1);
-            let floor = new phy.Object(new phy.Glome(2), 1);
-            glome1.velocity.x = Math.sqrt(5);
-            glome1.geometry.position.y = 1;
-            // glome2.velocity.y = 1;
-            world.addObject(glome1);
-            world.addObject(glome2);
-            let spring1 = new phy.force.Spring(glome1, null, new vec(), new vec(), 5.0, 0);
-            let spring2 = new phy.force.Spring(glome2, glome1, new vec(), new vec(), 5.0, 0, 1);
-            world.addForce(spring1);
-            // world.addForce(spring2);
+            const engine = new phy.Engine({ forceAccumulator: phy.force_accumulator.Predict3 });
+            const world = new phy.World();
+            const material = new phy.Material(1, 0.5);
+            world.add(new phy.Rigid({ geometry: new phy.rigid.Plane(new math.Vec4(Math.sin(slope), Math.cos(slope))), mass: 0, material }))
+            // let obj = new phy.Rigid({ geometry: new phy.rigid.Glome(1), material, mass: 1 });
+            let obj = new phy.Rigid({ geometry: new phy.rigid.Tesseractoid(size), material, mass: 1 });
+            world.add(obj);
+            // obj.angularVelocity.xy = 30;//.copy(math.Bivec.rand());
+            obj.position.y = 10;
+            // run everything
+            function run() {
+                rg.copyObj4(obj);
+                controllerRegistry.update();
+                renderer.render(scene, camera); camera.needsUpdateCoord = true;
 
-            let app = await new ForceApp().load(sceneCode,
-                (gpu) => {
-                    posBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, posJsBuffer);
-                    return [posBuffer];
-                },
-                (gpu) => {
-                    engin.update(world, Math.min(app.ctrlreg.states.mspf ?? 0.01, 0.1))
-                    glome1.geometry.position.writeBuffer(posJsBuffer, 0);
-                    glome2.geometry.position.writeBuffer(posJsBuffer, 4);
-                    gpu.device.queue.writeBuffer(posBuffer, 0, posJsBuffer);
-                }
-            );
-            app.run();
+                if (goon || !engine.narrowPhase.collisionList.length) engine.update(world, 1 / 60);
+                window.requestAnimationFrame(run);
+            }
+            renderer.render(scene, camera);
+            setTimeout(run, 100);
+
         }
     }
 }
 
+let goon = true;

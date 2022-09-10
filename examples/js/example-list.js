@@ -9,11 +9,12 @@ let examples = [
     { target: "julia_quaternion", zh: "四元数Julia集", en: "Quaternion Julia Set" },
     { target: "instanced_cubes", zh: "实例化多方块", en: "Instanced Hypercubes" },
     { target: "city_highway", zh: "城市高速", en: "City Highway" },
-    { target: "pendulum", zh: "摆", en: "Pendulum" },
     { target: "four_basic_scene", zh: "创建简单Four场景", en: "Basic Four Scene Creation" },
-    { target: "four_materials", zh: "Four基本材质", en: "Basic Four Materials" },
-    // { target: "convexhull", zh: "凸包算法", en: "Convex Hull" },
+    { target: "four_materials", zh: "Four材质与灯光", en: "Four Materials & Lights" },
+    { target: "spring_rope", zh: "弹簧绳", en: "Rope with Springs" },
+    { target: "rigid_test", zh: "刚体测试", en: "Rigid body test" },
 ];
+// todo: magicCube4D
 let info = {
     default: {
         "zh": "点击侧栏中的示例，这里将显示说明。",
@@ -58,5 +59,17 @@ let info = {
     julia_quaternion:{
         "zh":"<b>控制：自由飞行模式</b><br>使用四元数的Julia集。迭代公式为：z->z<sup>2</sup>+(-0.125-0.256<i>i</i>+0.847<i>j</i>+0.0895<i>k</i>)",
         "en":"<b>Control: Free fly mode.</b><br>Julia set with quaternion number. The iteration fomular is: z->z<sup>2</sup>+(-0.125-0.256<i>i</i>+0.847<i>j</i>+0.0895<i>k</i>)"
-    }
+    },
+    city_highway:{
+        "zh":"四维世界的地面是三维的，人们可以在三维地面上修建城市与空间曲线道路。这是一条单边4x3车道的双向道路。",
+        "en":"The ground of 4D world is three dimensional, where inhabitants could build city and road by spatial curve. This is a two-way road of 4x3 lanes on each side."
+    },
+    four_basic_scene:{
+        "zh":"使用FOUR绘制一个红色双旋转超立方体。类似于3D渲染中的ThreeJs库与WebGl，tesserxel中的子库Four能够帮您隐藏底层渲染逻辑，快速构建四维场景。详见源码FourBasicScene.ts。",
+        "en":`Rendering a redish double rotating hypercube by library "Four". Analogue to ThreeJs and WebGl for 3D rendering, tessexel's sub-library "Four" helps you hide low-level render implementations in order to build 4D scene fastly. detail can be found in source file FourBasicScene.ts.`
+    },
+    four_materials:{
+        "zh":"四维常见材质灯光展示。注意四维空间中的点光源随距离呈三次方衰减，因此会出现即使光源周围很亮但稍远处就很黑的现象。子库Four中，物体材质使用节点递归定义，以便程序化生成贴图，解决常规3D贴图内存占用大的问题。",
+        "en":"Common materials and lightings in 4D. Note that point lights in 4D decays with the inverse cubic law. This could cause bright around the light source, but get dark rapidly in a distance. In the sub-library Four, the object material is defined recursively using nodes to generate textures procedurally and solve the problem of large memory usage of conventional 3D textures."
+    },
 };

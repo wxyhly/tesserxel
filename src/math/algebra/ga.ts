@@ -184,6 +184,16 @@ namespace tesserxel {
                     V.xz * this.xw - this.xz * V.xw + V.yz * this.yw - this.yz * V.yw
                 );
             }
+            crossrs(V: Bivec): Bivec {
+                return this.set(
+                    V.xz * this.yz - this.xz * V.yz + V.xw * this.yw - this.xw * V.yw,
+                    -V.xy * this.yz + this.xy * V.yz + V.xw * this.zw - this.xw * V.zw,
+                    -V.xy * this.yw + this.xy * V.yw - V.xz * this.zw + this.xz * V.zw,
+                    V.xy * this.xz - this.xy * V.xz + V.yw * this.zw - this.yw * V.zw,
+                    V.xy * this.xw - this.xy * V.xw - V.yz * this.zw + this.yz * V.zw,
+                    V.xz * this.xw - this.xz * V.xw + V.yz * this.yw - this.yz * V.yw
+                );
+            }
             exp(): Rotor {
                 // Hodge Dual decompose this to:
                 // A : self-dual part (*A = A)
@@ -238,7 +248,26 @@ namespace tesserxel {
                 let B = _Q_2.set(0, this.xy - this.zw, this.xz + this.yw, this.xw - this.yz);
                 A.mulsl(r.l).mulsrconj(r.l);
                 B.mulslconj(r.r).mulsr(r.r);
-                this.xy = (A.y + B.y) * 0.5; this.xz = (A.z + B.z) * 0.5; this.xw = (A.w + B.w) * 0.5, A.w - B.w, B.z - A.z, A.y - B.y
+                this.xy = (A.y + B.y) * 0.5; this.xz = (A.z + B.z) * 0.5; this.xw = (A.w + B.w) * 0.5;
+                this.yz = (A.w - B.w) * 0.5; this.yw = (B.z - A.z) * 0.5; this.zw = (A.y - B.y) * 0.5;
+                return this;
+            }
+            rotatesconj(r: Rotor): Bivec {
+                let A = _Q_1.set(0, this.xy + this.zw, this.xz - this.yw, this.xw + this.yz);
+                let B = _Q_2.set(0, this.xy - this.zw, this.xz + this.yw, this.xw - this.yz);
+                A.mulslconj(r.l).mulsr(r.l);
+                B.mulsl(r.r).mulsrconj(r.r);
+                this.xy = (A.y + B.y) * 0.5; this.xz = (A.z + B.z) * 0.5; this.xw = (A.w + B.w) * 0.5;
+                this.yz = (A.w - B.w) * 0.5; this.yw = (B.z - A.z) * 0.5; this.zw = (A.y - B.y) * 0.5;
+                return this;
+            }
+            rotateset(bivec: Bivec, r: Rotor): Bivec {
+                let A = _Q_1.set(0, bivec.xy + bivec.zw, bivec.xz - bivec.yw, bivec.xw + bivec.yz);
+                let B = _Q_2.set(0, bivec.xy - bivec.zw, bivec.xz + bivec.yw, bivec.xw - bivec.yz);
+                A.mulsl(r.l).mulsrconj(r.l);
+                B.mulslconj(r.r).mulsr(r.r);
+                this.xy = (A.y + B.y) * 0.5; this.xz = (A.z + B.z) * 0.5; this.xw = (A.w + B.w) * 0.5;
+                this.yz = (A.w - B.w) * 0.5; this.yw = (B.z - A.z) * 0.5; this.zw = (A.y - B.y) * 0.5;
                 return this;
             }
             /** return a random oriented simple normalized bivector */
@@ -253,6 +282,9 @@ namespace tesserxel {
                 let a = _vec3_1.srandset(seed).mulfs(0.5);
                 let b = _vec3_2.srandset(seed).mulfs(0.5);
                 return new Bivec(a.x + b.x, a.y + b.y, a.z + b.z, a.z - b.z, b.y - a.y, a.x - b.x);
+            }
+            pushPool(pool: BivecPool = bivecPool) {
+                pool.push(this);
             }
         }
 
@@ -300,7 +332,7 @@ namespace tesserxel {
                 this.x = - this.x; this.y = -this.y; this.z = -this.z; this.w = -this.w;
                 return this;
             }
-            mul(q: Quaternion): Quaternion {
+            mul(q: Quaternion | Vec4): Quaternion {
                 return new Quaternion(
                     this.x * q.x - this.y * q.y - this.z * q.z - this.w * q.w,
                     this.x * q.y + this.y * q.x + this.z * q.w - this.w * q.z,
@@ -309,7 +341,7 @@ namespace tesserxel {
                 );
             }
             /** this = this * q; */
-            mulsr(q: Quaternion): Quaternion {
+            mulsr(q: Quaternion | Vec4): Quaternion {
                 var x = this.x * q.x - this.y * q.y - this.z * q.z - this.w * q.w;
                 var y = this.x * q.y + this.y * q.x + this.z * q.w - this.w * q.z;
                 var z = this.x * q.z - this.y * q.w + this.z * q.x + this.w * q.y;
@@ -317,7 +349,7 @@ namespace tesserxel {
                 this.x = x; this.y = y; this.z = z; return this;
             }
             /** this = q * this; */
-            mulsl(q: Quaternion): Quaternion {
+            mulsl(q: Quaternion | Vec4): Quaternion {
                 var x = q.x * this.x - q.y * this.y - q.z * this.z - q.w * this.w;
                 var y = q.x * this.y + q.y * this.x + q.z * this.w - q.w * this.z;
                 var z = q.x * this.z - q.y * this.w + q.z * this.x + q.w * this.y;
@@ -325,7 +357,7 @@ namespace tesserxel {
                 this.x = x; this.y = y; this.z = z; return this;
             }
             /** this = this * conj(q); */
-            mulsrconj(q: Quaternion): Quaternion {
+            mulsrconj(q: Quaternion | Vec4): Quaternion {
                 var x = this.x * q.x + this.y * q.y + this.z * q.z + this.w * q.w;
                 var y = -this.x * q.y + this.y * q.x - this.z * q.w + this.w * q.z;
                 var z = -this.x * q.z + this.y * q.w + this.z * q.x - this.w * q.y;
@@ -333,7 +365,7 @@ namespace tesserxel {
                 this.x = x; this.y = y; this.z = z; return this;
             }
             /** this = conj(q) * this; */
-            mulslconj(q: Quaternion): Quaternion {
+            mulslconj(q: Quaternion | Vec4): Quaternion {
                 var x = q.x * this.x + q.y * this.y + q.z * this.z + q.w * this.w;
                 var y = q.x * this.y - q.y * this.x - q.z * this.w + q.w * this.z;
                 var z = q.x * this.z + q.y * this.w - q.z * this.x - q.w * this.y;
@@ -485,6 +517,9 @@ namespace tesserxel {
                 let cc = Math.sqrt(1 - c);
                 return this.set(sc * Math.cos(a), sc * Math.sin(a), cc * Math.cos(b), cc * Math.sin(b));
             }
+            pushPool(pool: QuaternionPool = qPool) {
+                pool.push(this);
+            }
         }
         export class Rotor {
             l: Quaternion;
@@ -612,9 +647,9 @@ namespace tesserxel {
                 if (s > 0.000001) { // not aligned
                     right.mulfs(Math.atan2(s, c) / s);
                 } else if (c < 0) { // almost n reversely aligned
-                    let v = _biv.wedgevvset(from,Vec4.x);
+                    let v = _biv.wedgevvset(from, Vec4.x);
                     if (v.norm1() < 0.01) {
-                        v = _biv.wedgevvset(from,Vec4.y);
+                        v = _biv.wedgevvset(from, Vec4.y);
                     }
                     return v.norms().mulfs(_180).exp();
                 }
@@ -628,9 +663,9 @@ namespace tesserxel {
                 if (s > 0.000001) { // not aligned
                     right.mulfs(Math.atan2(s, c) / s);
                 } else if (c < 0) { // almost n reversely aligned
-                    let v = _biv.wedgevvset(from,Vec4.x);
+                    let v = _biv.wedgevvset(from, Vec4.x);
                     if (v.norm1() < 0.01) {
-                        v = _biv.wedgevvset(from,Vec4.y);
+                        v = _biv.wedgevvset(from, Vec4.y);
                     }
                     return this.expset(v.norms().mulfs(_180));
                 }

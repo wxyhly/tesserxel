@@ -415,7 +415,7 @@ namespace examples {
         @fragment fn mainFragment(@location(0) rd: vec4<f32>, @location(1) coord: vec3<f32>)->fOut{
             let abscoord1 = step(abs(coord),vec3<f32>(0.03));
             let abscoord2 = step(abs(coord),vec3<f32>(0.2));
-            if(abscoord1.x*abscoord1.y*abscoord1.z <= 0.0){
+            if(false && abscoord1.x*abscoord1.y*abscoord1.z <= 0.0){
                 if(abscoord2.x*abscoord1.y*abscoord1.z > 0.0){
                     return fOut(vec4<f32>(1.0,0.0,0.0,5.0),0.0);
                 }
@@ -506,9 +506,7 @@ namespace examples {
             camController.keyMoveSpeed *= 5;
             let retinaController = new tesserxel.controller.RetinaController(renderer);
             let ctrlreg = new tesserxel.controller.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
-            let config = renderer.getSliceConfig();
-            config.opacity = 5;
-            retinaController.setSlice(config);
+            renderer.setOpacity(5);
             let camMatJSBuffer = new Float32Array(20);
             renderer.setScreenClearColor({ r: 1.0, g: 1.0, b: 1.0, a: 1.0 });
             renderer.setWorldClearColor({ r: 0.7, g: 0.85, b: 1.0, a: 0.1 });

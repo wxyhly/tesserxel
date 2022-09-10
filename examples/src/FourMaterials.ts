@@ -48,10 +48,15 @@ namespace examples {
             let spotLight = new FOUR.SpotLight([800, 800, 800], 40, 0.2);
             scene.add(spotLight);
             spotLight.position.y = 10;
+            dirLight.alwaysUpdateCoord = true;
+            pointLight.alwaysUpdateCoord = true;
+            pointLight2.alwaysUpdateCoord = true;
+            pointLight3.alwaysUpdateCoord = true;
+            spotLight.alwaysUpdateCoord = true;
             let camera = new FOUR.Camera();
             camera.position.w = 5.0;
             camera.position.y = 2.0;
-            camera.lookAt(tesserxel.math.Vec4.wNeg,new tesserxel.math.Vec4());
+            camera.lookAt(tesserxel.math.Vec4.wNeg, new tesserxel.math.Vec4());
             scene.add(camera);
             let controller = new tesserxel.controller.ControllerRegistry(canvas, [
                 new tesserxel.controller.KeepUpController(camera),
@@ -73,15 +78,9 @@ namespace examples {
                 pointLight2.position.set(0, 0.5, Math.sin(t * 3), Math.cos(t * 3)).mulfs(3);
                 pointLight3.position.set(Math.cos(t * 3), 0.5, 0, Math.sin(t * 3)).mulfs(3);
                 dirLight.direction.set(Math.sin(t * 20), 0.2, Math.cos(t * 20) * 0.2, Math.cos(t * 20)).norms();
-                dirLight.needsUpdateCoord = true;
-                pointLight.needsUpdateCoord = true;
-                pointLight2.needsUpdateCoord = true;
-                pointLight3.needsUpdateCoord = true;
-                spotLight.needsUpdateCoord = true;
                 uniformColor.write([Math.sin(t) * 0.3 + 0.7, Math.sin(t * 0.91) * 0.5 + 0.5, Math.sin(t * 1.414) * 0.5 + 0.5]);
                 t += 0.01;
                 controller.update();
-                camera.needsUpdateCoord = true;
                 renderer.render(scene, camera);
                 window.requestAnimationFrame(run);
             }

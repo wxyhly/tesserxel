@@ -168,7 +168,7 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
             let ctrlreg = new tesserxel.controller.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
             let matModelViewJSBuffer = new Float32Array(20);
             let pipeline = await renderer.createRaytracingPipeline({
-                code: this.headercode.replace(/\{replace\}/g,code),
+                code: this.headercode.replace(/\{replace\}/g, code),
                 rayEntryPoint: "mainRay",
                 fragmentEntryPoint: "mainFragment"
             });
@@ -211,9 +211,7 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
                 d = c;
                 res = vec4<f32>( d, res.y, (1.0+f32(m))/4.0, 0.0 );
             }`);
-            let config = app.renderer.getSliceConfig();
-            config.opacity = 6.0;
-            app.retinaController.setSlice(config);
+            app.retinaController.setOpacity(6);
             app.run();
         }
     }
@@ -236,9 +234,7 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
             d = c;
             res = vec4<f32>( d, res.y, (1.0+f32(m))/4.0, 0.0 );
         }`);
-            let config = app.renderer.getSliceConfig();
-            config.opacity = 2.0;
-            app.retinaController.setSlice(config);
+            app.retinaController.setOpacity(2);
             app.run();
         }
     }

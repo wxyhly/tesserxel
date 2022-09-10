@@ -1,90 +1,71 @@
 namespace tesserxel {
     export namespace physics {
+        interface EngineOption {
+            forceAccumulator?: ForceAccumulatorConstructor;
+            broadPhase?: BroadPhaseConstructor;
+            solver?: SolverConstructor;
+        }
         export class Engine {
             forceAccumulator: ForceAccumulator;
-            constructor(forceAccumulator?: ForceAccumulator) {
-                this.forceAccumulator = forceAccumulator ?? new force_accumulator.Euler2();
-            }
-            runCollisionDetector() {
-                // this.collisions = [];
-                // for (let i = 0; i < this.objects.length; i++) {
-                //     for (let j = i + 1; j < this.objects.length; j++) {
-                //         let r = this.objects[i].geometry.intersectGeometry(this.objects[j].geometry);
-                //         if (r) this.collisions.push(r);
-                //     }
-                // }
+            broadPhase: BroadPhase;
+            narrowPhase: NarrowPhase;
+            solver: Solver;
+            constructor(option?: EngineOption) {
+                this.forceAccumulator = new (option?.forceAccumulator ?? force_accumulator.Predict3)();
+                this.broadPhase = new (option?.broadPhase ?? NaiveBroadPhase)();
+                this.narrowPhase = new NarrowPhase();
+                this.solver = new (option?.solver ?? IterativeImpulseSolver)();
             }
             runCollisionSolver() {
                 // todo
             }
             update(world: World, dt: number) {
-                this.forceAccumulator.run(this, world, dt);
-                this.runCollisionDetector();
-                this.runCollisionSolver();
+                this.forceAccumulator.run(world, dt);
+                this.broadPhase.run(world);
+                this.narrowPhase.run(this.broadPhase.checkList);
+                this.solver.run(this.narrowPhase.collisionList);
                 world.frameCount++;
-            }
-            getObjectsAccelerations(world: World) {
-                // clear
-                for (let o of world.objects) {
-                    o.force.set();
-                    if (o.invMass) o.acceleration.copy(world.gravity);
-                    o.torque.set();
-                }
-                // apply force
-                for (let f of world.forces) {
-                    f.apply(world.time);
-                }
-                for (let o of world.objects) {
-                    if (o.force.norm1() > 0) {
-                        o.acceleration.addmulfs(o.force, o.invMass);
-                    }
-                    if (o.torque.norm1() > 0) {
-                        // todo
-                        // o.angularAcceleration.addmulfs(o.torque, o.invMass);
-                    }
-                }
             }
         }
         export class World {
             gravity = new math.Vec4(0, -9.8);
-            objects: Object[] = [];
+            rigids: Rigid[] = [];
             forces: Force[] = [];
-            collisions: IntersectedResult[] = [];
             time: number = 0;
             frameCount = 0;
-            addObject(o: Object) {
-                this.objects.push(o);
-            }
-            addForce(f: Force) {
-                this.forces.push(f);
+            add(o: Rigid | Force) {
+                if (o instanceof Rigid) {
+                    this.rigids.push(o); return;
+                }
+                if (o instanceof Force) {
+                    this.forces.push(o); return;
+                }
             }
         }
-        export class Object {
-            geometry: Geometry;
-            invMass: number;
-            // inertia is a 6x6 Matrix for angularVelocity -> angularMomentum
-            invInertia: math.Matrix;
-            velocity: math.Vec4 = new math.Vec4();
-            angularVelocity: math.Bivec = new math.Bivec();
-            /** sleeping objects are still.
-             *  it only do collision test will active objects
-             *  */
-            sleep: boolean = false;
-
-            // accumulators:
-            force: math.Vec4 = new math.Vec4();
-            torque: math.Bivec = new math.Bivec();
-            acceleration: math.Vec4 = new math.Vec4();
-            angularAcceleration: math.Bivec = new math.Bivec();
-            getlinearVelocity(position: math.Vec4) {
-                if (!this.geometry.position) return new math.Vec4();
-                let relPosition = position.sub(this.geometry.position);
-                return relPosition.dotbset(this.angularVelocity, relPosition).add(this.velocity);
+        export class Material {
+            friction: number;
+            restitution: number;
+            constructor(friction: number, restitution: number) {
+                this.restitution = restitution;
+                this.friction = friction;
             }
-            constructor(geometry: Geometry, mass?: number) {
-                this.geometry = geometry;
-                this.invMass = mass > 0 ? 1 / mass : null;
+            static getContactRestitution(a: Material, b: Material) {
+                return a.restitution * b.restitution;
             }
+            static getContactFriction(a: Material, b: Material) {
+                return a.friction * b.friction;
+            }
+        }
+        /** a helper function for applying inertia to bivec */
+        export function mulBivec(self: math.Bivec, a: math.Bivec, b: math.Bivec) {
+            return self.set(
+                a.xy * b.xy,
+                a.xz * b.xz,
+                a.xw * b.xw,
+                a.yz * b.yz,
+                a.yw * b.yw,
+                a.zw * b.zw,
+            );
         }
     }
 }

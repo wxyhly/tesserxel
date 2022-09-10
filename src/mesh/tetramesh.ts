@@ -135,7 +135,7 @@ namespace tesserxel {
                                 mesh.normal[i + 1] * scaleinv.y,
                                 mesh.normal[i + 2] * scaleinv.z,
                                 mesh.normal[i + 3] * scaleinv.w,
-                            ).rotates(obj.rotation).writeBuffer(mesh.normal, i);
+                            ).rotates(obj.rotation).norms().writeBuffer(mesh.normal, i);
                         }
                     } else {
                         vp.set(
