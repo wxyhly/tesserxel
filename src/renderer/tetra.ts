@@ -148,7 +148,7 @@ namespace tesserxel {
             private screenAspectBuffer: GPUBuffer;
             private layerOpacityBuffer: GPUBuffer;
             private camProjBuffer: GPUBuffer;
-            static readonly outputAttributeUsage = GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX;
+            static readonly outputAttributeUsage = typeof GPUBufferUsage === 'undefined' ? null : GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX;
 
             // CPU caches for retina and screen
 
@@ -594,7 +594,7 @@ struct fInputType{
                                 viewport: { x: size, y: size - 1, width: size, height: size }
                             },
                         ]
-                    });                    
+                    });
                     this.setEyeOffset(0.1, 0.1);
                     this.setOpacity(1);
                     this.set4DCameraProjectMatrix({ fov: 90, near: 0.01, far: 10 });
@@ -1176,20 +1176,7 @@ struct vOutputType{
                     drawCall();
                     if (this.renderState.needClear) {
                         // if drawCall is empty, we also need to clear texture
-                        let clearPassEncoder = commandEncoder.beginRenderPass({
-                            colorAttachments: [{
-                                view: this.sliceView,
-                                clearValue: { r: 0, g: 0, b: 0, a: 0.0 },
-                                loadOp: 'clear' as GPULoadOp,
-                                storeOp: 'discard' as GPUStoreOp
-                            }],
-                            depthStencilAttachment: {
-                                view: this.depthView,
-                                depthClearValue: 1.0,
-                                depthLoadOp: 'clear' as GPULoadOp,
-                                depthStoreOp: 'discard' as GPUStoreOp,
-                            }
-                        })
+                        let clearPassEncoder = commandEncoder.beginRenderPass(this.crossRenderPassDescClear);
                         clearPassEncoder.setPipeline(this.clearRenderPipeline);
                         clearPassEncoder.draw(0);
                         clearPassEncoder.end();

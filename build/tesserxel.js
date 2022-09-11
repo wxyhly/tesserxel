@@ -5365,7 +5365,7 @@ var tesserxel;
             screenAspectBuffer;
             layerOpacityBuffer;
             camProjBuffer;
-            static outputAttributeUsage = GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX;
+            static outputAttributeUsage = typeof GPUBufferUsage === 'undefined' ? null : GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX;
             // CPU caches for retina and screen
             slicesJsBuffer;
             camProjJsBuffer = new Float32Array(4);
@@ -6374,20 +6374,7 @@ struct vOutputType{
                     drawCall();
                     if (this.renderState.needClear) {
                         // if drawCall is empty, we also need to clear texture
-                        let clearPassEncoder = commandEncoder.beginRenderPass({
-                            colorAttachments: [{
-                                    view: this.sliceView,
-                                    clearValue: { r: 0, g: 0, b: 0, a: 0.0 },
-                                    loadOp: 'clear',
-                                    storeOp: 'discard'
-                                }],
-                            depthStencilAttachment: {
-                                view: this.depthView,
-                                depthClearValue: 1.0,
-                                depthLoadOp: 'clear',
-                                depthStoreOp: 'discard',
-                            }
-                        });
+                        let clearPassEncoder = commandEncoder.beginRenderPass(this.crossRenderPassDescClear);
                         clearPassEncoder.setPipeline(this.clearRenderPipeline);
                         clearPassEncoder.draw(0);
                         clearPassEncoder.end();
@@ -9460,6 +9447,10 @@ var tesserxel;
             }
             async init() {
                 this.gpu = await tesserxel.renderer.createGPU();
+                if (!this.gpu) {
+                    console.error("No availiable GPU device found. Please check whether WebGPU is enabled on your browser.");
+                    return null;
+                }
                 await this.core.init(this.gpu, this.gpu.getContext(this.canvas));
                 this.uCamMatBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, (4 * 5 * 2) * 4, "uCamMat");
                 this.uWorldLightBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, this.lightShaderInfomation.uWorldLightBufferSize, "uWorldLight");

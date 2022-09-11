@@ -684,6 +684,7 @@ var examples;
         async function load() {
             const FOUR = tesserxel.four;
             const canvas = document.getElementById("gpu-canvas");
+            /** This is a asycn function wait for request WebGPU adapter and do initiations */
             let renderer = await new FOUR.Renderer(canvas).init();
             let scene = new FOUR.Scene();
             // by default the backgroud is black (0.0, 0.0, 0.0) here we change it to white

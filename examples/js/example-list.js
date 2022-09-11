@@ -15,7 +15,11 @@ let examples = [
     { target: "rigid_test", zh: "刚体测试", en: "Rigid body test" },
 ];
 // todo: magicCube4D
-let info = {
+let info = {    
+    nogpu: {
+        "zh": "您的浏览器不支持或未开启WebGPU，无法加载示例。<hr>",
+        "en": "Examples are not loaded because WebGPU is disabled or not supported in your browser.<hr>",
+    },
     default: {
         "zh": "点击侧栏中的示例，这里将显示说明。",
         "en": "Please click examples in the sidebar, and here will show descriptions about that example.",

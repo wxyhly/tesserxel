@@ -36,15 +36,18 @@
             padding: 0px 10px;
             max-width: 200px;
         }
-        .info-content{
+
+        .info-content {
             padding: 20px 0px;
         }
+
         .menu a {
             margin: 5px 0;
             color: #3789bf;
             text-decoration: none;
             cursor: pointer;
         }
+
         .examples a {
             display: block;
         }
@@ -133,11 +136,11 @@
         console.clear();
         link.classList.add('active');
         iframe.src = "iframe.html?target=" + target + "&lang=" + lang;
-        infodiv.innerHTML = info[target] ? info[target][lang] : info["empty"][lang];
+        infodiv.innerHTML = (navigator.gpu ? "" : info["nogpu"][lang]) + (info[target] ? info[target][lang] : info["empty"][lang]);
     }
     const h3a = document.querySelector('h3 a');
     h3a.href = "?" + lang;
-    if(!target) iframe.src = "iframe.html?lang=" + lang;
+    if (!target) iframe.src = "iframe.html?lang=" + lang;
 
 </script>
 

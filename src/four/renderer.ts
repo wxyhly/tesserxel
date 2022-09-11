@@ -23,6 +23,10 @@ namespace tesserxel {
             }
             async init() {
                 this.gpu = await renderer.createGPU();
+                if (!this.gpu) {
+                    console.error("No availiable GPU device found. Please check whether WebGPU is enabled on your browser.");
+                    return null;
+                }
                 await this.core.init(this.gpu, this.gpu.getContext(this.canvas));
                 this.uCamMatBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, (4 * 5 * 2) * 4, "uCamMat");
                 this.uWorldLightBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, this.lightShaderInfomation.uWorldLightBufferSize, "uWorldLight");
@@ -44,7 +48,7 @@ namespace tesserxel {
             }
             updateObject(o: Object) {
                 for (let c of o.child) {
-                    if(c.alwaysUpdateCoord){
+                    if (c.alwaysUpdateCoord) {
                         c.needsUpdateCoord = true;
                     }
                     if (c.needsUpdateCoord || o.needsUpdateCoord) {
@@ -160,7 +164,7 @@ namespace tesserxel {
                 this.cameraInScene = false;
                 this.maxTetraNumInOnePass = this.safeTetraNumInOnePass / this.tetraNumOccupancyRatio;
                 for (let c of scene.child) {
-                    if(c.alwaysUpdateCoord){
+                    if (c.alwaysUpdateCoord) {
                         c.needsUpdateCoord = true;
                     }
                     if (c.needsUpdateCoord) {

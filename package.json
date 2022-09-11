@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "WebGPU based 3D screen Renderer for 4D Objects",
   "scripts": {
-    "build": "cd src && tsc",
-    "example": "cd src && tsc && cd ../examples && tsc"
+    "build": "cd src && tsc && uglifyjs build/tesserxel.js --compress --mangle --output build/tesserxel.min.js --source-map",
+    "build-example": "cd ../examples && tsc"
   },
   "author": "Hqak",
   "license": "ISC",

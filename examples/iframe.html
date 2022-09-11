@@ -10,6 +10,7 @@
             width: 100%;
             height: 100%;
         }
+
         canvas:focus {
             outline: none;
         }
@@ -32,9 +33,11 @@
     <canvas id="gpu-canvas"></canvas>
     <div class="default" lang="zh">
         <h1>欢迎来到由Tesserxel引擎驱动的四维世界</h1>
+        <div class="nogpu">哦嚯，您的浏览器不支持WebGPU。</div>
     </div>
     <div class="default" lang="en">
         <h1>Welcome to the Four Dimensional World <br> Powered by Tesserxel Engine</h1>
+        <div class="nogpu">Oops, your browser doesn't support WebGPU.</div>
     </div>
 </body>
 <script src='../build/tesserxel.js'></script>
@@ -45,9 +48,10 @@
     let lang = params.get("lang") ?? "zh";
     if (target) {
         examples[target].load(lang);
-        (function () { var script = document.createElement('script'); script.onload = function () { var stats = new Stats(); document.body.appendChild(stats.dom); requestAnimationFrame(function loop() { stats.update(); requestAnimationFrame(loop) }); }; script.src = 'http://mrdoob.github.io/stats.js/build/stats.min.js'; document.head.appendChild(script); })()
+        (function () { var script = document.createElement('script'); script.onload = function () { var stats = new Stats(); document.body.appendChild(stats.dom); requestAnimationFrame(function loop() { stats.update(); requestAnimationFrame(loop) }); }; script.src = (window.location.protocol === 'https:' ? 'https' : 'http') + '://mrdoob.github.io/stats.js/build/stats.min.js'; document.head.appendChild(script); })()
     } else {
         document.querySelector(`.default[lang=${lang}]`).style.display = "block";
+        document.querySelector(`.nogpu`).style.display = navigator.gpu ? "none" : "block";
     }
 </script>
 
