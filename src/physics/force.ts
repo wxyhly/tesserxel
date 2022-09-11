@@ -3,8 +3,8 @@ namespace tesserxel {
         export interface ForceAccumulatorConstructor {
             new(): ForceAccumulator;
         };
-        export class ForceAccumulator {
-            run(world: World, dt: number): void { };
+        export abstract class ForceAccumulator {
+            abstract run(world: World, dt: number): void;
             private _biv1 = new math.Bivec;
             private _biv2 = new math.Bivec;
             private readonly _bivec0 = new math.Bivec;

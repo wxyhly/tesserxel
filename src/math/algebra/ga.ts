@@ -277,11 +277,22 @@ namespace tesserxel {
                 let b = _vec3_2.randset().mulfs(0.5);
                 return new Bivec(a.x + b.x, a.y + b.y, a.z + b.z, a.z - b.z, b.y - a.y, a.x - b.x);
             }
+            randset(): Bivec {
+                // sampled in isoclinic space uniformly for left and right part respectively
+                let a = _vec3_1.randset().mulfs(0.5);
+                let b = _vec3_2.randset().mulfs(0.5);
+                return this.set(a.x + b.x, a.y + b.y, a.z + b.z, a.z - b.z, b.y - a.y, a.x - b.x);
+            }
             /** return a random oriented simple normalized bivector by seed */
             static srand(seed: Srand): Bivec {
                 let a = _vec3_1.srandset(seed).mulfs(0.5);
                 let b = _vec3_2.srandset(seed).mulfs(0.5);
                 return new Bivec(a.x + b.x, a.y + b.y, a.z + b.z, a.z - b.z, b.y - a.y, a.x - b.x);
+            }
+            srandset(seed: Srand): Bivec {
+                let a = _vec3_1.srandset(seed).mulfs(0.5);
+                let b = _vec3_2.srandset(seed).mulfs(0.5);
+                return this.set(a.x + b.x, a.y + b.y, a.z + b.z, a.z - b.z, b.y - a.y, a.x - b.x);
             }
             pushPool(pool: BivecPool = bivecPool) {
                 pool.push(this);
@@ -692,6 +703,26 @@ namespace tesserxel {
                 this.l.srandset(seed);
                 this.r.srandset(seed);
                 return this;
+            }
+            pushPool(pool: RotorPool = rotorPool) {
+                pool.push(this);
+            }
+            /** set rotor from a rotation matrix,
+             * i.e. m must be orthogonal with determinant 1.
+             * algorithm: iteratively aligne each axis. */
+            setFromMat4(m:Mat4){
+                return this.setFromLookAt(Vec4.x,m.x_()).mulsl(
+                    _r.setFromLookAt(_vec4.copy(Vec4.y).rotates(this),m.y_())
+                ).mulsl(
+                    _r.setFromLookAt(_vec4.copy(Vec4.z).rotates(this),m.z_())
+                );
+            }
+            fromMat4(m:Mat4){
+                return Rotor.lookAt(Vec4.x,m.x_()).mulsl(
+                    _r.setFromLookAt(_vec4.copy(Vec4.y).rotates(this),m.y_())
+                ).mulsl(
+                    _r.setFromLookAt(_vec4.copy(Vec4.z).rotates(this),m.z_())
+                );
             }
         }
 

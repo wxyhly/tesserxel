@@ -96,6 +96,9 @@ namespace tesserxel {
         export class QuaternionPool extends Pool<Quaternion>{
             constructObject() { return new Quaternion; }
         }
+        export class RotorPool extends Pool<Rotor>{
+            constructObject() { return new Rotor; }
+        }
         export const vec2Pool = new Vec2Pool;
         export const vec3Pool = new Vec3Pool;
         export const vec4Pool = new Vec4Pool;
@@ -104,5 +107,6 @@ namespace tesserxel {
         export const mat3Pool = new Mat3Pool;
         export const mat4Pool = new Mat4Pool;
         export const qPool = new QuaternionPool;
+        export const rotorPool = new RotorPool;
     }
 }

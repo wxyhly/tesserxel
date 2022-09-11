@@ -8,7 +8,12 @@ namespace tesserxel {
             geometry: RigidGeometry;
             material: Material;
             type?: RigidType;
+            /** for tracing debug */
+            label?: string;
         };
+        /** Subrigids should not be added into scene repetively.
+         * Subrigids's positions cannot be modified after union created
+         */
         type UnionRigidDescriptor = Rigid[];
         /** all properities hold by class Rigid should not be modified
          *  exceptions are position/rotation and (angular)velocity.
@@ -28,9 +33,10 @@ namespace tesserxel {
             inertia = new math.Bivec();
             invInertia = new math.Bivec();
             inertiaIsotroy: boolean; // whether using scalar inertia
-
             // only apply to active type object
             sleep: boolean = false;
+            // for tracing debug
+            label?:string;
 
             velocity: math.Vec4 = new math.Vec4();
             angularVelocity: math.Bivec = new math.Bivec();
@@ -45,19 +51,25 @@ namespace tesserxel {
                 } else {
                     let option = param as SimpleRigidDescriptor;
                     this.geometry = option.geometry;
-                    this.mass = option.mass;
+                    this.mass = isFinite(option.mass) ? option.mass : 0;
                     this.type = option.type ?? "active";
-                    this.invMass = option.mass > 0 && (this.type === "active") ? 1 / option.mass : 0;
+                    this.invMass = this.mass > 0 && (this.type === "active") ? 1 / this.mass : 0;
                     this.material = option.material;
+                    this.label = option.label;
                 }
                 this.geometry.initialize(this);
             }
 
             getlinearVelocity(out: math.Vec4, point: math.Vec4) {
-                if (this.type === "still") return new math.Vec4();
+                if (this.type === "still") return out.set();
                 let relPosition = out.subset(point, this.position);
                 return out.dotbset(relPosition, this.angularVelocity).adds(this.velocity);
             }
+        }
+        /** internal type for union rigid geometry */
+        export interface SubRigid extends Rigid {
+            localCoord?: math.Obj4;
+            parent?: Rigid;
         }
         export abstract class RigidGeometry {
             type: string;
@@ -93,11 +105,39 @@ namespace tesserxel {
         }
         export namespace rigid {
             export class Union extends RigidGeometry {
-                components: Rigid[];
+                components: SubRigid[];
                 isUnion: true = true;
                 constructor(components: Rigid[]) { super(); this.components = components; }
                 // todo: union gen
-                initializeMassInertia(rigid: Rigid) { };
+                initializeMassInertia(rigid: Rigid) {
+                    // set union rigid's position at mass center of rigids
+                    rigid.position.set();
+                    rigid.mass = 0;
+                    for (let r of this.components) {
+                        if (r.mass === null) console.error("Union Rigid Geometry cannot contain a still rigid.");
+                        rigid.position.addmulfs(r.position, r.mass);
+                        rigid.mass += r.mass;
+                    }
+                    rigid.invMass = 1 / rigid.mass;
+                    rigid.position.mulfs(rigid.invMass);
+                    // update rigids position to relative frame
+                    for (let r of this.components) {
+                        r.localCoord = new math.Obj4().copyObj4(r);
+                        r.localCoord.position.subs(rigid.position);
+                        r.parent = rigid;
+                    }
+                    // todo
+                    // let inertia = new math.Matrix(6,6);
+                    rigid.inertia.xy = 0.01;
+                    rigid.inertiaIsotroy = true;
+                    rigid.type = "active";
+                };
+                updateCoord() {
+                    for (let r of this.components) {
+                        r.position.copy(r.localCoord.position).rotates(this.rigid.rotation).adds(this.rigid.position);
+                        r.rotation.copy(r.localCoord.rotation).mulsl(this.rigid.rotation);
+                    }
+                }
             }
             export class Glome extends RigidGeometry {
                 radius: number = 1;

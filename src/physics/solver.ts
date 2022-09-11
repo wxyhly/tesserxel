@@ -9,14 +9,18 @@ namespace tesserxel {
         export interface PreparedCollision extends Collision {
             separateSpeed: number;
             relativeVelocity: math.Vec4;
+            materialA: Material;
+            materialB: Material;
             dvA?: math.Vec4;
             dvB?: math.Vec4;
             dwA?: math.Bivec;
             dwB?: math.Bivec;
         }
         export class IterativeImpulseSolver extends Solver {
-            maxPositionIterations: number = 5;
-            maxVelocityIterations: number = 5;
+            maxPositionIterations: number = 32;
+            maxVelocityIterations: number = 32;
+            maxResolveRotationAngle = .0 * math._DEG2RAD;
+            PositionRelaxationFactor = 0.5;
             collisionList: PreparedCollision[];
             run(collisionList: Collision[]) {
                 if (!collisionList.length) return;
@@ -28,9 +32,14 @@ namespace tesserxel {
                 this.collisionList = collisionList.map(e => {
                     let { point, a, b, normal } = e;
                     let collision = e as PreparedCollision;
+                    collision.materialA = a.material;
+                    collision.materialB = b.material;
+                    // after got material, we solve union regardless of it's collision parts
+                    if ((a as SubRigid).parent) collision.a = (a as SubRigid).parent;
+                    if ((b as SubRigid).parent) collision.b = (b as SubRigid).parent;
                     let temp = math.vec4Pool.pop();
-                    collision.relativeVelocity = b.getlinearVelocity(math.vec4Pool.pop(), point).subs(
-                        a.getlinearVelocity(temp, point)
+                    collision.relativeVelocity = collision.b.getlinearVelocity(math.vec4Pool.pop(), point).subs(
+                        collision.a.getlinearVelocity(temp, point)
                     );
                     temp.pushPool();
                     collision.separateSpeed = collision.relativeVelocity.dot(normal);
@@ -43,19 +52,71 @@ namespace tesserxel {
                     let collision = this.collisionList.sort((a, b) => b.depth - a.depth)[0];
                     let { point, a, b, depth, normal } = collision;
                     if (depth <= 0) return;
-
+                    let invInertiaA = 0, invInertiaB = 0;
+                    if (a.mass > 0) {
+                        let pA = math.vec4Pool.pop().subset(point, a.position);
+                        let torqueA = math.bivecPool.pop().wedgevvset(normal, pA);
+                        if (a.inertiaIsotroy) {
+                            collision.dwA = torqueA.mulfs(a.invInertia.xy);
+                        } else {
+                            torqueA.rotatesconj(a.rotation);
+                            collision.dwA = mulBivec(torqueA, a.invInertia, torqueA).rotates(a.rotation);
+                        }
+                        invInertiaA = -pA.dotbset(pA, collision.dwA).dot(normal);
+                        pA.pushPool();
+                    }
+                    if (b.mass > 0) {
+                        let pB = math.vec4Pool.pop().subset(point, b.position);
+                        let torqueB = math.bivecPool.pop().wedgevvset(pB, normal);
+                        if (b.inertiaIsotroy) {
+                            collision.dwB = torqueB.mulfs(b.invInertia.xy);
+                        } else {
+                            torqueB.rotatesconj(b.rotation);
+                            collision.dwB = mulBivec(torqueB, b.invInertia, torqueB).rotates(b.rotation);
+                        }
+                        invInertiaB = pB.dotbset(pB, collision.dwB).dot(normal);
+                        pB.pushPool();
+                    }
+                    let totalInvsMulDepth = depth * this.PositionRelaxationFactor * (a.invMass + b.invMass + invInertiaA + invInertiaB);
+                    if (a.mass > 0) {
+                        // here can't mul invInertiaA since dwA is by unit impulse, and linear part is already invInertiaA
+                        collision.dwA.mulfs(totalInvsMulDepth);
+                        // clamp rotation
+                        let angle = collision.dwA.norm();
+                        if (angle > this.maxResolveRotationAngle) {
+                            collision.dwA.mulfs(this.maxResolveRotationAngle / angle);
+                        }
+                        collision.dvA = math.vec4Pool.pop().copy(normal).mulfs(-totalInvsMulDepth * a.invMass);
+                        a.position.adds(collision.dvA);
+                        let r = math.rotorPool.pop().expset(collision.dwA);
+                        a.rotation.mulsl(r); r.pushPool();
+                    }
+                    if (b.mass > 0) {
+                        collision.dwB.mulfs(totalInvsMulDepth);
+                        // clamp rotation
+                        let angle = collision.dwB.norm();
+                        if (angle > this.maxResolveRotationAngle) {
+                            collision.dwB.mulfs(this.maxResolveRotationAngle / angle);
+                        }
+                        collision.dvB = math.vec4Pool.pop().copy(normal).mulfs(totalInvsMulDepth * b.invMass);
+                        b.position.adds(collision.dvB);
+                        let r = math.rotorPool.pop().expset(collision.dwB);
+                        b.rotation.mulsl(r); r.pushPool();
+                    }
+                    // collision.depth = 0;
+                    this.updateDepths(collision);
                 }
             }
             resolveVelocity() {
                 // iteratively solve lowest separateSpeed
                 for (let i = 0; i < this.maxVelocityIterations; i++) {
                     let collision = this.collisionList.sort((a, b) => a.separateSpeed - b.separateSpeed)[0];
-                    let { point, a, b, separateSpeed, normal, relativeVelocity } = collision;
+                    let { point, a, b, separateSpeed, normal, relativeVelocity, materialA, materialB } = collision;
                     if (separateSpeed >= 0) return;
-                    let restitution = Material.getContactRestitution(a.material, b.material);
+                    let restitution = Material.getContactRestitution(materialA, materialB);
                     // set target separateSpeed to collision, next we'll solve to reach it
-                    collision.separateSpeed = -separateSpeed * restitution;
-                    let targetRelativeVelocity = normal.mulf(collision.separateSpeed);
+                    // collision.separateSpeed = -separateSpeed * restitution;
+                    let targetRelativeVelocity = normal.mulf(-separateSpeed * restitution);
                     let targetDeltaVelocityByImpulse = targetRelativeVelocity.subs(relativeVelocity);
                     let pointInA: math.Vec4, pointInB: math.Vec4;
                     let matA = math.mat4Pool.pop(), matB = math.mat4Pool.pop()
@@ -75,7 +136,7 @@ namespace tesserxel {
                     let impulseN = math.vec4Pool.pop().copy(normal).mulfs(impulseNValue);
                     let impulseT = math.vec4Pool.pop().subset(impulse, impulseN);
                     let impulseTValue = impulseT.norm();
-                    let friction = Material.getContactFriction(a.material, b.material);
+                    let friction = Material.getContactFriction(materialA, materialB);
                     let maximalFriction = friction * impulseNValue;
                     if (impulseTValue > maximalFriction) {
                         // correct tangent impulse for friction
@@ -99,7 +160,7 @@ namespace tesserxel {
             }
             updateSeparateSpeeds(collision: PreparedCollision) {
                 for (let c of this.collisionList) {
-                    if (c === collision) continue;
+                    // if (c === collision) continue;
                     if (collision.a.mass > 0) {
                         if (c.a === collision.a) {
                             this.updateSeparateSpeed(c, true, c.a, collision.dvA, collision.dwA);
@@ -121,6 +182,37 @@ namespace tesserxel {
                         }
                     }
                 }
+            }
+
+            updateDepths(collision: PreparedCollision) {
+                for (let c of this.collisionList) {
+                    // if (c === collision) continue;
+                    if (collision.a.mass > 0) {
+                        if (c.a === collision.a) {
+                            this.updateDepth(c, true, c.a, collision.dvA, collision.dwA);
+                            continue;
+                        }
+                        if (c.b === collision.a) {
+                            this.updateDepth(c, false, c.b, collision.dvA, collision.dwA);
+                            continue;
+                        }
+                    }
+                    if (collision.b.mass > 0) {
+                        if (c.a === collision.b) {
+                            this.updateDepth(c, true, c.a, collision.dvB, collision.dwB);
+                            continue;
+                        }
+                        if (c.b === collision.b) {
+                            this.updateDepth(c, false, c.b, collision.dvB, collision.dwB);
+                            continue;
+                        }
+                    }
+                }
+            }
+            updateDepth(collision: PreparedCollision, rigidIsA: boolean, rigid: Rigid, dv: math.Vec4, dw: math.Bivec) {
+                let a = math.vec4Pool.pop().subset(collision.point, rigid.position);
+                let dd = a.dotbsr(dw).adds(dv).dot(collision.normal); a.pushPool();
+                collision.depth += rigidIsA ? dd : -dd;
             }
             updateSeparateSpeed(collision: PreparedCollision, rigidIsA: boolean, rigid: Rigid, dv: math.Vec4, dw: math.Bivec) {
                 let a = math.vec4Pool.pop().subset(collision.point, rigid.position);

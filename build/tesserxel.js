@@ -109,6 +109,10 @@ var tesserxel;
             constructObject() { return new math.Quaternion; }
         }
         math.QuaternionPool = QuaternionPool;
+        class RotorPool extends Pool {
+            constructObject() { return new math.Rotor; }
+        }
+        math.RotorPool = RotorPool;
         math.vec2Pool = new Vec2Pool;
         math.vec3Pool = new Vec3Pool;
         math.vec4Pool = new Vec4Pool;
@@ -117,6 +121,7 @@ var tesserxel;
         math.mat3Pool = new Mat3Pool;
         math.mat4Pool = new Mat4Pool;
         math.qPool = new QuaternionPool;
+        math.rotorPool = new RotorPool;
     })(math = tesserxel.math || (tesserxel.math = {}));
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
@@ -207,6 +212,7 @@ var tesserxel;
                     this.rotation.copy(o.rotation);
                 if (o.scale)
                     this.scale.copy(o.scale);
+                return this;
             }
             local2world(point) {
                 if (this.scale)
@@ -453,10 +459,59 @@ var tesserxel;
             static id(r) {
                 let m = new Matrix(r);
                 let rplus1 = r + 1;
-                for (let i = 0; i < m.length; i += rplus1) {
+                for (let i = 0, l = m.length; i < l; i += rplus1) {
                     m.elem[i] = 1.0;
                 }
                 return m;
+            }
+            set(...args) {
+                this.elem.set(args);
+                return this;
+            }
+            copy(src) {
+                this.elem.set(src.elem);
+                return this;
+            }
+            // setsubmat( // todo
+            //     src: Matrix, srcRow: number, srcCol: number, srcRowCount: number, srcColCount: number,
+            //     dstRow: number, dstCol: number
+            // ) {
+            //     this.elem.set(m.elem); return this;
+            // }
+            clone(m) {
+                return new Matrix(this.row, this.col).copy(this);
+            }
+            adds(m) {
+                for (let i = 0, l = m.length; i < l; i++) {
+                    this.elem[i] += m.elem[i];
+                }
+                return this;
+            }
+            subs(m) {
+                for (let i = 0, l = m.length; i < l; i++) {
+                    this.elem[i] -= m.elem[i];
+                }
+                return this;
+            }
+            mulfs(k) {
+                for (let i = 0, l = this.length; i < l; i++) {
+                    this.elem[i] *= k;
+                }
+                return this;
+            }
+            divfs(k) {
+                k = 1 / k;
+                for (let i = 0, l = this.length; i < l; i++) {
+                    this.elem[i] *= k;
+                }
+                return this;
+            }
+            at(r, c) {
+                return this.elem[r + this.row * c];
+            }
+            setAt(value, r, c) {
+                this.elem[r + this.row * c] = value;
+                return this;
             }
             static subMatrix(startRow, startCol, rowCount, colCout) {
                 let m = new Matrix(rowCount, colCout);
@@ -754,11 +809,22 @@ var tesserxel;
                 let b = math._vec3_2.randset().mulfs(0.5);
                 return new Bivec(a.x + b.x, a.y + b.y, a.z + b.z, a.z - b.z, b.y - a.y, a.x - b.x);
             }
+            randset() {
+                // sampled in isoclinic space uniformly for left and right part respectively
+                let a = math._vec3_1.randset().mulfs(0.5);
+                let b = math._vec3_2.randset().mulfs(0.5);
+                return this.set(a.x + b.x, a.y + b.y, a.z + b.z, a.z - b.z, b.y - a.y, a.x - b.x);
+            }
             /** return a random oriented simple normalized bivector by seed */
             static srand(seed) {
                 let a = math._vec3_1.srandset(seed).mulfs(0.5);
                 let b = math._vec3_2.srandset(seed).mulfs(0.5);
                 return new Bivec(a.x + b.x, a.y + b.y, a.z + b.z, a.z - b.z, b.y - a.y, a.x - b.x);
+            }
+            srandset(seed) {
+                let a = math._vec3_1.srandset(seed).mulfs(0.5);
+                let b = math._vec3_2.srandset(seed).mulfs(0.5);
+                return this.set(a.x + b.x, a.y + b.y, a.z + b.z, a.z - b.z, b.y - a.y, a.x - b.x);
             }
             pushPool(pool = math.bivecPool) {
                 pool.push(this);
@@ -1169,6 +1235,18 @@ var tesserxel;
                 this.l.srandset(seed);
                 this.r.srandset(seed);
                 return this;
+            }
+            pushPool(pool = math.rotorPool) {
+                pool.push(this);
+            }
+            /** set rotor from a rotation matrix,
+             * i.e. m must be orthogonal with determinant 1.
+             * algorithm: iteratively aligne each axis. */
+            setFromMat4(m) {
+                return this.setFromLookAt(math.Vec4.x, m.x_()).mulsl(math._r.setFromLookAt(math._vec4.copy(math.Vec4.y).rotates(this), m.y_())).mulsl(math._r.setFromLookAt(math._vec4.copy(math.Vec4.z).rotates(this), m.z_()));
+            }
+            fromMat4(m) {
+                return Rotor.lookAt(math.Vec4.x, m.x_()).mulsl(math._r.setFromLookAt(math._vec4.copy(math.Vec4.y).rotates(this), m.y_())).mulsl(math._r.setFromLookAt(math._vec4.copy(math.Vec4.z).rotates(this), m.z_()));
             }
         }
         math.Rotor = Rotor;
@@ -3582,7 +3660,29 @@ var tesserxel;
                 this.clearCheckList();
                 for (let i = 0; i < world.rigids.length; i++) {
                     for (let j = i + 1; j < world.rigids.length; j++) {
-                        this.checkList.push([world.rigids[i], world.rigids[j]]);
+                        let ri = world.rigids[i], rj = world.rigids[j];
+                        let iU = ri.geometry instanceof physics.rigid.Union;
+                        let jU = rj.geometry instanceof physics.rigid.Union;
+                        if (!iU && !jU) {
+                            this.checkList.push([ri, rj]);
+                        }
+                        else if (iU && !jU) {
+                            for (let r of ri.geometry.components) {
+                                this.checkList.push([r, rj]);
+                            }
+                        }
+                        else if (!iU && jU) {
+                            for (let r of rj.geometry.components) {
+                                this.checkList.push([r, ri]);
+                            }
+                        }
+                        else {
+                            for (let r1 of ri.geometry.components) {
+                                for (let r2 of rj.geometry.components) {
+                                    this.checkList.push([r1, r2]);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -3605,38 +3705,57 @@ var tesserxel;
             broadPhase;
             narrowPhase;
             solver;
+            substep;
             constructor(option) {
                 this.forceAccumulator = new (option?.forceAccumulator ?? physics.force_accumulator.Predict3)();
                 this.broadPhase = new (option?.broadPhase ?? physics.NaiveBroadPhase)();
                 this.narrowPhase = new physics.NarrowPhase();
                 this.solver = new (option?.solver ?? physics.IterativeImpulseSolver)();
+                this.substep = option.substep ?? 1;
             }
             runCollisionSolver() {
                 // todo
             }
             update(world, dt) {
+                dt /= this.substep;
+                for (let i = 0; i < this.substep; i++) {
+                    this.step(world, dt);
+                }
+                world.frameCount++;
+            }
+            step(world, dt) {
                 this.forceAccumulator.run(world, dt);
+                world.updateUnionGeometriesCoord();
                 this.broadPhase.run(world);
                 this.narrowPhase.run(this.broadPhase.checkList);
                 this.solver.run(this.narrowPhase.collisionList);
-                world.frameCount++;
+                world.updateUnionGeometriesCoord();
             }
         }
         physics.Engine = Engine;
         class World {
             gravity = new tesserxel.math.Vec4(0, -9.8);
             rigids = [];
+            unionRigids = [];
             forces = [];
             time = 0;
             frameCount = 0;
             add(o) {
                 if (o instanceof physics.Rigid) {
                     this.rigids.push(o);
+                    if (o.geometry instanceof physics.rigid.Union) {
+                        this.unionRigids.push(o.geometry);
+                    }
                     return;
                 }
                 if (o instanceof physics.Force) {
                     this.forces.push(o);
                     return;
+                }
+            }
+            updateUnionGeometriesCoord() {
+                for (let r of this.unionRigids) {
+                    r.updateCoord();
                 }
             }
         }
@@ -3669,8 +3788,6 @@ var tesserxel;
     (function (physics) {
         ;
         class ForceAccumulator {
-            run(world, dt) { }
-            ;
             _biv1 = new tesserxel.math.Bivec;
             _biv2 = new tesserxel.math.Bivec;
             _bivec0 = new tesserxel.math.Bivec;
@@ -4046,6 +4163,8 @@ var tesserxel;
             inertiaIsotroy; // whether using scalar inertia
             // only apply to active type object
             sleep = false;
+            // for tracing debug
+            label;
             velocity = new tesserxel.math.Vec4();
             angularVelocity = new tesserxel.math.Bivec();
             force = new tesserxel.math.Vec4();
@@ -4060,16 +4179,17 @@ var tesserxel;
                 else {
                     let option = param;
                     this.geometry = option.geometry;
-                    this.mass = option.mass;
+                    this.mass = isFinite(option.mass) ? option.mass : 0;
                     this.type = option.type ?? "active";
-                    this.invMass = option.mass > 0 && (this.type === "active") ? 1 / option.mass : 0;
+                    this.invMass = this.mass > 0 && (this.type === "active") ? 1 / this.mass : 0;
                     this.material = option.material;
+                    this.label = option.label;
                 }
                 this.geometry.initialize(this);
             }
             getlinearVelocity(out, point) {
                 if (this.type === "still")
-                    return new tesserxel.math.Vec4();
+                    return out.set();
                 let relPosition = out.subset(point, this.position);
                 return out.dotbset(relPosition, this.angularVelocity).adds(this.velocity);
             }
@@ -4117,8 +4237,37 @@ var tesserxel;
                 isUnion = true;
                 constructor(components) { super(); this.components = components; }
                 // todo: union gen
-                initializeMassInertia(rigid) { }
+                initializeMassInertia(rigid) {
+                    // set union rigid's position at mass center of rigids
+                    rigid.position.set();
+                    rigid.mass = 0;
+                    for (let r of this.components) {
+                        if (r.mass === null)
+                            console.error("Union Rigid Geometry cannot contain a still rigid.");
+                        rigid.position.addmulfs(r.position, r.mass);
+                        rigid.mass += r.mass;
+                    }
+                    rigid.invMass = 1 / rigid.mass;
+                    rigid.position.mulfs(rigid.invMass);
+                    // update rigids position to relative frame
+                    for (let r of this.components) {
+                        r.localCoord = new tesserxel.math.Obj4().copyObj4(r);
+                        r.localCoord.position.subs(rigid.position);
+                        r.parent = rigid;
+                    }
+                    // todo
+                    // let inertia = new math.Matrix(6,6);
+                    rigid.inertia.xy = 0.01;
+                    rigid.inertiaIsotroy = true;
+                    rigid.type = "active";
+                }
                 ;
+                updateCoord() {
+                    for (let r of this.components) {
+                        r.position.copy(r.localCoord.position).rotates(this.rigid.rotation).adds(this.rigid.position);
+                        r.rotation.copy(r.localCoord.rotation).mulsl(this.rigid.rotation);
+                    }
+                }
             }
             rigid_1.Union = Union;
             class Glome extends RigidGeometry {
@@ -4225,8 +4374,10 @@ var tesserxel;
         }
         physics.Solver = Solver;
         class IterativeImpulseSolver extends Solver {
-            maxPositionIterations = 5;
-            maxVelocityIterations = 5;
+            maxPositionIterations = 32;
+            maxVelocityIterations = 32;
+            maxResolveRotationAngle = .0 * tesserxel.math._DEG2RAD;
+            PositionRelaxationFactor = 0.5;
             collisionList;
             run(collisionList) {
                 if (!collisionList.length)
@@ -4239,8 +4390,15 @@ var tesserxel;
                 this.collisionList = collisionList.map(e => {
                     let { point, a, b, normal } = e;
                     let collision = e;
+                    collision.materialA = a.material;
+                    collision.materialB = b.material;
+                    // after got material, we solve union regardless of it's collision parts
+                    if (a.parent)
+                        collision.a = a.parent;
+                    if (b.parent)
+                        collision.b = b.parent;
                     let temp = tesserxel.math.vec4Pool.pop();
-                    collision.relativeVelocity = b.getlinearVelocity(tesserxel.math.vec4Pool.pop(), point).subs(a.getlinearVelocity(temp, point));
+                    collision.relativeVelocity = collision.b.getlinearVelocity(tesserxel.math.vec4Pool.pop(), point).subs(collision.a.getlinearVelocity(temp, point));
                     temp.pushPool();
                     collision.separateSpeed = collision.relativeVelocity.dot(normal);
                     return collision;
@@ -4253,19 +4411,76 @@ var tesserxel;
                     let { point, a, b, depth, normal } = collision;
                     if (depth <= 0)
                         return;
+                    let invInertiaA = 0, invInertiaB = 0;
+                    if (a.mass > 0) {
+                        let pA = tesserxel.math.vec4Pool.pop().subset(point, a.position);
+                        let torqueA = tesserxel.math.bivecPool.pop().wedgevvset(normal, pA);
+                        if (a.inertiaIsotroy) {
+                            collision.dwA = torqueA.mulfs(a.invInertia.xy);
+                        }
+                        else {
+                            torqueA.rotatesconj(a.rotation);
+                            collision.dwA = physics.mulBivec(torqueA, a.invInertia, torqueA).rotates(a.rotation);
+                        }
+                        invInertiaA = -pA.dotbset(pA, collision.dwA).dot(normal);
+                        pA.pushPool();
+                    }
+                    if (b.mass > 0) {
+                        let pB = tesserxel.math.vec4Pool.pop().subset(point, b.position);
+                        let torqueB = tesserxel.math.bivecPool.pop().wedgevvset(pB, normal);
+                        if (b.inertiaIsotroy) {
+                            collision.dwB = torqueB.mulfs(b.invInertia.xy);
+                        }
+                        else {
+                            torqueB.rotatesconj(b.rotation);
+                            collision.dwB = physics.mulBivec(torqueB, b.invInertia, torqueB).rotates(b.rotation);
+                        }
+                        invInertiaB = pB.dotbset(pB, collision.dwB).dot(normal);
+                        pB.pushPool();
+                    }
+                    let totalInvsMulDepth = depth * this.PositionRelaxationFactor * (a.invMass + b.invMass + invInertiaA + invInertiaB);
+                    if (a.mass > 0) {
+                        // here can't mul invInertiaA since dwA is by unit impulse, and linear part is already invInertiaA
+                        collision.dwA.mulfs(totalInvsMulDepth);
+                        // clamp rotation
+                        let angle = collision.dwA.norm();
+                        if (angle > this.maxResolveRotationAngle) {
+                            collision.dwA.mulfs(this.maxResolveRotationAngle / angle);
+                        }
+                        collision.dvA = tesserxel.math.vec4Pool.pop().copy(normal).mulfs(-totalInvsMulDepth * a.invMass);
+                        a.position.adds(collision.dvA);
+                        let r = tesserxel.math.rotorPool.pop().expset(collision.dwA);
+                        a.rotation.mulsl(r);
+                        r.pushPool();
+                    }
+                    if (b.mass > 0) {
+                        collision.dwB.mulfs(totalInvsMulDepth);
+                        // clamp rotation
+                        let angle = collision.dwB.norm();
+                        if (angle > this.maxResolveRotationAngle) {
+                            collision.dwB.mulfs(this.maxResolveRotationAngle / angle);
+                        }
+                        collision.dvB = tesserxel.math.vec4Pool.pop().copy(normal).mulfs(totalInvsMulDepth * b.invMass);
+                        b.position.adds(collision.dvB);
+                        let r = tesserxel.math.rotorPool.pop().expset(collision.dwB);
+                        b.rotation.mulsl(r);
+                        r.pushPool();
+                    }
+                    // collision.depth = 0;
+                    this.updateDepths(collision);
                 }
             }
             resolveVelocity() {
                 // iteratively solve lowest separateSpeed
                 for (let i = 0; i < this.maxVelocityIterations; i++) {
                     let collision = this.collisionList.sort((a, b) => a.separateSpeed - b.separateSpeed)[0];
-                    let { point, a, b, separateSpeed, normal, relativeVelocity } = collision;
+                    let { point, a, b, separateSpeed, normal, relativeVelocity, materialA, materialB } = collision;
                     if (separateSpeed >= 0)
                         return;
-                    let restitution = physics.Material.getContactRestitution(a.material, b.material);
+                    let restitution = physics.Material.getContactRestitution(materialA, materialB);
                     // set target separateSpeed to collision, next we'll solve to reach it
-                    collision.separateSpeed = -separateSpeed * restitution;
-                    let targetRelativeVelocity = normal.mulf(collision.separateSpeed);
+                    // collision.separateSpeed = -separateSpeed * restitution;
+                    let targetRelativeVelocity = normal.mulf(-separateSpeed * restitution);
                     let targetDeltaVelocityByImpulse = targetRelativeVelocity.subs(relativeVelocity);
                     let pointInA, pointInB;
                     let matA = tesserxel.math.mat4Pool.pop(), matB = tesserxel.math.mat4Pool.pop();
@@ -4291,7 +4506,7 @@ var tesserxel;
                     let impulseN = tesserxel.math.vec4Pool.pop().copy(normal).mulfs(impulseNValue);
                     let impulseT = tesserxel.math.vec4Pool.pop().subset(impulse, impulseN);
                     let impulseTValue = impulseT.norm();
-                    let friction = physics.Material.getContactFriction(a.material, b.material);
+                    let friction = physics.Material.getContactFriction(materialA, materialB);
                     let maximalFriction = friction * impulseNValue;
                     if (impulseTValue > maximalFriction) {
                         // correct tangent impulse for friction
@@ -4315,8 +4530,7 @@ var tesserxel;
             }
             updateSeparateSpeeds(collision) {
                 for (let c of this.collisionList) {
-                    if (c === collision)
-                        continue;
+                    // if (c === collision) continue;
                     if (collision.a.mass > 0) {
                         if (c.a === collision.a) {
                             this.updateSeparateSpeed(c, true, c.a, collision.dvA, collision.dwA);
@@ -4338,6 +4552,37 @@ var tesserxel;
                         }
                     }
                 }
+            }
+            updateDepths(collision) {
+                for (let c of this.collisionList) {
+                    // if (c === collision) continue;
+                    if (collision.a.mass > 0) {
+                        if (c.a === collision.a) {
+                            this.updateDepth(c, true, c.a, collision.dvA, collision.dwA);
+                            continue;
+                        }
+                        if (c.b === collision.a) {
+                            this.updateDepth(c, false, c.b, collision.dvA, collision.dwA);
+                            continue;
+                        }
+                    }
+                    if (collision.b.mass > 0) {
+                        if (c.a === collision.b) {
+                            this.updateDepth(c, true, c.a, collision.dvB, collision.dwB);
+                            continue;
+                        }
+                        if (c.b === collision.b) {
+                            this.updateDepth(c, false, c.b, collision.dvB, collision.dwB);
+                            continue;
+                        }
+                    }
+                }
+            }
+            updateDepth(collision, rigidIsA, rigid, dv, dw) {
+                let a = tesserxel.math.vec4Pool.pop().subset(collision.point, rigid.position);
+                let dd = a.dotbsr(dw).adds(dv).dot(collision.normal);
+                a.pushPool();
+                collision.depth += rigidIsA ? dd : -dd;
             }
             updateSeparateSpeed(collision, rigidIsA, rigid, dv, dw) {
                 let a = tesserxel.math.vec4Pool.pop().subset(collision.point, rigid.position);
@@ -4682,7 +4927,6 @@ var tesserxel;
         controller.FreeFlyController = FreeFlyController;
         class KeepUpController {
             enabled = true;
-            keepUp = false;
             object = new tesserxel.math.Obj4();
             mouseSpeed = 0.01;
             wheelSpeed = 0.0001;
@@ -5003,11 +5247,10 @@ var tesserxel;
         })(sliceconfig = controller.sliceconfig || (controller.sliceconfig = {}));
         class RetinaController {
             enabled = true;
-            keepUp = false;
             renderer;
             mouseSpeed = 0.01;
             wheelSpeed = 0.0001;
-            keyMoveSpeed = 0.01;
+            keyMoveSpeed = 0.1;
             keyRotateSpeed = 0.01;
             opacityKeySpeed = 0.01;
             damp = 0.1;

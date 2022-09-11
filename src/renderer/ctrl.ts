@@ -299,7 +299,6 @@ namespace tesserxel {
         }
         export class KeepUpController implements IController {
             enabled = true;
-            keepUp = false;
             object = new math.Obj4();
             mouseSpeed = 0.01;
             wheelSpeed = 0.0001;
@@ -610,11 +609,10 @@ namespace tesserxel {
         }
         export class RetinaController implements IController {
             enabled = true;
-            keepUp = false;
             renderer: renderer.SliceRenderer;
             mouseSpeed = 0.01;
             wheelSpeed = 0.0001;
-            keyMoveSpeed = 0.01;
+            keyMoveSpeed = 0.1;
             keyRotateSpeed = 0.01;
             opacityKeySpeed = 0.01;
             damp = 0.1;

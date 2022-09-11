@@ -79,6 +79,7 @@ namespace tesserxel {
                 if(o.position) this.position.copy(o.position);
                 if(o.rotation) this.rotation.copy(o.rotation);
                 if(o.scale) this.scale.copy(o.scale);
+                return this;
             }
             local2world(point: Vec4): Vec4 {
                 if (this.scale)

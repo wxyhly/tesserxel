@@ -50,6 +50,9 @@ declare namespace tesserxel {
         class QuaternionPool extends Pool<Quaternion> {
             constructObject(): Quaternion;
         }
+        class RotorPool extends Pool<Rotor> {
+            constructObject(): Rotor;
+        }
         const vec2Pool: Vec2Pool;
         const vec3Pool: Vec3Pool;
         const vec4Pool: Vec4Pool;
@@ -58,6 +61,7 @@ declare namespace tesserxel {
         const mat3Pool: Mat3Pool;
         const mat4Pool: Mat4Pool;
         const qPool: QuaternionPool;
+        const rotorPool: RotorPool;
     }
 }
 declare namespace tesserxel {
@@ -89,7 +93,7 @@ declare namespace tesserxel {
             rotation: Rotor;
             scale: Vec4;
             constructor(position?: Vec4, rotation?: Rotor, scale?: Vec4);
-            copyObj4(o: math.Obj4): void;
+            copyObj4(o: math.Obj4): this;
             local2world(point: Vec4): Vec4;
             world2local(point: Vec4): Vec4;
             getMat4(): Mat4;
@@ -161,6 +165,15 @@ declare namespace tesserxel {
             length: number;
             constructor(r: number, c?: number);
             static id(r: number): Matrix;
+            set(...args: number[]): this;
+            copy(src: Matrix): this;
+            clone(m: Matrix): Matrix;
+            adds(m: Matrix): this;
+            subs(m: Matrix): this;
+            mulfs(k: number): this;
+            divfs(k: number): this;
+            at(r: number, c: number): number;
+            setAt(value: number, r: number, c: number): this;
             static subMatrix(startRow: number, startCol: number, rowCount: number, colCout: number): void;
         }
     }
@@ -234,8 +247,10 @@ declare namespace tesserxel {
             rotateset(bivec: Bivec, r: Rotor): Bivec;
             /** return a random oriented simple normalized bivector */
             static rand(): Bivec;
+            randset(): Bivec;
             /** return a random oriented simple normalized bivector by seed */
             static srand(seed: Srand): Bivec;
+            srandset(seed: Srand): Bivec;
             pushPool(pool?: BivecPool): void;
         }
         class Quaternion {
@@ -342,6 +357,12 @@ declare namespace tesserxel {
             static srand(seed: Srand): Rotor;
             randset(): Rotor;
             srandset(seed: Srand): Rotor;
+            pushPool(pool?: RotorPool): void;
+            /** set rotor from a rotation matrix,
+             * i.e. m must be orthogonal with determinant 1.
+             * algorithm: iteratively aligne each axis. */
+            setFromMat4(m: Mat4): Rotor;
+            fromMat4(m: Mat4): Rotor;
         }
         let _biv: Bivec;
         let _r: Rotor;
@@ -879,23 +900,28 @@ declare namespace tesserxel {
             forceAccumulator?: ForceAccumulatorConstructor;
             broadPhase?: BroadPhaseConstructor;
             solver?: SolverConstructor;
+            substep?: number;
         }
         export class Engine {
             forceAccumulator: ForceAccumulator;
             broadPhase: BroadPhase;
             narrowPhase: NarrowPhase;
             solver: Solver;
+            substep: number;
             constructor(option?: EngineOption);
             runCollisionSolver(): void;
             update(world: World, dt: number): void;
+            step(world: World, dt: number): void;
         }
         export class World {
             gravity: math.Vec4;
             rigids: Rigid[];
+            unionRigids: rigid.Union[];
             forces: Force[];
             time: number;
             frameCount: number;
             add(o: Rigid | Force): void;
+            updateUnionGeometriesCoord(): void;
         }
         export class Material {
             friction: number;
@@ -914,8 +940,8 @@ declare namespace tesserxel {
         interface ForceAccumulatorConstructor {
             new (): ForceAccumulator;
         }
-        class ForceAccumulator {
-            run(world: World, dt: number): void;
+        abstract class ForceAccumulator {
+            abstract run(world: World, dt: number): void;
             private _biv1;
             private _biv2;
             private readonly _bivec0;
@@ -999,7 +1025,12 @@ declare namespace tesserxel {
             geometry: RigidGeometry;
             material: Material;
             type?: RigidType;
+            /** for tracing debug */
+            label?: string;
         }
+        /** Subrigids should not be added into scene repetively.
+         * Subrigids's positions cannot be modified after union created
+         */
         type UnionRigidDescriptor = Rigid[];
         /** all properities hold by class Rigid should not be modified
          *  exceptions are position/rotation and (angular)velocity.
@@ -1016,6 +1047,7 @@ declare namespace tesserxel {
             invInertia: math.Bivec;
             inertiaIsotroy: boolean;
             sleep: boolean;
+            label?: string;
             velocity: math.Vec4;
             angularVelocity: math.Bivec;
             force: math.Vec4;
@@ -1024,6 +1056,11 @@ declare namespace tesserxel {
             angularAcceleration: math.Bivec;
             constructor(param: SimpleRigidDescriptor | UnionRigidDescriptor);
             getlinearVelocity(out: math.Vec4, point: math.Vec4): math.Vec4;
+        }
+        /** internal type for union rigid geometry */
+        export interface SubRigid extends Rigid {
+            localCoord?: math.Obj4;
+            parent?: Rigid;
         }
         export abstract class RigidGeometry {
             type: string;
@@ -1034,10 +1071,11 @@ declare namespace tesserxel {
         }
         export namespace rigid {
             class Union extends RigidGeometry {
-                components: Rigid[];
+                components: SubRigid[];
                 isUnion: true;
                 constructor(components: Rigid[]);
                 initializeMassInertia(rigid: Rigid): void;
+                updateCoord(): void;
             }
             class Glome extends RigidGeometry {
                 radius: number;
@@ -1083,6 +1121,8 @@ declare namespace tesserxel {
         interface PreparedCollision extends Collision {
             separateSpeed: number;
             relativeVelocity: math.Vec4;
+            materialA: Material;
+            materialB: Material;
             dvA?: math.Vec4;
             dvB?: math.Vec4;
             dwA?: math.Bivec;
@@ -1091,12 +1131,16 @@ declare namespace tesserxel {
         class IterativeImpulseSolver extends Solver {
             maxPositionIterations: number;
             maxVelocityIterations: number;
+            maxResolveRotationAngle: number;
+            PositionRelaxationFactor: number;
             collisionList: PreparedCollision[];
             run(collisionList: Collision[]): void;
             prepare(collisionList: Collision[]): void;
             resolvePosition(): void;
             resolveVelocity(): void;
             updateSeparateSpeeds(collision: PreparedCollision): void;
+            updateDepths(collision: PreparedCollision): void;
+            updateDepth(collision: PreparedCollision, rigidIsA: boolean, rigid: Rigid, dv: math.Vec4, dw: math.Bivec): void;
             updateSeparateSpeed(collision: PreparedCollision, rigidIsA: boolean, rigid: Rigid, dv: math.Vec4, dw: math.Bivec): void;
         }
     }
@@ -1203,7 +1247,6 @@ declare namespace tesserxel {
         }
         export class KeepUpController implements IController {
             enabled: boolean;
-            keepUp: boolean;
             object: math.Obj4;
             mouseSpeed: number;
             wheelSpeed: number;
@@ -1264,7 +1307,6 @@ declare namespace tesserxel {
         }
         export class RetinaController implements IController {
             enabled: boolean;
-            keepUp: boolean;
             renderer: renderer.SliceRenderer;
             mouseSpeed: number;
             wheelSpeed: number;
