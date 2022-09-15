@@ -399,7 +399,7 @@ namespace tesserxel {
                 // Tell root material that CheckerTexture needs deal dependency of vary input uvw
                 let { token, code } = this.getInputCode(r, root, outputToken);
                 return code + `
-                let ${outputToken}_checker = fract(${token.uvw}) - vec4<f32>(0.5);
+                let ${outputToken}_checker = fract(${token.uvw}+vec4<f32>(0.001)) - vec4<f32>(0.5);
                 let ${outputToken} = mix(${token.color1},${token.color2},step( ${outputToken}_checker.x * ${outputToken}_checker.y * ${outputToken}_checker.z * ${outputToken}_checker.w, 0.0));
                 `;
             }

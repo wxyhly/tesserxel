@@ -12,9 +12,11 @@ namespace tesserxel {
             enable?: string;
             disable?: string;
         }
-        interface ControllerState {
+        export interface ControllerState {
             currentKeys: Map<String, KeyState>;
             currentBtn: number;
+            mouseDown: number;
+            mouseUp: number;
             updateCount: number;
             moveX: number;
             moveY: number;
@@ -23,6 +25,7 @@ namespace tesserxel {
             lastUpdateTime?: number;
             mspf?: number;
             requsetPointerLock?: boolean;
+            isPointerLockedMouseDown?: boolean;
             isKeyHold?: (code: string) => boolean;
             queryDisabled?: (config: KeyConfig) => boolean;
             isPointerLocked?: () => boolean;
@@ -40,7 +43,10 @@ namespace tesserxel {
             requsetPointerLock: boolean;
             readonly states: ControllerState = {
                 currentKeys: new Map(),
+                isPointerLockedMouseDown: false,
                 currentBtn: -1,
+                mouseDown: -1,
+                mouseUp: -1,
                 updateCount: 0,
                 moveX: 0,
                 moveY: 0,
@@ -68,7 +74,7 @@ namespace tesserxel {
                     return this.states.isKeyHold(config.disable) || (config.enable && !this.states.isKeyHold(config.enable));
                 }
                 this.states.isPointerLocked = () => {
-                    return document.pointerLockElement === this.dom;
+                    return ((!this.states.isPointerLockedMouseDown) && document.pointerLockElement === this.dom);
                 }
                 this.states.exitPointerLock = () => {
                     if (document.pointerLockElement === this.dom) document.exitPointerLock();
@@ -76,12 +82,14 @@ namespace tesserxel {
                 dom.addEventListener("mousedown", (ev) => {
                     if (this.requsetPointerLock && document.pointerLockElement !== dom) {
                         dom.requestPointerLock();
+                        this.states.isPointerLockedMouseDown = true;
                     } else {
                         dom.focus();
                     }
                     this.states.currentBtn = ev.button;
                     this.states.moveX = 0;
                     this.states.moveY = 0;
+                    this.states.mouseDown = ev.button;
                     if (ev.altKey === false) {
                         this.states.currentKeys.set("AltLeft", KeyState.NONE);
                         this.states.currentKeys.set("AltRight", KeyState.NONE);
@@ -98,6 +106,7 @@ namespace tesserxel {
                 });
                 dom.addEventListener("mouseup", (ev) => {
                     this.states.currentBtn = -1;
+                    this.states.mouseUp = ev.button;
                 });
                 dom.addEventListener("keydown", (ev) => {
                     let prevState = this.states.currentKeys.get(ev.code);
@@ -139,11 +148,14 @@ namespace tesserxel {
                 for (let c of this.ctrls) {
                     if (c.enabled) c.update(this.states);
                 }
+                this.states.mouseDown = -1;
+                this.states.mouseUp = -1;
                 this.states.moveX = 0;
                 this.states.moveY = 0;
                 this.states.wheelX = 0;
                 this.states.wheelY = 0;
                 this.states.updateCount++;
+                this.states.isPointerLockedMouseDown = false;
                 for (let [key, prevState] of this.states.currentKeys) {
                     let newState = prevState;
                     if (prevState === KeyState.DOWN) {
@@ -347,7 +359,6 @@ namespace tesserxel {
                 let objY = math.Vec4.y.rotate(this.object.rotation);
                 let r = math.Rotor.lookAt(objY, math.Vec4.y);
                 this.horizontalRotor.copy(r.mul(this.object.rotation));
-                console.log(this.horizontalRotor.log());
                 this.verticalRotor.copy(this.horizontalRotor.mul(r.conjs()).mulsrconj(this.horizontalRotor));
             }
             update(state: ControllerState) {
@@ -615,7 +626,7 @@ namespace tesserxel {
             keyMoveSpeed = 0.1;
             keyRotateSpeed = 0.01;
             opacityKeySpeed = 0.01;
-            damp = 0.1;
+            damp = 0.02;
             mouseButton = 0;
             retinaEyeOffset = 0.1;
             sectionEyeOffset = 0.1;
@@ -693,10 +704,9 @@ namespace tesserxel {
             private _q1 = new math.Quaternion();
             private _q2 = new math.Quaternion();
             private _mat4 = new math.Mat4();
-            private sliceNeedUpdate: boolean;
+            private refacingFront: boolean = false;
             retinaZDistance = 5;
             update(state: ControllerState): void {
-
                 let disabled = state.queryDisabled(this.keyConfig);
                 let on = state.isKeyHold;
                 let key = this.keyConfig;
@@ -753,20 +763,31 @@ namespace tesserxel {
                     delta = (on(key.rotateLeft) ? 1 : 0) + (on(key.rotateRight) ? -1 : 0);
                     if (delta) this._vec2damp.x = delta * keyRotateSpeed;
                     if (state.currentBtn === this.mouseButton) {
+                        this.refacingFront = false;
                         if (state.moveX) this._vec2damp.x = state.moveX * this.mouseSpeed;
                         if (state.moveY) this._vec2damp.y = state.moveY * this.mouseSpeed;
                     }
+                    if (on(key.refaceFront)) {
+                        this.refacingFront = true;
+                    }
                 }
-                if (this._vec2damp.norm1() < 1e-3) {
+                if (this._vec2damp.norm1() < 1e-3 || this.refacingFront) {
                     this._vec2damp.set(0, 0);
-                } else {
+                }
+                if (this._vec2damp.norm1() > 1e-3 || this.refacingFront) {
+                    this._vec2euler.x %= math._360;
+                    this._vec2euler.y %= math._360;
+                    let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
+                    if (this.refacingFront) {
+                        this._vec2euler.mulfs(dampFactor);
+                        if (this._vec2euler.norm1() < 0.01) this.refacingFront = false;
+                    }
                     this._vec2euler.adds(this._vec2damp);
                     let mat = this._mat4.setFrom3DRotation(this._q1.expset(this._vec3.set(0, this._vec2euler.x, 0)).mulsr(
                         this._q2.expset(this._vec3.set(this._vec2euler.y, 0, 0))
                     ).conjs());
                     mat.elem[11] = -this.retinaZDistance;
                     this.renderer.setRetinaViewMatrix(mat);
-                    let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
                     this._vec2damp.mulfs(dampFactor);
                 }
                 this.renderer.setSliceConfig(sliceConfig);

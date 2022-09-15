@@ -75,10 +75,10 @@ namespace tesserxel {
                 this.rotation = rotation ?? new Rotor();
                 this.scale = scale;
             }
-            copyObj4(o:math.Obj4){
-                if(o.position) this.position.copy(o.position);
-                if(o.rotation) this.rotation.copy(o.rotation);
-                if(o.scale) this.scale.copy(o.scale);
+            copyObj4(o: math.Obj4) {
+                if (o.position) this.position.copy(o.position);
+                if (o.rotation) this.rotation.copy(o.rotation);
+                if (o.scale) { if (!this.scale) this.scale = new math.Vec4; this.scale.copy(o.scale); }
                 return this;
             }
             local2world(point: Vec4): Vec4 {
@@ -140,13 +140,17 @@ namespace tesserxel {
                 this.rotation.mulsl(r);
                 return this;
             }
+            rotatesb(b: Bivec): Obj4 {
+                this.rotation.mulsl(_r.expset(b));
+                return this;
+            }
             rotatesAt(r: Rotor, center: Vec4 = new Vec4()): Obj4 {
                 this.rotation.mulsl(r);
                 this.position.subs(center).rotates(r).adds(center);
                 return this;
             }
             lookAt(direction: Vec4, target: Vec4) {
-                let dir = _vec4.subset(target,this.position);
+                let dir = _vec4.subset(target, this.position);
                 this.rotates(_r.setFromLookAt(_vec4_1.copy(direction).rotates(this.rotation), dir.norms()));
                 return this;
             }

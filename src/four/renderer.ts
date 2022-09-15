@@ -127,7 +127,6 @@ namespace tesserxel {
                 m.material.update(this);
             }
             updateMesh(m: Mesh) {
-                if (m.visible) this.addToDrawList(m);
                 if (m.needsUpdateCoord) {
                     m.worldCoord.writeBuffer(this.jsBuffer, 0);
                     m.worldCoord.mat.inv().ts().writeBuffer(this.jsBuffer, 20);
@@ -157,7 +156,8 @@ namespace tesserxel {
                             this.gpu.device.queue.writeBuffer(buffer, 0, g.jsBuffer[label]);
                         }
                     }
-                }
+                }                
+                if (m.visible) this.addToDrawList(m);
             }
             updateScene(scene: Scene) {
                 this.core.setWorldClearColor(scene.backGroundColor);

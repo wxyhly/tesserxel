@@ -599,6 +599,12 @@ namespace tesserxel {
             sqrt(): Rotor {
                 return new Rotor(this.l.sqrt(), this.r.sqrt());
             }
+            isFinite(): boolean {
+                return (
+                    isFinite(this.l.x) && isFinite(this.l.y) && isFinite(this.l.z) && isFinite(this.l.w) &&
+                    isFinite(this.r.x) && isFinite(this.r.y) && isFinite(this.r.z) && isFinite(this.r.w)
+                );
+            }
             expset(bivec: Bivec): Rotor {
                 let A = _vec3_1.set(bivec.xy + bivec.zw, bivec.xz - bivec.yw, bivec.xw + bivec.yz);
                 let B = _vec3_2.set(bivec.xy - bivec.zw, bivec.xz + bivec.yw, bivec.xw - bivec.yz);
@@ -710,18 +716,18 @@ namespace tesserxel {
             /** set rotor from a rotation matrix,
              * i.e. m must be orthogonal with determinant 1.
              * algorithm: iteratively aligne each axis. */
-            setFromMat4(m:Mat4){
-                return this.setFromLookAt(Vec4.x,m.x_()).mulsl(
-                    _r.setFromLookAt(_vec4.copy(Vec4.y).rotates(this),m.y_())
+            setFromMat4(m: Mat4) {
+                return this.setFromLookAt(Vec4.x, m.x_()).mulsl(
+                    _r.setFromLookAt(_vec4.copy(Vec4.y).rotates(this), m.y_())
                 ).mulsl(
-                    _r.setFromLookAt(_vec4.copy(Vec4.z).rotates(this),m.z_())
+                    _r.setFromLookAt(_vec4.copy(Vec4.z).rotates(this), m.z_())
                 );
             }
-            fromMat4(m:Mat4){
-                return Rotor.lookAt(Vec4.x,m.x_()).mulsl(
-                    _r.setFromLookAt(_vec4.copy(Vec4.y).rotates(this),m.y_())
+            fromMat4(m: Mat4) {
+                return Rotor.lookAt(Vec4.x, m.x_()).mulsl(
+                    _r.setFromLookAt(_vec4.copy(Vec4.y).rotates(this), m.y_())
                 ).mulsl(
-                    _r.setFromLookAt(_vec4.copy(Vec4.z).rotates(this),m.z_())
+                    _r.setFromLookAt(_vec4.copy(Vec4.z).rotates(this), m.z_())
                 );
             }
         }
