@@ -23,6 +23,11 @@ namespace tesserxel {
             let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
             return afmat.matrix * points + biais;
         }
+        fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
+            return mat4x4<f32>(
+                normalize(vec4s[0]), normalize(vec4s[1]), normalize(vec4s[2]), normalize(vec4s[3]),
+            );
+        }
         @tetra fn main(input : fourInputType, @builtin(instance_index) index: u32) -> fourOutputType{
             let worldPos = apply(uObjMat.pos,input.pos);
             return fourOutputType({fourOutputReturn});
@@ -31,7 +36,7 @@ namespace tesserxel {
         const outputReturn = {
             position: `apply(uCamMat,worldPos)`,
             uvw: `input.uvw`,
-            normal: `uObjMat.normal * input.normal`,
+            normal: `normalizeVec4s(uObjMat.normal * input.normal)`,
             pos: `worldPos`
         };
         export function _generateVertShader(inputs: string[], outputs: string[]) {

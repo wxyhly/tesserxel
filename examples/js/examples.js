@@ -608,133 +608,7 @@ var examples;
         }
         spring_rope.load = load;
     })(spring_rope = examples.spring_rope || (examples.spring_rope = {}));
-    let rigid_test;
-    (function (rigid_test) {
-        async function load() {
-            const math = tesserxel.math;
-            const size = new math.Vec4(.5, .3, .8, 1);
-            let slope = 0 * math._DEG2RAD;
-            // init render scene
-            const FOUR = tesserxel.four;
-            const canvas = document.getElementById("gpu-canvas");
-            const renderer = await new FOUR.Renderer(canvas).init();
-            let scene = new FOUR.Scene();
-            renderer.setBackgroudColor([1, 1, 1, 1]);
-            scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
-            let camera = new FOUR.Camera();
-            camera.position.w = 8;
-            camera.position.y = 1;
-            scene.add(camera);
-            scene.add(new FOUR.AmbientLight(0.3));
-            scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
-            const geom = new FOUR.GlomeGeometry(1);
-            const geomb = new FOUR.TesseractGeometry(size);
-            const materialRed = new FOUR.PhongMaterial(new FOUR.GridTexture([1, 0, 0], [1, 1, 1, 0.5], 0.2));
-            const materialGraphite = new FOUR.PhongMaterial([0.2, 0.2, 0.2], 5);
-            const floor = new FOUR.Mesh(new FOUR.CubeGeometry(50), new FOUR.PhongMaterial([0, 0.6, 0.2, 0.1]));
-            floor.rotation.expset(math.Bivec.xy.mulf(Math.asin(-slope)));
-            scene.add(floor);
-            let rg = new FOUR.Mesh(geom, materialRed);
-            let rg2 = new FOUR.Mesh(geom, materialGraphite);
-            let rg3 = new FOUR.Mesh(geom, materialGraphite);
-            let rg4 = new FOUR.Mesh(geom, materialGraphite);
-            let rg5 = new FOUR.Mesh(geom, materialGraphite);
-            let rg6 = new FOUR.Mesh(geom, materialGraphite);
-            let rg7 = new FOUR.Mesh(geom, materialGraphite);
-            let rg8 = new FOUR.Mesh(geom, materialGraphite);
-            let rb = new FOUR.Mesh(geomb, materialGraphite);
-            rg.alwaysUpdateCoord = true;
-            rg2.alwaysUpdateCoord = true;
-            rg3.alwaysUpdateCoord = true;
-            rg4.alwaysUpdateCoord = true;
-            rg5.alwaysUpdateCoord = true;
-            rg7.alwaysUpdateCoord = true;
-            rg8.alwaysUpdateCoord = true;
-            rg6.alwaysUpdateCoord = true;
-            rb.alwaysUpdateCoord = true;
-            scene.add(rg);
-            scene.add(rg2);
-            scene.add(rg4);
-            scene.add(rg3);
-            scene.add(rg5);
-            scene.add(rg6);
-            scene.add(rg7);
-            scene.add(rg8);
-            scene.add(rb);
-            renderer.core.setEyeOffset(0.5);
-            const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
-            const camCtrl = new tesserxel.controller.KeepUpController(camera);
-            camCtrl.keyMoveSpeed = 0.01;
-            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
-                retinaCtrl,
-                camCtrl
-            ], { requsetPointerLock: true });
-            function setSize() {
-                let width = window.innerWidth * window.devicePixelRatio;
-                let height = window.innerHeight * window.devicePixelRatio;
-                renderer.setSize({ width, height });
-            }
-            setSize();
-            window.addEventListener("resize", setSize);
-            // init physic scene
-            const phy = tesserxel.physics;
-            const engine = new phy.Engine({ substep: 25 });
-            const world = new phy.World();
-            const material = new phy.Material(1, 0.5);
-            world.add(new phy.Rigid({ geometry: new phy.rigid.Plane(new math.Vec4(Math.sin(slope), Math.cos(slope))), mass: 0, material }));
-            let obj = new phy.Rigid({ geometry: new phy.rigid.Glome(1), material: new phy.Material(1, 0.8), mass: 1 });
-            let obj2 = new phy.Rigid({ geometry: new phy.rigid.Glome(1), material: new phy.Material(1, 0.8), mass: 1 });
-            let obj3 = new phy.Rigid({ geometry: new phy.rigid.Glome(1), material: new phy.Material(1, 0.8), mass: 1 });
-            let obj4 = new phy.Rigid({ geometry: new phy.rigid.Glome(1), material: new phy.Material(1, 0.8), mass: 1 });
-            let obj5 = new phy.Rigid({ geometry: new phy.rigid.Glome(1), material: new phy.Material(1, 0.8), mass: 1 });
-            let obj6 = new phy.Rigid({ geometry: new phy.rigid.Glome(1), material: new phy.Material(1, 0.8), mass: 1 });
-            let obj7 = new phy.Rigid({ geometry: new phy.rigid.Glome(1), material: new phy.Material(1, 0.8), mass: 1 });
-            let obj8 = new phy.Rigid({ geometry: new phy.rigid.Glome(1), material: new phy.Material(1, 0.8), mass: 1 });
-            let objb = new phy.Rigid({ geometry: new phy.rigid.Tesseractoid(size), material, mass: 1 });
-            obj2.label = "oma";
-            obj.position.x = -1;
-            obj2.position.x = 1;
-            obj3.position.w = 1;
-            obj4.position.w = -1;
-            obj5.position.z = -1;
-            obj6.position.z = 1;
-            obj7.position.y = -1;
-            obj8.position.y = 1;
-            let union = new phy.Rigid([obj, obj2, obj3, obj4, obj5, obj6, obj7, obj8]);
-            world.add(union);
-            objb.position.w = 2;
-            objb.position.y = 12;
-            world.add(objb);
-            union.angularVelocity.randset().mulfs(3);
-            union.position.y = 10;
-            renderer.core.setOpacity(10);
-            objb.angularVelocity.randset();
-            // obj.position.y = 10;
-            // run everything
-            function run() {
-                rg2.copyObj4(obj);
-                rg.copyObj4(obj2);
-                rg3.copyObj4(obj3);
-                rg4.copyObj4(obj4);
-                rg5.copyObj4(obj5);
-                rg6.copyObj4(obj6);
-                rg7.copyObj4(obj7);
-                rg8.copyObj4(obj8);
-                rb.copyObj4(objb);
-                controllerRegistry.update();
-                renderer.render(scene, camera);
-                camera.needsUpdateCoord = true;
-                if (goon || !engine.narrowPhase.collisionList.length)
-                    engine.update(world, 1 / 60);
-                window.requestAnimationFrame(run);
-            }
-            renderer.render(scene, camera);
-            setTimeout(run, 100);
-        }
-        rigid_test.load = load;
-    })(rigid_test = examples.rigid_test || (examples.rigid_test = {}));
 })(examples || (examples = {}));
-let goon = true;
 var examples;
 (function (examples) {
     /** Double rotation of a tesseract */
@@ -1536,6 +1410,247 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
         }
         menger_sponge2.load = load;
     })(menger_sponge2 = examples.menger_sponge2 || (examples.menger_sponge2 = {}));
+})(examples || (examples = {}));
+var examples;
+(function (examples) {
+    const FOUR = tesserxel.four;
+    const phy = tesserxel.physics;
+    const math = tesserxel.math;
+    let rigidsInSceneLists = [];
+    let geometryData = {};
+    function getGeometryData(type) {
+        if (geometryData[type])
+            return geometryData[type];
+        switch (type) {
+            case "glome":
+                geometryData[type] = new FOUR.GlomeGeometry(1);
+                return geometryData[type];
+            case "tesseractoid":
+                geometryData[type] = new FOUR.TesseractGeometry(1);
+                return geometryData[type];
+            case "plane":
+                geometryData[type] = new FOUR.CubeGeometry(50);
+                return geometryData[type];
+        }
+    }
+    function updateRidigsInScene() {
+        for (let [mesh, rigid] of rigidsInSceneLists) {
+            mesh.copyObj4(rigid);
+        }
+    }
+    function addRigidToScene(world, scene, renderMaterial, ...rigids) {
+        for (let rigid of rigids) {
+            let geom;
+            let obj4;
+            if (rigid.geometry instanceof phy.rigid.Union) {
+                for (let c of rigid.geometry.components) {
+                    addRigidToScene(null, scene, renderMaterial, c);
+                }
+                world.add(rigid);
+                return;
+            }
+            else if (rigid.geometry instanceof phy.rigid.Tesseractoid) {
+                geom = getGeometryData("tesseractoid");
+                obj4 = new math.Obj4(null, null, rigid.geometry.size);
+            }
+            else if (rigid.geometry instanceof phy.rigid.Convex) {
+                geom = new FOUR.ConvexHullGeometry(rigid.geometry.points);
+                obj4 = new math.Obj4();
+            }
+            else if (rigid.geometry instanceof phy.rigid.Glome) {
+                geom = getGeometryData("glome");
+                obj4 = new math.Obj4(null, null, new math.Vec4(rigid.geometry.radius, rigid.geometry.radius, rigid.geometry.radius, rigid.geometry.radius));
+            }
+            else if (rigid.geometry instanceof phy.rigid.Plane) {
+                geom = getGeometryData("plane");
+                obj4 = new math.Obj4(rigid.geometry.normal.mulf(rigid.geometry.offset), math.Rotor.lookAt(math.Vec4.y, rigid.geometry.normal));
+            }
+            if (!geom) {
+                console.log("unsupported geometry type");
+            }
+            let mesh = new FOUR.Mesh(geom, renderMaterial);
+            mesh.copyObj4(obj4);
+            mesh.alwaysUpdateCoord = true;
+            world?.add(rigid);
+            scene.add(mesh);
+            if (!(rigid.geometry instanceof phy.rigid.Plane))
+                rigidsInSceneLists.push([mesh, rigid]);
+        }
+    }
+    function createGlome(radius = 1, mass = 1) {
+        return new phy.Rigid({
+            geometry: new phy.rigid.Glome(radius),
+            material: new phy.Material(1, 0.8), mass
+        });
+    }
+    class EmitGlomeController {
+        enabled = true;
+        world;
+        scene;
+        glomeMaterial = new FOUR.PhongMaterial([1.2, 0.4, 0.2]);
+        camera;
+        initialSpeed = 5;
+        constructor(world, scene, camera) {
+            this.world = world;
+            this.scene = scene;
+            this.camera = camera;
+        }
+        update(state) {
+            if (state.queryDisabled({ disable: "AltLeft" }))
+                return;
+            if (state.isPointerLocked() && state.mouseDown === 0) {
+                let g = createGlome(0.5, 5);
+                g.label = "bullet"; // mark it
+                g.position.copy(this.camera.position);
+                g.velocity.copy(math.Vec4.wNeg.rotate(this.camera.rotation).mulfs(this.initialSpeed));
+                addRigidToScene(this.world, this.scene, this.glomeMaterial, g);
+            }
+            for (let i = 0, l = rigidsInSceneLists.length; i < l; i++) {
+                let [m, r] = rigidsInSceneLists[i];
+                if (r.label === "bullet" && r.position.sub(this.camera.position).norm1() > 20) {
+                    this.scene.removeChild(m);
+                    this.world.remove(r);
+                    rigidsInSceneLists.splice(i--, 1);
+                    l--;
+                }
+            }
+        }
+    }
+    let rigid_test;
+    (function (rigid_test) {
+        async function load() {
+            const math = tesserxel.math;
+            const size = new math.Vec4(1.5, 1.3, .8, 1);
+            // init render scene
+            const canvas = document.getElementById("gpu-canvas");
+            const renderer = await new FOUR.Renderer(canvas).init();
+            let scene = new FOUR.Scene();
+            renderer.setBackgroudColor([1, 1, 1, 1]);
+            scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+            let camera = new FOUR.Camera();
+            camera.position.w = 8;
+            camera.position.y = 1;
+            scene.add(camera);
+            scene.add(new FOUR.AmbientLight(0.3));
+            scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
+            const materialGround = new FOUR.PhongMaterial([0, 0.6, 0.2, 0.1]);
+            const materialBox = new FOUR.LambertMaterial(new FOUR.CheckerTexture([0, 0, 0, 0.5], [1, 1, 1, 0.5]));
+            renderer.core.setEyeOffset(0.5);
+            const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
+            const camCtrl = new tesserxel.controller.KeepUpController(camera);
+            camCtrl.keyMoveSpeed = 0.01;
+            function setSize() {
+                let width = window.innerWidth * window.devicePixelRatio;
+                let height = window.innerHeight * window.devicePixelRatio;
+                renderer.setSize({ width, height });
+            }
+            setSize();
+            window.addEventListener("resize", setSize);
+            // init physic scene
+            const phy = tesserxel.physics;
+            const engine = new phy.Engine({ substep: 25 });
+            const world = new phy.World();
+            const materialP = new phy.Material(1, 0.4);
+            const material = new phy.Material(1, 0.4);
+            addRigidToScene(world, scene, materialGround, new phy.Rigid({ geometry: new phy.rigid.Plane(new math.Vec4(0, 1)), mass: 0, material: materialP }));
+            renderer.core.setOpacity(10);
+            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+                retinaCtrl,
+                camCtrl,
+                new EmitGlomeController(world, scene, camera)
+            ], { requsetPointerLock: true });
+            let t = -2;
+            let srand = new math.Srand(Math.random());
+            function run() {
+                t++;
+                if ((t & 0xFF) === 0xFF) {
+                    let objb = new phy.Rigid({ geometry: new phy.rigid.Tesseractoid(new math.Vec4(3, 3, 3, 3).adds(math.Vec4.srand(srand)).divfs(3)), material, mass: 1 });
+                    addRigidToScene(world, scene, materialBox, objb);
+                    objb.position.adds(math.Vec4.srand(srand)).divfs(3);
+                    objb.position.y = 12;
+                }
+                updateRidigsInScene();
+                controllerRegistry.update();
+                renderer.render(scene, camera);
+                camera.needsUpdateCoord = true;
+                engine.update(world, 1 / 60);
+                window.requestAnimationFrame(run);
+            }
+            renderer.render(scene, camera);
+            setTimeout(run, 100);
+        }
+        rigid_test.load = load;
+        // test
+        async function load1() {
+            let v = (...args) => new tesserxel.math.Vec4(...args);
+            // let convex = [
+            //     v(-1, -1, -1),
+            //     v(-1, 1, -1),
+            //     v(1, -1, -1),
+            //     v(1, 1, -1),
+            //     v(-1, -1, 1),
+            //     v(-1, 1, 1),
+            //     v(1, -1, 1),
+            //     v(1, 1, 1),
+            // ];
+            // let p = v(-0.97,-0.98,0.1);// [1, 2, 3, 4]
+            // let p = v(-0.8,-0.99,0.5);// [1, 2, 3, 4]
+            // let p = v(1.06, -1.08, -1.1);// [1, 2, 3, 4, 3] 
+            // let p = v(10,12,13);//  [1, 2, 1]
+            // let convex = [
+            //     v(-1,-1,-1,-1),
+            //     v(-1,1, -1,-1),
+            //     v(1,-1, -1,-1),
+            //     v(1,1,  -1,-1),
+            //     v(-1,-1,-1,1),
+            //     v(-1,1, -1,1),
+            //     v(1,-1, -1,1),
+            //     v(1,1,  -1,1),
+            //     v(-1,-1,1,-1),
+            //     v(-1,1, 1,-1),
+            //     v(1,-1, 1,-1),
+            //     v(1,1,  1,-1),
+            //     v(-1,-1,1,1),
+            //     v(-1,1, 1,1),
+            //     v(1,-1, 1,1),
+            //     v(1,1,  1,1),
+            // ];
+            // let p = v(0.1,0.001,0.5,0.01);
+            // let convex = [
+            //     v(1),
+            //     v(),
+            //     v(0, 0, 0, 1),
+            //     v(0, 1),
+            //     v(0, 0, 1),
+            //     v(-1),
+            //     v(0, -1),
+            //     v(0, 0, -1),
+            //     v(0, 0, 0, -1),
+            // ];
+            // let p = v(0.02, 0.03, -0.01, 0.04);//[1,2,3,4,5]
+            for (let i = 0; i < 10; i++) {
+                // let r = tesserxel.math.Bivec.yw.exp();
+                let convex = new Array(1024).fill(0).map(e => tesserxel.math.Vec4.rand().mulfs(4));
+                let p = tesserxel.math.Vec4.rand().mulfs(2);
+                let dconvex = convex.map(v => v.sub(p));
+                let newer = (tesserxel.physics.gjkDiffTest([p], convex));
+                let older = (tesserxel.physics.gjkOutDistance(dconvex));
+                if (older.normal) {
+                    console.assert(!newer.normals, "fake inter");
+                    // console.log("no inter");
+                }
+                else {
+                    console.assert(!!newer.normals, "fake non inter");
+                    let epa = tesserxel.physics.epa(dconvex, older);
+                    let epadiff = tesserxel.physics.epaDiff([p], convex, newer);
+                    console.assert(Math.abs(epa.distance - epadiff.distance) < 0.00001);
+                    console.log(epa);
+                    console.log(epadiff);
+                }
+            }
+        }
+        rigid_test.load1 = load1;
+    })(rigid_test = examples.rigid_test || (examples.rigid_test = {}));
 })(examples || (examples = {}));
 var examples;
 (function (examples) {

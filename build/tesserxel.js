@@ -14,6 +14,9 @@ var tesserxel;
         class Srand {
             _seed;
             constructor(seed) {
+                if (Math.floor(seed) !== seed) {
+                    seed = Math.floor(0x6D2B79F5 * seed);
+                }
                 this._seed = seed;
             }
             set(seed) {
@@ -210,8 +213,11 @@ var tesserxel;
                     this.position.copy(o.position);
                 if (o.rotation)
                     this.rotation.copy(o.rotation);
-                if (o.scale)
+                if (o.scale) {
+                    if (!this.scale)
+                        this.scale = new math.Vec4;
                     this.scale.copy(o.scale);
+                }
                 return this;
             }
             local2world(point) {
@@ -256,6 +262,10 @@ var tesserxel;
             }
             rotates(r) {
                 this.rotation.mulsl(r);
+                return this;
+            }
+            rotatesb(b) {
+                this.rotation.mulsl(math._r.expset(b));
                 return this;
             }
             rotatesAt(r, center = new math.Vec4()) {
@@ -1092,6 +1102,11 @@ var tesserxel;
                 this.r.norms();
                 return this;
             }
+            setid() {
+                this.l.set(1);
+                this.r.set(1);
+                return this;
+            }
             /** Apply this to R: this * R;
              *
              * [this.l * R.l, R.r * this.r]; */
@@ -1132,6 +1147,10 @@ var tesserxel;
             }
             sqrt() {
                 return new Rotor(this.l.sqrt(), this.r.sqrt());
+            }
+            isFinite() {
+                return (isFinite(this.l.x) && isFinite(this.l.y) && isFinite(this.l.z) && isFinite(this.l.w) &&
+                    isFinite(this.r.x) && isFinite(this.r.y) && isFinite(this.r.z) && isFinite(this.r.w));
             }
             expset(bivec) {
                 let A = math._vec3_1.set(bivec.xy + bivec.zw, bivec.xz - bivec.yw, bivec.xw + bivec.yz);
@@ -2057,6 +2076,9 @@ var tesserxel;
             }
             xzy() {
                 return new Vec3(this.x, this.z, this.y);
+            }
+            xyz0() {
+                return new Vec4(this.x, this.z, this.y);
             }
             clone() {
                 return new Vec3(this.x, this.y, this.z);
@@ -3713,9 +3735,6 @@ var tesserxel;
                 this.solver = new (option?.solver ?? physics.IterativeImpulseSolver)();
                 this.substep = option.substep ?? 1;
             }
-            runCollisionSolver() {
-                // todo
-            }
             update(world, dt) {
                 dt /= this.substep;
                 for (let i = 0; i < this.substep; i++) {
@@ -3740,17 +3759,45 @@ var tesserxel;
             forces = [];
             time = 0;
             frameCount = 0;
-            add(o) {
-                if (o instanceof physics.Rigid) {
-                    this.rigids.push(o);
-                    if (o.geometry instanceof physics.rigid.Union) {
-                        this.unionRigids.push(o.geometry);
+            add(...args) {
+                for (let o of args) {
+                    if (o instanceof physics.Rigid) {
+                        this.rigids.push(o);
+                        if (o.geometry instanceof physics.rigid.Union) {
+                            this.unionRigids.push(o.geometry);
+                        }
+                        continue;
                     }
-                    return;
+                    if (o instanceof physics.Force) {
+                        this.forces.push(o);
+                        continue;
+                    }
+                }
+            }
+            remove(o) {
+                if (o instanceof physics.Rigid) {
+                    let index = this.rigids.indexOf(o);
+                    if (index !== -1) {
+                        this.rigids.splice(index, 1);
+                        if (o.geometry instanceof physics.rigid.Union) {
+                            let index = this.unionRigids.indexOf(o.geometry);
+                            if (index !== -1) {
+                                this.unionRigids.splice(index, 1);
+                            }
+                            else {
+                                console.warn("Union Rigid geometry is removed before rigid");
+                            }
+                        }
+                    }
+                    else {
+                        console.warn("Cannot remove a non-existed child");
+                    }
                 }
                 if (o instanceof physics.Force) {
-                    this.forces.push(o);
-                    return;
+                    let index = this.forces.indexOf(o);
+                    if (index !== -1) {
+                        this.forces.splice(index, 1);
+                    }
                 }
             }
             updateUnionGeometriesCoord() {
@@ -4059,14 +4106,918 @@ var tesserxel;
         })(force = physics.force || (physics.force = {}));
     })(physics = tesserxel.physics || (tesserxel.physics = {}));
 })(tesserxel || (tesserxel = {}));
+// Convex Collision Detection algorithms (GJK Distance + EPA)
 var tesserxel;
 (function (tesserxel) {
     let physics;
     (function (physics) {
-        let _vec4 = new tesserxel.math.Vec4; // cache
-        let _vec41 = new tesserxel.math.Vec4;
+        const maxEpaStep = 16;
+        const maxGjkStep = 32;
+        function support(c, dir) {
+            let support = -Infinity;
+            let point;
+            for (let p of c) {
+                let value = p.dot(dir);
+                if (value > support) {
+                    support = value;
+                    point = p;
+                }
+            }
+            return point;
+        }
+        function supportNeg(c, dir) {
+            let support = -Infinity;
+            let point;
+            for (let p of c) {
+                let value = -p.dot(dir);
+                if (value > support) {
+                    support = value;
+                    point = p;
+                }
+            }
+            return point;
+        }
+        function supportDiff(c1, c2, dir) {
+            if (!dir) {
+                console.error("Convex Collision Detector: Undefined support direction");
+            }
+            let support = -Infinity;
+            let point1;
+            let point2;
+            for (let p of c1) {
+                let value = p.dot(dir);
+                if (value > support) {
+                    support = value;
+                    point1 = p;
+                }
+            }
+            support = -Infinity;
+            for (let p of c2) {
+                let value = -p.dot(dir);
+                if (value > support) {
+                    support = value;
+                    point2 = p;
+                }
+            }
+            return [point1, point2];
+        }
+        function supportDiffTest(c1, c2, dir) {
+            let support1 = -Infinity;
+            let point1;
+            let point2;
+            for (let p of c1) {
+                let value = p.dot(dir);
+                if (value > support1) {
+                    support1 = value;
+                    point1 = p;
+                }
+            }
+            let support2 = -Infinity;
+            for (let p of c2) {
+                let value = -p.dot(dir);
+                if (value > support2) {
+                    support2 = value;
+                    point2 = p;
+                }
+            }
+            if (support1 + support2 < 0)
+                return [];
+            return [point1, point2];
+        }
+        // /** get closest point on line segment ab */
+        // function closestToOrigin2(a: math.Vec4, b: math.Vec4) {
+        //     let adb = a.dot(b);
+        //     let la = b.normsqr() - adb; if (la < 0) return b;
+        //     let lb = a.normsqr() - adb; if (lb < 0) return a;
+        //     return math.vec4Pool.pop().set().addmulfs(a, la).addmulfs(b, lb).divfs(la + lb);
+        // }
+        // /** get line ab's normal pointing to origin, 20 muls */
+        // function normalToOrigin2(out: math.Vec4, a: math.Vec4, b: math.Vec4) {
+        //     let adb = a.dot(b);
+        //     let la = b.normsqr() - adb;
+        //     let lb = a.normsqr() - adb;
+        //     return out.set().addmulfs(a, -la).addmulfs(b, -lb);
+        // }
+        // /** get plane abc's normal point to origin, 36 muls */
+        // function normalToOrigin3(out: math.Vec4, a: math.Vec4, b: math.Vec4, c: math.Vec4) {
+        //     let vec = math.vec4Pool.pop();
+        //     let biv = math.bivecPool.pop().wedgevvset(
+        //         out.subset(b, a), vec.subset(c, a)
+        //     );
+        //     vec.pushPool();
+        //     out.wedgevbset(a, biv).wedgevbset(out, biv);
+        //     biv.pushPool();
+        //     return out;
+        // }
+        function getClosestPointOrNormal2(a, b) {
+            let adb = a.dot(b);
+            let la = b.normsqr() - adb;
+            if (la < 0)
+                return b;
+            let lb = a.normsqr() - adb;
+            if (lb < 0)
+                return a;
+            return tesserxel.math.vec4Pool.pop().set().addmulfs(a, -la).addmulfs(b, -lb);
+        }
+        function getClosestPointOrNormal3(a, b, c) {
+            let ca = tesserxel.math.vec4Pool.pop().subset(a, c);
+            let cb = tesserxel.math.vec4Pool.pop().subset(b, c);
+            if (c.dot(ca) > 0 && c.dot(cb) > 0) {
+                tesserxel.math.vec4Pool.push(ca, cb);
+                return [c];
+            }
+            let biv = tesserxel.math.bivecPool.pop().wedgevvset(ca, cb);
+            if (ca.dotbset(ca, biv).dot(c) > 0) {
+                tesserxel.math.vec4Pool.push(ca, cb);
+                return [a, c];
+            }
+            // cb's sign is not consisted with ca's because of biv = ca x cb
+            if (cb.dotbset(cb, biv).dot(c) < 0) {
+                tesserxel.math.vec4Pool.push(ca, cb);
+                return [b, c];
+            }
+            let out = ca;
+            out.wedgevbset(a, biv).wedgevbset(out, biv);
+            biv.pushPool();
+            tesserxel.math.vec4Pool.push(cb);
+            return out;
+        }
+        function getClosestPointOrNormal4(a, b, c, d) {
+            let da = tesserxel.math.vec4Pool.pop().subset(a, d);
+            let db = tesserxel.math.vec4Pool.pop().subset(b, d);
+            let dc = tesserxel.math.vec4Pool.pop().subset(c, d);
+            // vertex
+            if (d.dot(da) > 0 && d.dot(db) > 0 && d.dot(dc) > 0) {
+                tesserxel.math.vec4Pool.push(da, db, dc);
+                return [d];
+            }
+            // edge
+            let dab = tesserxel.math.bivecPool.pop().wedgevvset(da, db);
+            let dbc = tesserxel.math.bivecPool.pop().wedgevvset(db, dc);
+            let dca = tesserxel.math.bivecPool.pop().wedgevvset(dc, da);
+            let temp = tesserxel.math.vec4Pool.pop();
+            if (temp.dotbset(da, dab).dot(d) > 0 && temp.dotbset(da, dca).dot(d) < 0) {
+                tesserxel.math.vec4Pool.push(da, db, dc, temp);
+                tesserxel.math.bivecPool.push(dab, dbc, dca);
+                return [a, d];
+            }
+            if (temp.dotbset(db, dbc).dot(d) > 0 && temp.dotbset(db, dab).dot(d) < 0) {
+                tesserxel.math.vec4Pool.push(da, db, dc, temp);
+                tesserxel.math.bivecPool.push(dab, dbc, dca);
+                return [b, d];
+            }
+            if (temp.dotbset(dc, dca).dot(d) > 0 && temp.dotbset(dc, dbc).dot(d) < 0) {
+                tesserxel.math.vec4Pool.push(da, db, dc, temp);
+                tesserxel.math.bivecPool.push(dab, dbc, dca);
+                return [c, d];
+            }
+            // face
+            // dabc is normal vector
+            let dabc = tesserxel.math.vec4Pool.pop().wedgevbset(da, dbc);
+            if (temp.wedgevbset(dabc, dab).dot(d) < 0) {
+                tesserxel.math.vec4Pool.push(da, db, dc, dabc, temp);
+                tesserxel.math.bivecPool.push(dab, dbc, dca);
+                return [a, b, d];
+            }
+            if (temp.wedgevbset(dabc, dbc).dot(d) < 0) {
+                tesserxel.math.vec4Pool.push(da, db, dc, dabc, temp);
+                tesserxel.math.bivecPool.push(dab, dbc, dca);
+                return [b, c, d];
+            }
+            if (temp.wedgevbset(dabc, dca).dot(d) < 0) {
+                tesserxel.math.vec4Pool.push(da, db, dc, dabc, temp);
+                tesserxel.math.bivecPool.push(dab, dbc, dca);
+                return [a, c, d];
+            }
+            // new direction is already normal dabc
+            // but need to point to origin:
+            // dabc.mulfs(-a.dot(dabc));
+            // we do it outside of this fn
+            // because we need this important orientation information
+            // to construct corrected ordered 5-simplex
+            tesserxel.math.vec4Pool.push(da, db, dc, temp);
+            tesserxel.math.bivecPool.push(dab, dbc, dca);
+            return dabc;
+        }
+        function getClosestPoint5(a, b, c, d, e, reverseOrder) {
+            // about reverseOrder:
+            // if reverseOrder == false
+            // da^db^dc (dabc) is pointing to outside
+            // else dabc is pointing to e (inside)
+            let ea = tesserxel.math.vec4Pool.pop().subset(a, e);
+            let eb = tesserxel.math.vec4Pool.pop().subset(b, e);
+            let ec = tesserxel.math.vec4Pool.pop().subset(c, e);
+            let ed = tesserxel.math.vec4Pool.pop().subset(d, e);
+            // vertex
+            if (e.dot(ea) > 0 && e.dot(eb) > 0 && e.dot(ec) > 0 && e.dot(ed) > 0) {
+                tesserxel.math.vec4Pool.push(ea, eb, ec, ed);
+                return [e];
+            }
+            // edge
+            let eab = tesserxel.math.bivecPool.pop().wedgevvset(ea, eb);
+            let ebc = tesserxel.math.bivecPool.pop().wedgevvset(eb, ec);
+            let eac = tesserxel.math.bivecPool.pop().wedgevvset(ea, ec);
+            let ead = tesserxel.math.bivecPool.pop().wedgevvset(ea, ed);
+            let ebd = tesserxel.math.bivecPool.pop().wedgevvset(eb, ed);
+            let ecd = tesserxel.math.bivecPool.pop().wedgevvset(ec, ed);
+            let temp = tesserxel.math.vec4Pool.pop();
+            if (temp.dotbset(ea, eab).dot(e) > 0 && temp.dotbset(ea, eac).dot(e) > 0 && temp.dotbset(ea, ead).dot(e) > 0) {
+                tesserxel.math.vec4Pool.push(ea, eb, ec, ed, temp);
+                tesserxel.math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                return [a, e];
+            }
+            if (temp.dotbset(eb, eab).dot(e) < 0 && temp.dotbset(eb, ebc).dot(e) > 0 && temp.dotbset(eb, ebd).dot(e) > 0) {
+                tesserxel.math.vec4Pool.push(ea, eb, ec, ed, temp);
+                tesserxel.math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                return [b, e];
+            }
+            if (temp.dotbset(ec, eac).dot(e) < 0 && temp.dotbset(ec, ebc).dot(e) < 0 && temp.dotbset(ec, ecd).dot(e) > 0) {
+                tesserxel.math.vec4Pool.push(ea, eb, ec, ed, temp);
+                tesserxel.math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                return [c, e];
+            }
+            if (temp.dotbset(ed, ead).dot(e) < 0 && temp.dotbset(ed, ebd).dot(e) < 0 && temp.dotbset(ed, ecd).dot(e) < 0) {
+                tesserxel.math.vec4Pool.push(ea, eb, ec, ed, temp);
+                tesserxel.math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                return [d, e];
+            }
+            // face
+            // normal vectors for 4 cells, be careful with directions
+            //  dabc
+            let eabc = tesserxel.math.vec4Pool.pop().wedgevbset(ea, ebc); // -
+            let eabd = tesserxel.math.vec4Pool.pop().wedgevbset(ea, ebd); // +
+            let eacd = tesserxel.math.vec4Pool.pop().wedgevbset(ea, ecd); // -
+            let ebcd = tesserxel.math.vec4Pool.pop().wedgevbset(eb, ecd); // +
+            if (temp.wedgevbset(eabc, eab).dot(e) < 0 && temp.wedgevbset(eabd, eab).dot(e) < 0) {
+                tesserxel.math.vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
+                tesserxel.math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                return [a, b, e];
+            }
+            if (temp.wedgevbset(eabc, eac).dot(e) > 0 && temp.wedgevbset(eacd, eac).dot(e) < 0) {
+                tesserxel.math.vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
+                tesserxel.math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                return [a, c, e];
+            }
+            if (temp.wedgevbset(eabd, ead).dot(e) > 0 && temp.wedgevbset(eacd, ead).dot(e) > 0) {
+                tesserxel.math.vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
+                tesserxel.math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                return [a, d, e];
+            }
+            if (temp.wedgevbset(eabc, ebc).dot(e) < 0 && temp.wedgevbset(ebcd, ebc).dot(e) < 0) {
+                tesserxel.math.vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
+                tesserxel.math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                return [b, c, e];
+            }
+            if (temp.wedgevbset(eabd, ebd).dot(e) < 0 && temp.wedgevbset(ebcd, ebd).dot(e) > 0) {
+                tesserxel.math.vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
+                tesserxel.math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                return [b, d, e];
+            }
+            if (temp.wedgevbset(eacd, ecd).dot(e) < 0 && temp.wedgevbset(ebcd, ecd).dot(e) < 0) {
+                tesserxel.math.vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
+                tesserxel.math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                return [c, d, e];
+            }
+            tesserxel.math.vec4Pool.push(ea, eb, ec, ed, temp);
+            tesserxel.math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+            // cell
+            // turn all face normals outside
+            if (reverseOrder) {
+                eabd.negs();
+                ebcd.negs();
+            }
+            else {
+                eabc.negs();
+                eacd.negs();
+            }
+            if (eabc.dot(e) < 0) {
+                tesserxel.math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                return [a, b, c, e];
+            }
+            if (eabd.dot(e) < 0) {
+                tesserxel.math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                return [a, b, d, e];
+            }
+            if (eacd.dot(e) < 0) {
+                tesserxel.math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                return [a, c, d, e];
+            }
+            if (ebcd.dot(e) < 0) {
+                tesserxel.math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                return [b, c, d, e];
+            }
+            // otherwise origin is inside, return data for epa algorithm
+            return { reverseOrder, normals: [ebcd, eacd, eabd, eabc] };
+        }
+        function gjkOutDistance(convex, initSimplex) {
+            if (!initSimplex) {
+                initSimplex = [convex[0]];
+            }
+            // datas for states
+            let steps = 0;
+            let s = initSimplex;
+            let reverseOrder5; // only used when s.length == 5 (store 5-simplex orientation)
+            // temp vars:
+            let p;
+            let pn;
+            // let steps = [];
+            while (steps++ < maxGjkStep) {
+                // steps.push(s.length);
+                switch (s.length) {
+                    case 1:
+                        // steps.push(s[0].norm());//dbg
+                        p = supportNeg(convex, s[0]);
+                        if (p === s[0]) {
+                            return {
+                                simplex: s,
+                                normal: tesserxel.math.vec4Pool.pop().copy(s[0]).negs(),
+                                distance: s[0].norm()
+                            };
+                        }
+                        s.push(p); //keep s[0] older
+                        break;
+                    case 2:
+                        pn = getClosestPointOrNormal2(s[0], s[1]);
+                        // ignore far point and go on with single point
+                        if (pn === s[1]) {
+                            s[0] = s[1];
+                            s.pop();
+                            continue;
+                        }
+                        // degenerated case: exact contact simplex
+                        if (pn.norm1() === 0) {
+                            return {};
+                        }
+                        // steps.push(-pn.clone().norms().dot(s[0]));//dbg
+                        p = support(convex, pn);
+                        // simplex can't move on, terminate
+                        if (p === s[0] || p === s[1]) {
+                            return { simplex: s, normal: pn.norms(), distance: -s[0].dot(pn) };
+                        }
+                        pn.pushPool();
+                        s.push(p);
+                        break;
+                    case 3:
+                        pn = getClosestPointOrNormal3(s[0], s[1], s[2]);
+                        if (pn.length) {
+                            // ignore far points and go on with fewer points
+                            s = pn;
+                            continue;
+                        }
+                        // degenerated case: exact contact simplex
+                        if (pn.norm1() === 0) {
+                            return {};
+                        }
+                        // steps.push(-(pn as math.Vec4).clone().norms().dot(s[0]));//dbg
+                        p = support(convex, pn);
+                        // simplex can't move on, terminate
+                        if (p === s[0] || p === s[1] || p === s[2]) {
+                            return { simplex: s, normal: pn.norms(), distance: -s[0].dot(pn) };
+                        }
+                        pn.pushPool();
+                        s.push(p);
+                        break;
+                    case 4:
+                        pn = getClosestPointOrNormal4(s[0], s[1], s[2], s[3]);
+                        if (pn.length) {
+                            // ignore far points and go on with fewer points
+                            s = pn;
+                            continue;
+                        }
+                        let normal = pn;
+                        let dotFactor = -normal.dot(s[0]);
+                        reverseOrder5 = dotFactor > 0; // if true, normal obtained by da^db^dc towards origin
+                        normal.mulfs(dotFactor); // use mul to detect nomal or dotFactor is zero
+                        // degenerated case: exact contact simplex
+                        if (normal.norm1() === 0) {
+                            return {};
+                        }
+                        // steps.push(-(pn as math.Vec4).clone().norms().dot(s[0]));//dbg
+                        p = support(convex, normal);
+                        // simplex can't move on, terminate
+                        if (p === s[0] || p === s[1] || p === s[2] || p === s[3]) {
+                            return { simplex: s, normal: normal.norms(), distance: -normal.dot(s[0]) };
+                        }
+                        normal.pushPool();
+                        s.push(p);
+                        break;
+                    case 5:
+                        // we won't go to 5th dimension, so no normal to find anymore
+                        pn = getClosestPoint5(s[0], s[1], s[2], s[3], s[4], reverseOrder5);
+                        if (pn.length) {
+                            // ignore far points and go on with fewer points
+                            s = pn;
+                            continue;
+                        }
+                        else {
+                            // interior of simplex, stop
+                            let info = pn;
+                            let out = { simplex: s, reverseOrder: info.reverseOrder, normals: info.normals };
+                            return out;
+                        }
+                    default: console.assert(false, "simplex points error");
+                }
+            }
+            console.warn("Physics engin's GJK algorithm has been interupped by too many steps.");
+            return {};
+        }
+        physics.gjkOutDistance = gjkOutDistance;
+        /** test convex1 - convex2 to origin */
+        function gjkDiffTest(convex1, convex2, initSimplex1, initSimplex2) {
+            if (!initSimplex1) {
+                initSimplex1 = [convex1[0]];
+            }
+            if (!initSimplex2) {
+                initSimplex2 = [convex2[0]];
+            }
+            // datas for states
+            let s1 = initSimplex1;
+            let s2 = initSimplex2;
+            let reverseOrder5;
+            // temp vars:
+            let p1;
+            let p2;
+            let normal;
+            let _vec4 = tesserxel.math.vec4Pool.pop();
+            // while (true) {
+            // switch (s1.length) {
+            // case 1:
+            [p1, p2] = supportDiffTest(convex1, convex2, _vec4.subset(s2[0], s1[0]));
+            if (!p1 || (p1 === s1[0] && p2 === s2[0])) {
+                return {};
+            }
+            s1.push(p1);
+            s2.push(p2);
+            //     break;
+            // case 2:
+            normal = getDiffNormal2(s1[0], s1[1], s2[0], s2[1]);
+            if (normal.norm1() === 0) {
+                return {};
+            }
+            [p1, p2] = supportDiffTest(convex1, convex2, normal);
+            // simplex can't move on, terminate
+            if (!p1 || (p1 === s1[0] && p2 === s2[0]) || (p1 === s1[1] && p2 === s2[1])) {
+                return {};
+            }
+            normal.pushPool();
+            s1.push(p1);
+            s2.push(p2);
+            //     break;
+            // case 3:
+            normal = getDiffNormal3(s1[0], s1[1], s1[2], s2[0], s2[1], s2[2]);
+            if (normal.norm1() === 0) {
+                return {};
+            }
+            [p1, p2] = supportDiffTest(convex1, convex2, normal);
+            // simplex can't move on, terminate
+            if (!p1 || (p1 === s1[0] && p2 === s2[0]) || (p1 === s1[1] && p2 === s2[1]) || (p1 === s1[2] && p2 === s2[2])) {
+                return {};
+            }
+            normal.pushPool();
+            s1.push(p1);
+            s2.push(p2);
+            //     break;
+            // case 4:
+            normal = getDiffNormal4(s1[0], s1[1], s1[2], s1[3], s2[0], s2[1], s2[2], s2[3]);
+            let originDir = tesserxel.math.vec4Pool.pop().subset(s1[0], s2[0]);
+            let dotFactor = -normal.dot(originDir);
+            originDir.pushPool();
+            normal.mulfs(dotFactor); // use mul to detect nomal or dotFactor is zero
+            if (normal.norm1() === 0) {
+                return {};
+            }
+            reverseOrder5 = dotFactor > 0;
+            [p1, p2] = supportDiffTest(convex1, convex2, normal);
+            // simplex can't move on, terminate
+            if (!p1 || (p1 === s1[0] && p2 === s2[0]) || (p1 === s1[1] && p2 === s2[1]) || (p1 === s1[2] && p2 === s2[2]) || (p1 === s1[3] && p2 === s2[3])) {
+                return {};
+            }
+            normal.pushPool();
+            s1.push(p1);
+            s2.push(p2);
+            while (true) {
+                let res = getDiffNormal5(s1[0], s1[1], s1[2], s1[3], s1[4], s2[0], s2[1], s2[2], s2[3], s2[4], reverseOrder5);
+                if (!res.normal) {
+                    // interior, pass data to epadiff
+                    return { simplex1: s1, simplex2: s2, normals: res.normals, reverseOrder: res.reverseOrder };
+                }
+                reverseOrder5 = res.reverseOrder;
+                [p1, p2] = supportDiffTest(convex1, convex2, res.normal);
+                // simplex can't move on, terminate
+                if (!p1 || (p1 === s1[0] && p2 === s2[0]) || (p1 === s1[1] && p2 === s2[1]) || (p1 === s1[2] && p2 === s2[2]) || (p1 === s1[3] && p2 === s2[3]) || (p1 === s1[4] && p2 === s2[4])) {
+                    return {};
+                }
+                s1 = res.simplex1;
+                s1.push(p1);
+                s2 = res.simplex2;
+                s2.push(p2);
+            }
+        }
+        physics.gjkDiffTest = gjkDiffTest;
+        function getDiffNormal2(a1, b1, a2, b2) {
+            let a = tesserxel.math.vec4Pool.pop().subset(a1, a2);
+            let b = tesserxel.math.vec4Pool.pop().subset(b1, b2);
+            let adb = a.dot(b);
+            let la = b.normsqr() - adb;
+            let lb = a.normsqr() - adb;
+            let out = tesserxel.math.vec4Pool.pop().set().addmulfs(a, -la).addmulfs(b, -lb);
+            tesserxel.math.vec4Pool.push(a, b);
+            return out;
+        }
+        function getDiffNormal3(a1, b1, c1, a2, b2, c2) {
+            let a = tesserxel.math.vec4Pool.pop().subset(a1, a2);
+            let b = tesserxel.math.vec4Pool.pop().subset(b1, b2);
+            let c = tesserxel.math.vec4Pool.pop().subset(c1, c2);
+            let ca = tesserxel.math.vec4Pool.pop().subset(a, c);
+            let cb = tesserxel.math.vec4Pool.pop().subset(b, c);
+            let biv = tesserxel.math.bivecPool.pop().wedgevvset(ca, cb);
+            let out = ca;
+            out.wedgevbset(a, biv).wedgevbset(out, biv);
+            tesserxel.math.vec4Pool.push(a, b, c, cb);
+            biv.pushPool();
+            return out;
+        }
+        function getDiffNormal4(a1, b1, c1, d1, a2, b2, c2, d2) {
+            let a = tesserxel.math.vec4Pool.pop().subset(a1, a2);
+            let b = tesserxel.math.vec4Pool.pop().subset(b1, b2);
+            let c = tesserxel.math.vec4Pool.pop().subset(c1, c2);
+            let d = tesserxel.math.vec4Pool.pop().subset(d1, d2);
+            let da = tesserxel.math.vec4Pool.pop().subset(a, d);
+            let db = tesserxel.math.vec4Pool.pop().subset(b, d);
+            let dc = tesserxel.math.vec4Pool.pop().subset(c, d);
+            let dbc = tesserxel.math.bivecPool.pop().wedgevvset(db, dc);
+            let dabc = tesserxel.math.vec4Pool.pop().wedgevbset(da, dbc);
+            dbc.pushPool();
+            tesserxel.math.vec4Pool.push(a, b, c, d, da, db, dc);
+            return dabc;
+        }
+        function getDiffNormal5(a1, b1, c1, d1, e1, a2, b2, c2, d2, e2, reverseOrder) {
+            let a = tesserxel.math.vec4Pool.pop().subset(a1, a2);
+            let b = tesserxel.math.vec4Pool.pop().subset(b1, b2);
+            let c = tesserxel.math.vec4Pool.pop().subset(c1, c2);
+            let d = tesserxel.math.vec4Pool.pop().subset(d1, d2);
+            let e = tesserxel.math.vec4Pool.pop().subset(e1, e2);
+            let ea = tesserxel.math.vec4Pool.pop().subset(a, e);
+            let eb = tesserxel.math.vec4Pool.pop().subset(b, e);
+            let ec = tesserxel.math.vec4Pool.pop().subset(c, e);
+            let ed = tesserxel.math.vec4Pool.pop().subset(d, e);
+            let ebc = tesserxel.math.bivecPool.pop().wedgevvset(eb, ec);
+            let ebd = tesserxel.math.bivecPool.pop().wedgevvset(eb, ed);
+            let ecd = tesserxel.math.bivecPool.pop().wedgevvset(ec, ed);
+            let eabc = tesserxel.math.vec4Pool.pop().wedgevbset(ea, ebc); // -
+            let eabd = tesserxel.math.vec4Pool.pop().wedgevbset(ea, ebd); // +
+            let eacd = tesserxel.math.vec4Pool.pop().wedgevbset(ea, ecd); // -
+            let ebcd = tesserxel.math.vec4Pool.pop().wedgevbset(eb, ecd); // +
+            if (reverseOrder) {
+                eabd.negs();
+                ebcd.negs();
+            }
+            else {
+                eabc.negs();
+                eacd.negs();
+            }
+            if (eabc.dot(e) < 0) {
+                tesserxel.math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                return { simplex1: [a1, b1, c1, e1], simplex2: [a2, b2, c2, e2], normal: eabc, reverseOrder: reverseOrder };
+            }
+            if (eabd.dot(e) < 0) {
+                tesserxel.math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                return { simplex1: [a1, b1, d1, e1], simplex2: [a2, b2, d2, e2], normal: eabd, reverseOrder: !reverseOrder };
+            }
+            if (eacd.dot(e) < 0) {
+                tesserxel.math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                return { simplex1: [a1, c1, d1, e1], simplex2: [a2, c2, d2, e2], normal: eacd, reverseOrder: reverseOrder };
+            }
+            if (ebcd.dot(e) < 0) {
+                tesserxel.math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                return { simplex1: [b1, c1, d1, e1], simplex2: [b2, c2, d2, e2], normal: ebcd, reverseOrder: !reverseOrder };
+            }
+            tesserxel.math.bivecPool.push(ebc, ebd, ecd);
+            tesserxel.math.vec4Pool.push(a, b, c, d, e, ea, eb, ec, ed);
+            // otherwise origin is inside, return data for epa algorithm
+            return { reverseOrder, normals: [ebcd, eacd, eabd, eabc] };
+        }
+        /** expanding polytope algorithm */
+        function epa(convex, initCondition) {
+            let simplex = initCondition.simplex;
+            let normals = initCondition.normals;
+            if (initCondition.reverseOrder) {
+                let temp = simplex[0];
+                simplex[0] = simplex[1];
+                simplex[1] = temp;
+                let temp2 = normals[0];
+                normals[0] = normals[1];
+                normals[1] = temp2;
+            }
+            if (normals.length === 4) {
+                let da = tesserxel.math.vec4Pool.pop().subset(simplex[0], simplex[3]);
+                let db = tesserxel.math.vec4Pool.pop().subset(simplex[1], simplex[3]);
+                let dc = tesserxel.math.vec4Pool.pop().subset(simplex[2], simplex[3]);
+                let dbc = tesserxel.math.bivecPool.pop().wedgevvset(db, dc);
+                normals.push(tesserxel.math.vec4Pool.pop().wedgevbset(da, dbc));
+                dbc.pushPool();
+                tesserxel.math.vec4Pool.push(da, db, dc);
+            }
+            // tetrahedral cell list
+            let cs = [
+                [simplex[1], simplex[2], simplex[4], simplex[3]],
+                [simplex[2], simplex[0], simplex[4], simplex[3]],
+                [simplex[0], simplex[1], simplex[4], simplex[3]],
+                [simplex[0], simplex[2], simplex[4], simplex[1]],
+                [simplex[0], simplex[1], simplex[3], simplex[2]],
+            ];
+            // normal list
+            let ns = normals;
+            // distance list
+            let ds = [];
+            let mind = Infinity;
+            let minid;
+            for (let i = 0; i < 5; i++) {
+                ns[i].norms();
+                let val = ns[i].dot(cs[i][0]);
+                ds.push(val);
+                console.assert(val > 0, "wrong init orientation");
+                if (val < mind) {
+                    minid = i;
+                    mind = val;
+                }
+            }
+            let pa = tesserxel.math.vec4Pool.pop();
+            let pb = tesserxel.math.vec4Pool.pop();
+            let pc = tesserxel.math.vec4Pool.pop();
+            let pab = tesserxel.math.bivecPool.pop();
+            let steps = 0;
+            while (steps++ < maxEpaStep) {
+                let cell = cs[minid];
+                let p = support(convex, ns[minid]);
+                console.log(`Step: ${steps} Distance:${mind}`);
+                if (p === cell[0] || p === cell[1] || p === cell[2] || p === cell[3]) {
+                    // can't move on, found
+                    // math.vec4Pool.push(pa, pb, pc, pd);
+                    // math.bivecPool.push(pab, pac, pbc);
+                    for (let n of ns) {
+                        if (n !== ns[minid])
+                            n.pushPool();
+                    }
+                    tesserxel.math.vec4Pool.push(pa, pb, pc);
+                    tesserxel.math.bivecPool.push(pab);
+                    return { simplex: cell, distance: -mind, normal: ns[minid] };
+                }
+                mind = Infinity;
+                // construct new convexhull after adding point p
+                let newcs = [];
+                let newns = [];
+                let newds = [];
+                // borderformat [v1,v2,v3], v1,v2,v3's order is for orientation
+                // mark v1 null if duplicate need to remove, 
+                let border = [];
+                function checkBorder(a, b, c) {
+                    for (let i of border) {
+                        // if (i[0] === a) {
+                        //     if (i[1] === b) {
+                        //         if (i[2] === c) {
+                        //             // console.assert(false);
+                        //         }
+                        //     } else if (i[1] === c) {
+                        //         if (i[2] === b) {
+                        //             i[0] = null; return;
+                        //         }
+                        //     }
+                        // }
+                        if ((i[0] === a && i[1] === c && i[2] === b) ||
+                            (i[0] === b && i[1] === a && i[2] === c) ||
+                            (i[0] === c && i[1] === b && i[2] === a)) {
+                            i[0] = null;
+                            return;
+                        }
+                    }
+                    border.push([a, b, c]);
+                }
+                for (let idx = 0, csl = cs.length; idx < csl; idx++) {
+                    let cell = cs[idx];
+                    let a = cell[0];
+                    let b = cell[1];
+                    let c = cell[2];
+                    let d = cell[3];
+                    let determinant = ns[idx].dot(pa.subset(p, a));
+                    if (determinant > 0) {
+                        checkBorder(d, b, c); // +
+                        checkBorder(d, c, a); // -
+                        checkBorder(d, a, b); // +
+                        checkBorder(c, b, a); // -
+                    }
+                    else {
+                        newcs.push(cell);
+                        newns.push(ns[idx]);
+                        newds.push(ds[idx]);
+                        if (ds[idx] < mind) {
+                            mind = ds[idx];
+                            minid = newns.length - 1;
+                        }
+                    }
+                }
+                for (let b of border) {
+                    if (!b[0])
+                        continue;
+                    pa.subset(p, b[0]);
+                    pb.subset(p, b[1]);
+                    pc.subset(p, b[2]);
+                    pab.wedgevvset(pa, pb);
+                    newcs.push([p, b[0], b[1], b[2]]);
+                    let n = tesserxel.math.vec4Pool.pop().wedgevbset(pc, pab).negs().norms();
+                    let d = n.dot(p);
+                    console.assert(d >= 0, "new normal needs negs");
+                    if (d < mind) {
+                        mind = d;
+                        minid = newds.length;
+                    }
+                    newns.push(n);
+                    newds.push(d);
+                }
+                ns = newns;
+                cs = newcs;
+                ds = newds;
+            }
+            console.warn("Physics engin's GJK-EPA algorithm has been interupped by too many steps.");
+            return {};
+        }
+        physics.epa = epa;
+        /** expanding polytope algorithm for minkovsky difference */
+        function epaDiff(convex1, convex2, initCondition) {
+            let s1 = initCondition.simplex1;
+            let s2 = initCondition.simplex2;
+            let normals = initCondition.normals;
+            if (initCondition.reverseOrder) {
+                let temp = s1[0];
+                s1[0] = s1[1];
+                s1[1] = temp;
+                temp = s2[0];
+                s2[0] = s2[1];
+                s2[1] = temp;
+                let temp2 = normals[0];
+                normals[0] = normals[1];
+                normals[1] = temp2;
+            }
+            if (normals.length === 4) {
+                let da = tesserxel.math.vec4Pool.pop().subset(s1[0], s1[3]).subs(s2[0]).adds(s2[3]);
+                let db = tesserxel.math.vec4Pool.pop().subset(s1[1], s1[3]).subs(s2[1]).adds(s2[3]);
+                let dc = tesserxel.math.vec4Pool.pop().subset(s1[2], s1[3]).subs(s2[2]).adds(s2[3]);
+                let dbc = tesserxel.math.bivecPool.pop().wedgevvset(db, dc);
+                normals.push(tesserxel.math.vec4Pool.pop().wedgevbset(da, dbc));
+                dbc.pushPool();
+                tesserxel.math.vec4Pool.push(da, db, dc);
+            }
+            // tetrahedral cell list
+            let cs1 = [
+                [s1[1], s1[2], s1[4], s1[3]],
+                [s1[2], s1[0], s1[4], s1[3]],
+                [s1[0], s1[1], s1[4], s1[3]],
+                [s1[0], s1[2], s1[4], s1[1]],
+                [s1[0], s1[1], s1[3], s1[2]],
+            ];
+            let cs2 = [
+                [s2[1], s2[2], s2[4], s2[3]],
+                [s2[2], s2[0], s2[4], s2[3]],
+                [s2[0], s2[1], s2[4], s2[3]],
+                [s2[0], s2[2], s2[4], s2[1]],
+                [s2[0], s2[1], s2[3], s2[2]],
+            ];
+            // normal list
+            let ns = normals;
+            // distance list
+            let ds = [];
+            let mind = Infinity;
+            let minid;
+            let pa = tesserxel.math.vec4Pool.pop();
+            let pb = tesserxel.math.vec4Pool.pop();
+            let pc = tesserxel.math.vec4Pool.pop();
+            let p12 = tesserxel.math.vec4Pool.pop();
+            let pab = tesserxel.math.bivecPool.pop();
+            for (let i = 0; i < 5; i++) {
+                ns[i].norms();
+                let val = ns[i].dot(pa.subset(cs1[i][0], cs2[i][0]));
+                ds.push(val);
+                console.assert(val > 0, "wrong init orientation");
+                if (val < mind) {
+                    minid = i;
+                    mind = val;
+                }
+            }
+            let steps = 0;
+            while (steps++ < maxEpaStep) {
+                let cell1 = cs1[minid];
+                let cell2 = cs2[minid];
+                let [p1, p2] = supportDiff(convex1, convex2, ns[minid]);
+                p12.subset(p1, p2);
+                if (ns[minid].dot(p12) <= mind ||
+                    (p1 === cell1[0] && p2 === cell2[0]) ||
+                    (p1 === cell1[1] && p2 === cell2[1]) ||
+                    (p1 === cell1[2] && p2 === cell2[2]) ||
+                    (p1 === cell1[3] && p2 === cell2[3])) {
+                    // can't move on, found
+                    for (let n of ns) {
+                        if (n !== ns[minid])
+                            n.pushPool();
+                    }
+                    tesserxel.math.vec4Pool.push(pa, pb, pc);
+                    tesserxel.math.bivecPool.push(pab);
+                    // console.log(`Step: ${steps}`);
+                    return { simplex1: cell1, simplex2: cell2, distance: -mind, normal: ns[minid] };
+                }
+                mind = Infinity;
+                // construct new convexhull after adding point p
+                let newcs1 = [];
+                let newcs2 = [];
+                let newns = [];
+                let newds = [];
+                // borderformat [a1,a2,a3, b1,b2,b3], order is for orientation
+                // a, b are convex A's points a - convex B's points b
+                // mark a1 null if duplicate need to remove, 
+                let border = [];
+                function checkBorder(a1, b1, c1, a2, b2, c2) {
+                    for (let i of border) {
+                        if ((i[0] === a1 && i[3] === a2 && i[1] === c1 && i[4] === c2 && i[5] === b2 && i[2] === b1) ||
+                            (i[0] === b1 && i[3] === b2 && i[1] === a1 && i[4] === a2 && i[5] === c2 && i[2] === c1) ||
+                            (i[0] === c1 && i[3] === c2 && i[1] === b1 && i[4] === b2 && i[5] === a2 && i[2] === a1)) {
+                            i[0] = null;
+                            return;
+                        }
+                    }
+                    border.push([a1, b1, c1, a2, b2, c2]);
+                }
+                for (let idx = 0, csl = cs1.length; idx < csl; idx++) {
+                    let cell1 = cs1[idx];
+                    let cell2 = cs2[idx];
+                    let a1 = cell1[0];
+                    let a2 = cell2[0];
+                    let b1 = cell1[1];
+                    let b2 = cell2[1];
+                    let c1 = cell1[2];
+                    let c2 = cell2[2];
+                    let d1 = cell1[3];
+                    let d2 = cell2[3];
+                    let determinant = ns[idx].dot(pa.subset(p12, a1).adds(a2));
+                    if (determinant > 0) {
+                        checkBorder(d1, b1, c1, d2, b2, c2); // +
+                        checkBorder(d1, c1, a1, d2, c2, a2); // -
+                        checkBorder(d1, a1, b1, d2, a2, b2); // +
+                        checkBorder(c1, b1, a1, c2, b2, a2); // -
+                    }
+                    else {
+                        newcs1.push(cell1);
+                        newcs2.push(cell2);
+                        newns.push(ns[idx]);
+                        newds.push(ds[idx]);
+                        if (ds[idx] < mind) {
+                            mind = ds[idx];
+                            minid = newns.length - 1;
+                        }
+                    }
+                }
+                for (let b of border) {
+                    if (!b[0])
+                        continue;
+                    pa.subset(p12, b[0]).adds(b[3]);
+                    pb.subset(p12, b[1]).adds(b[4]);
+                    pc.subset(p12, b[2]).adds(b[5]);
+                    pab.wedgevvset(pa, pb);
+                    newcs1.push([p1, b[0], b[1], b[2]]);
+                    newcs2.push([p2, b[3], b[4], b[5]]);
+                    let n = tesserxel.math.vec4Pool.pop().wedgevbset(pc, pab).negs().norms();
+                    let d = n.dot(p12);
+                    if (d < 0)
+                        return;
+                    // console.assert(d >= 0, "new normal needs negs");
+                    if (d < mind) {
+                        mind = d;
+                        minid = newds.length;
+                    }
+                    newns.push(n);
+                    newds.push(d);
+                }
+                ns = newns;
+                cs1 = newcs1;
+                cs2 = newcs2;
+                ds = newds;
+            }
+            // console.warn("Physics engin's GJK-EPA algorithm has been interupped by too many steps."); return {};
+        }
+        physics.epaDiff = epaDiff;
+    })(physics = tesserxel.physics || (tesserxel.physics = {}));
+})(tesserxel || (tesserxel = {}));
+var tesserxel;
+(function (tesserxel) {
+    let physics;
+    (function (physics) {
+        // cache
+        let _vec4 = new tesserxel.math.Vec4;
+        let _r = new tesserxel.math.Rotor;
         class NarrowPhase {
             collisionList = [];
+            srand;
+            constructor() {
+                this.srand = new tesserxel.math.Srand(123);
+            }
             clearCollisionList() {
                 this.collisionList = [];
             }
@@ -4083,6 +5034,8 @@ var tesserxel;
                         return this.detectGlomeGlome(a, b);
                     if (b instanceof physics.rigid.Plane)
                         return this.detectGlomePlane(a, b);
+                    if (b instanceof physics.rigid.Convex)
+                        return this.detectConvexGlome(b, a);
                 }
                 if (a instanceof physics.rigid.Plane) {
                     if (b instanceof physics.rigid.Glome)
@@ -4099,8 +5052,14 @@ var tesserxel;
                 if (a instanceof physics.rigid.Convex) {
                     if (b instanceof physics.rigid.Plane)
                         return this.detectConvexPlane(a, b);
-                    if (b instanceof physics.rigid.Convex)
+                    if (b instanceof physics.rigid.Glome)
+                        return this.detectConvexGlome(a, b);
+                    if (b instanceof physics.rigid.Convex) {
+                        // (arg1,arg2) convert arg2 to arg1's coord
+                        if (b.points.length > a.points.length)
+                            return this.detectConvexConvex(b, a);
                         return this.detectConvexConvex(a, b);
+                    }
                 }
             }
             detectGlomeGlome(a, b) {
@@ -4111,7 +5070,7 @@ var tesserxel;
                     return null;
                 // todo: check whether clone can be removed
                 let normal = _vec4.divfs(d).clone();
-                let point = _vec4.mulfs((a.radius - b.radius + d) * 0.5).clone();
+                let point = a.rigid.position.clone().adds(b.rigid.position).mulfs(0.5);
                 this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
             }
             detectGlomePlane(a, b) {
@@ -4133,8 +5092,103 @@ var tesserxel;
                     this.collisionList.push({ point, normal: b.normal.neg(), depth, a: a.rigid, b: b.rigid });
                 }
             }
+            detectConvexGlome(a, b) {
+                _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                if (a._cachePoints) {
+                    for (let p = 0, l = a.points.length; p < l; p++) {
+                        a._cachePoints[p].subset(a.points[p], _vec4);
+                    }
+                }
+                else {
+                    a._cachePoints = a.points.map(p => tesserxel.math.vec4Pool.pop().subset(p, _vec4));
+                }
+                let result = physics.gjkOutDistance(a._cachePoints);
+                if (result.normal && result.distance) {
+                    let depth = b.radius - result.distance;
+                    if (depth < 0)
+                        return;
+                    result.normal.rotates(a.rigid.rotation);
+                    let point = tesserxel.math.vec4Pool.pop().copy(b.rigid.position).addmulfs(result.normal, -(b.radius + result.distance) * 0.5);
+                    this.collisionList.push({ point, normal: result.normal, depth, a: a.rigid, b: b.rigid });
+                }
+                // todo: EPA
+            }
             detectConvexConvex(a, b) {
-                // GJK here !
+                // calculate in a's frame
+                _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+                if (!isFinite(_vec4.norm1() + _r.l.norm() + _r.r.norm())) {
+                    console.assert(isFinite(_vec4.norm1() + _r.l.norm() + _r.r.norm()), "oxoor");
+                }
+                if (b._cachePoints) {
+                    for (let p = 0, l = b.points.length; p < l; p++) {
+                        // b._cachePoints[p].srandset(this.srand).mulfs(1e-3).adds(b.points[p]).rotates(_r).adds(_vec4);
+                        b._cachePoints[p].copy(b.points[p]).rotates(_r).adds(_vec4);
+                    }
+                }
+                else {
+                    b._cachePoints = b.points.map(
+                    // p => math.vec4Pool.pop().srandset(this.srand).mulfs(1e-3).adds(p).rotates(_r).adds(_vec4)
+                    p => tesserxel.math.vec4Pool.pop().copy(p).rotates(_r).adds(_vec4));
+                }
+                // gjk intersection test
+                let inter = physics.gjkDiffTest(a.points, b._cachePoints);
+                if (!inter.normals)
+                    return;
+                // epa collision generation
+                let result = physics.epaDiff(a.points, b._cachePoints, inter);
+                if (result?.normal) {
+                    let depth = -result.distance;
+                    let [a1, b1, c1, d1] = result.simplex1;
+                    let [a2, b2, c2, d2] = result.simplex2;
+                    let point = tesserxel.math.vec4Pool.pop();
+                    if (a1 === b1 && a1 === c1 && a1 === d1) {
+                        // vertex - ?
+                        point.copy(a1).addmulfs(result.normal, result.distance * 0.5);
+                    }
+                    else if (a2 === b2 && a2 === c2 && a2 === d2) {
+                        // ? - vertex
+                        point.copy(a2).addmulfs(result.normal, -result.distance * 0.5);
+                    }
+                    else {
+                        let A = [], B = [];
+                        for (let i of result.simplex1)
+                            if (A.indexOf(i) === -1)
+                                A.push(i);
+                        for (let i of result.simplex2)
+                            if (B.indexOf(i) === -1)
+                                B.push(i);
+                        if ((A.length === 2 && B.length === 3) || (B.length === 2 && A.length === 3)) {
+                            // edge - face || face - edge
+                            let deltaD = result.distance * 0.5;
+                            if (B.length === 2) {
+                                let temp = A;
+                                A = B;
+                                B = temp;
+                                deltaD = -deltaD;
+                            }
+                            let p1a = _vec4.subset(B[0], A[0]);
+                            let p1p2 = tesserxel.math.vec4Pool.pop().subset(A[1], A[0]);
+                            let ab = tesserxel.math.vec4Pool.pop().subset(B[1], B[0]);
+                            let ac = tesserxel.math.vec4Pool.pop().subset(B[2], B[0]);
+                            let _a1 = p1p2.dot(p1a), _b1 = p1p2.dot(ab), _c1 = p1p2.dot(ac), _d1 = p1p2.dot(p1p2);
+                            let _a2 = ab.dot(p1a), _b2 = ab.dot(ab), _c2 = ab.dot(ac), _d2 = _b1;
+                            let _a3 = ac.dot(p1a), _b3 = _c2, _c3 = ac.dot(ac), _d3 = _c1;
+                            let det = (_b3 * _c2 - _b2 * _c3) * _d1 + (-_b3 * _c1 + _b1 * _c3) * _d2 + (_b2 * _c1 - _b1 * _c2) * _d3;
+                            if (det === 0)
+                                return;
+                            let detInv = 1 / det;
+                            let s = ((_a3 * _b2 - _a2 * _b3) * _c1 + (-_a3 * _b1 + _a1 * _b3) * _c2 + (_a2 * _b1 - _a1 * _b2) * _c3) * detInv;
+                            point.copy(A[0]).addmulfs(p1p2, s).addmulfs(result.normal, deltaD);
+                        }
+                    }
+                    // if (!isFinite(point.norm1() + result.normal.norm1() + depth)) { console.warn("wrong convex collision numeric result"); return; }
+                    this.collisionList.push({
+                        point: point.rotates(a.rigid.rotation).adds(a.rigid.position),
+                        normal: result.normal.rotates(a.rigid.rotation),
+                        depth, a: a.rigid, b: b.rigid
+                    });
+                }
             }
         }
         physics.NarrowPhase = NarrowPhase;
@@ -4198,7 +5252,6 @@ var tesserxel;
         class RigidGeometry {
             type;
             rigid;
-            isUnion = false;
             initialize(rigid) {
                 this.rigid = rigid;
                 this.initializeMassInertia(rigid);
@@ -4234,7 +5287,6 @@ var tesserxel;
         (function (rigid_1) {
             class Union extends RigidGeometry {
                 components;
-                isUnion = true;
                 constructor(components) { super(); this.components = components; }
                 // todo: union gen
                 initializeMassInertia(rigid) {
@@ -4257,7 +5309,7 @@ var tesserxel;
                     }
                     // todo
                     // let inertia = new math.Matrix(6,6);
-                    rigid.inertia.xy = 0.01;
+                    rigid.inertia.xy = 1;
                     rigid.inertiaIsotroy = true;
                     rigid.type = "active";
                 }
@@ -4287,6 +5339,7 @@ var tesserxel;
             rigid_1.Glome = Glome;
             class Convex extends RigidGeometry {
                 points;
+                _cachePoints;
                 constructor(points) {
                     super();
                     this.points = points;
@@ -4376,15 +5429,33 @@ var tesserxel;
         class IterativeImpulseSolver extends Solver {
             maxPositionIterations = 32;
             maxVelocityIterations = 32;
-            maxResolveRotationAngle = .0 * tesserxel.math._DEG2RAD;
-            PositionRelaxationFactor = 0.5;
+            maxResolveRotationAngle = 0 * tesserxel.math._DEG2RAD;
+            PositionRelaxationFactor = 0.9;
             collisionList;
             run(collisionList) {
                 if (!collisionList.length)
                     return;
+                for (let c of collisionList) {
+                    if (!c.a.rotation.isFinite() ||
+                        !c.b.rotation.isFinite()) {
+                        console.error("An error occured to rigid body");
+                    }
+                }
                 this.prepare(collisionList);
-                this.resolveVelocity();
                 this.resolvePosition();
+                for (let c of collisionList) {
+                    if (!c.a.rotation.isFinite() ||
+                        !c.b.rotation.isFinite()) {
+                        console.error("An error occured to rigid body");
+                    }
+                }
+                this.resolveVelocity();
+                for (let c of collisionList) {
+                    if (!c.a.rotation.isFinite() ||
+                        !c.b.rotation.isFinite()) {
+                        console.error("An error occured to rigid body");
+                    }
+                }
             }
             prepare(collisionList) {
                 this.collisionList = collisionList.map(e => {
@@ -4411,6 +5482,9 @@ var tesserxel;
                     let { point, a, b, depth, normal } = collision;
                     if (depth <= 0)
                         return;
+                    if (depth > 10) {
+                        console.error("Depth direction error in resolvePosition");
+                    }
                     let invInertiaA = 0, invInertiaB = 0;
                     if (a.mass > 0) {
                         let pA = tesserxel.math.vec4Pool.pop().subset(point, a.position);
@@ -4438,33 +5512,48 @@ var tesserxel;
                         invInertiaB = pB.dotbset(pB, collision.dwB).dot(normal);
                         pB.pushPool();
                     }
-                    let totalInvsMulDepth = depth * this.PositionRelaxationFactor * (a.invMass + b.invMass + invInertiaA + invInertiaB);
+                    let depthDivTotalInvs = depth * this.PositionRelaxationFactor / (a.invMass + b.invMass + invInertiaA + invInertiaB);
+                    if (!isFinite(depthDivTotalInvs)) {
+                        console.error("A numeric error occured in Rigid collision solver: depthDivTotalInvs in resolvePosition");
+                    }
                     if (a.mass > 0) {
                         // here can't mul invInertiaA since dwA is by unit impulse, and linear part is already invInertiaA
-                        collision.dwA.mulfs(totalInvsMulDepth);
+                        collision.dwA.mulfs(depthDivTotalInvs);
                         // clamp rotation
                         let angle = collision.dwA.norm();
                         if (angle > this.maxResolveRotationAngle) {
                             collision.dwA.mulfs(this.maxResolveRotationAngle / angle);
                         }
-                        collision.dvA = tesserxel.math.vec4Pool.pop().copy(normal).mulfs(-totalInvsMulDepth * a.invMass);
+                        collision.dvA = tesserxel.math.vec4Pool.pop().copy(normal).mulfs(-depthDivTotalInvs * a.invMass);
+                        if (!isFinite(angle + collision.dvA.norm1() + collision.dwA.norm1() + a.position.norm1())) {
+                            console.error("A numeric error occured in Rigid collision solver: dvA,dwA in resolvePosition");
+                        }
                         a.position.adds(collision.dvA);
                         let r = tesserxel.math.rotorPool.pop().expset(collision.dwA);
                         a.rotation.mulsl(r);
                         r.pushPool();
+                        if (!isFinite(a.rotation.l.norm() + a.rotation.r.norm() + a.position.norm1())) {
+                            console.error("A numeric error occured in Rigid collision solver: dvA,dwA in resolvePosition");
+                        }
                     }
                     if (b.mass > 0) {
-                        collision.dwB.mulfs(totalInvsMulDepth);
+                        collision.dwB.mulfs(depthDivTotalInvs);
                         // clamp rotation
                         let angle = collision.dwB.norm();
                         if (angle > this.maxResolveRotationAngle) {
                             collision.dwB.mulfs(this.maxResolveRotationAngle / angle);
                         }
-                        collision.dvB = tesserxel.math.vec4Pool.pop().copy(normal).mulfs(totalInvsMulDepth * b.invMass);
+                        collision.dvB = tesserxel.math.vec4Pool.pop().copy(normal).mulfs(depthDivTotalInvs * b.invMass);
+                        if (!isFinite(angle + collision.dvB.norm1() + collision.dwB.norm1() + b.position.norm1())) {
+                            console.error("A numeric error occured in Rigid collision solver: dvB,dwB in resolvePosition");
+                        }
                         b.position.adds(collision.dvB);
                         let r = tesserxel.math.rotorPool.pop().expset(collision.dwB);
                         b.rotation.mulsl(r);
                         r.pushPool();
+                        if (!isFinite(b.rotation.l.norm() + b.rotation.r.norm() + b.position.norm1())) {
+                            console.error("A numeric error occured in Rigid collision solver: dvB,dwB in resolvePosition");
+                        }
                     }
                     // collision.depth = 0;
                     this.updateDepths(collision);
@@ -4480,7 +5569,7 @@ var tesserxel;
                     let restitution = physics.Material.getContactRestitution(materialA, materialB);
                     // set target separateSpeed to collision, next we'll solve to reach it
                     // collision.separateSpeed = -separateSpeed * restitution;
-                    let targetRelativeVelocity = normal.mulf(-separateSpeed * restitution);
+                    let targetRelativeVelocity = tesserxel.math.vec4Pool.pop().copy(normal).mulfs(-separateSpeed * restitution);
                     let targetDeltaVelocityByImpulse = targetRelativeVelocity.subs(relativeVelocity);
                     let pointInA, pointInB;
                     let matA = tesserxel.math.mat4Pool.pop(), matB = tesserxel.math.mat4Pool.pop();
@@ -4499,19 +5588,30 @@ var tesserxel;
                         matB.set();
                     }
                     // dv = dvb(Ib) - dva(Ia) == dvb(I) + dva(I) since I = -Ia = Ib
-                    let impulse = matA.adds(matB).invs().mulv(targetDeltaVelocityByImpulse);
+                    let impulse = targetDeltaVelocityByImpulse.mulmatls(matA.adds(matB).invs());
+                    // if (impulse.norm1() === 0) continue;
+                    console.assert(isFinite(impulse.norm1()));
+                    console.assert(isFinite(normal.norm1()));
                     tesserxel.math.mat4Pool.push(matA, matB);
                     // decomposite impulse into normal and tangent to deal with friction
-                    let impulseNValue = impulse.dot(normal);
+                    let impulseNValue = Math.max(0, impulse.dot(normal));
+                    console.assert(isFinite(impulseNValue));
                     let impulseN = tesserxel.math.vec4Pool.pop().copy(normal).mulfs(impulseNValue);
                     let impulseT = tesserxel.math.vec4Pool.pop().subset(impulse, impulseN);
                     let impulseTValue = impulseT.norm();
+                    console.assert(isFinite(impulseTValue));
                     let friction = physics.Material.getContactFriction(materialA, materialB);
                     let maximalFriction = friction * impulseNValue;
                     if (impulseTValue > maximalFriction) {
                         // correct tangent impulse for friction
+                        console.assert(isFinite(impulseT.norm1()));
+                        if (!isFinite(maximalFriction / impulseTValue)) {
+                            console.log("oma");
+                        }
                         impulseT.mulfs(maximalFriction / impulseTValue);
+                        console.assert(isFinite(maximalFriction / impulseTValue));
                     }
+                    console.assert(isFinite(impulseT.norm1()));
                     impulse.addset(impulseT, impulseN);
                     tesserxel.math.vec4Pool.push(impulseT, impulseN);
                     // resolve velocity by applying final impulse
@@ -4530,7 +5630,13 @@ var tesserxel;
             }
             updateSeparateSpeeds(collision) {
                 for (let c of this.collisionList) {
-                    // if (c === collision) continue;
+                    if (c === collision) {
+                        if (collision.a.mass > 0)
+                            this.updateSeparateSpeed(c, true, c.a, collision.dvA, collision.dwA);
+                        if (collision.b.mass > 0)
+                            this.updateSeparateSpeed(c, false, c.b, collision.dvB, collision.dwB);
+                        continue;
+                    }
                     if (collision.a.mass > 0) {
                         if (c.a === collision.a) {
                             this.updateSeparateSpeed(c, true, c.a, collision.dvA, collision.dwA);
@@ -4582,13 +5688,18 @@ var tesserxel;
                 let a = tesserxel.math.vec4Pool.pop().subset(collision.point, rigid.position);
                 let dd = a.dotbsr(dw).adds(dv).dot(collision.normal);
                 a.pushPool();
+                console.assert(isFinite(a.norm1()), "Numeric error in Collision solver updateDepth");
                 collision.depth += rigidIsA ? dd : -dd;
             }
             updateSeparateSpeed(collision, rigidIsA, rigid, dv, dw) {
-                let a = tesserxel.math.vec4Pool.pop().subset(collision.point, rigid.position);
-                let dss = a.dotbsr(dw).adds(dv).dot(collision.normal);
-                a.pushPool();
-                collision.separateSpeed += rigidIsA ? -dss : dss;
+                let delta = tesserxel.math.vec4Pool.pop().subset(collision.point, rigid.position).dotbsr(dw).adds(dv);
+                if (rigidIsA)
+                    delta.negs();
+                let dss = delta.dot(collision.normal);
+                console.assert(isFinite(delta.norm1()), "Numeric error in Collision solver updateDepth");
+                collision.relativeVelocity.adds(delta);
+                delta.pushPool();
+                collision.separateSpeed += dss;
             }
         }
         physics.IterativeImpulseSolver = IterativeImpulseSolver;
@@ -4606,8 +5717,14 @@ var tesserxel;
         ;
         function applyImpulseAndGetDeltaVW(outV, outW, rigid, localPoint, impulse) {
             calcDeltaVWByImpulse(outV, outW, rigid, localPoint, impulse);
+            {
+                console.assert(isFinite(outV.norm1() + outW.norm1()), "A numeric error occured in Rigid collision solver: outV, outW in applyImpulseAndGetDeltaVW");
+            }
             rigid.velocity.adds(outV);
             rigid.angularVelocity.adds(outW);
+            if (!isFinite(rigid.velocity.norm1() + rigid.angularVelocity.norm1())) {
+                console.error("A numeric error occured in Rigid collision solver: rigid velocity in applyImpulseAndGetDeltaVW");
+            }
         }
         /** calculate transfer matrix between impulse applying at src position and response delta velocity at dst position
          *  src and dst are in rigid's local frame
@@ -4648,7 +5765,10 @@ var tesserxel;
             requsetPointerLock;
             states = {
                 currentKeys: new Map(),
+                isPointerLockedMouseDown: false,
                 currentBtn: -1,
+                mouseDown: -1,
+                mouseUp: -1,
                 updateCount: 0,
                 moveX: 0,
                 moveY: 0,
@@ -4679,7 +5799,7 @@ var tesserxel;
                     return this.states.isKeyHold(config.disable) || (config.enable && !this.states.isKeyHold(config.enable));
                 };
                 this.states.isPointerLocked = () => {
-                    return document.pointerLockElement === this.dom;
+                    return ((!this.states.isPointerLockedMouseDown) && document.pointerLockElement === this.dom);
                 };
                 this.states.exitPointerLock = () => {
                     if (document.pointerLockElement === this.dom)
@@ -4688,6 +5808,7 @@ var tesserxel;
                 dom.addEventListener("mousedown", (ev) => {
                     if (this.requsetPointerLock && document.pointerLockElement !== dom) {
                         dom.requestPointerLock();
+                        this.states.isPointerLockedMouseDown = true;
                     }
                     else {
                         dom.focus();
@@ -4695,6 +5816,7 @@ var tesserxel;
                     this.states.currentBtn = ev.button;
                     this.states.moveX = 0;
                     this.states.moveY = 0;
+                    this.states.mouseDown = ev.button;
                     if (ev.altKey === false) {
                         this.states.currentKeys.set("AltLeft", KeyState.NONE);
                         this.states.currentKeys.set("AltRight", KeyState.NONE);
@@ -4711,6 +5833,7 @@ var tesserxel;
                 });
                 dom.addEventListener("mouseup", (ev) => {
                     this.states.currentBtn = -1;
+                    this.states.mouseUp = ev.button;
                 });
                 dom.addEventListener("keydown", (ev) => {
                     let prevState = this.states.currentKeys.get(ev.code);
@@ -4754,11 +5877,14 @@ var tesserxel;
                     if (c.enabled)
                         c.update(this.states);
                 }
+                this.states.mouseDown = -1;
+                this.states.mouseUp = -1;
                 this.states.moveX = 0;
                 this.states.moveY = 0;
                 this.states.wheelX = 0;
                 this.states.wheelY = 0;
                 this.states.updateCount++;
+                this.states.isPointerLockedMouseDown = false;
                 for (let [key, prevState] of this.states.currentKeys) {
                     let newState = prevState;
                     if (prevState === KeyState.DOWN) {
@@ -4975,7 +6101,6 @@ var tesserxel;
                 let objY = tesserxel.math.Vec4.y.rotate(this.object.rotation);
                 let r = tesserxel.math.Rotor.lookAt(objY, tesserxel.math.Vec4.y);
                 this.horizontalRotor.copy(r.mul(this.object.rotation));
-                console.log(this.horizontalRotor.log());
                 this.verticalRotor.copy(this.horizontalRotor.mul(r.conjs()).mulsrconj(this.horizontalRotor));
             }
             update(state) {
@@ -5253,7 +6378,7 @@ var tesserxel;
             keyMoveSpeed = 0.1;
             keyRotateSpeed = 0.01;
             opacityKeySpeed = 0.01;
-            damp = 0.1;
+            damp = 0.02;
             mouseButton = 0;
             retinaEyeOffset = 0.1;
             sectionEyeOffset = 0.1;
@@ -5331,7 +6456,7 @@ var tesserxel;
             _q1 = new tesserxel.math.Quaternion();
             _q2 = new tesserxel.math.Quaternion();
             _mat4 = new tesserxel.math.Mat4();
-            sliceNeedUpdate;
+            refacingFront = false;
             retinaZDistance = 5;
             update(state) {
                 let disabled = state.queryDisabled(this.keyConfig);
@@ -5391,21 +6516,32 @@ var tesserxel;
                     if (delta)
                         this._vec2damp.x = delta * keyRotateSpeed;
                     if (state.currentBtn === this.mouseButton) {
+                        this.refacingFront = false;
                         if (state.moveX)
                             this._vec2damp.x = state.moveX * this.mouseSpeed;
                         if (state.moveY)
                             this._vec2damp.y = state.moveY * this.mouseSpeed;
                     }
+                    if (on(key.refaceFront)) {
+                        this.refacingFront = true;
+                    }
                 }
-                if (this._vec2damp.norm1() < 1e-3) {
+                if (this._vec2damp.norm1() < 1e-3 || this.refacingFront) {
                     this._vec2damp.set(0, 0);
                 }
-                else {
+                if (this._vec2damp.norm1() > 1e-3 || this.refacingFront) {
+                    this._vec2euler.x %= tesserxel.math._360;
+                    this._vec2euler.y %= tesserxel.math._360;
+                    let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
+                    if (this.refacingFront) {
+                        this._vec2euler.mulfs(dampFactor);
+                        if (this._vec2euler.norm1() < 0.01)
+                            this.refacingFront = false;
+                    }
                     this._vec2euler.adds(this._vec2damp);
                     let mat = this._mat4.setFrom3DRotation(this._q1.expset(this._vec3.set(0, this._vec2euler.x, 0)).mulsr(this._q2.expset(this._vec3.set(this._vec2euler.y, 0, 0))).conjs());
                     mat.elem[11] = -this.retinaZDistance;
                     this.renderer.setRetinaViewMatrix(mat);
-                    let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
                     this._vec2damp.mulfs(dampFactor);
                 }
                 this.renderer.setSliceConfig(sliceConfig);
@@ -8986,8 +10122,17 @@ var tesserxel;
         class Scene {
             child = [];
             backGroundColor;
-            add(obj) {
-                this.child.push(obj);
+            add(...obj) {
+                this.child.push(...obj);
+            }
+            removeChild(obj) {
+                let index = this.child.indexOf(obj);
+                if (index !== -1) {
+                    this.child.splice(index, 1);
+                }
+                else {
+                    console.warn("Cannot remove a non-existed child");
+                }
             }
             setBackgroudColor(color) {
                 this.backGroundColor = color;
@@ -9007,8 +10152,17 @@ var tesserxel;
                 this.needsUpdateCoord = true;
                 return this;
             }
-            add(obj) {
-                this.child.push(obj);
+            add(...obj) {
+                this.child.push(...obj);
+            }
+            removeChild(obj) {
+                let index = this.child.indexOf(obj);
+                if (index !== -1) {
+                    this.child.splice(index, 1);
+                }
+                else {
+                    console.warn("Cannot remove a non-existed child");
+                }
             }
         }
         four.Object = Object;
@@ -9082,6 +10236,13 @@ var tesserxel;
             }
         }
         four.GlomeGeometry = GlomeGeometry;
+        class ConvexHullGeometry extends Geometry {
+            constructor(points) {
+                super(tesserxel.mesh.tetra.convexhull(points));
+                console.assert(false, "todo: need to generate normal");
+            }
+        }
+        four.ConvexHullGeometry = ConvexHullGeometry;
     })(four = tesserxel.four || (tesserxel.four = {}));
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
@@ -9604,7 +10765,7 @@ var tesserxel;
                 // Tell root material that CheckerTexture needs deal dependency of vary input uvw
                 let { token, code } = this.getInputCode(r, root, outputToken);
                 return code + `
-                let ${outputToken}_checker = fract(${token.uvw}) - vec4<f32>(0.5);
+                let ${outputToken}_checker = fract(${token.uvw}+vec4<f32>(0.001)) - vec4<f32>(0.5);
                 let ${outputToken} = mix(${token.color1},${token.color2},step( ${outputToken}_checker.x * ${outputToken}_checker.y * ${outputToken}_checker.z * ${outputToken}_checker.w, 0.0));
                 `;
             }
@@ -9806,8 +10967,6 @@ var tesserxel;
                 m.material.update(this);
             }
             updateMesh(m) {
-                if (m.visible)
-                    this.addToDrawList(m);
                 if (m.needsUpdateCoord) {
                     m.worldCoord.writeBuffer(this.jsBuffer, 0);
                     m.worldCoord.mat.inv().ts().writeBuffer(this.jsBuffer, 20);
@@ -9835,6 +10994,8 @@ var tesserxel;
                         }
                     }
                 }
+                if (m.visible)
+                    this.addToDrawList(m);
             }
             updateScene(scene) {
                 this.core.setWorldClearColor(scene.backGroundColor);
@@ -9975,6 +11136,11 @@ var tesserxel;
             let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
             return afmat.matrix * points + biais;
         }
+        fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
+            return mat4x4<f32>(
+                normalize(vec4s[0]), normalize(vec4s[1]), normalize(vec4s[2]), normalize(vec4s[3]),
+            );
+        }
         @tetra fn main(input : fourInputType, @builtin(instance_index) index: u32) -> fourOutputType{
             let worldPos = apply(uObjMat.pos,input.pos);
             return fourOutputType({fourOutputReturn});
@@ -9983,7 +11149,7 @@ var tesserxel;
         const outputReturn = {
             position: `apply(uCamMat,worldPos)`,
             uvw: `input.uvw`,
-            normal: `uObjMat.normal * input.normal`,
+            normal: `normalizeVec4s(uObjMat.normal * input.normal)`,
             pos: `worldPos`
         };
         function _generateVertShader(inputs, outputs) {

@@ -102,6 +102,7 @@ declare namespace tesserxel {
             getAffineMat4inv(): AffineMat4;
             translates(v: Vec4): Obj4;
             rotates(r: Rotor): Obj4;
+            rotatesb(b: Bivec): Obj4;
             rotatesAt(r: Rotor, center?: Vec4): Obj4;
             lookAt(direction: Vec4, target: Vec4): this;
         }
@@ -318,6 +319,7 @@ declare namespace tesserxel {
             conj(): Rotor;
             conjs(): Rotor;
             norms(): Rotor;
+            setid(): Rotor;
             /** Apply this to R: this * R;
              *
              * [this.l * R.l, R.r * this.r]; */
@@ -339,6 +341,7 @@ declare namespace tesserxel {
              * [this.l, this.r] = [conj(R.l) * this.l, this.r * conj(R.r)]; */
             mulslconj(R: Rotor): Rotor;
             sqrt(): Rotor;
+            isFinite(): boolean;
             expset(bivec: Bivec): Rotor;
             log(): Bivec;
             static slerp(a: Rotor, b: Rotor, t: number): Rotor;
@@ -572,6 +575,7 @@ declare namespace tesserxel {
             zyx(): Vec3;
             zxy(): Vec3;
             xzy(): Vec3;
+            xyz0(): Vec4;
             clone(): Vec3;
             add(v2: Vec3): Vec3;
             addset(v1: Vec3, v2: Vec3): Vec3;
@@ -909,7 +913,6 @@ declare namespace tesserxel {
             solver: Solver;
             substep: number;
             constructor(option?: EngineOption);
-            runCollisionSolver(): void;
             update(world: World, dt: number): void;
             step(world: World, dt: number): void;
         }
@@ -920,7 +923,8 @@ declare namespace tesserxel {
             forces: Force[];
             time: number;
             frameCount: number;
-            add(o: Rigid | Force): void;
+            add(...args: (Rigid | Force)[]): void;
+            remove(o: Rigid | Force): void;
             updateUnionGeometriesCoord(): void;
         }
         export class Material {
@@ -995,6 +999,52 @@ declare namespace tesserxel {
 }
 declare namespace tesserxel {
     namespace physics {
+        type Convex = math.Vec4[];
+        export function gjkOutDistance(convex: Convex, initSimplex?: math.Vec4[]): {
+            simplex?: math.Vec4[];
+            reverseOrder?: boolean;
+            normals?: math.Vec4[];
+            normal?: math.Vec4;
+            distance?: number;
+        };
+        /** test convex1 - convex2 to origin */
+        export function gjkDiffTest(convex1: Convex, convex2: Convex, initSimplex1?: math.Vec4[], initSimplex2?: math.Vec4[]): {
+            simplex1?: math.Vec4[];
+            simplex2?: math.Vec4[];
+            normals?: math.Vec4[];
+            reverseOrder?: boolean;
+        };
+        /** expanding polytope algorithm */
+        export function epa(convex: Convex, initCondition: {
+            simplex: math.Vec4[];
+            reverseOrder: boolean;
+            normals: math.Vec4[];
+        }): {
+            simplex: math.Vec4[];
+            distance: number;
+            normal: math.Vec4;
+        } | {
+            simplex?: undefined;
+            distance?: undefined;
+            normal?: undefined;
+        };
+        /** expanding polytope algorithm for minkovsky difference */
+        export function epaDiff(convex1: Convex, convex2: Convex, initCondition: {
+            simplex1: math.Vec4[];
+            simplex2: math.Vec4[];
+            reverseOrder: boolean;
+            normals: math.Vec4[];
+        }): {
+            simplex1: math.Vec4[];
+            simplex2: math.Vec4[];
+            distance: number;
+            normal: math.Vec4;
+        };
+        export {};
+    }
+}
+declare namespace tesserxel {
+    namespace physics {
         interface Collision {
             point: math.Vec4;
             depth: number;
@@ -1005,12 +1055,15 @@ declare namespace tesserxel {
         }
         class NarrowPhase {
             collisionList: Collision[];
+            srand: math.Srand;
+            constructor();
             clearCollisionList(): void;
             run(list: BroadPhaseList): void;
             detectCollision(rigidA: Rigid, rigidB: Rigid): any;
             private detectGlomeGlome;
             private detectGlomePlane;
             private detectConvexPlane;
+            private detectConvexGlome;
             private detectConvexConvex;
         }
     }
@@ -1065,14 +1118,12 @@ declare namespace tesserxel {
         export abstract class RigidGeometry {
             type: string;
             rigid: Rigid;
-            isUnion: boolean;
             initialize(rigid: Rigid): void;
             abstract initializeMassInertia(rigid: Rigid): void;
         }
         export namespace rigid {
             class Union extends RigidGeometry {
                 components: SubRigid[];
-                isUnion: true;
                 constructor(components: Rigid[]);
                 initializeMassInertia(rigid: Rigid): void;
                 updateCoord(): void;
@@ -1086,6 +1137,7 @@ declare namespace tesserxel {
             }
             class Convex extends RigidGeometry {
                 points: math.Vec4[];
+                _cachePoints: math.Vec4[];
                 constructor(points: math.Vec4[]);
                 initializeMassInertia(rigid: Rigid): void;
             }
@@ -1159,9 +1211,11 @@ declare namespace tesserxel {
             enable?: string;
             disable?: string;
         }
-        interface ControllerState {
+        export interface ControllerState {
             currentKeys: Map<String, KeyState>;
             currentBtn: number;
+            mouseDown: number;
+            mouseUp: number;
             updateCount: number;
             moveX: number;
             moveY: number;
@@ -1170,6 +1224,7 @@ declare namespace tesserxel {
             lastUpdateTime?: number;
             mspf?: number;
             requsetPointerLock?: boolean;
+            isPointerLockedMouseDown?: boolean;
             isKeyHold?: (code: string) => boolean;
             queryDisabled?: (config: KeyConfig) => boolean;
             isPointerLocked?: () => boolean;
@@ -1354,7 +1409,7 @@ declare namespace tesserxel {
             private _q1;
             private _q2;
             private _mat4;
-            private sliceNeedUpdate;
+            private refacingFront;
             retinaZDistance: number;
             update(state: ControllerState): void;
             setStereo(stereo: boolean): void;
@@ -1703,7 +1758,8 @@ declare namespace tesserxel {
         class Scene {
             child: Object[];
             backGroundColor: GPUColor;
-            add(obj: Object): void;
+            add(...obj: Object[]): void;
+            removeChild(obj: Object): void;
             setBackgroudColor(color: GPUColor): void;
         }
         class Object extends math.Obj4 {
@@ -1713,7 +1769,8 @@ declare namespace tesserxel {
             alwaysUpdateCoord: boolean;
             constructor();
             updateCoord(): this;
-            add(obj: Object): void;
+            add(...obj: Object[]): void;
+            removeChild(obj: Object): void;
         }
         class Camera extends Object implements math.PerspectiveCamera {
             fov: number;
@@ -1749,6 +1806,9 @@ declare namespace tesserxel {
         }
         class GlomeGeometry extends Geometry {
             constructor(size?: number);
+        }
+        class ConvexHullGeometry extends Geometry {
+            constructor(points: math.Vec4[]);
         }
     }
 }

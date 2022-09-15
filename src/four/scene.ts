@@ -3,8 +3,16 @@ namespace tesserxel {
         export class Scene {
             child: Object[] = [];
             backGroundColor: GPUColor;
-            add(obj: Object) {
-                this.child.push(obj);
+            add(...obj: Object[]) {
+                this.child.push(...obj);
+            }
+            removeChild(obj: Object) {
+                let index = this.child.indexOf(obj);
+                if(index!==-1){
+                    this.child.splice(index,1);
+                }else{
+                    console.warn("Cannot remove a non-existed child");
+                }
             }
             setBackgroudColor(color: GPUColor) {
                 this.backGroundColor = color;
@@ -23,8 +31,16 @@ namespace tesserxel {
                 this.needsUpdateCoord = true;
                 return this;
             }
-            add(obj: Object) {
-                this.child.push(obj);
+            add(...obj: Object[]) {
+                this.child.push(...obj);
+            }
+            removeChild(obj: Object) {
+                let index = this.child.indexOf(obj);
+                if(index!==-1){
+                    this.child.splice(index,1);
+                }else{
+                    console.warn("Cannot remove a non-existed child");
+                }
             }
         }
         export class Camera extends Object implements math.PerspectiveCamera {
@@ -91,6 +107,12 @@ namespace tesserxel {
         export class GlomeGeometry extends Geometry {
             constructor(size?:number) {
                 super(mesh.tetra.glome(size??1,16,16,12));
+            }
+        }
+        export class ConvexHullGeometry extends Geometry {
+            constructor(points: math.Vec4[]) {
+                super(mesh.tetra.convexhull(points));
+                console.assert(false, "todo: need to generate normal");
             }
         }
     }

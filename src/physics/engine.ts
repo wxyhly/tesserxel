@@ -19,9 +19,6 @@ namespace tesserxel {
                 this.solver = new (option?.solver ?? IterativeImpulseSolver)();
                 this.substep = option.substep ?? 1;
             }
-            runCollisionSolver() {
-                // todo
-            }
             update(world: World, dt: number) {
                 dt /= this.substep;
                 for (let i = 0; i < this.substep; i++) {
@@ -45,17 +42,44 @@ namespace tesserxel {
             forces: Force[] = [];
             time: number = 0;
             frameCount = 0;
-            add(o: Rigid | Force) {
-                if (o instanceof Rigid) {
-                    this.rigids.push(o);
-                    if (o.geometry instanceof rigid.Union) {
-                        this.unionRigids.push(o.geometry);
+            add(...args: (Rigid | Force)[]) {
+                for (let o of args) {
+                    if (o instanceof Rigid) {
+                        this.rigids.push(o);
+                        if (o.geometry instanceof rigid.Union) {
+                            this.unionRigids.push(o.geometry);
+                        }
+                        continue;
                     }
-                    return;
+                    if (o instanceof Force) {
+                        this.forces.push(o); continue;
+                    }
+                }
+            }
+            remove(o: Rigid | Force) {
+                if (o instanceof Rigid) {
+                    let index = this.rigids.indexOf(o);
+                    if (index !== -1) {
+                        this.rigids.splice(index, 1);
+                        if (o.geometry instanceof rigid.Union) {
+                            let index = this.unionRigids.indexOf(o.geometry);
+                            if (index !== -1) {
+                                this.unionRigids.splice(index, 1);
+                            }else{
+                                console.warn("Union Rigid geometry is removed before rigid");
+                            }
+                        }
+                    } else {
+                        console.warn("Cannot remove a non-existed child");
+                    }
                 }
                 if (o instanceof Force) {
-                    this.forces.push(o); return;
+                    let index = this.forces.indexOf(o);
+                    if (index !== -1) {
+                        this.forces.splice(index, 1);
+                    }
                 }
+
             }
             updateUnionGeometriesCoord() {
                 for (let r of this.unionRigids) {

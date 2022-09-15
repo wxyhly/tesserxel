@@ -74,7 +74,6 @@ namespace tesserxel {
         export abstract class RigidGeometry {
             type: string;
             rigid: Rigid;
-            isUnion: boolean = false;
             initialize(rigid: Rigid) {
                 this.rigid = rigid;
                 this.initializeMassInertia(rigid);
@@ -106,7 +105,6 @@ namespace tesserxel {
         export namespace rigid {
             export class Union extends RigidGeometry {
                 components: SubRigid[];
-                isUnion: true = true;
                 constructor(components: Rigid[]) { super(); this.components = components; }
                 // todo: union gen
                 initializeMassInertia(rigid: Rigid) {
@@ -128,7 +126,7 @@ namespace tesserxel {
                     }
                     // todo
                     // let inertia = new math.Matrix(6,6);
-                    rigid.inertia.xy = 0.01;
+                    rigid.inertia.xy = 1;
                     rigid.inertiaIsotroy = true;
                     rigid.type = "active";
                 };
@@ -155,6 +153,7 @@ namespace tesserxel {
             }
             export class Convex extends RigidGeometry {
                 points: math.Vec4[];
+                _cachePoints: math.Vec4[];
                 constructor(points: math.Vec4[]) {
                     super();
                     this.points = points;

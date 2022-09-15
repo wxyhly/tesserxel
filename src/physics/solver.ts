@@ -19,14 +19,34 @@ namespace tesserxel {
         export class IterativeImpulseSolver extends Solver {
             maxPositionIterations: number = 32;
             maxVelocityIterations: number = 32;
-            maxResolveRotationAngle = .0 * math._DEG2RAD;
-            PositionRelaxationFactor = 0.5;
+            maxResolveRotationAngle = 0 * math._DEG2RAD;
+            PositionRelaxationFactor = 0.9;
             collisionList: PreparedCollision[];
             run(collisionList: Collision[]) {
                 if (!collisionList.length) return;
+
+                for (let c of collisionList) {
+                    if (!c.a.rotation.isFinite() ||
+                        !c.b.rotation.isFinite()) {
+                        console.error("An error occured to rigid body");
+                    }
+                }
                 this.prepare(collisionList);
-                this.resolveVelocity();
                 this.resolvePosition();
+                for (let c of collisionList) {
+                    if (!c.a.rotation.isFinite() ||
+                        !c.b.rotation.isFinite()) {
+                        console.error("An error occured to rigid body");
+                    }
+                }
+                this.resolveVelocity();
+
+                for (let c of collisionList) {
+                    if (!c.a.rotation.isFinite() ||
+                        !c.b.rotation.isFinite()) {
+                        console.error("An error occured to rigid body");
+                    }
+                }
             }
             prepare(collisionList: Collision[]) {
                 this.collisionList = collisionList.map(e => {
@@ -52,6 +72,9 @@ namespace tesserxel {
                     let collision = this.collisionList.sort((a, b) => b.depth - a.depth)[0];
                     let { point, a, b, depth, normal } = collision;
                     if (depth <= 0) return;
+                    if (depth > 10) {
+                        console.error("Depth direction error in resolvePosition");
+                    }
                     let invInertiaA = 0, invInertiaB = 0;
                     if (a.mass > 0) {
                         let pA = math.vec4Pool.pop().subset(point, a.position);
@@ -77,31 +100,46 @@ namespace tesserxel {
                         invInertiaB = pB.dotbset(pB, collision.dwB).dot(normal);
                         pB.pushPool();
                     }
-                    let totalInvsMulDepth = depth * this.PositionRelaxationFactor * (a.invMass + b.invMass + invInertiaA + invInertiaB);
+                    let depthDivTotalInvs = depth * this.PositionRelaxationFactor / (a.invMass + b.invMass + invInertiaA + invInertiaB);
+                    if (!isFinite(depthDivTotalInvs)) {
+                        console.error("A numeric error occured in Rigid collision solver: depthDivTotalInvs in resolvePosition");
+                    }
                     if (a.mass > 0) {
                         // here can't mul invInertiaA since dwA is by unit impulse, and linear part is already invInertiaA
-                        collision.dwA.mulfs(totalInvsMulDepth);
+                        collision.dwA.mulfs(depthDivTotalInvs);
                         // clamp rotation
                         let angle = collision.dwA.norm();
                         if (angle > this.maxResolveRotationAngle) {
                             collision.dwA.mulfs(this.maxResolveRotationAngle / angle);
                         }
-                        collision.dvA = math.vec4Pool.pop().copy(normal).mulfs(-totalInvsMulDepth * a.invMass);
+                        collision.dvA = math.vec4Pool.pop().copy(normal).mulfs(-depthDivTotalInvs * a.invMass);
+                        if (!isFinite(angle + collision.dvA.norm1() + collision.dwA.norm1() + a.position.norm1())) {
+                            console.error("A numeric error occured in Rigid collision solver: dvA,dwA in resolvePosition");
+                        }
                         a.position.adds(collision.dvA);
                         let r = math.rotorPool.pop().expset(collision.dwA);
                         a.rotation.mulsl(r); r.pushPool();
+                        if (!isFinite(a.rotation.l.norm() + a.rotation.r.norm() + a.position.norm1())) {
+                            console.error("A numeric error occured in Rigid collision solver: dvA,dwA in resolvePosition");
+                        }
                     }
                     if (b.mass > 0) {
-                        collision.dwB.mulfs(totalInvsMulDepth);
+                        collision.dwB.mulfs(depthDivTotalInvs);
                         // clamp rotation
                         let angle = collision.dwB.norm();
                         if (angle > this.maxResolveRotationAngle) {
                             collision.dwB.mulfs(this.maxResolveRotationAngle / angle);
                         }
-                        collision.dvB = math.vec4Pool.pop().copy(normal).mulfs(totalInvsMulDepth * b.invMass);
+                        collision.dvB = math.vec4Pool.pop().copy(normal).mulfs(depthDivTotalInvs * b.invMass);
+                        if (!isFinite(angle + collision.dvB.norm1() + collision.dwB.norm1() + b.position.norm1())) {
+                            console.error("A numeric error occured in Rigid collision solver: dvB,dwB in resolvePosition");
+                        }
                         b.position.adds(collision.dvB);
                         let r = math.rotorPool.pop().expset(collision.dwB);
                         b.rotation.mulsl(r); r.pushPool();
+                        if (!isFinite(b.rotation.l.norm() + b.rotation.r.norm() + b.position.norm1())) {
+                            console.error("A numeric error occured in Rigid collision solver: dvB,dwB in resolvePosition");
+                        }
                     }
                     // collision.depth = 0;
                     this.updateDepths(collision);
@@ -116,7 +154,7 @@ namespace tesserxel {
                     let restitution = Material.getContactRestitution(materialA, materialB);
                     // set target separateSpeed to collision, next we'll solve to reach it
                     // collision.separateSpeed = -separateSpeed * restitution;
-                    let targetRelativeVelocity = normal.mulf(-separateSpeed * restitution);
+                    let targetRelativeVelocity = math.vec4Pool.pop().copy(normal).mulfs(-separateSpeed * restitution);
                     let targetDeltaVelocityByImpulse = targetRelativeVelocity.subs(relativeVelocity);
                     let pointInA: math.Vec4, pointInB: math.Vec4;
                     let matA = math.mat4Pool.pop(), matB = math.mat4Pool.pop()
@@ -129,19 +167,32 @@ namespace tesserxel {
                         calcImpulseResponseMat(matB, b, pointInB, pointInB);
                     } else { matB.set(); }
                     // dv = dvb(Ib) - dva(Ia) == dvb(I) + dva(I) since I = -Ia = Ib
-                    let impulse = matA.adds(matB).invs().mulv(targetDeltaVelocityByImpulse);
+                    let impulse = targetDeltaVelocityByImpulse.mulmatls(matA.adds(matB).invs());
+                    // if (impulse.norm1() === 0) continue;
+                    console.assert(isFinite(impulse.norm1()));
+                    console.assert(isFinite(normal.norm1()));
                     math.mat4Pool.push(matA, matB);
                     // decomposite impulse into normal and tangent to deal with friction
-                    let impulseNValue = impulse.dot(normal);
+                    let impulseNValue = Math.max(0, impulse.dot(normal));
+                    console.assert(isFinite(impulseNValue));
                     let impulseN = math.vec4Pool.pop().copy(normal).mulfs(impulseNValue);
                     let impulseT = math.vec4Pool.pop().subset(impulse, impulseN);
                     let impulseTValue = impulseT.norm();
+                    console.assert(isFinite(impulseTValue));
+
                     let friction = Material.getContactFriction(materialA, materialB);
                     let maximalFriction = friction * impulseNValue;
                     if (impulseTValue > maximalFriction) {
                         // correct tangent impulse for friction
+
+                        console.assert(isFinite(impulseT.norm1()));
+                        if (!isFinite(maximalFriction / impulseTValue)) {
+                            console.log("oma");
+                        }
                         impulseT.mulfs(maximalFriction / impulseTValue);
+                        console.assert(isFinite(maximalFriction / impulseTValue));
                     }
+                    console.assert(isFinite(impulseT.norm1()));
                     impulse.addset(impulseT, impulseN);
                     math.vec4Pool.push(impulseT, impulseN);
                     // resolve velocity by applying final impulse
@@ -160,7 +211,11 @@ namespace tesserxel {
             }
             updateSeparateSpeeds(collision: PreparedCollision) {
                 for (let c of this.collisionList) {
-                    // if (c === collision) continue;
+                    if (c === collision) {
+                        if (collision.a.mass > 0) this.updateSeparateSpeed(c, true, c.a, collision.dvA, collision.dwA);
+                        if (collision.b.mass > 0) this.updateSeparateSpeed(c, false, c.b, collision.dvB, collision.dwB);
+                        continue;
+                    }
                     if (collision.a.mass > 0) {
                         if (c.a === collision.a) {
                             this.updateSeparateSpeed(c, true, c.a, collision.dvA, collision.dwA);
@@ -212,12 +267,17 @@ namespace tesserxel {
             updateDepth(collision: PreparedCollision, rigidIsA: boolean, rigid: Rigid, dv: math.Vec4, dw: math.Bivec) {
                 let a = math.vec4Pool.pop().subset(collision.point, rigid.position);
                 let dd = a.dotbsr(dw).adds(dv).dot(collision.normal); a.pushPool();
+                console.assert(isFinite(a.norm1()), "Numeric error in Collision solver updateDepth");
                 collision.depth += rigidIsA ? dd : -dd;
             }
             updateSeparateSpeed(collision: PreparedCollision, rigidIsA: boolean, rigid: Rigid, dv: math.Vec4, dw: math.Bivec) {
-                let a = math.vec4Pool.pop().subset(collision.point, rigid.position);
-                let dss = a.dotbsr(dw).adds(dv).dot(collision.normal); a.pushPool();
-                collision.separateSpeed += rigidIsA ? -dss : dss;
+                let delta = math.vec4Pool.pop().subset(collision.point, rigid.position).dotbsr(dw).adds(dv);
+                if (rigidIsA) delta.negs();
+                let dss = delta.dot(collision.normal);
+
+                console.assert(isFinite(delta.norm1()), "Numeric error in Collision solver updateDepth");
+                collision.relativeVelocity.adds(delta); delta.pushPool();
+                collision.separateSpeed += dss;
             }
         }
         let _vec4x = new math.Vec4;
@@ -234,8 +294,10 @@ namespace tesserxel {
         };
         function applyImpulseAndGetDeltaVW(outV: math.Vec4, outW: math.Bivec, rigid: Rigid, localPoint: math.Vec4, impulse: math.Vec4) {
             calcDeltaVWByImpulse(outV, outW, rigid, localPoint, impulse);
+            { console.assert(isFinite(outV.norm1() + outW.norm1()), "A numeric error occured in Rigid collision solver: outV, outW in applyImpulseAndGetDeltaVW"); }
             rigid.velocity.adds(outV);
             rigid.angularVelocity.adds(outW);
+            if (!isFinite(rigid.velocity.norm1() + rigid.angularVelocity.norm1())) { console.error("A numeric error occured in Rigid collision solver: rigid velocity in applyImpulseAndGetDeltaVW"); }
         }
         /** calculate transfer matrix between impulse applying at src position and response delta velocity at dst position
          *  src and dst are in rigid's local frame

@@ -11,6 +11,9 @@ namespace tesserxel {
         export class Srand {
             _seed: number;
             constructor(seed: number) {
+                if(Math.floor(seed)!==seed){
+                    seed = Math.floor(0x6D2B79F5 * seed);
+                }
                 this._seed = seed;
             }
             set(seed: number) {
