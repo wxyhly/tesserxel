@@ -151,11 +151,19 @@ namespace tesserxel {
                     let collision = this.collisionList.sort((a, b) => a.separateSpeed - b.separateSpeed)[0];
                     let { point, a, b, separateSpeed, normal, relativeVelocity, materialA, materialB } = collision;
                     if (separateSpeed >= 0) return;
-                    let restitution = Material.getContactRestitution(materialA, materialB);
-                    // set target separateSpeed to collision, next we'll solve to reach it
-                    // collision.separateSpeed = -separateSpeed * restitution;
-                    let targetRelativeVelocity = math.vec4Pool.pop().copy(normal).mulfs(-separateSpeed * restitution);
-                    let targetDeltaVelocityByImpulse = targetRelativeVelocity.subs(relativeVelocity);
+                    let { restitution, friction } = Material.getContactMaterial(materialA, materialB);
+
+                    let normalVelocity = math.vec4Pool.pop().copy(normal).mulfs(separateSpeed);
+                    let tangentVelocity = math.vec4Pool.pop().subset(relativeVelocity, normalVelocity);
+                    let tangentSpeed = tangentVelocity.norm();
+                    // newVn = Vn * -restitution;
+                    // newVt = Vt * tangentFactor;
+                    // when slide: deltaVt === friction * deltaVn => solve tangentFactor
+                    // tangentFactor must > 0, otherwise it's still friction
+                    let tangentFactor = tangentSpeed > 0 ? Math.max(
+                        1 + friction * (1 + restitution) * separateSpeed / tangentSpeed, 0
+                    ) : 0;
+                    let targetDeltaVelocityByImpulse = tangentVelocity.mulfs(tangentFactor - 1).addmulfs(normalVelocity, -restitution - 1);
                     let pointInA: math.Vec4, pointInB: math.Vec4;
                     let matA = math.mat4Pool.pop(), matB = math.mat4Pool.pop()
                     if (a.mass > 0) {
@@ -180,21 +188,21 @@ namespace tesserxel {
                     let impulseTValue = impulseT.norm();
                     console.assert(isFinite(impulseTValue));
 
-                    let friction = Material.getContactFriction(materialA, materialB);
-                    let maximalFriction = friction * impulseNValue;
-                    if (impulseTValue > maximalFriction) {
-                        // correct tangent impulse for friction
+                    // let friction = Material.getContactFriction(materialA, materialB);
+                    // let maximalFriction = friction * impulseNValue;
+                    // if (impulseTValue > maximalFriction) {
+                    //     // correct tangent impulse for friction
 
-                        console.assert(isFinite(impulseT.norm1()));
-                        if (!isFinite(maximalFriction / impulseTValue)) {
-                            console.log("oma");
-                        }
-                        impulseT.mulfs(maximalFriction / impulseTValue);
-                        console.assert(isFinite(maximalFriction / impulseTValue));
-                    }
-                    console.assert(isFinite(impulseT.norm1()));
-                    impulse.addset(impulseT, impulseN);
-                    math.vec4Pool.push(impulseT, impulseN);
+                    //     console.assert(isFinite(impulseT.norm1()));
+                    //     if (!isFinite(maximalFriction / impulseTValue)) {
+                    //         console.log("oma");
+                    //     }
+                    //     impulseT.mulfs(maximalFriction / impulseTValue);
+                    //     console.assert(isFinite(maximalFriction / impulseTValue));
+                    // }
+                    // console.assert(isFinite(impulseT.norm1()));
+                    // impulse.addset(impulseT, impulseN);
+                    // math.vec4Pool.push(impulseT, impulseN);
                     // resolve velocity by applying final impulse
                     if (b.mass > 0) {
                         collision.dvB = math.vec4Pool.pop();

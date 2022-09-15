@@ -319,7 +319,6 @@ declare namespace tesserxel {
             conj(): Rotor;
             conjs(): Rotor;
             norms(): Rotor;
-            setid(): Rotor;
             /** Apply this to R: this * R;
              *
              * [this.l * R.l, R.r * this.r]; */
@@ -931,8 +930,10 @@ declare namespace tesserxel {
             friction: number;
             restitution: number;
             constructor(friction: number, restitution: number);
-            static getContactRestitution(a: Material, b: Material): number;
-            static getContactFriction(a: Material, b: Material): number;
+            static getContactMaterial(a: Material, b: Material): {
+                restitution: number;
+                friction: number;
+            };
         }
         /** a helper function for applying inertia to bivec */
         export function mulBivec(self: math.Bivec, a: math.Bivec, b: math.Bivec): math.Bivec;

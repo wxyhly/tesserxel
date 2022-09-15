@@ -1102,11 +1102,6 @@ var tesserxel;
                 this.r.norms();
                 return this;
             }
-            setid() {
-                this.l.set(1);
-                this.r.set(1);
-                return this;
-            }
             /** Apply this to R: this * R;
              *
              * [this.l * R.l, R.r * this.r]; */
@@ -3814,11 +3809,8 @@ var tesserxel;
                 this.restitution = restitution;
                 this.friction = friction;
             }
-            static getContactRestitution(a, b) {
-                return a.restitution * b.restitution;
-            }
-            static getContactFriction(a, b) {
-                return a.friction * b.friction;
+            static getContactMaterial(a, b) {
+                return { restitution: a.restitution * b.restitution, friction: a.friction * b.friction };
             }
         }
         physics.Material = Material;
@@ -5566,11 +5558,16 @@ var tesserxel;
                     let { point, a, b, separateSpeed, normal, relativeVelocity, materialA, materialB } = collision;
                     if (separateSpeed >= 0)
                         return;
-                    let restitution = physics.Material.getContactRestitution(materialA, materialB);
-                    // set target separateSpeed to collision, next we'll solve to reach it
-                    // collision.separateSpeed = -separateSpeed * restitution;
-                    let targetRelativeVelocity = tesserxel.math.vec4Pool.pop().copy(normal).mulfs(-separateSpeed * restitution);
-                    let targetDeltaVelocityByImpulse = targetRelativeVelocity.subs(relativeVelocity);
+                    let { restitution, friction } = physics.Material.getContactMaterial(materialA, materialB);
+                    let normalVelocity = tesserxel.math.vec4Pool.pop().copy(normal).mulfs(separateSpeed);
+                    let tangentVelocity = tesserxel.math.vec4Pool.pop().subset(relativeVelocity, normalVelocity);
+                    let tangentSpeed = tangentVelocity.norm();
+                    // newVn = Vn * -restitution;
+                    // newVt = Vt * tangentFactor;
+                    // when slide: deltaVt === friction * deltaVn => solve tangentFactor
+                    // tangentFactor must > 0, otherwise it's still friction
+                    let tangentFactor = tangentSpeed > 0 ? Math.max(1 + friction * (1 + restitution) * separateSpeed / tangentSpeed, 0) : 0;
+                    let targetDeltaVelocityByImpulse = tangentVelocity.mulfs(tangentFactor - 1).addmulfs(normalVelocity, -restitution - 1);
                     let pointInA, pointInB;
                     let matA = tesserxel.math.mat4Pool.pop(), matB = tesserxel.math.mat4Pool.pop();
                     if (a.mass > 0) {
@@ -5600,20 +5597,20 @@ var tesserxel;
                     let impulseT = tesserxel.math.vec4Pool.pop().subset(impulse, impulseN);
                     let impulseTValue = impulseT.norm();
                     console.assert(isFinite(impulseTValue));
-                    let friction = physics.Material.getContactFriction(materialA, materialB);
-                    let maximalFriction = friction * impulseNValue;
-                    if (impulseTValue > maximalFriction) {
-                        // correct tangent impulse for friction
-                        console.assert(isFinite(impulseT.norm1()));
-                        if (!isFinite(maximalFriction / impulseTValue)) {
-                            console.log("oma");
-                        }
-                        impulseT.mulfs(maximalFriction / impulseTValue);
-                        console.assert(isFinite(maximalFriction / impulseTValue));
-                    }
-                    console.assert(isFinite(impulseT.norm1()));
-                    impulse.addset(impulseT, impulseN);
-                    tesserxel.math.vec4Pool.push(impulseT, impulseN);
+                    // let friction = Material.getContactFriction(materialA, materialB);
+                    // let maximalFriction = friction * impulseNValue;
+                    // if (impulseTValue > maximalFriction) {
+                    //     // correct tangent impulse for friction
+                    //     console.assert(isFinite(impulseT.norm1()));
+                    //     if (!isFinite(maximalFriction / impulseTValue)) {
+                    //         console.log("oma");
+                    //     }
+                    //     impulseT.mulfs(maximalFriction / impulseTValue);
+                    //     console.assert(isFinite(maximalFriction / impulseTValue));
+                    // }
+                    // console.assert(isFinite(impulseT.norm1()));
+                    // impulse.addset(impulseT, impulseN);
+                    // math.vec4Pool.push(impulseT, impulseN);
                     // resolve velocity by applying final impulse
                     if (b.mass > 0) {
                         collision.dvB = tesserxel.math.vec4Pool.pop();

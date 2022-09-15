@@ -65,7 +65,7 @@ namespace tesserxel {
                             let index = this.unionRigids.indexOf(o.geometry);
                             if (index !== -1) {
                                 this.unionRigids.splice(index, 1);
-                            }else{
+                            } else {
                                 console.warn("Union Rigid geometry is removed before rigid");
                             }
                         }
@@ -94,11 +94,8 @@ namespace tesserxel {
                 this.restitution = restitution;
                 this.friction = friction;
             }
-            static getContactRestitution(a: Material, b: Material) {
-                return a.restitution * b.restitution;
-            }
-            static getContactFriction(a: Material, b: Material) {
-                return a.friction * b.friction;
+            static getContactMaterial(a: Material, b: Material) {
+                return { restitution: a.restitution * b.restitution, friction: a.friction * b.friction };
             }
         }
         /** a helper function for applying inertia to bivec */
