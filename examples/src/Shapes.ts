@@ -131,27 +131,44 @@ namespace examples {
             window.requestAnimationFrame(this.run.bind(this));
         }
     }
+    let commonFragCode = `
+    @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+        const ambientLight = vec3<f32>(0.1);
+        const frontLightColor = vec3<f32>(5.0,4.6,3.5);
+        const backLightColor = vec3<f32>(0.1,1.2,1.4);
+        const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
+        let halfvec = normalize(directionalLight_dir - normalize(vary.pos));
+        let highLight = pow(max(0.0,dot(vary.normal,halfvec)),30);
+        let checkerboard = fract(vary.uvw.xyz *vec3<f32>(40.0, 40.0, 20.0)) - vec3<f32>(0.5);
+        let factor = step( checkerboard.x * checkerboard.y * checkerboard.z, 0.0);
+        var color:vec3<f32> = mix(hsb2rgb(vec3<f32>(vary.uvw.x,0.7,1.0)), hsb2rgb(vec3<f32>(vary.uvw.y,1.0,0.7)), factor);
+        color = color * (
+            frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
+        )* (0.4 + 0.8*highLight);
+        return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
+    }`;
     export namespace tiger {
         export async function load() {
-            let fragCode = `
-            @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
-                const ambientLight = vec3<f32>(0.1);
-                const frontLightColor = vec3<f32>(5.0,4.6,3.5);
-                const backLightColor = vec3<f32>(0.1,1.2,1.4);
-                const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
-                let halfvec = normalize(directionalLight_dir - normalize(vary.pos));
-                let highLight = pow(max(0.0,dot(vary.normal,halfvec)),30);
-                let checkerboard = fract(vary.uvw.xyz *vec3<f32>(40.0, 40.0, 20.0)) - vec3<f32>(0.5);
-                let factor = step( checkerboard.x * checkerboard.y * checkerboard.z, 0.0);
-                var color:vec3<f32> = mix(hsb2rgb(vec3<f32>(vary.uvw.x,0.7,1.0)), hsb2rgb(vec3<f32>(vary.uvw.y,1.0,0.7)), factor);
-                color = color * (
-                    frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
-                )* (0.4 + 0.8*highLight);
-                return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
-            }`;
-            let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.tiger(0.3 + Math.random() * 0.05, 32, 0.5, 32, 0.14 + Math.random() * 0.03, 16));
+            let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.tiger(0.3 + Math.random() * 0.05, 32, 0.5, 32, 0.14 + Math.random() * 0.03, 16));
             app.retinaController.toggleSectionConfig("retina+zslices");
             app.run();
+            app.retinaController.setOpacity(2.0);
+        }
+    }
+    export namespace spheritorus {
+        export async function load() {
+            let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.spheritorus(0.3, 16, 16, 0.6, 24));
+            app.retinaController.toggleSectionConfig("retina+zslices");
+            app.run();
+            app.retinaController.setOpacity(2.0);
+        }
+    }
+    export namespace torisphere {
+        export async function load() {
+            let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.torisphere(0.15, 12, 0.6, 24, 24));
+            app.retinaController.toggleSectionConfig("retina+zslices");
+            app.run();
+            app.retinaController.setOpacity(2.0);
         }
     }
     export namespace glome {

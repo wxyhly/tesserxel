@@ -24,25 +24,24 @@ namespace tesserxel {
                 for (let i = 0; i < this.substep; i++) {
                     this.step(world, dt);
                 }
-                world.frameCount++;
             }
             step(world: World, dt: number) {
                 this.forceAccumulator.run(world, dt);
                 world.updateUnionGeometriesCoord();
                 this.broadPhase.run(world);
                 this.narrowPhase.run(this.broadPhase.checkList);
-                this.solver.run(this.narrowPhase.collisionList);
+                this.solver.run(this.narrowPhase.collisionList, world.constrains);
                 world.updateUnionGeometriesCoord();
             }
         }
         export class World {
             gravity = new math.Vec4(0, -9.8);
             rigids: Rigid[] = [];
+            constrains: Constrain[] = [];
             unionRigids: rigid.Union[] = [];
             forces: Force[] = [];
             time: number = 0;
-            frameCount = 0;
-            add(...args: (Rigid | Force)[]) {
+            add(...args: (Rigid | Force | Constrain)[]) {
                 for (let o of args) {
                     if (o instanceof Rigid) {
                         this.rigids.push(o);
@@ -53,6 +52,9 @@ namespace tesserxel {
                     }
                     if (o instanceof Force) {
                         this.forces.push(o); continue;
+                    }
+                    if (o instanceof Constrain) {
+                        this.constrains.push(o); continue;
                     }
                 }
             }
@@ -108,6 +110,21 @@ namespace tesserxel {
                 a.yw * b.yw,
                 a.zw * b.zw,
             );
+        }
+        export class Constrain {
+            a: Rigid;
+            b: Rigid | null;
+            constructor(a: Rigid, b?: Rigid | null) {
+                this.a = a;
+                this.b = b;
+            }
+        }
+        export class PointConstrain extends Constrain {
+            pointA: math.Vec4;
+            pointB: math.Vec4;
+            constructor(a: Rigid, b: Rigid | null, pointA: math.Vec4, pointB: math.Vec4) {
+                super(a, b); this.pointA = pointA; this.pointB = pointB;
+            }
         }
     }
 }

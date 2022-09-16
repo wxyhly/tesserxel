@@ -220,14 +220,14 @@ namespace tesserxel {
             export function tesseract(): TetraMesh {
                 let rotor = new math.Rotor();
                 let biv = new math.Bivec();
-                let yface = applyObj4(clone(cube), new math.Obj4(math.Vec4.y, rotor.expset(biv.set(0,math._90))));
+                let yface = applyObj4(clone(cube), new math.Obj4(math.Vec4.y, rotor.expset(biv.set(0, math._90))));
                 let meshes = [
                     biv.set(math._90).exp(),
-                    biv.set(-math._90).exp().mulsl(rotor.expset(biv.set(0,0,0,0,math._180))),
-                    biv.set(0, 0, 0, math._90).exp().mulsl(rotor.expset(biv.set(math._90,0,0,0,0))),
-                    biv.set(0, 0, 0, -math._90).exp().mulsl(rotor.expset(biv.set(math._90,0,0,0,0))),
-                    biv.set(0, 0, 0, 0, math._90).exp().mulsl(rotor.expset(biv.set(math._90,0,0,0,0))),
-                    biv.set(0, 0, 0, 0, -math._90).exp().mulsl(rotor.expset(biv.set(math._90,0,0,0,0))),
+                    biv.set(-math._90).exp().mulsl(rotor.expset(biv.set(0, 0, 0, 0, math._180))),
+                    biv.set(0, 0, 0, math._90).exp().mulsl(rotor.expset(biv.set(math._90, 0, 0, 0, 0))),
+                    biv.set(0, 0, 0, -math._90).exp().mulsl(rotor.expset(biv.set(math._90, 0, 0, 0, 0))),
+                    biv.set(0, 0, 0, 0, math._90).exp().mulsl(rotor.expset(biv.set(math._90, 0, 0, 0, 0))),
+                    biv.set(0, 0, 0, 0, -math._90).exp().mulsl(rotor.expset(biv.set(math._90, 0, 0, 0, 0))),
                     biv.set(math._180).exp(),
                 ].map(r => applyObj4(clone(yface), new math.Obj4(new math.Vec4(), r)));
                 meshes.push(yface);
@@ -238,6 +238,14 @@ namespace tesserxel {
                     }
                 }
                 return m;
+            }
+            export function inverseNormal(mesh: TetraMesh): TetraMesh {
+                if (mesh.normal) {
+                    for (let i = 0, l = mesh.normal.length; i < l; i++) {
+                        mesh.normal[i] = -mesh.normal[i];
+                    }
+                }
+                return mesh;
             }
             export let hexadecachoron: TetraMesh = {
                 position: new Float32Array([
@@ -449,10 +457,10 @@ namespace tesserxel {
                 ]),
                 tetraCount: 16
             };
-            export function glome(radius: number, xySegment: number, zwSegment: number, lattitudeSegment: number) {
+            export function glome(radius: number, xySegment: number, zwSegment: number, latitudeSegment: number) {
                 if (xySegment < 3) xySegment = 3;
                 if (zwSegment < 3) zwSegment = 3;
-                if (lattitudeSegment < 1) lattitudeSegment = 1;
+                if (latitudeSegment < 1) latitudeSegment = 1;
                 return parametricSurface((uvw, pos, norm) => {
                     let u = uvw.x * math._360;
                     let v = uvw.y * math._360;
@@ -461,7 +469,62 @@ namespace tesserxel {
                     let sin = Math.sin(w) * radius;
                     pos.set(-Math.cos(u) * cos, Math.sin(u) * cos, Math.cos(v) * sin, Math.sin(v) * sin);
                     norm.copy(pos);
-                }, xySegment, zwSegment, lattitudeSegment);
+                }, xySegment, zwSegment, latitudeSegment);
+            }
+
+            export function spheritorus(
+                sphereRadius: number, longitudeSegment: number, latitudeSegment: number,
+                circleRadius: number, circleSegment: number
+            ) {
+                if (longitudeSegment < 3) longitudeSegment = 3;
+                if (latitudeSegment < 3) latitudeSegment = 3;
+                if (circleSegment < 3) circleSegment = 3;
+                return parametricSurface((uvw, pos, norm) => {
+                    let u = uvw.x * math._360;
+                    let v = uvw.y * math._180;
+                    let w = uvw.z * math._360;
+                    let sv = Math.sin(v);
+                    let radius = circleRadius + sv * Math.cos(u) * sphereRadius;
+                    let sw = Math.sin(w) * radius;
+                    let cw = Math.cos(w) * radius;
+                    pos.set(
+                        -cw, sv * Math.sin(u) * sphereRadius, Math.cos(v) * sphereRadius, sw
+                    );
+                    norm.set(
+                        -sv * Math.cos(u) * Math.cos(w),
+                        sv * Math.sin(u),
+                        Math.cos(v),
+                        sv * Math.cos(u) * Math.sin(w),
+                    );
+                }, longitudeSegment, latitudeSegment, circleSegment);
+            }
+            export function torisphere(
+                circleRadius: number, circleSegment: number,
+                sphereRadius: number, longitudeSegment: number, latitudeSegment: number
+            ) {
+                if (longitudeSegment < 3) longitudeSegment = 3;
+                if (latitudeSegment < 3) latitudeSegment = 3;
+                if (circleSegment < 3) circleSegment = 3;
+                return parametricSurface((uvw, pos, norm) => {
+                    let u = -uvw.x * math._360;
+                    let v = uvw.y * math._180;
+                    let w = uvw.z * math._360;
+                    let sv = Math.sin(v);
+                    let cw = Math.cos(w);
+                    let radius = circleRadius * cw + sphereRadius;
+                    pos.set(
+                        sv * Math.cos(u) * radius,
+                        circleRadius * Math.sin(w),
+                        sv * Math.sin(u) * radius,
+                        Math.cos(v) * radius,
+                    );
+                    norm.set(
+                        sv * Math.cos(u) * cw,
+                        Math.sin(w),
+                        sv * Math.sin(u) * cw,
+                        Math.cos(v) * cw,
+                    );
+                }, longitudeSegment, latitudeSegment, circleSegment);
             }
             export function tiger(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number, secondaryRadius: number, secondarySegment: number) {
                 if (xySegment < 3) xySegment = 3;

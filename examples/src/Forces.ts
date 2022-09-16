@@ -53,7 +53,7 @@ namespace examples {
             const engine = new phy.Engine({ forceAccumulator: phy.force_accumulator.RK4, broadPhase: phy.IgnoreAllBroadPhase });
             const world = new phy.World();
             // world.gravity.set();
-            let k = 2000, l = 1.0 * 2 / (glomeNums + 1), v = 30;
+            let k = 2000, l = 0.5 * 2 / (glomeNums + 1), v = 30;
             let physicGlomes = [];
             for (let i = 0; i < glomeNums; i++) {
                 let g = new phy.Rigid({ geometry: new phy.rigid.Glome(glomeRadius), mass: 0.5, material: null });
@@ -73,8 +73,9 @@ namespace examples {
                     renderGlomes[i].copyObj4(physicGlomes[i]);
                     renderGlomes[i].needsUpdateCoord = true;
                 }
+                const omega = 8;
                 camera.needsUpdateCoord = true;
-                pointB.set(0, Math.sin(world.time * 10) * 0.2 + 1, Math.cos(world.time * 10) * 0.2, 0);
+                pointB.set(0, Math.sin(world.time * omega) * 0.2 + 1, Math.cos(world.time * omega) * 0.2, 0);
                 meshGlome1.position.copy(pointB);
                 meshGlome1.needsUpdateCoord = true;
                 controllerRegistry.update();

@@ -36,7 +36,7 @@ namespace tesserxel {
             // only apply to active type object
             sleep: boolean = false;
             // for tracing debug
-            label?:string;
+            label?: string;
 
             velocity: math.Vec4 = new math.Vec4();
             angularVelocity: math.Bivec = new math.Bivec();
@@ -72,7 +72,6 @@ namespace tesserxel {
             parent?: Rigid;
         }
         export abstract class RigidGeometry {
-            type: string;
             rigid: Rigid;
             initialize(rigid: Rigid) {
                 this.rigid = rigid;
@@ -140,7 +139,6 @@ namespace tesserxel {
             export class Glome extends RigidGeometry {
                 radius: number = 1;
                 radiusSqr: number = 1;
-                type: "glome" = "glome";
                 constructor(radius: number) {
                     super();
                     this.radius = radius;
@@ -164,7 +162,6 @@ namespace tesserxel {
             }
             export class Tesseractoid extends Convex {
                 size: math.Vec4;
-                type: "tesseractoid" = "tesseractoid";
                 constructor(size: math.Vec4 | number) {
                     let s = typeof size === "number" ? new math.Vec4(size, size, size, size) : size;
                     super([
@@ -210,7 +207,6 @@ namespace tesserxel {
             export class Plane extends RigidGeometry {
                 normal: math.Vec4;
                 offset: number;
-                type: "plane" = "plane";
                 constructor(normal?: math.Vec4, offset?: number) {
                     super();
                     this.normal = normal ?? math.Vec4.y.clone();
@@ -222,6 +218,66 @@ namespace tesserxel {
                     rigid.invMass = 0;
                     rigid.inertia = null;
                     rigid.invInertia = null;
+                }
+            }
+            /** default orientation: XW */
+            export class Spheritorus extends RigidGeometry {
+                majorRadius: number;
+                minorRadius: number;
+                /** majorRadius: cirle's radius, minorRadius: sphere's radius */
+                constructor(majorRadius: number, minorRadius: number) {
+                    super();
+                    this.majorRadius = majorRadius;
+                    this.minorRadius = minorRadius;
+                }
+                initializeMassInertia(rigid: Rigid) {
+                    rigid.inertiaIsotroy = false;
+                    let maj = this.majorRadius * this.majorRadius;
+                    let min = this.minorRadius * this.minorRadius;
+                    let half = maj + 5 * min;
+                    let parallel = 2 * maj + 6 * min;
+                    let perp = 4 * min;
+                    rigid.inertia.set(half, half, parallel, perp, half, half).mulfs(rigid.mass * 0.1);
+                }
+            }
+            /** default orientation: XZW */
+            export class Torisphere extends RigidGeometry {
+                majorRadius: number;
+                minorRadius: number;
+                /** majorRadius: sphere's radius, minorRadius: cirle's radius */
+                constructor(majorRadius: number, minorRadius: number) {
+                    super();
+                    this.majorRadius = majorRadius;
+                    this.minorRadius = minorRadius;
+                }
+                initializeMassInertia(rigid: Rigid) {
+                    rigid.inertiaIsotroy = false;
+                    let maj = this.majorRadius * this.majorRadius;
+                    let min = this.minorRadius * this.minorRadius;
+                    let half = 2 * maj + 5 * min;
+                    let parallel = 3 * maj + 6 * min;
+                    rigid.inertia.set(half, parallel, parallel, half, half, parallel).mulfs(rigid.mass * 0.1);
+                }
+            }
+            /** default orientation: 1:XY, 2:ZW */
+            export class Tiger extends RigidGeometry {
+                majorRadius1: number;
+                majorRadius2: number;
+                minorRadius: number;
+                /** majorRadius: sphere's radius, minorRadius: cirle's radius */
+                constructor(majorRadius1: number, majorRadius2: number, minorRadius: number) {
+                    super();
+                    this.majorRadius1 = majorRadius1;
+                    this.majorRadius2 = majorRadius2;
+                    this.minorRadius = minorRadius;
+                }
+                initializeMassInertia(rigid: Rigid) {
+                    rigid.inertiaIsotroy = false;
+                    let maj1 = this.majorRadius1 * this.majorRadius1;
+                    let maj2 = this.majorRadius2 * this.majorRadius2;
+                    let min = this.minorRadius * this.minorRadius;
+                    let half = maj1 + maj2 + min * 6;
+                    rigid.inertia.set(2 * maj1 + min * 5, half, half, half, half, 2 * maj2 + min * 5).mulfs(rigid.mass * 0.5);
                 }
             }
         }

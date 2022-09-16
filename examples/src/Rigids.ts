@@ -13,6 +13,16 @@ namespace examples {
                 geometryData[type] = new FOUR.TesseractGeometry(1); return geometryData[type];
             case "plane":
                 geometryData[type] = new FOUR.CubeGeometry(50); return geometryData[type];
+            default:
+                let parse: RegExpMatchArray;
+                parse = type.match(/^st(.+),(.+)$/);
+                if (parse) {
+                    geometryData[type] = new FOUR.SpheritorusGeometry(Number(parse[2]), Number(parse[1])); return geometryData[type];
+                }
+                parse = type.match(/^ts(.+),(.+)$/);
+                if (parse) {
+                    geometryData[type] = new FOUR.TorisphereGeometry(Number(parse[2]), Number(parse[1])); return geometryData[type];
+                }
         }
     }
     function updateRidigsInScene() {
@@ -45,6 +55,12 @@ namespace examples {
             } else if (rigid.geometry instanceof phy.rigid.Plane) {
                 geom = getGeometryData("plane");
                 obj4 = new math.Obj4(rigid.geometry.normal.mulf(rigid.geometry.offset), math.Rotor.lookAt(math.Vec4.y, rigid.geometry.normal));
+            } else if (rigid.geometry instanceof phy.rigid.Spheritorus) {
+                geom = getGeometryData("st" + rigid.geometry.majorRadius + "," + rigid.geometry.minorRadius);
+                obj4 = new math.Obj4();
+            } else if (rigid.geometry instanceof phy.rigid.Torisphere) {
+                geom = getGeometryData("ts" + rigid.geometry.majorRadius + "," + rigid.geometry.minorRadius);
+                obj4 = new math.Obj4();
             }
             if (!geom) {
                 console.log("unsupported geometry type");
@@ -52,9 +68,9 @@ namespace examples {
             let mesh = new FOUR.Mesh(geom, renderMaterial);
             mesh.copyObj4(obj4);
             mesh.alwaysUpdateCoord = true;
-            world?.add(rigid); scene.add(mesh); 
-            if(!(rigid.geometry instanceof phy.rigid.Plane))
-            rigidsInSceneLists.push([mesh, rigid]);
+            world?.add(rigid); scene.add(mesh);
+            if (!(rigid.geometry instanceof phy.rigid.Plane))
+                rigidsInSceneLists.push([mesh, rigid]);
         }
     }
 
@@ -70,13 +86,15 @@ namespace examples {
         glomeMaterial = new FOUR.PhongMaterial([1.2, 0.4, 0.2]);
         camera: tesserxel.math.Obj4;
         initialSpeed = 5;
+        maximumBulletDistance = 30;
+        glomeRadius = 0.5;
         constructor(world: tesserxel.physics.World, scene: tesserxel.four.Scene, camera: tesserxel.math.Obj4) {
             this.world = world; this.scene = scene; this.camera = camera;
         }
         update(state: tesserxel.controller.ControllerState): void {
             if (state.queryDisabled({ disable: "AltLeft" })) return;
             if (state.isPointerLocked() && state.mouseDown === 0) {
-                let g = createGlome(0.5, 5);
+                let g = createGlome(this.glomeRadius, 5);
                 g.label = "bullet"; // mark it
                 g.position.copy(this.camera.position);
                 g.velocity.copy(math.Vec4.wNeg.rotate(this.camera.rotation).mulfs(this.initialSpeed));
@@ -84,7 +102,7 @@ namespace examples {
             }
             for (let i = 0, l = rigidsInSceneLists.length; i < l; i++) {
                 let [m, r] = rigidsInSceneLists[i];
-                if (r.label === "bullet" && r.position.sub(this.camera.position).norm1() > 20) {
+                if (r.label === "bullet" && r.position.sub(this.camera.position).norm1() > this.maximumBulletDistance) {
                     this.scene.removeChild(m);
                     this.world.remove(r);
                     rigidsInSceneLists.splice(i--, 1); l--;
@@ -92,23 +110,18 @@ namespace examples {
             }
         }
     }
-    export namespace rigid_test {
-        export async function load() {
+    export namespace st_pile {
+        export async function load1() {
             const math = tesserxel.math;
-            const size = new math.Vec4(1.5, 1.3, .8, 1);
-
-            // init render scene
-
             const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             const renderer = await new FOUR.Renderer(canvas).init();
             let scene = new FOUR.Scene();
             renderer.setBackgroudColor([1, 1, 1, 1]);
             scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
             let camera = new FOUR.Camera();
-            camera.position.w = 8;
-            camera.position.y = 1;
+            camera.position.w = 9;
+            camera.position.y = 8;
             scene.add(camera);
-
             scene.add(new FOUR.AmbientLight(0.3));
             scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
             const materialGround = new FOUR.PhongMaterial([0, 0.6, 0.2, 0.1]);
@@ -132,35 +145,404 @@ namespace examples {
             const phy = tesserxel.physics;
             const engine = new phy.Engine({ substep: 25 });
             const world = new phy.World();
+            // world.gravity.set(0);
             const materialP = new phy.Material(1, 0.4);
             const material = new phy.Material(1, 0.4);
-            addRigidToScene(world, scene, materialGround, new phy.Rigid({ geometry: new phy.rigid.Plane(new math.Vec4(0,1)), mass: 0, material: materialP }))
-
+            const roomsize = 2;
+            addRigidToScene(world, scene, materialGround, new phy.Rigid({ geometry: new phy.rigid.Plane(new math.Vec4(0, 1)), mass: 0, material: materialP }))
+            // addRigidToScene(world, scene, materialGround, new phy.Rigid({ geometry: new phy.rigid.Plane(new math.Vec4(1), -roomsize), mass: 0, material: materialP }))
+            // addRigidToScene(world, scene, materialGround, new phy.Rigid({ geometry: new phy.rigid.Plane(new math.Vec4(-1), -roomsize), mass: 0, material: materialP }))
+            // addRigidToScene(world, scene, materialGround, new phy.Rigid({ geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 0, 1), -roomsize), mass: 0, material: materialP }))
+            // addRigidToScene(world, scene, materialGround, new phy.Rigid({ geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 0, -1), -roomsize), mass: 0, material: materialP }))
+            // addRigidToScene(world, scene, materialGround, new phy.Rigid({ geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 1), -roomsize), mass: 0, material: materialP }))
+            // addRigidToScene(world, scene, materialGround, new phy.Rigid({ geometry: new phy.rigid.Plane(new math.Vec4(0, 0, -1), -roomsize), mass: 0, material: materialP }))
+            // world.add(new phy.PointConstrain(riigid, null, math.Vec4.xNeg, math.Vec4.y.mulf(3)));
+            // let torisphere = new phy.Rigid({ geometry: new phy.rigid.Torisphere(1, 0.3), material, mass: 1 });
+            // addRigidToScene(world, scene, materialBox, torisphere);
+            // torisphere.position.y = 12;
+            // torisphere.angularVelocity.randset();
             renderer.core.setOpacity(10);
+            let spheritorusarr = [];
+            let torispherearr = [];
+            for (let i = -2; i < 2; i++) {
+                let spheritorus = new phy.Rigid({ geometry: new phy.rigid.Spheritorus(1, 0.1), material, mass: 1 });
+                addRigidToScene(world, scene, materialBox, spheritorus);
+                spheritorus.rotatesb(math.Bivec.yw.mulf(math._90));
+                spheritorus.angularVelocity.randset().mulfs(0.1);
+                spheritorus.position.x = i * (8 / 3) + 3 / 4;
+                spheritorus.position.y = 15.4;
+                spheritorusarr.push(spheritorus);
+                let torisphere = new phy.Rigid({ geometry: new phy.rigid.Torisphere(1, 0.1), material, mass: 1 });
+                addRigidToScene(world, scene, materialBox, torisphere);
+                torisphere.position.y = 15.4;
+                torisphere.position.x = i * (8 / 3);
+                torisphere.rotatesb(new math.Bivec(0.2));
+                torispherearr.push(torisphere);
+            }
+            world.add(new phy.PointConstrain(torispherearr[0], null, math.Vec4.x, torispherearr[0].position.add(math.Vec4.x)));
             const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
                 retinaCtrl,
                 camCtrl,
                 new EmitGlomeController(world, scene, camera)
             ], { requsetPointerLock: true });
             let t = -2;
+            let emitType = 0;
             let srand = new math.Srand(Math.random());
             function run() {
                 t++;
                 if ((t & 0xFF) === 0xFF) {
-                    let objb = new phy.Rigid({ geometry: new phy.rigid.Tesseractoid(new math.Vec4(3, 3, 3, 3).adds(math.Vec4.srand(srand)).divfs(3)), material, mass: 1 });
-                    addRigidToScene(world, scene, materialBox, objb);
-                    objb.position.adds(math.Vec4.srand(srand)).divfs(3);
-                    objb.position.y = 12;
+                    // emitType++;
+                    // let geometry: tesserxel.physics.RigidGeometry;
+                    // // let torisphere = new phy.Rigid({ geometry: new phy.rigid.Tesseractoid(new math.Vec4(3, 3, 3, 3).adds(math.Vec4.srand(srand)).divfs(3)), material, mass: 1 });
+                    // switch (emitType & 1) {
+                    //     case 0:
+                    //         geometry = new phy.rigid.Torisphere(1, 0.3);
+                    //         break;
+                    //     case 1:
+                    //         geometry = new phy.rigid.Spheritorus(1, 0.3);
+                    //         break;
+                    //     // case 2:
+                    //     //     geometry = new phy.rigid.Spheritorus(1, 0.3);
+                    //     //     break;
+                    // }
+
                 }
                 updateRidigsInScene();
                 controllerRegistry.update();
                 renderer.render(scene, camera); camera.needsUpdateCoord = true;
-                engine.update(world, 1 / 60);
+                if (t > 0) engine.update(world, controllerRegistry.states.mspf / 1000);
                 window.requestAnimationFrame(run);
             }
-            renderer.render(scene, camera);
-            setTimeout(run, 100);
+            run();
 
+        }
+        export async function load() {
+            const math = tesserxel.math;
+            const phy = tesserxel.physics;
+            const engine = new phy.Engine({ substep: 30 });
+            const world = new phy.World();
+            const scene = new FOUR.Scene();
+            // define physical materials: frictions and restitutions
+            const phyMatSt = new phy.Material(1, 0.2);
+            const phyMatRoom = new phy.Material(1, 0.4);
+            // define render materials
+            const renderMatSts = [
+                [0.1, 0.1, 0.1, 1], [0.1, 0.1, 0.1, 1], [0.9, 0.9, 0, 1], [0, 0.3, 0.9, 1],
+                [0.9, 0.1, 0.1, 1], [0.7, 0.0, 1.0, 1], [0.5, 0.5, 0.5, 1], [0, 0.9, 0, 1],
+            ].map(
+                color => new FOUR.PhongMaterial(new FOUR.CheckerTexture(
+                    color, [1, 1, 1, 1],
+                    new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new math.Obj4(null, null, new math.Vec4(0, 0, 10, 0)))
+                )));
+            const renderMatRoom = new FOUR.LambertMaterial([0.8, 0.6, 0.3, 0.08]);
+            renderMatRoom.cullMode = "back";
+            const roomSize = 2.5;
+            // floor
+            world.add(new phy.Rigid({
+                geometry: new phy.rigid.Plane(new math.Vec4(0, 1)), material: phyMatRoom, mass: 0
+            }));
+            // left wall
+            world.add(new phy.Rigid({
+                geometry: new phy.rigid.Plane(new math.Vec4(1), -roomSize), material: phyMatRoom, mass: 0
+            }));
+            // right wall
+            world.add(new phy.Rigid({
+                geometry: new phy.rigid.Plane(new math.Vec4(-1), -roomSize), material: phyMatRoom, mass: 0
+            }));
+            // ana wall
+            world.add(new phy.Rigid({
+                geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 1), -roomSize), material: phyMatRoom, mass: 0
+            }));
+            //kata wall
+            world.add(new phy.Rigid({
+                geometry: new phy.rigid.Plane(new math.Vec4(0, 0, -1), -roomSize), material: phyMatRoom, mass: 0
+            }));
+            // front wall
+            world.add(new phy.Rigid({
+                geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 0, 1), -roomSize), material: phyMatRoom, mass: 0
+            }));
+            //back wall
+            world.add(new phy.Rigid({
+                geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 0, -1), -roomSize), material: phyMatRoom, mass: 0
+            }));
+            let roomMesh = new FOUR.Mesh(new FOUR.TesseractGeometry(roomSize), renderMatRoom);
+            roomMesh.position.y += roomSize;
+            tesserxel.mesh.tetra.inverseNormal(roomMesh.geometry.jsBuffer);
+            scene.add(roomMesh);
+
+            // set up lights, camera and renderer
+
+            let camera = new FOUR.Camera();
+            camera.position.w = 3;
+            camera.position.y = 1.5;
+            scene.add(camera);
+            scene.add(new FOUR.AmbientLight(0.1));
+            scene.add(new FOUR.DirectionalLight(
+                [2.2, 2.0, 1.9],
+                new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()
+            ));
+            scene.add(new FOUR.DirectionalLight(
+                [0.1, 0.2, 0.3],
+                new math.Vec4(-0.2, 0.2, -0.2, -0.4).norms()
+            ));
+            scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+
+            const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+            const renderer = await new FOUR.Renderer(canvas).init();
+            renderer.core.setScreenClearColor([1, 1, 1, 1]);
+            renderer.core.setEyeOffset(0.5);
+            renderer.core.setOpacity(10);
+
+            // controllers
+
+            const camCtrl = new tesserxel.controller.KeepUpController(camera);
+            camCtrl.keyMoveSpeed = 0.003;
+
+            const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
+
+            const emitCtrl = new EmitGlomeController(world, scene, camera);
+            emitCtrl.initialSpeed = 5;
+
+            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+                retinaCtrl,
+                camCtrl,
+                emitCtrl
+            ], { requsetPointerLock: true });
+
+            function setSize() {
+                let width = window.innerWidth * window.devicePixelRatio;
+                let height = window.innerHeight * window.devicePixelRatio;
+                renderer.setSize({ width, height });
+            }
+            let tick = -2;
+            function run() {
+                // emit a tesseract for every 256 ticks
+                if ((tick++ & 0xFF) === 0xFF) {
+                    let spheritorus = new phy.Rigid({
+                        geometry: new phy.rigid.Spheritorus(1, 0.3),
+                        material: phyMatSt, mass: 1
+                    });
+                    spheritorus.position.y = 8;
+                    spheritorus.rotatesb(new math.Bivec(0, tick / 0xFF / 10));
+                    spheritorus.angularVelocity.randset().mulfs(0.01);
+                    addRigidToScene(world, scene, renderMatSts[(tick >> 8) & 7], spheritorus);
+                }
+                // syncronise physics world and render scene
+                updateRidigsInScene();
+                // update controller states
+                controllerRegistry.update();
+                // rendering
+                renderer.render(scene, camera);
+                // simulating physics
+                engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
+                window.requestAnimationFrame(run);
+            }
+            window.addEventListener("resize", setSize);
+            setSize();
+            run();
+        }
+    }
+    export namespace rigid_test {
+        export async function load() {
+            const math = tesserxel.math;
+            const phy = tesserxel.physics;
+            const engine = new phy.Engine({ substep: 30 });
+            const world = new phy.World();
+            const scene = new FOUR.Scene();
+            // define physical materials: frictions and restitutions
+            const phyMatBox = new phy.Material(1, 0.4);
+            const phyMatGround = new phy.Material(1, 0.4);
+            // define render materials
+            const renderMatBox1 = new FOUR.LambertMaterial(new FOUR.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+            const renderMatBox2 = new FOUR.PhongMaterial(new FOUR.GridTexture(
+                [0, 0, 0, 1], [1, 1, 0, 1], 0.5,
+                new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new math.Obj4(null, null, new math.Vec4(5, 5, 5, 5)))
+            ));
+            const renderMatGround = new FOUR.LambertMaterial([0.2, 1, 0.2, 0.08]);
+            // add ground
+            addRigidToScene(world, scene, renderMatGround, new phy.Rigid({
+                geometry: new phy.rigid.Plane(new math.Vec4(0, 1)),
+                mass: 0, material: phyMatGround
+            }));
+
+            // set up lights, camera and renderer
+
+            let camera = new FOUR.Camera();
+            camera.position.w = 4;
+            camera.position.y = 4;
+            scene.add(camera);
+            scene.add(new FOUR.AmbientLight(0.3));
+            scene.add(new FOUR.DirectionalLight(
+                [2.2, 2.0, 1.9],
+                new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()
+            ));
+            scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+
+            const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+            const renderer = await new FOUR.Renderer(canvas).init();
+            renderer.core.setScreenClearColor([1, 1, 1, 1]);
+            renderer.core.setEyeOffset(0.5);
+            renderer.core.setOpacity(10);
+
+            // controllers
+
+            const camCtrl = new tesserxel.controller.KeepUpController(camera);
+            camCtrl.keyMoveSpeed = 0.01;
+
+            const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
+
+            const emitCtrl = new EmitGlomeController(world, scene, camera);
+            emitCtrl.initialSpeed = 10;
+
+            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+                retinaCtrl,
+                camCtrl,
+                emitCtrl
+            ], { requsetPointerLock: true });
+
+            function setSize() {
+                let width = window.innerWidth * window.devicePixelRatio;
+                let height = window.innerHeight * window.devicePixelRatio;
+                renderer.setSize({ width, height });
+            }
+            let tick = -2;
+            function run() {
+                // emit a tesseract for every 256 ticks
+                if ((tick++ & 0xFF) === 0xFF) {
+                    let randomChoose = Math.random() > 0.5;
+                    // give random size to tesseractoid
+                    let size = math.Vec4.rand().mulfs(randomChoose ? 0.1 : 0.7);
+                    size.adds(new math.Vec4(1, 1, 1, 1));
+                    let tesseract = new phy.Rigid({
+                        geometry: new phy.rigid.Tesseractoid(size),
+                        material: phyMatBox, mass: 1
+                    });
+                    if (randomChoose) {
+                        // give random rotation to tesseractoid
+                        let randVec3 = math.Vec3.rand().mulfs(0.1);
+                        tesseract.rotatesb(new math.Bivec(0, randVec3.x, randVec3.y, 0, 0, randVec3.z));
+                    }
+                    tesseract.position.y = 15;
+                    addRigidToScene(world, scene, randomChoose ? renderMatBox1 : renderMatBox2, tesseract);
+                }
+                // syncronise physics world and render scene
+                updateRidigsInScene();
+                // update controller states
+                controllerRegistry.update();
+                // rendering
+                renderer.render(scene, camera);
+                // simulating physics
+                engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
+                window.requestAnimationFrame(run);
+            }
+            window.addEventListener("resize", setSize);
+            setSize();
+            run();
+        }
+    }
+    export namespace st_ts_chain {
+        export async function load() {
+            const math = tesserxel.math;
+            const phy = tesserxel.physics;
+            const engine = new phy.Engine({ substep: 30 });
+            const world = new phy.World();
+            const scene = new FOUR.Scene();
+            // define physical materials: frictions and restitutions
+            const phyMatChain = new phy.Material(0.4, 0.4);
+            const phyMatGround = new phy.Material(1, 0.4);
+            // define render materials
+            const renderMatSpheritorus = new FOUR.LambertMaterial([1, 0.1, 0.1, 1]);
+            const renderMatTorisphere = new FOUR.LambertMaterial([0.2, 0.2, 1, 1]);
+            const renderMatGround = new FOUR.LambertMaterial([0.2, 1, 0.2, 0.03]);
+            // add ground
+            addRigidToScene(world, scene, renderMatGround, new phy.Rigid({
+                geometry: new phy.rigid.Plane(new math.Vec4(0, 1)),
+                mass: 0, material: phyMatGround
+            }));
+            // add spheritorus - torisphere chain
+            let spheritorusArr = [];
+            let torisphereArr = [];
+            for (let i = -2; i <= 2; i++) {
+                let spheritorus = new phy.Rigid({
+                    geometry: new phy.rigid.Spheritorus(1, 0.15),
+                    material: phyMatChain, mass: 1
+                });
+                addRigidToScene(world, scene, renderMatSpheritorus, spheritorus);
+                spheritorus.rotatesb(math.Bivec.yw.mulf(math._90));
+                spheritorus.position.x = i * (8 / 3) + 3 / 4;
+                spheritorus.position.y = 15.4;
+                spheritorusArr.push(spheritorus);
+                let torisphere = new phy.Rigid({
+                    geometry: new phy.rigid.Torisphere(1, 0.15),
+                    material: phyMatChain, mass: 1
+                });
+                addRigidToScene(world, scene, renderMatTorisphere, torisphere);
+                torisphere.position.y = 15.4;
+                torisphere.position.x = i * (8 / 3);
+                torisphere.rotatesb(new math.Bivec(0.2));
+                torisphereArr.push(torisphere);
+            }
+            // add point constrain to the first ring
+            world.add(new phy.PointConstrain(
+                torisphereArr[0], null, math.Vec4.x, torisphereArr[0].position.add(math.Vec4.x)
+            ));
+
+            // set up lights, camera and renderer
+
+            let camera = new FOUR.Camera();
+            camera.position.w = 9;
+            camera.position.y = 8;
+            scene.add(camera);
+            scene.add(new FOUR.AmbientLight(0.3));
+            scene.add(new FOUR.DirectionalLight(
+                [2.2, 2.0, 1.9],
+                new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()
+            ));
+            scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+
+            const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+            const renderer = await new FOUR.Renderer(canvas).init();
+            renderer.core.setScreenClearColor([1, 1, 1, 1]);
+            renderer.core.setEyeOffset(0.5);
+            renderer.core.setOpacity(20);
+
+            // controllers
+
+            const camCtrl = new tesserxel.controller.KeepUpController(camera);
+            camCtrl.keyMoveSpeed = 0.01;
+
+            const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
+
+            const emitCtrl = new EmitGlomeController(world, scene, camera);
+            emitCtrl.glomeRadius = 2;
+            emitCtrl.maximumBulletDistance = 70;
+            emitCtrl.initialSpeed = 10;
+
+            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+                retinaCtrl,
+                camCtrl,
+                emitCtrl
+            ], { requsetPointerLock: true });
+
+            function setSize() {
+                let width = window.innerWidth * window.devicePixelRatio;
+                let height = window.innerHeight * window.devicePixelRatio;
+                renderer.setSize({ width, height });
+            }
+            function run() {
+                // syncronise physics world and render scene
+                updateRidigsInScene();
+                // update controller states
+                controllerRegistry.update();
+                // rendering
+                renderer.render(scene, camera);
+                // simulating physics
+                engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
+                window.requestAnimationFrame(run);
+            }
+            window.addEventListener("resize", setSize);
+            setSize();
+            run();
         }
         // test
         export async function load1() {

@@ -227,8 +227,8 @@ namespace tesserxel {
                 }
             }
         }
-        export class Force {
-            apply(time: number): void { };
+        export abstract class Force {
+            abstract apply(time: number): void;
         }
         export namespace force {
             /** apply a spring force between object a and b
@@ -251,7 +251,7 @@ namespace tesserxel {
                 constructor(
                     a: Rigid, b: Rigid | null,
                     pointA: math.Vec4, pointB: math.Vec4,
-                    k: number, damp: number = 0, length: number = 0) {
+                    k: number, length: number = 0, damp: number = 0) {
                     super();
                     this.a = a; this.b = b; this.k = k; this.damp = damp;
                     this.pointA = pointA; this.pointB = pointB;

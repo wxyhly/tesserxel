@@ -11,6 +11,9 @@ var tesserxel;
         math._360 = Math.PI * 2;
         math._DEG2RAD = Math.PI / 180;
         math._RAD2DEG = 180 / Math.PI;
+        math._COS30 = Math.sqrt(3) / 2;
+        math._TAN30 = Math.sqrt(3) / 3;
+        math._GOLDRATIO = (Math.sqrt(5) - 1) / 2;
         class Srand {
             _seed;
             constructor(seed) {
@@ -2281,6 +2284,7 @@ var tesserxel;
             static y = new Vec4(0, 1, 0, 0);
             static z = new Vec4(0, 0, 1, 0);
             static w = new Vec4(0, 0, 0, 1);
+            static origin = new Vec4(0, 0, 0, 0);
             static xNeg = new Vec4(-1, 0, 0, 0);
             static yNeg = new Vec4(0, -1, 0, 0);
             static zNeg = new Vec4(0, 0, -1, 0);
@@ -3069,6 +3073,15 @@ var tesserxel;
                 return m;
             }
             tetra.tesseract = tesseract;
+            function inverseNormal(mesh) {
+                if (mesh.normal) {
+                    for (let i = 0, l = mesh.normal.length; i < l; i++) {
+                        mesh.normal[i] = -mesh.normal[i];
+                    }
+                }
+                return mesh;
+            }
+            tetra.inverseNormal = inverseNormal;
             tetra.hexadecachoron = {
                 position: new Float32Array([
                     1, 0, 0, 0,
@@ -3270,13 +3283,13 @@ var tesserxel;
                 ]),
                 tetraCount: 16
             };
-            function glome(radius, xySegment, zwSegment, lattitudeSegment) {
+            function glome(radius, xySegment, zwSegment, latitudeSegment) {
                 if (xySegment < 3)
                     xySegment = 3;
                 if (zwSegment < 3)
                     zwSegment = 3;
-                if (lattitudeSegment < 1)
-                    lattitudeSegment = 1;
+                if (latitudeSegment < 1)
+                    latitudeSegment = 1;
                 return parametricSurface((uvw, pos, norm) => {
                     let u = uvw.x * tesserxel.math._360;
                     let v = uvw.y * tesserxel.math._360;
@@ -3285,9 +3298,48 @@ var tesserxel;
                     let sin = Math.sin(w) * radius;
                     pos.set(-Math.cos(u) * cos, Math.sin(u) * cos, Math.cos(v) * sin, Math.sin(v) * sin);
                     norm.copy(pos);
-                }, xySegment, zwSegment, lattitudeSegment);
+                }, xySegment, zwSegment, latitudeSegment);
             }
             tetra.glome = glome;
+            function spheritorus(sphereRadius, longitudeSegment, latitudeSegment, circleRadius, circleSegment) {
+                if (longitudeSegment < 3)
+                    longitudeSegment = 3;
+                if (latitudeSegment < 3)
+                    latitudeSegment = 3;
+                if (circleSegment < 3)
+                    circleSegment = 3;
+                return parametricSurface((uvw, pos, norm) => {
+                    let u = uvw.x * tesserxel.math._360;
+                    let v = uvw.y * tesserxel.math._180;
+                    let w = uvw.z * tesserxel.math._360;
+                    let sv = Math.sin(v);
+                    let radius = circleRadius + sv * Math.cos(u) * sphereRadius;
+                    let sw = Math.sin(w) * radius;
+                    let cw = Math.cos(w) * radius;
+                    pos.set(-cw, sv * Math.sin(u) * sphereRadius, Math.cos(v) * sphereRadius, sw);
+                    norm.set(-sv * Math.cos(u) * Math.cos(w), sv * Math.sin(u), Math.cos(v), sv * Math.cos(u) * Math.sin(w));
+                }, longitudeSegment, latitudeSegment, circleSegment);
+            }
+            tetra.spheritorus = spheritorus;
+            function torisphere(circleRadius, circleSegment, sphereRadius, longitudeSegment, latitudeSegment) {
+                if (longitudeSegment < 3)
+                    longitudeSegment = 3;
+                if (latitudeSegment < 3)
+                    latitudeSegment = 3;
+                if (circleSegment < 3)
+                    circleSegment = 3;
+                return parametricSurface((uvw, pos, norm) => {
+                    let u = -uvw.x * tesserxel.math._360;
+                    let v = uvw.y * tesserxel.math._180;
+                    let w = uvw.z * tesserxel.math._360;
+                    let sv = Math.sin(v);
+                    let cw = Math.cos(w);
+                    let radius = circleRadius * cw + sphereRadius;
+                    pos.set(sv * Math.cos(u) * radius, circleRadius * Math.sin(w), sv * Math.sin(u) * radius, Math.cos(v) * radius);
+                    norm.set(sv * Math.cos(u) * cw, Math.sin(w), sv * Math.sin(u) * cw, Math.cos(v) * cw);
+                }, longitudeSegment, latitudeSegment, circleSegment);
+            }
+            tetra.torisphere = torisphere;
             function tiger(xyRadius, xySegment, zwRadius, zwSegment, secondaryRadius, secondarySegment) {
                 if (xySegment < 3)
                     xySegment = 3;
@@ -3735,14 +3787,13 @@ var tesserxel;
                 for (let i = 0; i < this.substep; i++) {
                     this.step(world, dt);
                 }
-                world.frameCount++;
             }
             step(world, dt) {
                 this.forceAccumulator.run(world, dt);
                 world.updateUnionGeometriesCoord();
                 this.broadPhase.run(world);
                 this.narrowPhase.run(this.broadPhase.checkList);
-                this.solver.run(this.narrowPhase.collisionList);
+                this.solver.run(this.narrowPhase.collisionList, world.constrains);
                 world.updateUnionGeometriesCoord();
             }
         }
@@ -3750,10 +3801,10 @@ var tesserxel;
         class World {
             gravity = new tesserxel.math.Vec4(0, -9.8);
             rigids = [];
+            constrains = [];
             unionRigids = [];
             forces = [];
             time = 0;
-            frameCount = 0;
             add(...args) {
                 for (let o of args) {
                     if (o instanceof physics.Rigid) {
@@ -3765,6 +3816,10 @@ var tesserxel;
                     }
                     if (o instanceof physics.Force) {
                         this.forces.push(o);
+                        continue;
+                    }
+                    if (o instanceof Constrain) {
+                        this.constrains.push(o);
                         continue;
                     }
                 }
@@ -3819,6 +3874,25 @@ var tesserxel;
             return self.set(a.xy * b.xy, a.xz * b.xz, a.xw * b.xw, a.yz * b.yz, a.yw * b.yw, a.zw * b.zw);
         }
         physics.mulBivec = mulBivec;
+        class Constrain {
+            a;
+            b;
+            constructor(a, b) {
+                this.a = a;
+                this.b = b;
+            }
+        }
+        physics.Constrain = Constrain;
+        class PointConstrain extends Constrain {
+            pointA;
+            pointB;
+            constructor(a, b, pointA, pointB) {
+                super(a, b);
+                this.pointA = pointA;
+                this.pointB = pointB;
+            }
+        }
+        physics.PointConstrain = PointConstrain;
     })(physics = tesserxel.physics || (tesserxel.physics = {}));
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
@@ -4036,8 +4110,6 @@ var tesserxel;
             force_accumulator.RK4 = RK4;
         })(force_accumulator = physics.force_accumulator || (physics.force_accumulator = {}));
         class Force {
-            apply(time) { }
-            ;
         }
         physics.Force = Force;
         let force;
@@ -4059,7 +4131,7 @@ var tesserxel;
                 _vec4a = new tesserxel.math.Vec4();
                 _vec4b = new tesserxel.math.Vec4();
                 _bivec = new tesserxel.math.Bivec();
-                constructor(a, b, pointA, pointB, k, damp = 0, length = 0) {
+                constructor(a, b, pointA, pointB, k, length = 0, damp = 0) {
                     super();
                     this.a = a;
                     this.b = b;
@@ -5006,10 +5078,8 @@ var tesserxel;
         let _r = new tesserxel.math.Rotor;
         class NarrowPhase {
             collisionList = [];
-            srand;
-            constructor() {
-                this.srand = new tesserxel.math.Srand(123);
-            }
+            /** max iteration for sdf methods in detectCollision */
+            maxIteration = 5;
             clearCollisionList() {
                 this.collisionList = [];
             }
@@ -5028,18 +5098,20 @@ var tesserxel;
                         return this.detectGlomePlane(a, b);
                     if (b instanceof physics.rigid.Convex)
                         return this.detectConvexGlome(b, a);
+                    if (b instanceof physics.rigid.Spheritorus)
+                        return this.detectSpheritorusGlome(b, a);
+                    if (b instanceof physics.rigid.Torisphere)
+                        return this.detectTorisphereGlome(b, a);
                 }
                 if (a instanceof physics.rigid.Plane) {
                     if (b instanceof physics.rigid.Glome)
                         return this.detectGlomePlane(b, a);
-                    if (b instanceof physics.rigid.Tesseractoid) {
-                        // todo: fast detection for tesseractoid return this.detectTesseractoidPlane(b,a);
-                    }
                     if (b instanceof physics.rigid.Convex)
                         return this.detectConvexPlane(b, a);
-                }
-                if (a instanceof physics.rigid.Tesseractoid) {
-                    //todo
+                    if (b instanceof physics.rigid.Spheritorus)
+                        return this.detectSpheritorusPlane(b, a);
+                    if (b instanceof physics.rigid.Torisphere)
+                        return this.detectTorispherePlane(b, a);
                 }
                 if (a instanceof physics.rigid.Convex) {
                     if (b instanceof physics.rigid.Plane)
@@ -5052,6 +5124,26 @@ var tesserxel;
                             return this.detectConvexConvex(b, a);
                         return this.detectConvexConvex(a, b);
                     }
+                }
+                if (a instanceof physics.rigid.Spheritorus) {
+                    if (b instanceof physics.rigid.Spheritorus)
+                        return this.detectSpheritorusSpheritorus(a, b);
+                    if (b instanceof physics.rigid.Torisphere)
+                        return this.detectTorisphereSpheritorus(b, a);
+                    if (b instanceof physics.rigid.Plane)
+                        return this.detectSpheritorusPlane(a, b);
+                    if (b instanceof physics.rigid.Glome)
+                        return this.detectSpheritorusGlome(a, b);
+                }
+                if (a instanceof physics.rigid.Torisphere) {
+                    if (b instanceof physics.rigid.Torisphere)
+                        return this.detectTorisphereTorisphere(a, b);
+                    if (b instanceof physics.rigid.Spheritorus)
+                        return this.detectTorisphereSpheritorus(a, b);
+                    if (b instanceof physics.rigid.Plane)
+                        return this.detectTorispherePlane(a, b);
+                    if (b instanceof physics.rigid.Glome)
+                        return this.detectTorisphereGlome(a, b);
                 }
             }
             detectGlomeGlome(a, b) {
@@ -5074,10 +5166,10 @@ var tesserxel;
             }
             detectConvexPlane(a, b) {
                 // convert plane to convex's coord
-                let normal = _vec4.copy(b.normal).rotateconj(a.rigid.rotation);
-                var offset = a.rigid.position.dot(b.normal) - b.offset;
+                let normal = _vec4.copy(b.normal).rotatesconj(a.rigid.rotation);
+                let offset = a.rigid.position.dot(b.normal) - b.offset;
                 for (let v of a.points) {
-                    var depth = -(v.dot(normal) + offset);
+                    let depth = -(v.dot(normal) + offset);
                     if (depth < 0)
                         continue;
                     let point = v.clone().rotates(a.rigid.rotation).adds(a.rigid.position).addmulfs(b.normal, depth / 2);
@@ -5114,14 +5206,11 @@ var tesserxel;
                 }
                 if (b._cachePoints) {
                     for (let p = 0, l = b.points.length; p < l; p++) {
-                        // b._cachePoints[p].srandset(this.srand).mulfs(1e-3).adds(b.points[p]).rotates(_r).adds(_vec4);
                         b._cachePoints[p].copy(b.points[p]).rotates(_r).adds(_vec4);
                     }
                 }
                 else {
-                    b._cachePoints = b.points.map(
-                    // p => math.vec4Pool.pop().srandset(this.srand).mulfs(1e-3).adds(p).rotates(_r).adds(_vec4)
-                    p => tesserxel.math.vec4Pool.pop().copy(p).rotates(_r).adds(_vec4));
+                    b._cachePoints = b.points.map(p => tesserxel.math.vec4Pool.pop().copy(p).rotates(_r).adds(_vec4));
                 }
                 // gjk intersection test
                 let inter = physics.gjkDiffTest(a.points, b._cachePoints);
@@ -5179,6 +5268,284 @@ var tesserxel;
                         point: point.rotates(a.rigid.rotation).adds(a.rigid.position),
                         normal: result.normal.rotates(a.rigid.rotation),
                         depth, a: a.rigid, b: b.rigid
+                    });
+                }
+            }
+            detectSpheritorusPlane(a, b) {
+                // convert plane to st's coord
+                let normal = _vec4.copy(b.normal).rotatesconj(a.rigid.rotation);
+                let offset = a.rigid.position.dot(b.normal) - b.offset;
+                let len = Math.hypot(normal.x, normal.w);
+                let depth = a.minorRadius - offset + len * a.majorRadius;
+                if (depth < 0)
+                    return;
+                // find support of circle along normal
+                if (normal.x === 0 && normal.w === 0) {
+                    // deal perpendicular case: reduce contact to bottom center point
+                    let point = a.rigid.position.clone().addmulfs(b.normal, (a.minorRadius + offset) * 0.5);
+                    this.collisionList.push({ point, normal: b.normal.neg(), depth, a: a.rigid, b: b.rigid });
+                }
+                else {
+                    // point on circle
+                    let point = new tesserxel.math.Vec4(normal.x, 0, 0, normal.w).mulfs(-a.majorRadius / len);
+                    // then to world coord and add normal
+                    point.rotates(a.rigid.rotation).adds(a.rigid.position).addmulfs(b.normal, depth * 0.5 - a.minorRadius);
+                    this.collisionList.push({ point, normal: b.normal.neg(), depth, a: a.rigid, b: b.rigid });
+                }
+            }
+            detectSpheritorusGlome(a, b) {
+                // convert glome to st's coord
+                let p = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let xw = p.x * p.x + p.w * p.w;
+                let yz = p.y * p.y + p.z * p.z;
+                let sqrtxw = Math.sqrt(xw);
+                let distance = Math.sqrt(a.majorRadius * a.majorRadius + xw + yz - 2 * sqrtxw * a.majorRadius);
+                let depth = a.minorRadius + b.radius - distance;
+                if (depth < 0)
+                    return;
+                // find support of circle along normal
+                if (xw === 0) {
+                    // deal perpendicular case: reduce contact to center point
+                    let k = 1.0 - (b.radius - depth * 0.5) / distance;
+                    let point = new tesserxel.math.Vec4(0, k * p.y, k * p.z).rotates(a.rigid.rotation);
+                    let normal = point.clone().norms();
+                    point.adds(a.rigid.position);
+                    this.collisionList.push({ point, normal, depth: depth / Math.sqrt(yz) * distance, a: a.rigid, b: b.rigid });
+                }
+                else {
+                    let k = a.majorRadius / sqrtxw;
+                    let point = new tesserxel.math.Vec4(p.x * k, 0, 0, p.w * k).rotates(a.rigid.rotation);
+                    let normal = point.adds(a.rigid.position).sub(b.rigid.position).norms().negs();
+                    point.addmulfs(normal, a.minorRadius - depth * 0.5);
+                    this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
+                }
+            }
+            detectSpheritorusSpheritorus(a, b) {
+                // position and rotation are b in a's frame 
+                let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+                let tempa = b.majorRadius * 0.5;
+                let tempb = b.majorRadius * tesserxel.math._COS30;
+                // choose 3 initial points (120 degree) on b for iteration
+                let initialPB = [
+                    tesserxel.math.vec4Pool.pop().set(tempa, 0, 0, tempb),
+                    tesserxel.math.vec4Pool.pop().set(tempa, 0, 0, -tempb),
+                    tesserxel.math.vec4Pool.pop().set(-b.majorRadius)
+                ];
+                let newP = tesserxel.math.vec4Pool.pop();
+                let prevPInA = tesserxel.math.vec4Pool.pop();
+                let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+                for (let p of initialPB) {
+                    // newP and p are in b
+                    newP.copy(p);
+                    let needContinue = false;
+                    for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                        // from b to a
+                        newP.rotates(rotation).adds(position);
+                        let k = a.majorRadius / Math.hypot(newP.x, newP.w);
+                        if (!isFinite(k)) {
+                            needContinue = true;
+                            break;
+                        }
+                        // project to a
+                        newP.set(newP.x * k, 0, 0, newP.w * k);
+                        prevPInA.copy(newP);
+                        // from a to b
+                        newP.subs(position).rotatesconj(rotation);
+                        k = b.majorRadius / Math.hypot(newP.x, newP.w);
+                        if (!isFinite(k)) {
+                            needContinue = true;
+                            break;
+                        }
+                        // project to b
+                        newP.set(newP.x * k, 0, 0, newP.w * k);
+                        // test if iteration still moves
+                        let dx = Math.abs(newP.x - p.x);
+                        let dw = Math.abs(newP.w - p.w);
+                        p.copy(newP);
+                        if (dx + dw < epsilon) {
+                            break;
+                        }
+                    }
+                    if (needContinue)
+                        continue;
+                    // else there might be collision
+                    // transform newP to a, then compare newP and prevPInA
+                    newP.rotates(rotation).adds(position);
+                    let normal = newP.sub(prevPInA);
+                    let depth = a.minorRadius + b.minorRadius - normal.norm();
+                    if (depth < 0)
+                        continue;
+                    // console.log(converge);
+                    normal.rotates(a.rigid.rotation).norms();
+                    let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+                    point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+                    this.collisionList.push({
+                        normal, point, depth, a: a.rigid, b: b.rigid
+                    });
+                }
+                tesserxel.math.vec4Pool.push(...initialPB);
+            }
+            detectTorispherePlane(a, b) {
+                // convert plane to ts's coord
+                let normal = _vec4.copy(b.normal).rotatesconj(a.rigid.rotation);
+                let offset = a.rigid.position.dot(b.normal) - b.offset;
+                let len = Math.hypot(normal.x, normal.z, normal.w);
+                let depth = a.minorRadius - offset + len * a.majorRadius;
+                if (depth < 0)
+                    return;
+                // find support of circle along normal
+                if (normal.x === 0 && normal.w === 0 && normal.z === 0) {
+                    // deal perpendicular case: reduce contact to bottom center point
+                    let point = a.rigid.position.clone().addmulfs(b.normal, (a.minorRadius + offset) * 0.5);
+                    this.collisionList.push({ point, normal: b.normal.neg(), depth, a: a.rigid, b: b.rigid });
+                }
+                else {
+                    // point on sphere
+                    let point = new tesserxel.math.Vec4(normal.x, 0, normal.z, normal.w).mulfs(-a.majorRadius / len);
+                    // then to world coord and add normal
+                    point.rotates(a.rigid.rotation).adds(a.rigid.position).addmulfs(b.normal, depth * 0.5 - a.minorRadius);
+                    this.collisionList.push({ point, normal: b.normal.neg(), depth, a: a.rigid, b: b.rigid });
+                }
+            }
+            detectTorisphereGlome(a, b) {
+                // convert glome to st's coord
+                let p = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let xzw = p.x * p.x + p.z * p.z + p.w * p.w;
+                let y = p.y * p.y;
+                let sqrtxzw = Math.sqrt(xzw);
+                let distance = Math.sqrt(a.majorRadius * a.majorRadius + xzw + y - 2 * sqrtxzw * a.majorRadius);
+                let depth = a.minorRadius + b.radius - distance;
+                if (depth < 0)
+                    return;
+                // find support of circle along normal
+                if (xzw === 0) {
+                    // deal perpendicular case: reduce contact to center point
+                    let k = 1.0 - (b.radius - depth * 0.5) / distance;
+                    let point = new tesserxel.math.Vec4(0, k * p.y).rotates(a.rigid.rotation);
+                    let normal = point.clone().norms();
+                    point.adds(a.rigid.position);
+                    this.collisionList.push({ point, normal, depth: depth / Math.abs(p.y) * distance, a: a.rigid, b: b.rigid });
+                }
+                else {
+                    let k = a.majorRadius / sqrtxzw;
+                    let point = new tesserxel.math.Vec4(p.x * k, 0, p.z * k, p.w * k).rotates(a.rigid.rotation);
+                    let normal = point.adds(a.rigid.position).sub(b.rigid.position).norms().negs();
+                    point.addmulfs(normal, a.minorRadius - depth * 0.5);
+                    this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
+                }
+            }
+            detectTorisphereTorisphere(a, b) {
+                // position and rotation are b in a's frame 
+                let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+                let temp = b.majorRadius * tesserxel.math._TAN30;
+                // choose 4 initial points (regular tetrahedron) on b for iteration
+                let initialPB = [
+                    tesserxel.math.vec4Pool.pop().set(temp, 0, temp, temp),
+                    tesserxel.math.vec4Pool.pop().set(-temp, 0, -temp, temp),
+                    tesserxel.math.vec4Pool.pop().set(-temp, 0, temp, -temp),
+                    tesserxel.math.vec4Pool.pop().set(temp, 0, -temp, -temp),
+                ];
+                let newP = tesserxel.math.vec4Pool.pop();
+                let prevPInA = tesserxel.math.vec4Pool.pop();
+                let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+                for (let p of initialPB) {
+                    // newP and p are in b
+                    newP.copy(p);
+                    for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                        // from b to a
+                        newP.rotates(rotation).adds(position);
+                        let k = a.majorRadius / Math.hypot(newP.x, newP.z, newP.w);
+                        if (!isFinite(k))
+                            break;
+                        // project to a
+                        newP.set(newP.x * k, 0, newP.z * k, newP.w * k);
+                        prevPInA.copy(newP);
+                        // from a to b
+                        newP.subs(position).rotatesconj(rotation);
+                        k = b.majorRadius / Math.hypot(newP.x, newP.z, newP.w);
+                        if (!isFinite(k))
+                            break;
+                        // project to b
+                        newP.set(newP.x * k, 0, newP.z * k, newP.w * k);
+                        // test if iteration still moves
+                        let dx = Math.abs(newP.x - p.x);
+                        let dz = Math.abs(newP.z - p.z);
+                        let dw = Math.abs(newP.w - p.w);
+                        p.copy(newP);
+                        if (dx + dz + dw < epsilon)
+                            break;
+                    }
+                    // console.log(converge);
+                    // else there might be collision
+                    // transform newP to a, then compare newP and prevPInA
+                    newP.rotates(rotation).adds(position);
+                    let normal = newP.sub(prevPInA);
+                    let depth = a.minorRadius + b.minorRadius - normal.norm();
+                    if (depth < 0)
+                        continue;
+                    normal.rotates(a.rigid.rotation).norms();
+                    let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+                    point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+                    this.collisionList.push({
+                        normal, point, depth, a: a.rigid, b: b.rigid
+                    });
+                }
+            }
+            detectTorisphereSpheritorus(a, b) {
+                // position and rotation are b in a's frame 
+                let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+                let tempa = b.majorRadius * 0.5;
+                let tempb = b.majorRadius * tesserxel.math._COS30;
+                // choose 3 initial points (120 degree) on b for iteration
+                let initialPB = [
+                    tesserxel.math.vec4Pool.pop().set(tempa, 0, 0, tempb),
+                    tesserxel.math.vec4Pool.pop().set(tempa, 0, 0, -tempb),
+                    tesserxel.math.vec4Pool.pop().set(-b.majorRadius)
+                ];
+                let newP = tesserxel.math.vec4Pool.pop();
+                let prevPInA = tesserxel.math.vec4Pool.pop();
+                let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+                for (let p of initialPB) {
+                    // newP and p are in b
+                    newP.copy(p);
+                    for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                        // from b to a
+                        newP.rotates(rotation).adds(position);
+                        let k = a.majorRadius / Math.hypot(newP.x, newP.z, newP.w);
+                        if (!isFinite(k))
+                            break;
+                        // project to a
+                        newP.set(newP.x * k, 0, newP.z * k, newP.w * k);
+                        prevPInA.copy(newP);
+                        // from a to b
+                        newP.subs(position).rotatesconj(rotation);
+                        k = b.majorRadius / Math.hypot(newP.x, newP.w);
+                        if (!isFinite(k))
+                            break;
+                        // project to b
+                        newP.set(newP.x * k, 0, 0, newP.w * k);
+                        // test if iteration still moves
+                        let dx = Math.abs(newP.x - p.x);
+                        let dw = Math.abs(newP.w - p.w);
+                        p.copy(newP);
+                        if (dx + dw < epsilon)
+                            break;
+                    }
+                    // else there might be collision
+                    // transform newP to a, then compare newP and prevPInA
+                    newP.rotates(rotation).adds(position);
+                    let normal = newP.sub(prevPInA);
+                    let depth = a.minorRadius + b.minorRadius - normal.norm();
+                    if (depth < 0)
+                        continue;
+                    normal.rotates(a.rigid.rotation).norms();
+                    let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+                    point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+                    this.collisionList.push({
+                        normal, point, depth, a: a.rigid, b: b.rigid
                     });
                 }
             }
@@ -5242,7 +5609,6 @@ var tesserxel;
         }
         physics.Rigid = Rigid;
         class RigidGeometry {
-            type;
             rigid;
             initialize(rigid) {
                 this.rigid = rigid;
@@ -5317,7 +5683,6 @@ var tesserxel;
             class Glome extends RigidGeometry {
                 radius = 1;
                 radiusSqr = 1;
-                type = "glome";
                 constructor(radius) {
                     super();
                     this.radius = radius;
@@ -5343,7 +5708,6 @@ var tesserxel;
             rigid_1.Convex = Convex;
             class Tesseractoid extends Convex {
                 size;
-                type = "tesseractoid";
                 constructor(size) {
                     let s = typeof size === "number" ? new tesserxel.math.Vec4(size, size, size, size) : size;
                     super([
@@ -5391,7 +5755,6 @@ var tesserxel;
             class Plane extends RigidGeometry {
                 normal;
                 offset;
-                type = "plane";
                 constructor(normal, offset) {
                     super();
                     this.normal = normal ?? tesserxel.math.Vec4.y.clone();
@@ -5407,6 +5770,69 @@ var tesserxel;
                 }
             }
             rigid_1.Plane = Plane;
+            /** default orientation: XW */
+            class Spheritorus extends RigidGeometry {
+                majorRadius;
+                minorRadius;
+                /** majorRadius: cirle's radius, minorRadius: sphere's radius */
+                constructor(majorRadius, minorRadius) {
+                    super();
+                    this.majorRadius = majorRadius;
+                    this.minorRadius = minorRadius;
+                }
+                initializeMassInertia(rigid) {
+                    rigid.inertiaIsotroy = false;
+                    let maj = this.majorRadius * this.majorRadius;
+                    let min = this.minorRadius * this.minorRadius;
+                    let half = maj + 5 * min;
+                    let parallel = 2 * maj + 6 * min;
+                    let perp = 4 * min;
+                    rigid.inertia.set(half, half, parallel, perp, half, half).mulfs(rigid.mass * 0.1);
+                }
+            }
+            rigid_1.Spheritorus = Spheritorus;
+            /** default orientation: XZW */
+            class Torisphere extends RigidGeometry {
+                majorRadius;
+                minorRadius;
+                /** majorRadius: sphere's radius, minorRadius: cirle's radius */
+                constructor(majorRadius, minorRadius) {
+                    super();
+                    this.majorRadius = majorRadius;
+                    this.minorRadius = minorRadius;
+                }
+                initializeMassInertia(rigid) {
+                    rigid.inertiaIsotroy = false;
+                    let maj = this.majorRadius * this.majorRadius;
+                    let min = this.minorRadius * this.minorRadius;
+                    let half = 2 * maj + 5 * min;
+                    let parallel = 3 * maj + 6 * min;
+                    rigid.inertia.set(half, parallel, parallel, half, half, parallel).mulfs(rigid.mass * 0.1);
+                }
+            }
+            rigid_1.Torisphere = Torisphere;
+            /** default orientation: 1:XY, 2:ZW */
+            class Tiger extends RigidGeometry {
+                majorRadius1;
+                majorRadius2;
+                minorRadius;
+                /** majorRadius: sphere's radius, minorRadius: cirle's radius */
+                constructor(majorRadius1, majorRadius2, minorRadius) {
+                    super();
+                    this.majorRadius1 = majorRadius1;
+                    this.majorRadius2 = majorRadius2;
+                    this.minorRadius = minorRadius;
+                }
+                initializeMassInertia(rigid) {
+                    rigid.inertiaIsotroy = false;
+                    let maj1 = this.majorRadius1 * this.majorRadius1;
+                    let maj2 = this.majorRadius2 * this.majorRadius2;
+                    let min = this.minorRadius * this.minorRadius;
+                    let half = maj1 + maj2 + min * 6;
+                    rigid.inertia.set(2 * maj1 + min * 5, half, half, half, half, 2 * maj2 + min * 5).mulfs(rigid.mass * 0.5);
+                }
+            }
+            rigid_1.Tiger = Tiger;
         })(rigid = physics.rigid || (physics.rigid = {}));
     })(physics = tesserxel.physics || (tesserxel.physics = {}));
 })(tesserxel || (tesserxel = {}));
@@ -5421,51 +5847,165 @@ var tesserxel;
         class IterativeImpulseSolver extends Solver {
             maxPositionIterations = 32;
             maxVelocityIterations = 32;
-            maxResolveRotationAngle = 0 * tesserxel.math._DEG2RAD;
-            PositionRelaxationFactor = 0.9;
+            maxResolveRotationAngle = 45 * tesserxel.math._DEG2RAD;
+            separateSpeedEpsilon = 0.01;
+            PositionRelaxationFactor = 0.5;
             collisionList;
-            run(collisionList) {
-                if (!collisionList.length)
+            _vec41 = new tesserxel.math.Vec4;
+            _vec42 = new tesserxel.math.Vec4;
+            pointConstrainMaterial = new physics.Material(Infinity, 0);
+            run(collisionList, constrainList) {
+                if (!collisionList.length && !constrainList.length)
                     return;
-                for (let c of collisionList) {
-                    if (!c.a.rotation.isFinite() ||
-                        !c.b.rotation.isFinite()) {
-                        console.error("An error occured to rigid body");
-                    }
-                }
-                this.prepare(collisionList);
-                this.resolvePosition();
-                for (let c of collisionList) {
-                    if (!c.a.rotation.isFinite() ||
-                        !c.b.rotation.isFinite()) {
-                        console.error("An error occured to rigid body");
-                    }
-                }
+                this.prepare(collisionList, constrainList);
                 this.resolveVelocity();
-                for (let c of collisionList) {
-                    if (!c.a.rotation.isFinite() ||
-                        !c.b.rotation.isFinite()) {
-                        console.error("An error occured to rigid body");
-                    }
-                }
+                this.resolvePosition();
             }
-            prepare(collisionList) {
+            prepare(collisionList, constrainList) {
                 this.collisionList = collisionList.map(e => {
                     let { point, a, b, normal } = e;
                     let collision = e;
                     collision.materialA = a.material;
-                    collision.materialB = b.material;
+                    collision.materialB = b?.material;
                     // after got material, we solve union regardless of it's collision parts
                     if (a.parent)
                         collision.a = a.parent;
                     if (b.parent)
                         collision.b = b.parent;
-                    let temp = tesserxel.math.vec4Pool.pop();
-                    collision.relativeVelocity = collision.b.getlinearVelocity(tesserxel.math.vec4Pool.pop(), point).subs(collision.a.getlinearVelocity(temp, point));
-                    temp.pushPool();
+                    collision.relativeVelocity = collision.b.getlinearVelocity(tesserxel.math.vec4Pool.pop(), point).subs(collision.a.getlinearVelocity(this._vec41, point));
                     collision.separateSpeed = collision.relativeVelocity.dot(normal);
                     return collision;
                 });
+                for (let c of constrainList) {
+                    if (c instanceof physics.PointConstrain) {
+                        let { a, b, pointA, pointB } = c;
+                        this._vec41.copy(pointA).rotates(a.rotation);
+                        let relativeVelocity = tesserxel.math.vec4Pool.pop().dotbset(this._vec41, a.angularVelocity).adds(a.velocity);
+                        let normal;
+                        let point;
+                        if (b) {
+                            this._vec42.copy(pointB).rotates(b.rotation);
+                            relativeVelocity.subs(this._vec42.dotbset(this._vec42, b.angularVelocity).adds(b.velocity));
+                            normal = this._vec41.adds(a.position).sub(this._vec42.adds(b.position));
+                            point = this._vec41.add(this._vec42).mulfs(0.5);
+                        }
+                        else {
+                            normal = this._vec41.adds(a.position).sub(pointB);
+                            point = this._vec41.adds(pointB).mulfs(0.5);
+                        }
+                        let depth = normal.norm();
+                        normal.divfs(depth);
+                        relativeVelocity.negs();
+                        this.collisionList.push({
+                            a, b, normal, depth,
+                            materialA: this.pointConstrainMaterial,
+                            materialB: this.pointConstrainMaterial,
+                            relativeVelocity,
+                            separateSpeed: -relativeVelocity.norm(),
+                            point,
+                            pointConstrain: c
+                        });
+                    }
+                }
+            }
+            resolveVelocity() {
+                // iteratively solve lowest separateSpeed
+                for (let i = 0; i < this.maxVelocityIterations; i++) {
+                    let collision = this.collisionList.sort((a, b) => ((a.pointConstrain ? (-Math.abs(a.separateSpeed)) : a.separateSpeed)
+                        - (b.pointConstrain ? (-Math.abs(b.separateSpeed)) : b.separateSpeed)))[0];
+                    let { point, a, b, separateSpeed, normal, relativeVelocity, materialA, materialB } = collision;
+                    if (!collision.pointConstrain) {
+                        if (separateSpeed >= 0)
+                            return;
+                    }
+                    else if (Math.abs(separateSpeed) < this.separateSpeedEpsilon) {
+                        return;
+                    }
+                    let { restitution, friction } = physics.Material.getContactMaterial(materialA, materialB);
+                    if (separateSpeed > -this.separateSpeedEpsilon)
+                        restitution = 0;
+                    let normalVelocity = tesserxel.math.vec4Pool.pop().copy(normal).mulfs(separateSpeed);
+                    let tangentVelocity = tesserxel.math.vec4Pool.pop().subset(relativeVelocity, normalVelocity);
+                    let tangentSpeed = tangentVelocity.norm();
+                    // newVn = Vn * -restitution;
+                    // newVt = Vt * tangentFactor;
+                    // when slide: deltaVt === friction * deltaVn => solve tangentFactor
+                    // tangentFactor must > 0, otherwise it's still friction
+                    let tangentFactor = tangentSpeed > 0 ? Math.max(1 + friction * (1 + restitution) * separateSpeed / tangentSpeed, 0) : 0;
+                    let targetDeltaVelocityByImpulse = tangentVelocity.mulfs(tangentFactor - 1).addmulfs(normalVelocity, -restitution - 1);
+                    let pointInA, pointInB;
+                    let matA = tesserxel.math.mat4Pool.pop(), matB = tesserxel.math.mat4Pool.pop();
+                    if (a.mass > 0) {
+                        pointInA = tesserxel.math.vec4Pool.pop().subset(point, a.position).rotatesconj(a.rotation);
+                        calcImpulseResponseMat(matA, a, pointInA, pointInA);
+                    }
+                    else {
+                        matA.set();
+                    }
+                    if (b?.mass > 0) {
+                        pointInB = tesserxel.math.vec4Pool.pop().subset(point, b.position).rotatesconj(b.rotation);
+                        calcImpulseResponseMat(matB, b, pointInB, pointInB);
+                    }
+                    else {
+                        matB.set();
+                    }
+                    // dv = dvb(Ib) - dva(Ia) == dvb(I) + dva(I) since I = -Ia = Ib
+                    let impulse = targetDeltaVelocityByImpulse.mulmatls(matA.adds(matB).invs());
+                    if (impulse.norm() > 1.0) {
+                        console.log("hq");
+                    }
+                    // if (impulse.norm1() === 0) continue;
+                    console.assert(isFinite(impulse.norm1()));
+                    console.assert(isFinite(normal.norm1()));
+                    tesserxel.math.mat4Pool.push(matA, matB);
+                    // resolve velocity by applying final impulse
+                    if (b?.mass > 0) {
+                        collision.dvB = tesserxel.math.vec4Pool.pop();
+                        collision.dwB = tesserxel.math.bivecPool.pop();
+                        applyImpulseAndGetDeltaVW(collision.dvB, collision.dwB, b, pointInB, impulse);
+                    }
+                    if (a.mass > 0) {
+                        collision.dvA = tesserxel.math.vec4Pool.pop();
+                        collision.dwA = tesserxel.math.bivecPool.pop();
+                        applyImpulseAndGetDeltaVW(collision.dvA, collision.dwA, a, pointInA, impulse.negs());
+                    }
+                    this.updateSeparateSpeeds(collision);
+                }
+            }
+            updateSeparateSpeeds(collision) {
+                for (let c of this.collisionList) {
+                    if (collision.a.mass > 0) {
+                        if (c.a === collision.a) {
+                            this.updateSeparateSpeed(c, true, c.a, collision.dvA, collision.dwA);
+                        }
+                        else if (c.b === collision.a) {
+                            this.updateSeparateSpeed(c, false, c.b, collision.dvA, collision.dwA);
+                        }
+                    }
+                    if (collision.b?.mass > 0) {
+                        if (c.a === collision.b) {
+                            this.updateSeparateSpeed(c, true, c.a, collision.dvB, collision.dwB);
+                        }
+                        else if (c.b === collision.b) {
+                            this.updateSeparateSpeed(c, false, c.b, collision.dvB, collision.dwB);
+                        }
+                    }
+                }
+            }
+            updateSeparateSpeed(collision, rigidIsA, rigid, dv, dw) {
+                let delta = tesserxel.math.vec4Pool.pop().subset(collision.point, rigid.position).dotbsr(dw).adds(dv);
+                if (rigidIsA)
+                    delta.negs();
+                console.assert(isFinite(delta.norm1()), "Numeric error in Collision solver updateDepth");
+                collision.relativeVelocity.adds(delta);
+                if (collision.pointConstrain) {
+                    collision.separateSpeed = -collision.relativeVelocity.norm();
+                }
+                else {
+                    let dss = delta.dot(collision.normal);
+                    delta.pushPool();
+                    collision.separateSpeed += dss;
+                }
             }
             resolvePosition() {
                 // iteratively solve the deepest
@@ -5491,7 +6031,7 @@ var tesserxel;
                         invInertiaA = -pA.dotbset(pA, collision.dwA).dot(normal);
                         pA.pushPool();
                     }
-                    if (b.mass > 0) {
+                    if (b?.mass > 0) {
                         let pB = tesserxel.math.vec4Pool.pop().subset(point, b.position);
                         let torqueB = tesserxel.math.bivecPool.pop().wedgevvset(pB, normal);
                         if (b.inertiaIsotroy) {
@@ -5504,7 +6044,9 @@ var tesserxel;
                         invInertiaB = pB.dotbset(pB, collision.dwB).dot(normal);
                         pB.pushPool();
                     }
-                    let depthDivTotalInvs = depth * this.PositionRelaxationFactor / (a.invMass + b.invMass + invInertiaA + invInertiaB);
+                    console.assert(invInertiaA >= 0);
+                    console.assert(invInertiaB >= 0);
+                    let depthDivTotalInvs = depth * this.PositionRelaxationFactor / (a.invMass + (b?.invMass ?? 0) + invInertiaA + invInertiaB);
                     if (!isFinite(depthDivTotalInvs)) {
                         console.error("A numeric error occured in Rigid collision solver: depthDivTotalInvs in resolvePosition");
                     }
@@ -5528,7 +6070,7 @@ var tesserxel;
                             console.error("A numeric error occured in Rigid collision solver: dvA,dwA in resolvePosition");
                         }
                     }
-                    if (b.mass > 0) {
+                    if (b?.mass > 0) {
                         collision.dwB.mulfs(depthDivTotalInvs);
                         // clamp rotation
                         let angle = collision.dwB.norm();
@@ -5551,152 +6093,47 @@ var tesserxel;
                     this.updateDepths(collision);
                 }
             }
-            resolveVelocity() {
-                // iteratively solve lowest separateSpeed
-                for (let i = 0; i < this.maxVelocityIterations; i++) {
-                    let collision = this.collisionList.sort((a, b) => a.separateSpeed - b.separateSpeed)[0];
-                    let { point, a, b, separateSpeed, normal, relativeVelocity, materialA, materialB } = collision;
-                    if (separateSpeed >= 0)
-                        return;
-                    let { restitution, friction } = physics.Material.getContactMaterial(materialA, materialB);
-                    let normalVelocity = tesserxel.math.vec4Pool.pop().copy(normal).mulfs(separateSpeed);
-                    let tangentVelocity = tesserxel.math.vec4Pool.pop().subset(relativeVelocity, normalVelocity);
-                    let tangentSpeed = tangentVelocity.norm();
-                    // newVn = Vn * -restitution;
-                    // newVt = Vt * tangentFactor;
-                    // when slide: deltaVt === friction * deltaVn => solve tangentFactor
-                    // tangentFactor must > 0, otherwise it's still friction
-                    let tangentFactor = tangentSpeed > 0 ? Math.max(1 + friction * (1 + restitution) * separateSpeed / tangentSpeed, 0) : 0;
-                    let targetDeltaVelocityByImpulse = tangentVelocity.mulfs(tangentFactor - 1).addmulfs(normalVelocity, -restitution - 1);
-                    let pointInA, pointInB;
-                    let matA = tesserxel.math.mat4Pool.pop(), matB = tesserxel.math.mat4Pool.pop();
-                    if (a.mass > 0) {
-                        pointInA = tesserxel.math.vec4Pool.pop().subset(point, a.position).rotatesconj(a.rotation);
-                        calcImpulseResponseMat(matA, a, pointInA, pointInA);
-                    }
-                    else {
-                        matA.set();
-                    }
-                    if (b.mass > 0) {
-                        pointInB = tesserxel.math.vec4Pool.pop().subset(point, b.position).rotatesconj(b.rotation);
-                        calcImpulseResponseMat(matB, b, pointInB, pointInB);
-                    }
-                    else {
-                        matB.set();
-                    }
-                    // dv = dvb(Ib) - dva(Ia) == dvb(I) + dva(I) since I = -Ia = Ib
-                    let impulse = targetDeltaVelocityByImpulse.mulmatls(matA.adds(matB).invs());
-                    // if (impulse.norm1() === 0) continue;
-                    console.assert(isFinite(impulse.norm1()));
-                    console.assert(isFinite(normal.norm1()));
-                    tesserxel.math.mat4Pool.push(matA, matB);
-                    // decomposite impulse into normal and tangent to deal with friction
-                    let impulseNValue = Math.max(0, impulse.dot(normal));
-                    console.assert(isFinite(impulseNValue));
-                    let impulseN = tesserxel.math.vec4Pool.pop().copy(normal).mulfs(impulseNValue);
-                    let impulseT = tesserxel.math.vec4Pool.pop().subset(impulse, impulseN);
-                    let impulseTValue = impulseT.norm();
-                    console.assert(isFinite(impulseTValue));
-                    // let friction = Material.getContactFriction(materialA, materialB);
-                    // let maximalFriction = friction * impulseNValue;
-                    // if (impulseTValue > maximalFriction) {
-                    //     // correct tangent impulse for friction
-                    //     console.assert(isFinite(impulseT.norm1()));
-                    //     if (!isFinite(maximalFriction / impulseTValue)) {
-                    //         console.log("oma");
-                    //     }
-                    //     impulseT.mulfs(maximalFriction / impulseTValue);
-                    //     console.assert(isFinite(maximalFriction / impulseTValue));
-                    // }
-                    // console.assert(isFinite(impulseT.norm1()));
-                    // impulse.addset(impulseT, impulseN);
-                    // math.vec4Pool.push(impulseT, impulseN);
-                    // resolve velocity by applying final impulse
-                    if (b.mass > 0) {
-                        collision.dvB = tesserxel.math.vec4Pool.pop();
-                        collision.dwB = tesserxel.math.bivecPool.pop();
-                        applyImpulseAndGetDeltaVW(collision.dvB, collision.dwB, b, pointInB, impulse);
-                    }
-                    if (a.mass > 0) {
-                        collision.dvA = tesserxel.math.vec4Pool.pop();
-                        collision.dwA = tesserxel.math.bivecPool.pop();
-                        applyImpulseAndGetDeltaVW(collision.dvA, collision.dwA, a, pointInA, impulse.negs());
-                    }
-                    this.updateSeparateSpeeds(collision);
-                }
-            }
-            updateSeparateSpeeds(collision) {
-                for (let c of this.collisionList) {
-                    if (c === collision) {
-                        if (collision.a.mass > 0)
-                            this.updateSeparateSpeed(c, true, c.a, collision.dvA, collision.dwA);
-                        if (collision.b.mass > 0)
-                            this.updateSeparateSpeed(c, false, c.b, collision.dvB, collision.dwB);
-                        continue;
-                    }
-                    if (collision.a.mass > 0) {
-                        if (c.a === collision.a) {
-                            this.updateSeparateSpeed(c, true, c.a, collision.dvA, collision.dwA);
-                            continue;
-                        }
-                        if (c.b === collision.a) {
-                            this.updateSeparateSpeed(c, false, c.b, collision.dvA, collision.dwA);
-                            continue;
-                        }
-                    }
-                    if (collision.b.mass > 0) {
-                        if (c.a === collision.b) {
-                            this.updateSeparateSpeed(c, true, c.a, collision.dvB, collision.dwB);
-                            continue;
-                        }
-                        if (c.b === collision.b) {
-                            this.updateSeparateSpeed(c, false, c.b, collision.dvB, collision.dwB);
-                            continue;
-                        }
-                    }
-                }
-            }
             updateDepths(collision) {
                 for (let c of this.collisionList) {
-                    // if (c === collision) continue;
                     if (collision.a.mass > 0) {
                         if (c.a === collision.a) {
                             this.updateDepth(c, true, c.a, collision.dvA, collision.dwA);
-                            continue;
                         }
-                        if (c.b === collision.a) {
+                        else if (c.b === collision.a) {
                             this.updateDepth(c, false, c.b, collision.dvA, collision.dwA);
-                            continue;
                         }
                     }
-                    if (collision.b.mass > 0) {
+                    if (collision.b?.mass > 0) {
                         if (c.a === collision.b) {
                             this.updateDepth(c, true, c.a, collision.dvB, collision.dwB);
-                            continue;
                         }
-                        if (c.b === collision.b) {
+                        else if (c.b === collision.b) {
                             this.updateDepth(c, false, c.b, collision.dvB, collision.dwB);
-                            continue;
                         }
                     }
                 }
             }
             updateDepth(collision, rigidIsA, rigid, dv, dw) {
-                let a = tesserxel.math.vec4Pool.pop().subset(collision.point, rigid.position);
-                let dd = a.dotbsr(dw).adds(dv).dot(collision.normal);
-                a.pushPool();
-                console.assert(isFinite(a.norm1()), "Numeric error in Collision solver updateDepth");
-                collision.depth += rigidIsA ? dd : -dd;
-            }
-            updateSeparateSpeed(collision, rigidIsA, rigid, dv, dw) {
-                let delta = tesserxel.math.vec4Pool.pop().subset(collision.point, rigid.position).dotbsr(dw).adds(dv);
-                if (rigidIsA)
-                    delta.negs();
-                let dss = delta.dot(collision.normal);
-                console.assert(isFinite(delta.norm1()), "Numeric error in Collision solver updateDepth");
-                collision.relativeVelocity.adds(delta);
-                delta.pushPool();
-                collision.separateSpeed += dss;
+                if (collision.pointConstrain) {
+                    let a = collision.normal.copy(collision.pointConstrain.pointA).rotates(collision.a.rotation).adds(collision.a.position);
+                    if (collision.b) {
+                        let b = tesserxel.math.vec4Pool.pop().copy(collision.pointConstrain.pointB).rotates(collision.b.rotation).adds(collision.b.position);
+                        a.subs(b);
+                        b.pushPool();
+                    }
+                    else {
+                        a.subs(collision.pointConstrain.pointB);
+                    }
+                    collision.depth = a.norm();
+                    collision.normal.norms();
+                }
+                else {
+                    let a = tesserxel.math.vec4Pool.pop().subset(collision.point, rigid.position);
+                    let dd = a.dotbsr(dw).adds(dv).dot(collision.normal);
+                    console.assert(isFinite(a.norm1()), "Numeric error in Collision solver updateDepth");
+                    collision.depth += rigidIsA ? dd : -dd;
+                    a.pushPool();
+                }
             }
         }
         physics.IterativeImpulseSolver = IterativeImpulseSolver;
@@ -6378,7 +6815,7 @@ var tesserxel;
             damp = 0.02;
             mouseButton = 0;
             retinaEyeOffset = 0.1;
-            sectionEyeOffset = 0.1;
+            sectionEyeOffset = 0.2;
             sectionPresets;
             sliceConfig;
             currentSectionConfig = "retina+sections";
@@ -6969,13 +7406,15 @@ struct _SliceInfo{
         let stereoLR_offset = -stereoLR * eyeOffset.y;
         let se = sin(stereoLR_offset);
         let ce = cos(stereoLR_offset);
+        var pureRotationMvMat = mvmat;
+        pureRotationMvMat[3].z = 0.0;
         let eyeMat = mat4x4<f32>(
             ce,0,se,0,
             0,1,0,0,
             -se,0,ce,0,
-            0,0,0,1
+            0,0,mvmat[3].z,1
         );
-        let omat = mvmat * eyeMat * refacingMats[refacing & 7];
+        let omat = eyeMat * pureRotationMvMat * refacingMats[refacing & 7];
         camRay = omat * ray;
         glPosition = pmat * camRay;
         normal = omat[2];
@@ -7166,7 +7605,7 @@ struct fInputType{
                             },
                         ]
                     });
-                    this.setEyeOffset(0.1, 0.1);
+                    this.setEyeOffset(0.1, 0.2);
                     this.setOpacity(1);
                     this.set4DCameraProjectMatrix({ fov: 90, near: 0.01, far: 10 });
                     this.setRetinaProjectMatrix({
@@ -10233,6 +10672,18 @@ var tesserxel;
             }
         }
         four.GlomeGeometry = GlomeGeometry;
+        class SpheritorusGeometry extends Geometry {
+            constructor(sphereRadius = 0.4, circleRadius = 1) {
+                super(tesserxel.mesh.tetra.spheritorus(sphereRadius, 16, 12, circleRadius, 16));
+            }
+        }
+        four.SpheritorusGeometry = SpheritorusGeometry;
+        class TorisphereGeometry extends Geometry {
+            constructor(circleRadius = 0.2, sphereRadius = 0.8) {
+                super(tesserxel.mesh.tetra.torisphere(circleRadius, 12, sphereRadius, 16, 12));
+            }
+        }
+        four.TorisphereGeometry = TorisphereGeometry;
         class ConvexHullGeometry extends Geometry {
             constructor(points) {
                 super(tesserxel.mesh.tetra.convexhull(points));

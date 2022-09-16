@@ -13,10 +13,8 @@ namespace tesserxel {
         let _r = new math.Rotor;
         export class NarrowPhase {
             collisionList: Collision[] = [];
-            srand: math.Srand;
-            constructor() {
-                this.srand = new math.Srand(123);
-            }
+            /** max iteration for sdf methods in detectCollision */
+            maxIteration = 5;
             clearCollisionList() {
                 this.collisionList = [];
             }
@@ -32,16 +30,14 @@ namespace tesserxel {
                     if (b instanceof rigid.Glome) return this.detectGlomeGlome(a, b);
                     if (b instanceof rigid.Plane) return this.detectGlomePlane(a, b);
                     if (b instanceof rigid.Convex) return this.detectConvexGlome(b, a);
+                    if (b instanceof rigid.Spheritorus) return this.detectSpheritorusGlome(b, a);
+                    if (b instanceof rigid.Torisphere) return this.detectTorisphereGlome(b, a);
                 }
                 if (a instanceof rigid.Plane) {
                     if (b instanceof rigid.Glome) return this.detectGlomePlane(b, a);
-                    if (b instanceof rigid.Tesseractoid) {
-                        // todo: fast detection for tesseractoid return this.detectTesseractoidPlane(b,a);
-                    }
                     if (b instanceof rigid.Convex) return this.detectConvexPlane(b, a);
-                }
-                if (a instanceof rigid.Tesseractoid) {
-                    //todo
+                    if (b instanceof rigid.Spheritorus) return this.detectSpheritorusPlane(b, a);
+                    if (b instanceof rigid.Torisphere) return this.detectTorispherePlane(b, a);
                 }
                 if (a instanceof rigid.Convex) {
                     if (b instanceof rigid.Plane) return this.detectConvexPlane(a, b);
@@ -52,6 +48,18 @@ namespace tesserxel {
                             return this.detectConvexConvex(b, a);
                         return this.detectConvexConvex(a, b);
                     }
+                }
+                if (a instanceof rigid.Spheritorus) {
+                    if (b instanceof rigid.Spheritorus) return this.detectSpheritorusSpheritorus(a, b);
+                    if (b instanceof rigid.Torisphere) return this.detectTorisphereSpheritorus(b, a);
+                    if (b instanceof rigid.Plane) return this.detectSpheritorusPlane(a, b);
+                    if (b instanceof rigid.Glome) return this.detectSpheritorusGlome(a, b);
+                }
+                if (a instanceof rigid.Torisphere) {
+                    if (b instanceof rigid.Torisphere) return this.detectTorisphereTorisphere(a, b);
+                    if (b instanceof rigid.Spheritorus) return this.detectTorisphereSpheritorus(a, b);
+                    if (b instanceof rigid.Plane) return this.detectTorispherePlane(a, b);
+                    if (b instanceof rigid.Glome) return this.detectTorisphereGlome(a, b);
                 }
             }
             private detectGlomeGlome(a: rigid.Glome, b: rigid.Glome) {
@@ -72,10 +80,10 @@ namespace tesserxel {
             }
             private detectConvexPlane(a: rigid.Convex, b: rigid.Plane) {
                 // convert plane to convex's coord
-                let normal = _vec4.copy(b.normal).rotateconj(a.rigid.rotation);
-                var offset = a.rigid.position.dot(b.normal) - b.offset;
+                let normal = _vec4.copy(b.normal).rotatesconj(a.rigid.rotation);
+                let offset = a.rigid.position.dot(b.normal) - b.offset;
                 for (let v of a.points) {
-                    var depth = -(v.dot(normal) + offset);
+                    let depth = -(v.dot(normal) + offset);
                     if (depth < 0) continue;
                     let point = v.clone().rotates(a.rigid.rotation).adds(a.rigid.position).addmulfs(b.normal, depth / 2);
                     this.collisionList.push({ point, normal: b.normal.neg(), depth, a: a.rigid, b: b.rigid });
@@ -110,12 +118,10 @@ namespace tesserxel {
                 }
                 if (b._cachePoints) {
                     for (let p = 0, l = b.points.length; p < l; p++) {
-                        // b._cachePoints[p].srandset(this.srand).mulfs(1e-3).adds(b.points[p]).rotates(_r).adds(_vec4);
                         b._cachePoints[p].copy(b.points[p]).rotates(_r).adds(_vec4);
                     }
                 } else {
                     b._cachePoints = b.points.map(
-                        // p => math.vec4Pool.pop().srandset(this.srand).mulfs(1e-3).adds(p).rotates(_r).adds(_vec4)
                         p => math.vec4Pool.pop().copy(p).rotates(_r).adds(_vec4)
                     );
                 }
@@ -173,6 +179,262 @@ namespace tesserxel {
                         normal: result.normal.rotates(a.rigid.rotation),
                         depth, a: a.rigid, b: b.rigid
                     });
+                }
+            }
+            private detectSpheritorusPlane(a: rigid.Spheritorus, b: rigid.Plane) {
+                // convert plane to st's coord
+                let normal = _vec4.copy(b.normal).rotatesconj(a.rigid.rotation);
+                let offset = a.rigid.position.dot(b.normal) - b.offset;
+                let len = Math.hypot(normal.x, normal.w);
+                let depth = a.minorRadius - offset + len * a.majorRadius;
+                if (depth < 0) return;
+                // find support of circle along normal
+                if (normal.x === 0 && normal.w === 0) {
+                    // deal perpendicular case: reduce contact to bottom center point
+                    let point = a.rigid.position.clone().addmulfs(b.normal, (a.minorRadius + offset) * 0.5);
+                    this.collisionList.push({ point, normal: b.normal.neg(), depth, a: a.rigid, b: b.rigid });
+                } else {
+                    // point on circle
+                    let point = new math.Vec4(normal.x, 0, 0, normal.w).mulfs(-a.majorRadius / len);
+                    // then to world coord and add normal
+                    point.rotates(a.rigid.rotation).adds(a.rigid.position).addmulfs(b.normal, depth * 0.5 - a.minorRadius);
+                    this.collisionList.push({ point, normal: b.normal.neg(), depth, a: a.rigid, b: b.rigid });
+                }
+            }
+            private detectSpheritorusGlome(a: rigid.Spheritorus, b: rigid.Glome) {
+                // convert glome to st's coord
+                let p = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let xw = p.x * p.x + p.w * p.w;
+                let yz = p.y * p.y + p.z * p.z;
+                let sqrtxw = Math.sqrt(xw);
+                let distance = Math.sqrt(a.majorRadius * a.majorRadius + xw + yz - 2 * sqrtxw * a.majorRadius);
+                let depth = a.minorRadius + b.radius - distance;
+                if (depth < 0) return;
+                // find support of circle along normal
+                if (xw === 0) {
+                    // deal perpendicular case: reduce contact to center point
+                    let k = 1.0 - (b.radius - depth * 0.5) / distance;
+                    let point = new math.Vec4(0, k * p.y, k * p.z).rotates(a.rigid.rotation);
+                    let normal = point.clone().norms();
+                    point.adds(a.rigid.position);
+                    this.collisionList.push({ point, normal, depth: depth / Math.sqrt(yz) * distance, a: a.rigid, b: b.rigid });
+                } else {
+                    let k = a.majorRadius / sqrtxw;
+                    let point = new math.Vec4(p.x * k, 0, 0, p.w * k).rotates(a.rigid.rotation);
+                    let normal = point.adds(a.rigid.position).sub(b.rigid.position).norms().negs();
+                    point.addmulfs(normal, a.minorRadius - depth * 0.5);
+                    this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
+                }
+            }
+
+            private detectSpheritorusSpheritorus(a: rigid.Spheritorus, b: rigid.Spheritorus) {
+                // position and rotation are b in a's frame 
+                let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+                let tempa = b.majorRadius * 0.5;
+                let tempb = b.majorRadius * math._COS30;
+                // choose 3 initial points (120 degree) on b for iteration
+                let initialPB = [
+                    math.vec4Pool.pop().set(tempa, 0, 0, tempb),
+                    math.vec4Pool.pop().set(tempa, 0, 0, -tempb),
+                    math.vec4Pool.pop().set(-b.majorRadius)
+                ];
+                let newP = math.vec4Pool.pop();
+                let prevPInA = math.vec4Pool.pop();
+                let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+                for (let p of initialPB) {
+                    // newP and p are in b
+                    newP.copy(p);
+                    let needContinue = false;
+                    for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                        // from b to a
+                        newP.rotates(rotation).adds(position);
+                        let k = a.majorRadius / Math.hypot(newP.x, newP.w);
+                        if (!isFinite(k)) { needContinue = true; break; }
+                        // project to a
+                        newP.set(newP.x * k, 0, 0, newP.w * k);
+                        prevPInA.copy(newP);
+                        // from a to b
+                        newP.subs(position).rotatesconj(rotation);
+                        k = b.majorRadius / Math.hypot(newP.x, newP.w);
+                        if (!isFinite(k)) { needContinue = true; break; }
+                        // project to b
+                        newP.set(newP.x * k, 0, 0, newP.w * k);
+                        // test if iteration still moves
+                        let dx = Math.abs(newP.x - p.x);
+                        let dw = Math.abs(newP.w - p.w);
+                        p.copy(newP);
+                        if (dx + dw < epsilon) { break; }
+                    }
+                    if (needContinue) continue;
+                    // else there might be collision
+                    // transform newP to a, then compare newP and prevPInA
+                    newP.rotates(rotation).adds(position);
+                    let normal = newP.sub(prevPInA);
+                    let depth = a.minorRadius + b.minorRadius - normal.norm();
+                    if (depth < 0) continue;
+                    // console.log(converge);
+                    normal.rotates(a.rigid.rotation).norms();
+                    let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+                    point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+                    this.collisionList.push({
+                        normal, point, depth, a: a.rigid, b: b.rigid
+                    })
+                }
+                math.vec4Pool.push(...initialPB);
+            }
+
+            private detectTorispherePlane(a: rigid.Torisphere, b: rigid.Plane) {
+                // convert plane to ts's coord
+                let normal = _vec4.copy(b.normal).rotatesconj(a.rigid.rotation);
+                let offset = a.rigid.position.dot(b.normal) - b.offset;
+                let len = Math.hypot(normal.x, normal.z, normal.w);
+                let depth = a.minorRadius - offset + len * a.majorRadius;
+                if (depth < 0) return;
+                // find support of circle along normal
+                if (normal.x === 0 && normal.w === 0 && normal.z === 0) {
+                    // deal perpendicular case: reduce contact to bottom center point
+                    let point = a.rigid.position.clone().addmulfs(b.normal, (a.minorRadius + offset) * 0.5);
+                    this.collisionList.push({ point, normal: b.normal.neg(), depth, a: a.rigid, b: b.rigid });
+                } else {
+                    // point on sphere
+                    let point = new math.Vec4(normal.x, 0, normal.z, normal.w).mulfs(-a.majorRadius / len);
+                    // then to world coord and add normal
+                    point.rotates(a.rigid.rotation).adds(a.rigid.position).addmulfs(b.normal, depth * 0.5 - a.minorRadius);
+                    this.collisionList.push({ point, normal: b.normal.neg(), depth, a: a.rigid, b: b.rigid });
+                }
+            }
+            private detectTorisphereGlome(a: rigid.Torisphere, b: rigid.Glome) {
+                // convert glome to st's coord
+                let p = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let xzw = p.x * p.x + p.z * p.z + p.w * p.w;
+                let y = p.y * p.y;
+                let sqrtxzw = Math.sqrt(xzw);
+                let distance = Math.sqrt(a.majorRadius * a.majorRadius + xzw + y - 2 * sqrtxzw * a.majorRadius);
+                let depth = a.minorRadius + b.radius - distance;
+                if (depth < 0) return;
+                // find support of circle along normal
+                if (xzw === 0) {
+                    // deal perpendicular case: reduce contact to center point
+                    let k = 1.0 - (b.radius - depth * 0.5) / distance;
+                    let point = new math.Vec4(0, k * p.y).rotates(a.rigid.rotation);
+                    let normal = point.clone().norms();
+                    point.adds(a.rigid.position);
+                    this.collisionList.push({ point, normal, depth: depth / Math.abs(p.y) * distance, a: a.rigid, b: b.rigid });
+                } else {
+                    let k = a.majorRadius / sqrtxzw;
+                    let point = new math.Vec4(p.x * k, 0, p.z * k, p.w * k).rotates(a.rigid.rotation);
+                    let normal = point.adds(a.rigid.position).sub(b.rigid.position).norms().negs();
+                    point.addmulfs(normal, a.minorRadius - depth * 0.5);
+                    this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
+                }
+            }
+
+            private detectTorisphereTorisphere(a: rigid.Torisphere, b: rigid.Torisphere) {
+                // position and rotation are b in a's frame 
+                let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+                let temp = b.majorRadius * math._TAN30;
+                // choose 4 initial points (regular tetrahedron) on b for iteration
+                let initialPB = [
+                    math.vec4Pool.pop().set(temp, 0, temp, temp),
+                    math.vec4Pool.pop().set(-temp, 0, -temp, temp),
+                    math.vec4Pool.pop().set(-temp, 0, temp, -temp),
+                    math.vec4Pool.pop().set(temp, 0, -temp, -temp),
+                ];
+                let newP = math.vec4Pool.pop();
+                let prevPInA = math.vec4Pool.pop();
+                let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+                for (let p of initialPB) {
+                    // newP and p are in b
+                    newP.copy(p);
+                    for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                        // from b to a
+                        newP.rotates(rotation).adds(position);
+                        let k = a.majorRadius / Math.hypot(newP.x, newP.z, newP.w);
+                        if (!isFinite(k)) break;
+                        // project to a
+                        newP.set(newP.x * k, 0, newP.z * k, newP.w * k);
+                        prevPInA.copy(newP);
+                        // from a to b
+                        newP.subs(position).rotatesconj(rotation);
+                        k = b.majorRadius / Math.hypot(newP.x, newP.z, newP.w);
+                        if (!isFinite(k)) break;
+                        // project to b
+                        newP.set(newP.x * k, 0, newP.z * k, newP.w * k);
+                        // test if iteration still moves
+                        let dx = Math.abs(newP.x - p.x);
+                        let dz = Math.abs(newP.z - p.z);
+                        let dw = Math.abs(newP.w - p.w);
+                        p.copy(newP);
+                        if (dx + dz + dw < epsilon) break;
+                    }
+                    // console.log(converge);
+                    // else there might be collision
+                    // transform newP to a, then compare newP and prevPInA
+                    newP.rotates(rotation).adds(position);
+                    let normal = newP.sub(prevPInA);
+                    let depth = a.minorRadius + b.minorRadius - normal.norm();
+                    if (depth < 0) continue;
+                    normal.rotates(a.rigid.rotation).norms();
+                    let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+                    point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+                    this.collisionList.push({
+                        normal, point, depth, a: a.rigid, b: b.rigid
+                    })
+                }
+            }
+
+            private detectTorisphereSpheritorus(a: rigid.Torisphere, b: rigid.Spheritorus) {
+                // position and rotation are b in a's frame 
+                let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+                let tempa = b.majorRadius * 0.5;
+                let tempb = b.majorRadius * math._COS30;
+                // choose 3 initial points (120 degree) on b for iteration
+                let initialPB = [
+                    math.vec4Pool.pop().set(tempa, 0, 0, tempb),
+                    math.vec4Pool.pop().set(tempa, 0, 0, -tempb),
+                    math.vec4Pool.pop().set(-b.majorRadius)
+                ];
+                let newP = math.vec4Pool.pop();
+                let prevPInA = math.vec4Pool.pop();
+                let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+                for (let p of initialPB) {
+                    // newP and p are in b
+                    newP.copy(p);
+                    for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                        // from b to a
+                        newP.rotates(rotation).adds(position);
+                        let k = a.majorRadius / Math.hypot(newP.x, newP.z, newP.w);
+                        if (!isFinite(k)) break;
+                        // project to a
+                        newP.set(newP.x * k, 0, newP.z * k, newP.w * k);
+                        prevPInA.copy(newP);
+                        // from a to b
+                        newP.subs(position).rotatesconj(rotation);
+                        k = b.majorRadius / Math.hypot(newP.x, newP.w);
+                        if (!isFinite(k)) break;
+                        // project to b
+                        newP.set(newP.x * k, 0, 0, newP.w * k);
+                        // test if iteration still moves
+                        let dx = Math.abs(newP.x - p.x);
+                        let dw = Math.abs(newP.w - p.w);
+                        p.copy(newP);
+                        if (dx + dw < epsilon) break;
+                    }
+                    // else there might be collision
+                    // transform newP to a, then compare newP and prevPInA
+                    newP.rotates(rotation).adds(position);
+                    let normal = newP.sub(prevPInA);
+                    let depth = a.minorRadius + b.minorRadius - normal.norm();
+                    if (depth < 0) continue;
+                    normal.rotates(a.rigid.rotation).norms();
+                    let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+                    point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+                    this.collisionList.push({
+                        normal, point, depth, a: a.rigid, b: b.rigid
+                    })
                 }
             }
         }

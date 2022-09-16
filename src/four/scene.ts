@@ -8,9 +8,9 @@ namespace tesserxel {
             }
             removeChild(obj: Object) {
                 let index = this.child.indexOf(obj);
-                if(index!==-1){
-                    this.child.splice(index,1);
-                }else{
+                if (index !== -1) {
+                    this.child.splice(index, 1);
+                } else {
                     console.warn("Cannot remove a non-existed child");
                 }
             }
@@ -27,7 +27,7 @@ namespace tesserxel {
                 super();
                 this.worldCoord = new math.AffineMat4();
             }
-            updateCoord(){
+            updateCoord() {
                 this.needsUpdateCoord = true;
                 return this;
             }
@@ -36,9 +36,9 @@ namespace tesserxel {
             }
             removeChild(obj: Object) {
                 let index = this.child.indexOf(obj);
-                if(index!==-1){
-                    this.child.splice(index,1);
-                }else{
+                if (index !== -1) {
+                    this.child.splice(index, 1);
+                } else {
                     console.warn("Cannot remove a non-existed child");
                 }
             }
@@ -71,20 +71,20 @@ namespace tesserxel {
             constructor(data: mesh.TetraMesh) {
                 this.jsBuffer = data;
             }
-            updateOBB(){
+            updateOBB() {
                 let obb = this.obb;
-                let pos= this.jsBuffer.position;
-                obb.min.set(Infinity,Infinity,Infinity,Infinity);
-                obb.max.set(-Infinity,-Infinity,-Infinity,-Infinity);
-                for (let i=0,l=this.jsBuffer.tetraCount<<4;i<l;i+=4) {
+                let pos = this.jsBuffer.position;
+                obb.min.set(Infinity, Infinity, Infinity, Infinity);
+                obb.max.set(-Infinity, -Infinity, -Infinity, -Infinity);
+                for (let i = 0, l = this.jsBuffer.tetraCount << 4; i < l; i += 4) {
                     obb.min.x = Math.min(obb.min.x, pos[i]);
-                    obb.min.y = Math.min(obb.min.y, pos[i+1]);
-                    obb.min.z = Math.min(obb.min.z, pos[i+2]);
-                    obb.min.w = Math.min(obb.min.w, pos[i+3]);
+                    obb.min.y = Math.min(obb.min.y, pos[i + 1]);
+                    obb.min.z = Math.min(obb.min.z, pos[i + 2]);
+                    obb.min.w = Math.min(obb.min.w, pos[i + 3]);
                     obb.max.x = Math.max(obb.max.x, pos[i]);
-                    obb.max.y = Math.max(obb.max.y, pos[i+1]);
-                    obb.max.z = Math.max(obb.max.z, pos[i+2]);
-                    obb.max.w = Math.max(obb.max.w, pos[i+3]);
+                    obb.max.y = Math.max(obb.max.y, pos[i + 1]);
+                    obb.max.z = Math.max(obb.max.z, pos[i + 2]);
+                    obb.max.w = Math.max(obb.max.w, pos[i + 3]);
                 }
             }
         }
@@ -105,8 +105,18 @@ namespace tesserxel {
             }
         }
         export class GlomeGeometry extends Geometry {
-            constructor(size?:number) {
-                super(mesh.tetra.glome(size??1,16,16,12));
+            constructor(size?: number) {
+                super(mesh.tetra.glome(size ?? 1, 16, 16, 12));
+            }
+        }
+        export class SpheritorusGeometry extends Geometry {
+            constructor(sphereRadius: number = 0.4, circleRadius: number = 1) {
+                super(mesh.tetra.spheritorus(sphereRadius, 16, 12, circleRadius, 16));
+            }
+        }
+        export class TorisphereGeometry extends Geometry {
+            constructor(circleRadius: number = 0.2, sphereRadius: number = 0.8) {
+                super(mesh.tetra.torisphere(circleRadius, 12, sphereRadius, 16, 12, ));
             }
         }
         export class ConvexHullGeometry extends Geometry {

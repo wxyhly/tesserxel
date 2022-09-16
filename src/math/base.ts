@@ -8,10 +8,14 @@ namespace tesserxel {
         export const _360 = Math.PI * 2;
         export const _DEG2RAD = Math.PI / 180;
         export const _RAD2DEG = 180 / Math.PI;
+        export const _COS30 = Math.sqrt(3) / 2;
+        export const _TAN30 = Math.sqrt(3) / 3;
+        export const _GOLDRATIO = (Math.sqrt(5) - 1) / 2;
+
         export class Srand {
             _seed: number;
             constructor(seed: number) {
-                if(Math.floor(seed)!==seed){
+                if (Math.floor(seed) !== seed) {
                     seed = Math.floor(0x6D2B79F5 * seed);
                 }
                 this._seed = seed;

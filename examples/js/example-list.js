@@ -1,5 +1,7 @@
 let examples = [
     { target: "tesseract", zh: "超立方体", en: "Tesseract (Hypercube)" },
+    { target: "spheritorus", zh: "球环", en: "Spheritorus" },
+    { target: "torisphere", zh: "环球", en: "Torisphere" },
     { target: "tiger", zh: "双圆环", en: "Tiger (Duotorus)" },
     { target: "glome", zh: "超球", en: "Glome (Hyphersphere)" },
     { target: "menger_sponge1", zh: "门格海绵1", en: "Menger Sponge 1" },
@@ -12,7 +14,9 @@ let examples = [
     { target: "four_basic_scene", zh: "创建简单Four场景", en: "Basic Four Scene Creation" },
     { target: "four_materials", zh: "Four材质与灯光", en: "Four Materials & Lights" },
     { target: "spring_rope", zh: "弹簧绳", en: "Rope with Springs" },
-    { target: "rigid_test", zh: "刚体测试", en: "Rigid body test" },
+    { target: "rigid_test", zh: "刚体测试", en: "Rigid Body Test" },
+    { target: "st_ts_chain", zh: "环球球环链", en: "ST-TS Chain" },
+    { target: "st_pile", zh: "球环堆", en: "Spheritorus Pile" },
 ];
 // todo: magicCube4D
 let info = {    

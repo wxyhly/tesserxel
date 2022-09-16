@@ -4,7 +4,7 @@ namespace tesserxel {
             new(): Solver;
         };
         export abstract class Solver {
-            abstract run(collisionList: Collision[]): void;
+            abstract run(collisionList: Collision[], constrainList: Constrain[]): void;
         }
         export interface PreparedCollision extends Collision {
             separateSpeed: number;
@@ -15,57 +15,164 @@ namespace tesserxel {
             dvB?: math.Vec4;
             dwA?: math.Bivec;
             dwB?: math.Bivec;
+            pointConstrain?: PointConstrain;
         }
         export class IterativeImpulseSolver extends Solver {
             maxPositionIterations: number = 32;
             maxVelocityIterations: number = 32;
-            maxResolveRotationAngle = 0 * math._DEG2RAD;
-            PositionRelaxationFactor = 0.9;
+            maxResolveRotationAngle = 45 * math._DEG2RAD;
+            separateSpeedEpsilon = 0.01;
+            PositionRelaxationFactor = 0.5;
             collisionList: PreparedCollision[];
-            run(collisionList: Collision[]) {
-                if (!collisionList.length) return;
-
-                for (let c of collisionList) {
-                    if (!c.a.rotation.isFinite() ||
-                        !c.b.rotation.isFinite()) {
-                        console.error("An error occured to rigid body");
-                    }
-                }
-                this.prepare(collisionList);
-                this.resolvePosition();
-                for (let c of collisionList) {
-                    if (!c.a.rotation.isFinite() ||
-                        !c.b.rotation.isFinite()) {
-                        console.error("An error occured to rigid body");
-                    }
-                }
+            private _vec41 = new math.Vec4;
+            private _vec42 = new math.Vec4;
+            private pointConstrainMaterial = new Material(Infinity, 0);
+            run(collisionList: Collision[], constrainList: Constrain[]) {
+                if (!collisionList.length && !constrainList.length) return;
+                this.prepare(collisionList, constrainList);
                 this.resolveVelocity();
-
-                for (let c of collisionList) {
-                    if (!c.a.rotation.isFinite() ||
-                        !c.b.rotation.isFinite()) {
-                        console.error("An error occured to rigid body");
-                    }
-                }
+                this.resolvePosition();
             }
-            prepare(collisionList: Collision[]) {
+            prepare(collisionList: Collision[], constrainList: Constrain[]) {
                 this.collisionList = collisionList.map(e => {
                     let { point, a, b, normal } = e;
                     let collision = e as PreparedCollision;
                     collision.materialA = a.material;
-                    collision.materialB = b.material;
+                    collision.materialB = b?.material;
                     // after got material, we solve union regardless of it's collision parts
                     if ((a as SubRigid).parent) collision.a = (a as SubRigid).parent;
                     if ((b as SubRigid).parent) collision.b = (b as SubRigid).parent;
-                    let temp = math.vec4Pool.pop();
                     collision.relativeVelocity = collision.b.getlinearVelocity(math.vec4Pool.pop(), point).subs(
-                        collision.a.getlinearVelocity(temp, point)
+                        collision.a.getlinearVelocity(this._vec41, point)
                     );
-                    temp.pushPool();
                     collision.separateSpeed = collision.relativeVelocity.dot(normal);
                     return collision;
-                })
+                });
+                for (let c of constrainList) {
+                    if (c instanceof PointConstrain) {
+                        let { a, b, pointA, pointB } = c;
+                        this._vec41.copy(pointA).rotates(a.rotation);
+                        let relativeVelocity = math.vec4Pool.pop().dotbset(
+                            this._vec41, a.angularVelocity
+                        ).adds(a.velocity);
+                        let normal: math.Vec4;
+                        let point: math.Vec4;
+                        if (b) {
+                            this._vec42.copy(pointB).rotates(b.rotation);
+                            relativeVelocity.subs(this._vec42.dotbset(
+                                this._vec42, b.angularVelocity
+                            ).adds(b.velocity));
+                            normal = this._vec41.adds(a.position).sub(this._vec42.adds(b.position));
+                            point = this._vec41.add(this._vec42).mulfs(0.5);
+                        } else {
+                            normal = this._vec41.adds(a.position).sub(pointB);
+                            point = this._vec41.adds(pointB).mulfs(0.5);
+                        }
+                        let depth = normal.norm(); normal.divfs(depth);
+                        relativeVelocity.negs();
+                        this.collisionList.push({
+                            a, b, normal, depth,
+                            materialA: this.pointConstrainMaterial,
+                            materialB: this.pointConstrainMaterial,
+                            relativeVelocity,
+                            separateSpeed: -relativeVelocity.norm(),
+                            point,
+                            pointConstrain: c
+                        });
+                    }
+                }
             }
+
+            resolveVelocity() {
+                // iteratively solve lowest separateSpeed
+                for (let i = 0; i < this.maxVelocityIterations; i++) {
+                    let collision = this.collisionList.sort((a, b) => (
+                        (a.pointConstrain ? (-Math.abs(a.separateSpeed)) : a.separateSpeed)
+                        - (b.pointConstrain ? (-Math.abs(b.separateSpeed)) : b.separateSpeed)
+                    ))[0];
+                    let { point, a, b, separateSpeed, normal, relativeVelocity, materialA, materialB } = collision;
+                    if (!collision.pointConstrain) {
+                        if (separateSpeed >= 0) return;
+                    } else if (Math.abs(separateSpeed) < this.separateSpeedEpsilon) { return; }
+                    let { restitution, friction } = Material.getContactMaterial(materialA, materialB);
+                    if (separateSpeed > -this.separateSpeedEpsilon) restitution = 0;
+                    let normalVelocity = math.vec4Pool.pop().copy(normal).mulfs(separateSpeed);
+                    let tangentVelocity = math.vec4Pool.pop().subset(relativeVelocity, normalVelocity);
+                    let tangentSpeed = tangentVelocity.norm();
+                    // newVn = Vn * -restitution;
+                    // newVt = Vt * tangentFactor;
+                    // when slide: deltaVt === friction * deltaVn => solve tangentFactor
+                    // tangentFactor must > 0, otherwise it's still friction
+                    let tangentFactor = tangentSpeed > 0 ? Math.max(
+                        1 + friction * (1 + restitution) * separateSpeed / tangentSpeed, 0
+                    ) : 0;
+                    let targetDeltaVelocityByImpulse = tangentVelocity.mulfs(tangentFactor - 1).addmulfs(normalVelocity, -restitution - 1);
+                    let pointInA: math.Vec4, pointInB: math.Vec4;
+                    let matA = math.mat4Pool.pop(), matB = math.mat4Pool.pop()
+                    if (a.mass > 0) {
+                        pointInA = math.vec4Pool.pop().subset(point, a.position).rotatesconj(a.rotation);
+                        calcImpulseResponseMat(matA, a, pointInA, pointInA);
+                    } else { matA.set(); }
+                    if (b?.mass > 0) {
+                        pointInB = math.vec4Pool.pop().subset(point, b.position).rotatesconj(b.rotation);
+                        calcImpulseResponseMat(matB, b, pointInB, pointInB);
+                    } else { matB.set(); }
+                    // dv = dvb(Ib) - dva(Ia) == dvb(I) + dva(I) since I = -Ia = Ib
+                    let impulse = targetDeltaVelocityByImpulse.mulmatls(matA.adds(matB).invs());
+                    if (impulse.norm() > 1.0) {
+                        console.log("hq");
+                    }
+                    // if (impulse.norm1() === 0) continue;
+                    console.assert(isFinite(impulse.norm1()));
+                    console.assert(isFinite(normal.norm1()));
+                    math.mat4Pool.push(matA, matB);
+                    // resolve velocity by applying final impulse
+                    if (b?.mass > 0) {
+                        collision.dvB = math.vec4Pool.pop();
+                        collision.dwB = math.bivecPool.pop();
+                        applyImpulseAndGetDeltaVW(collision.dvB, collision.dwB, b, pointInB, impulse);
+                    }
+                    if (a.mass > 0) {
+                        collision.dvA = math.vec4Pool.pop();
+                        collision.dwA = math.bivecPool.pop();
+                        applyImpulseAndGetDeltaVW(collision.dvA, collision.dwA, a, pointInA, impulse.negs());
+                    }
+                    this.updateSeparateSpeeds(collision);
+                }
+            }
+            updateSeparateSpeeds(collision: PreparedCollision) {
+                for (let c of this.collisionList) {
+                    if (collision.a.mass > 0) {
+                        if (c.a === collision.a) {
+                            this.updateSeparateSpeed(c, true, c.a, collision.dvA, collision.dwA);
+                        } else if (c.b === collision.a) {
+                            this.updateSeparateSpeed(c, false, c.b, collision.dvA, collision.dwA);
+                        }
+                    }
+                    if (collision.b?.mass > 0) {
+                        if (c.a === collision.b) {
+                            this.updateSeparateSpeed(c, true, c.a, collision.dvB, collision.dwB);
+                        } else if (c.b === collision.b) {
+                            this.updateSeparateSpeed(c, false, c.b, collision.dvB, collision.dwB);
+                        }
+                    }
+                }
+            }
+            updateSeparateSpeed(collision: PreparedCollision, rigidIsA: boolean, rigid: Rigid, dv: math.Vec4, dw: math.Bivec) {
+                let delta = math.vec4Pool.pop().subset(collision.point, rigid.position).dotbsr(dw).adds(dv);
+                if (rigidIsA) delta.negs();
+
+                console.assert(isFinite(delta.norm1()), "Numeric error in Collision solver updateDepth");
+                collision.relativeVelocity.adds(delta);
+                if (collision.pointConstrain) {
+                    collision.separateSpeed = -collision.relativeVelocity.norm();
+                }
+                else {
+                    let dss = delta.dot(collision.normal); delta.pushPool();
+                    collision.separateSpeed += dss;
+                }
+            }
+
             resolvePosition() {
                 // iteratively solve the deepest
                 for (let i = 0; i < this.maxPositionIterations; i++) {
@@ -88,7 +195,7 @@ namespace tesserxel {
                         invInertiaA = -pA.dotbset(pA, collision.dwA).dot(normal);
                         pA.pushPool();
                     }
-                    if (b.mass > 0) {
+                    if (b?.mass > 0) {
                         let pB = math.vec4Pool.pop().subset(point, b.position);
                         let torqueB = math.bivecPool.pop().wedgevvset(pB, normal);
                         if (b.inertiaIsotroy) {
@@ -100,7 +207,9 @@ namespace tesserxel {
                         invInertiaB = pB.dotbset(pB, collision.dwB).dot(normal);
                         pB.pushPool();
                     }
-                    let depthDivTotalInvs = depth * this.PositionRelaxationFactor / (a.invMass + b.invMass + invInertiaA + invInertiaB);
+                    console.assert(invInertiaA >= 0);
+                    console.assert(invInertiaB >= 0);
+                    let depthDivTotalInvs = depth * this.PositionRelaxationFactor / (a.invMass + (b?.invMass ?? 0) + invInertiaA + invInertiaB);
                     if (!isFinite(depthDivTotalInvs)) {
                         console.error("A numeric error occured in Rigid collision solver: depthDivTotalInvs in resolvePosition");
                     }
@@ -123,7 +232,7 @@ namespace tesserxel {
                             console.error("A numeric error occured in Rigid collision solver: dvA,dwA in resolvePosition");
                         }
                     }
-                    if (b.mass > 0) {
+                    if (b?.mass > 0) {
                         collision.dwB.mulfs(depthDivTotalInvs);
                         // clamp rotation
                         let angle = collision.dwB.norm();
@@ -145,147 +254,42 @@ namespace tesserxel {
                     this.updateDepths(collision);
                 }
             }
-            resolveVelocity() {
-                // iteratively solve lowest separateSpeed
-                for (let i = 0; i < this.maxVelocityIterations; i++) {
-                    let collision = this.collisionList.sort((a, b) => a.separateSpeed - b.separateSpeed)[0];
-                    let { point, a, b, separateSpeed, normal, relativeVelocity, materialA, materialB } = collision;
-                    if (separateSpeed >= 0) return;
-                    let { restitution, friction } = Material.getContactMaterial(materialA, materialB);
-
-                    let normalVelocity = math.vec4Pool.pop().copy(normal).mulfs(separateSpeed);
-                    let tangentVelocity = math.vec4Pool.pop().subset(relativeVelocity, normalVelocity);
-                    let tangentSpeed = tangentVelocity.norm();
-                    // newVn = Vn * -restitution;
-                    // newVt = Vt * tangentFactor;
-                    // when slide: deltaVt === friction * deltaVn => solve tangentFactor
-                    // tangentFactor must > 0, otherwise it's still friction
-                    let tangentFactor = tangentSpeed > 0 ? Math.max(
-                        1 + friction * (1 + restitution) * separateSpeed / tangentSpeed, 0
-                    ) : 0;
-                    let targetDeltaVelocityByImpulse = tangentVelocity.mulfs(tangentFactor - 1).addmulfs(normalVelocity, -restitution - 1);
-                    let pointInA: math.Vec4, pointInB: math.Vec4;
-                    let matA = math.mat4Pool.pop(), matB = math.mat4Pool.pop()
-                    if (a.mass > 0) {
-                        pointInA = math.vec4Pool.pop().subset(point, a.position).rotatesconj(a.rotation);
-                        calcImpulseResponseMat(matA, a, pointInA, pointInA);
-                    } else { matA.set(); }
-                    if (b.mass > 0) {
-                        pointInB = math.vec4Pool.pop().subset(point, b.position).rotatesconj(b.rotation);
-                        calcImpulseResponseMat(matB, b, pointInB, pointInB);
-                    } else { matB.set(); }
-                    // dv = dvb(Ib) - dva(Ia) == dvb(I) + dva(I) since I = -Ia = Ib
-                    let impulse = targetDeltaVelocityByImpulse.mulmatls(matA.adds(matB).invs());
-                    // if (impulse.norm1() === 0) continue;
-                    console.assert(isFinite(impulse.norm1()));
-                    console.assert(isFinite(normal.norm1()));
-                    math.mat4Pool.push(matA, matB);
-                    // decomposite impulse into normal and tangent to deal with friction
-                    let impulseNValue = Math.max(0, impulse.dot(normal));
-                    console.assert(isFinite(impulseNValue));
-                    let impulseN = math.vec4Pool.pop().copy(normal).mulfs(impulseNValue);
-                    let impulseT = math.vec4Pool.pop().subset(impulse, impulseN);
-                    let impulseTValue = impulseT.norm();
-                    console.assert(isFinite(impulseTValue));
-
-                    // let friction = Material.getContactFriction(materialA, materialB);
-                    // let maximalFriction = friction * impulseNValue;
-                    // if (impulseTValue > maximalFriction) {
-                    //     // correct tangent impulse for friction
-
-                    //     console.assert(isFinite(impulseT.norm1()));
-                    //     if (!isFinite(maximalFriction / impulseTValue)) {
-                    //         console.log("oma");
-                    //     }
-                    //     impulseT.mulfs(maximalFriction / impulseTValue);
-                    //     console.assert(isFinite(maximalFriction / impulseTValue));
-                    // }
-                    // console.assert(isFinite(impulseT.norm1()));
-                    // impulse.addset(impulseT, impulseN);
-                    // math.vec4Pool.push(impulseT, impulseN);
-                    // resolve velocity by applying final impulse
-                    if (b.mass > 0) {
-                        collision.dvB = math.vec4Pool.pop();
-                        collision.dwB = math.bivecPool.pop();
-                        applyImpulseAndGetDeltaVW(collision.dvB, collision.dwB, b, pointInB, impulse);
-                    }
-                    if (a.mass > 0) {
-                        collision.dvA = math.vec4Pool.pop();
-                        collision.dwA = math.bivecPool.pop();
-                        applyImpulseAndGetDeltaVW(collision.dvA, collision.dwA, a, pointInA, impulse.negs());
-                    }
-                    this.updateSeparateSpeeds(collision);
-                }
-            }
-            updateSeparateSpeeds(collision: PreparedCollision) {
-                for (let c of this.collisionList) {
-                    if (c === collision) {
-                        if (collision.a.mass > 0) this.updateSeparateSpeed(c, true, c.a, collision.dvA, collision.dwA);
-                        if (collision.b.mass > 0) this.updateSeparateSpeed(c, false, c.b, collision.dvB, collision.dwB);
-                        continue;
-                    }
-                    if (collision.a.mass > 0) {
-                        if (c.a === collision.a) {
-                            this.updateSeparateSpeed(c, true, c.a, collision.dvA, collision.dwA);
-                            continue;
-                        }
-                        if (c.b === collision.a) {
-                            this.updateSeparateSpeed(c, false, c.b, collision.dvA, collision.dwA);
-                            continue;
-                        }
-                    }
-                    if (collision.b.mass > 0) {
-                        if (c.a === collision.b) {
-                            this.updateSeparateSpeed(c, true, c.a, collision.dvB, collision.dwB);
-                            continue;
-                        }
-                        if (c.b === collision.b) {
-                            this.updateSeparateSpeed(c, false, c.b, collision.dvB, collision.dwB);
-                            continue;
-                        }
-                    }
-                }
-            }
-
             updateDepths(collision: PreparedCollision) {
                 for (let c of this.collisionList) {
-                    // if (c === collision) continue;
                     if (collision.a.mass > 0) {
                         if (c.a === collision.a) {
                             this.updateDepth(c, true, c.a, collision.dvA, collision.dwA);
-                            continue;
-                        }
-                        if (c.b === collision.a) {
+                        } else if (c.b === collision.a) {
                             this.updateDepth(c, false, c.b, collision.dvA, collision.dwA);
-                            continue;
                         }
                     }
-                    if (collision.b.mass > 0) {
+                    if (collision.b?.mass > 0) {
                         if (c.a === collision.b) {
                             this.updateDepth(c, true, c.a, collision.dvB, collision.dwB);
-                            continue;
-                        }
-                        if (c.b === collision.b) {
+                        } else if (c.b === collision.b) {
                             this.updateDepth(c, false, c.b, collision.dvB, collision.dwB);
-                            continue;
                         }
                     }
                 }
             }
             updateDepth(collision: PreparedCollision, rigidIsA: boolean, rigid: Rigid, dv: math.Vec4, dw: math.Bivec) {
-                let a = math.vec4Pool.pop().subset(collision.point, rigid.position);
-                let dd = a.dotbsr(dw).adds(dv).dot(collision.normal); a.pushPool();
-                console.assert(isFinite(a.norm1()), "Numeric error in Collision solver updateDepth");
-                collision.depth += rigidIsA ? dd : -dd;
-            }
-            updateSeparateSpeed(collision: PreparedCollision, rigidIsA: boolean, rigid: Rigid, dv: math.Vec4, dw: math.Bivec) {
-                let delta = math.vec4Pool.pop().subset(collision.point, rigid.position).dotbsr(dw).adds(dv);
-                if (rigidIsA) delta.negs();
-                let dss = delta.dot(collision.normal);
-
-                console.assert(isFinite(delta.norm1()), "Numeric error in Collision solver updateDepth");
-                collision.relativeVelocity.adds(delta); delta.pushPool();
-                collision.separateSpeed += dss;
+                if (collision.pointConstrain) {
+                    let a = collision.normal.copy(collision.pointConstrain.pointA).rotates(collision.a.rotation).adds(collision.a.position);
+                    if (collision.b) {
+                        let b = math.vec4Pool.pop().copy(collision.pointConstrain.pointB).rotates(collision.b.rotation).adds(collision.b.position);
+                        a.subs(b); b.pushPool();
+                    } else {
+                        a.subs(collision.pointConstrain.pointB);
+                    }
+                    collision.depth = a.norm();
+                    collision.normal.norms();
+                } else {
+                    let a = math.vec4Pool.pop().subset(collision.point, rigid.position);
+                    let dd = a.dotbsr(dw).adds(dv).dot(collision.normal);
+                    console.assert(isFinite(a.norm1()), "Numeric error in Collision solver updateDepth");
+                    collision.depth += rigidIsA ? dd : -dd;
+                    a.pushPool();
+                }
             }
         }
         let _vec4x = new math.Vec4;

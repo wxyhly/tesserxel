@@ -2,6 +2,7 @@ namespace tesserxel {
     export namespace four {
         type ColorOutputNode = MaterialNode & { output: "color" };
         type Vec4OutputNode = MaterialNode & { output: "vec4" };
+        // todo: Simplex3D Noise https://www.shadertoy.com/view/XsX3zB
         type FloatOutputNode = MaterialNode & { output: "f32" };
         type TransformOutputNode = MaterialNode & { output: "affineMat4" };
 

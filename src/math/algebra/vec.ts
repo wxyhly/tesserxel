@@ -388,6 +388,7 @@ namespace tesserxel {
             static readonly y = new Vec4(0, 1, 0, 0);
             static readonly z = new Vec4(0, 0, 1, 0);
             static readonly w = new Vec4(0, 0, 0, 1);
+            static readonly origin = new Vec4(0, 0, 0, 0);
             static readonly xNeg = new Vec4(-1, 0, 0, 0);
             static readonly yNeg = new Vec4(0, -1, 0, 0);
             static readonly zNeg = new Vec4(0, 0, -1, 0);

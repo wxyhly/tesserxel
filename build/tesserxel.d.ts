@@ -9,6 +9,9 @@ declare namespace tesserxel {
         const _360: number;
         const _DEG2RAD: number;
         const _RAD2DEG: number;
+        const _COS30: number;
+        const _TAN30: number;
+        const _GOLDRATIO: number;
         class Srand {
             _seed: number;
             constructor(seed: number);
@@ -630,6 +633,7 @@ declare namespace tesserxel {
             static readonly y: Vec4;
             static readonly z: Vec4;
             static readonly w: Vec4;
+            static readonly origin: Vec4;
             static readonly xNeg: Vec4;
             static readonly yNeg: Vec4;
             static readonly zNeg: Vec4;
@@ -858,8 +862,11 @@ declare namespace tesserxel {
             function concatarr(meshes: TetraMesh[]): TetraMesh;
             function clone(mesh: TetraMesh): TetraMesh;
             function tesseract(): TetraMesh;
+            function inverseNormal(mesh: TetraMesh): TetraMesh;
             let hexadecachoron: TetraMesh;
-            function glome(radius: number, xySegment: number, zwSegment: number, lattitudeSegment: number): TetraMesh;
+            function glome(radius: number, xySegment: number, zwSegment: number, latitudeSegment: number): TetraMesh;
+            function spheritorus(sphereRadius: number, longitudeSegment: number, latitudeSegment: number, circleRadius: number, circleSegment: number): TetraMesh;
+            function torisphere(circleRadius: number, circleSegment: number, sphereRadius: number, longitudeSegment: number, latitudeSegment: number): TetraMesh;
             function tiger(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number, secondaryRadius: number, secondarySegment: number): TetraMesh;
             function parametricSurface(fn: (inputUVW: math.Vec3, outputPosition: math.Vec4, outputNormal: math.Vec4) => void, uSegment: number, vSegment: number, wSegment: number): TetraMesh;
             function convexhull(points: math.Vec4[]): {
@@ -918,11 +925,11 @@ declare namespace tesserxel {
         export class World {
             gravity: math.Vec4;
             rigids: Rigid[];
+            constrains: Constrain[];
             unionRigids: rigid.Union[];
             forces: Force[];
             time: number;
-            frameCount: number;
-            add(...args: (Rigid | Force)[]): void;
+            add(...args: (Rigid | Force | Constrain)[]): void;
             remove(o: Rigid | Force): void;
             updateUnionGeometriesCoord(): void;
         }
@@ -937,6 +944,16 @@ declare namespace tesserxel {
         }
         /** a helper function for applying inertia to bivec */
         export function mulBivec(self: math.Bivec, a: math.Bivec, b: math.Bivec): math.Bivec;
+        export class Constrain {
+            a: Rigid;
+            b: Rigid | null;
+            constructor(a: Rigid, b?: Rigid | null);
+        }
+        export class PointConstrain extends Constrain {
+            pointA: math.Vec4;
+            pointB: math.Vec4;
+            constructor(a: Rigid, b: Rigid | null, pointA: math.Vec4, pointB: math.Vec4);
+        }
         export {};
     }
 }
@@ -971,8 +988,8 @@ declare namespace tesserxel {
                 run(world: World, dt: number): void;
             }
         }
-        class Force {
-            apply(time: number): void;
+        abstract class Force {
+            abstract apply(time: number): void;
         }
         namespace force {
             /** apply a spring force between object a and b
@@ -992,7 +1009,7 @@ declare namespace tesserxel {
                 private _vec4a;
                 private _vec4b;
                 private _bivec;
-                constructor(a: Rigid, b: Rigid | null, pointA: math.Vec4, pointB: math.Vec4, k: number, damp?: number, length?: number);
+                constructor(a: Rigid, b: Rigid | null, pointA: math.Vec4, pointB: math.Vec4, k: number, length?: number, damp?: number);
                 apply(time: number): void;
             }
         }
@@ -1056,8 +1073,8 @@ declare namespace tesserxel {
         }
         class NarrowPhase {
             collisionList: Collision[];
-            srand: math.Srand;
-            constructor();
+            /** max iteration for sdf methods in detectCollision */
+            maxIteration: number;
             clearCollisionList(): void;
             run(list: BroadPhaseList): void;
             detectCollision(rigidA: Rigid, rigidB: Rigid): any;
@@ -1066,6 +1083,13 @@ declare namespace tesserxel {
             private detectConvexPlane;
             private detectConvexGlome;
             private detectConvexConvex;
+            private detectSpheritorusPlane;
+            private detectSpheritorusGlome;
+            private detectSpheritorusSpheritorus;
+            private detectTorispherePlane;
+            private detectTorisphereGlome;
+            private detectTorisphereTorisphere;
+            private detectTorisphereSpheritorus;
         }
     }
 }
@@ -1117,7 +1141,6 @@ declare namespace tesserxel {
             parent?: Rigid;
         }
         export abstract class RigidGeometry {
-            type: string;
             rigid: Rigid;
             initialize(rigid: Rigid): void;
             abstract initializeMassInertia(rigid: Rigid): void;
@@ -1132,7 +1155,6 @@ declare namespace tesserxel {
             class Glome extends RigidGeometry {
                 radius: number;
                 radiusSqr: number;
-                type: "glome";
                 constructor(radius: number);
                 initializeMassInertia(rigid: Rigid): void;
             }
@@ -1144,7 +1166,6 @@ declare namespace tesserxel {
             }
             class Tesseractoid extends Convex {
                 size: math.Vec4;
-                type: "tesseractoid";
                 constructor(size: math.Vec4 | number);
                 initializeMassInertia(rigid: Rigid): void;
             }
@@ -1155,8 +1176,32 @@ declare namespace tesserxel {
             class Plane extends RigidGeometry {
                 normal: math.Vec4;
                 offset: number;
-                type: "plane";
                 constructor(normal?: math.Vec4, offset?: number);
+                initializeMassInertia(rigid: Rigid): void;
+            }
+            /** default orientation: XW */
+            class Spheritorus extends RigidGeometry {
+                majorRadius: number;
+                minorRadius: number;
+                /** majorRadius: cirle's radius, minorRadius: sphere's radius */
+                constructor(majorRadius: number, minorRadius: number);
+                initializeMassInertia(rigid: Rigid): void;
+            }
+            /** default orientation: XZW */
+            class Torisphere extends RigidGeometry {
+                majorRadius: number;
+                minorRadius: number;
+                /** majorRadius: sphere's radius, minorRadius: cirle's radius */
+                constructor(majorRadius: number, minorRadius: number);
+                initializeMassInertia(rigid: Rigid): void;
+            }
+            /** default orientation: 1:XY, 2:ZW */
+            class Tiger extends RigidGeometry {
+                majorRadius1: number;
+                majorRadius2: number;
+                minorRadius: number;
+                /** majorRadius: sphere's radius, minorRadius: cirle's radius */
+                constructor(majorRadius1: number, majorRadius2: number, minorRadius: number);
                 initializeMassInertia(rigid: Rigid): void;
             }
         }
@@ -1169,7 +1214,7 @@ declare namespace tesserxel {
             new (): Solver;
         }
         abstract class Solver {
-            abstract run(collisionList: Collision[]): void;
+            abstract run(collisionList: Collision[], constrainList: Constrain[]): void;
         }
         interface PreparedCollision extends Collision {
             separateSpeed: number;
@@ -1180,21 +1225,26 @@ declare namespace tesserxel {
             dvB?: math.Vec4;
             dwA?: math.Bivec;
             dwB?: math.Bivec;
+            pointConstrain?: PointConstrain;
         }
         class IterativeImpulseSolver extends Solver {
             maxPositionIterations: number;
             maxVelocityIterations: number;
             maxResolveRotationAngle: number;
+            separateSpeedEpsilon: number;
             PositionRelaxationFactor: number;
             collisionList: PreparedCollision[];
-            run(collisionList: Collision[]): void;
-            prepare(collisionList: Collision[]): void;
-            resolvePosition(): void;
+            private _vec41;
+            private _vec42;
+            private pointConstrainMaterial;
+            run(collisionList: Collision[], constrainList: Constrain[]): void;
+            prepare(collisionList: Collision[], constrainList: Constrain[]): void;
             resolveVelocity(): void;
             updateSeparateSpeeds(collision: PreparedCollision): void;
+            updateSeparateSpeed(collision: PreparedCollision, rigidIsA: boolean, rigid: Rigid, dv: math.Vec4, dw: math.Bivec): void;
+            resolvePosition(): void;
             updateDepths(collision: PreparedCollision): void;
             updateDepth(collision: PreparedCollision, rigidIsA: boolean, rigid: Rigid, dv: math.Vec4, dw: math.Bivec): void;
-            updateSeparateSpeed(collision: PreparedCollision, rigidIsA: boolean, rigid: Rigid, dv: math.Vec4, dw: math.Bivec): void;
         }
     }
 }
@@ -1807,6 +1857,12 @@ declare namespace tesserxel {
         }
         class GlomeGeometry extends Geometry {
             constructor(size?: number);
+        }
+        class SpheritorusGeometry extends Geometry {
+            constructor(sphereRadius?: number, circleRadius?: number);
+        }
+        class TorisphereGeometry extends Geometry {
+            constructor(circleRadius?: number, sphereRadius?: number);
         }
         class ConvexHullGeometry extends Geometry {
             constructor(points: math.Vec4[]);
