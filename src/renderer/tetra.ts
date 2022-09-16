@@ -395,13 +395,15 @@ struct _SliceInfo{
         let stereoLR_offset = -stereoLR * eyeOffset.y;
         let se = sin(stereoLR_offset);
         let ce = cos(stereoLR_offset);
+        var pureRotationMvMat = mvmat;
+        pureRotationMvMat[3].z = 0.0;
         let eyeMat = mat4x4<f32>(
             ce,0,se,0,
             0,1,0,0,
             -se,0,ce,0,
-            0,0,0,1
+            0,0,mvmat[3].z,1
         );
-        let omat = mvmat * eyeMat * refacingMats[refacing & 7];
+        let omat = eyeMat * pureRotationMvMat * refacingMats[refacing & 7];
         camRay = omat * ray;
         glPosition = pmat * camRay;
         normal = omat[2];
@@ -595,7 +597,7 @@ struct fInputType{
                             },
                         ]
                     });
-                    this.setEyeOffset(0.1, 0.1);
+                    this.setEyeOffset(0.1, 0.2);
                     this.setOpacity(1);
                     this.set4DCameraProjectMatrix({ fov: 90, near: 0.01, far: 10 });
                     this.setRetinaProjectMatrix({

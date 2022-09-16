@@ -629,7 +629,7 @@ namespace tesserxel {
             damp = 0.02;
             mouseButton = 0;
             retinaEyeOffset = 0.1;
-            sectionEyeOffset = 0.1;
+            sectionEyeOffset = 0.2;
             sectionPresets: (aspect: number) => { [label: string]: SectionPreset };
             private sliceConfig: renderer.SliceConfig;
             private currentSectionConfig: string = "retina+sections";
