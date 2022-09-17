@@ -7811,7 +7811,7 @@ ${parsedCode}
 const _emitIndexStride : u32 = ${this.outputBufferStride >> 4};
 @compute @workgroup_size(${vertexState.workgroupSize ?? DefaultWorkGroupSize})
 fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
-    let tetrahedralNum : u32 = arrayLength(&_attribute0); // todo: check performance?
+    let tetrahedralNum : u32 = ${input.has("location(0)") ? `arrayLength(&_attribute0)` : vertexState.workgroupSize ?? DefaultWorkGroupSize}; // todo: check performance?
     let tetraIndex = GlobalInvocationID.x;
     let instanceIndex = GlobalInvocationID.y;
     if(tetraIndex >= tetrahedralNum ){
@@ -8302,7 +8302,8 @@ struct vOutputType{
                 if (!this.renderState)
                     console.error("sliceTetras should be called in a closure passed to render function");
                 let { computePassEncoder } = this.renderState;
-                computePassEncoder.setBindGroup(1, vertexBindGroup);
+                if (vertexBindGroup)
+                    computePassEncoder.setBindGroup(1, vertexBindGroup);
                 computePassEncoder.dispatchWorkgroups(Math.ceil(tetraCount / 256), instanceCount); // todo: change workgroups
             }
             setWorldClearColor(color) {
