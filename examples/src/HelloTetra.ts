@@ -39,7 +39,7 @@ namespace examples {
                 renderer.beginTetras(pipeline);
                 renderer.sliceTetras(null, 1);
                 renderer.drawTetras();
-            })
+            });
         }
     }
     export namespace hello_tetra2 {
@@ -94,7 +94,7 @@ namespace examples {
                 renderer.beginTetras(pipeline);
                 renderer.sliceTetras(null, 1);
                 renderer.drawTetras();
-            })
+            });
         }
     }
     export namespace hello_tetra3 {

@@ -1,25 +1,57 @@
 let examples = [
-    { target: "tesseract", zh: "超立方体", en: "Tesseract (Hypercube)" },
-    { target: "spheritorus", zh: "球环", en: "Spheritorus" },
-    { target: "torisphere", zh: "环球", en: "Torisphere" },
-    { target: "tiger", zh: "双圆环", en: "Tiger (Duotorus)" },
-    { target: "glome", zh: "超球", en: "Glome (Hyphersphere)" },
-    { target: "menger_sponge1", zh: "门格海绵1", en: "Menger Sponge 1" },
-    { target: "menger_sponge2", zh: "门格海绵2", en: "Menger Sponge 2" },
-    { target: "mandelbulb_hopf", zh: "Mandelbulb Hopf坐标", en: "Mandelbulb Hopf Coord" },
-    { target: "mandelbulb_spherical", zh: "Mandelbulb 球坐标", en: "Mandelbulb Spherical Coord" },
-    { target: "julia_quaternion", zh: "四元数Julia集", en: "Quaternion Julia Set" },
-    { target: "instanced_cubes", zh: "实例化多方块", en: "Instanced Hypercubes" },
-    { target: "city_highway", zh: "城市高速", en: "City Highway" },
-    { target: "four_basic_scene", zh: "创建简单Four场景", en: "Basic Four Scene Creation" },
-    { target: "four_materials", zh: "Four材质与灯光", en: "Four Materials & Lights" },
-    { target: "spring_rope", zh: "弹簧绳", en: "Rope with Springs" },
-    { target: "rigid_test", zh: "刚体测试", en: "Rigid Body Test" },
-    { target: "st_ts_chain", zh: "环球球环链", en: "ST-TS Chain" },
-    { target: "st_pile", zh: "球环堆", en: "Spheritorus Pile" },
-    { target: "hello_tetra1", zh: "你好四面体1", en: "Hello Tetrahedron 1" },
-    { target: "hello_tetra2", zh: "你好四面体2", en: "Hello Tetrahedron 2" },
-    { target: "hello_tetra3", zh: "你好四面体3", en: "Hello Tetrahedron 3" },
+    {
+        group: "geoms", zh: "几何体", en: "Geometries",
+        child: [
+            { target: "tesseract", zh: "超立方体", en: "Tesseract (Hypercube)" },
+            { target: "spheritorus", zh: "球环", en: "Spheritorus" },
+            { target: "torisphere", zh: "环球", en: "Torisphere" },
+            { target: "tiger", zh: "双圆环", en: "Tiger (Duotorus)" },
+            { target: "glome", zh: "超球", en: "Glome (Hyphersphere)" },
+        ]
+    },
+    {
+        group: "world", zh: "四维场景", en: "4D Scenes",
+        child: [
+            { target: "instanced_cubes", zh: "实例化多方块", en: "Instanced Hypercubes" },
+            { target: "city_highway", zh: "城市高速", en: "City Highway" },
+        ]
+    },
+    {
+        group: "phy", zh: "物理世界", en: "Physics World",
+        child: [
+            { target: "spring_rope", zh: "弹簧绳", en: "Rope with Springs" },
+            { target: "rigid_test", zh: "刚体测试", en: "Rigid Body Test" },
+            { target: "st_ts_chain", zh: "环球球环链", en: "ST-TS Chain" },
+            { target: "st_pile", zh: "球环堆", en: "Spheritorus Pile" },
+        ]
+    },
+    {
+        group: "fractal", zh: "分形", en: "Fractals",
+        child: [
+            { target: "menger_sponge1", zh: "门格海绵1", en: "Menger Sponge 1" },
+            { target: "menger_sponge2", zh: "门格海绵2", en: "Menger Sponge 2" },
+            { target: "mandelbulb_hopf", zh: "Mandelbulb Hopf坐标", en: "Mandelbulb Hopf Coord" },
+            { target: "mandelbulb_spherical", zh: "Mandelbulb 球坐标", en: "Mandelbulb Spherical Coord" },
+            { target: "julia_quaternion", zh: "四元数Julia集", en: "Quaternion Julia Set" },
+        ]
+    },
+    {
+        group: "dev", zh: "开发示例", en: "Develop Examples",
+        child: [
+            {
+                group: "dev", zh: "你好四面体", en: "Hello Tetrahedron",
+                child: [
+                    { target: "hello_tetra1", zh: "您的第一个四面体", en: "First Tetrahedron" },
+                    { target: "hello_tetra2", zh: "添加顶点颜色", en: "Add Vertex Color" },
+                    { target: "hello_tetra3", zh: "四面体转起来！", en: "Rotate Tetrahedron!" },
+                ]
+            },
+            { target: "four_basic_scene", zh: "创建简单Four场景", en: "Basic Four Scene Creation" },
+            { target: "four_materials", zh: "Four材质与灯光", en: "Four Materials & Lights" },
+            { target: "rasterizer", zh: "四面体体素光栅化器演示", en: "Tetrahedra Voxel Rasterizer Demo" },
+        ]
+    },
+
 ];
 // todo: magicCube4D
 let info = {
@@ -105,7 +137,7 @@ let info = {
     },
     rigid_test: {
         "zh": "三维的地面上将不断掉下超立方体。您可以鼠标左键发射超球轰击它们。",
-        "en": "Tesseracts are dropped on the 3D grouud. Click your left mouse button to fire glomes and hit them."
+        "en": "Tesseracts are dropped on 3D ground. Click your left mouse button to fire glomes and hit them."
     },
     spring_rope: {
         "zh": "由胡克定律弹簧模型模拟的绳子，采用四阶显式龙格库塔积分器求解。",

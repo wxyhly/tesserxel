@@ -51,7 +51,9 @@
         (function () { var script = document.createElement('script'); script.onload = function () { var stats = new Stats(); document.body.appendChild(stats.dom); requestAnimationFrame(function loop() { stats.update(); requestAnimationFrame(loop) }); }; script.src = (window.location.protocol === 'https:' ? 'https' : 'http') + '://mrdoob.github.io/stats.js/build/stats.min.js'; document.head.appendChild(script); })()
     } else {
         document.querySelector(`.default[lang=${lang}]`).style.display = "block";
-        document.querySelector(`.nogpu`).style.display = navigator.gpu ? "none" : "block";
+        for (let e of document.querySelectorAll(`.nogpu`)) {
+            e.style.display = navigator.gpu ? "none" : "block";
+        }
     }
 </script>
 

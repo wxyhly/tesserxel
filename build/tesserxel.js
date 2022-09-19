@@ -8464,7 +8464,7 @@ fn calDepth(distance: f32)->f32{
                     },
                     fragment: {
                         module,
-                        entryPoint: "mainFragment",
+                        entryPoint: desc.fragmentEntryPoint,
                         targets: [{ format: this.gpu.preferredFormat }]
                     },
                     primitive: {
@@ -8495,7 +8495,8 @@ fn calDepth(distance: f32)->f32{
                 let slicePassEncoder = commandEncoder.beginRenderPass(needClear ? this.crossRenderPassDescClear : this.crossRenderPassDescLoad);
                 slicePassEncoder.setPipeline(pipeline.pipeline);
                 slicePassEncoder.setBindGroup(0, pipeline.bindGroup0);
-                slicePassEncoder.setBindGroup(1, bindGroups[0]);
+                if (bindGroups && bindGroups[0])
+                    slicePassEncoder.setBindGroup(1, bindGroups[0]);
                 slicePassEncoder.draw(4, this.sliceGroupSize);
                 slicePassEncoder.end();
                 this.renderState.needClear = false;
