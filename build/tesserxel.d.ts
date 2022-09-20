@@ -1399,17 +1399,46 @@ declare namespace tesserxel {
             eye2: renderer.SectionConfig[];
         }
         export namespace sliceconfig {
-            let size: number;
-            function singlezslice1eye(aspect: number): renderer.SectionConfig[];
-            function singlezslice2eye(aspect: number): renderer.SectionConfig[];
-            function singleyslice1eye(aspect: number): renderer.SectionConfig[];
-            function singleyslice2eye(aspect: number): renderer.SectionConfig[];
-            function zslices1eye(step: number, maxpos: number, aspect: number): renderer.SectionConfig[];
-            function zslices2eye(step: number, maxpos: number, aspect: number): renderer.SectionConfig[];
-            function yslices1eye(step: number, maxpos: number, aspect: number): renderer.SectionConfig[];
-            function yslices2eye(step: number, maxpos: number, aspect: number): renderer.SectionConfig[];
-            function default2eye(size: number, aspect: number): renderer.SectionConfig[];
-            function default1eye(size: number, aspect: number): renderer.SectionConfig[];
+            function singlezslice1eye(screenSize: {
+                width: number;
+                height: number;
+            }): renderer.SectionConfig[];
+            function singlezslice2eye(screenSize: {
+                width: number;
+                height: number;
+            }): renderer.SectionConfig[];
+            function singleyslice1eye(screenSize: {
+                width: number;
+                height: number;
+            }): renderer.SectionConfig[];
+            function singleyslice2eye(screenSize: {
+                width: number;
+                height: number;
+            }): renderer.SectionConfig[];
+            function zslices1eye(step: number, maxpos: number, screenSize: {
+                width: number;
+                height: number;
+            }): renderer.SectionConfig[];
+            function zslices2eye(step: number, maxpos: number, screenSize: {
+                width: number;
+                height: number;
+            }): renderer.SectionConfig[];
+            function yslices1eye(step: number, maxpos: number, screenSize: {
+                width: number;
+                height: number;
+            }): renderer.SectionConfig[];
+            function yslices2eye(step: number, maxpos: number, screenSize: {
+                width: number;
+                height: number;
+            }): renderer.SectionConfig[];
+            function default2eye(size: number, screenSize: {
+                width: number;
+                height: number;
+            }): renderer.SectionConfig[];
+            function default1eye(size: number, screenSize: {
+                width: number;
+                height: number;
+            }): renderer.SectionConfig[];
         }
         export class RetinaController implements IController {
             enabled: boolean;
@@ -1423,21 +1452,27 @@ declare namespace tesserxel {
             mouseButton: number;
             retinaEyeOffset: number;
             sectionEyeOffset: number;
-            sectionPresets: (aspect: number) => {
+            size: GPUExtent3DStrict;
+            sectionPresets: (screenSize: {
+                width: number;
+                height: number;
+            }) => {
                 [label: string]: SectionPreset;
             };
-            private sliceConfig;
             private currentSectionConfig;
             private rembemerLastLayers;
             private needResize;
             keyConfig: {
                 enable: string;
                 disable: string;
-                toggle3D: string;
                 addOpacity: string;
                 subOpacity: string;
                 addLayer: string;
                 subLayer: string;
+                addRetinaResolution: string;
+                subRetinaResolution: string;
+                toggle3D: string;
+                toggleCrosshair: string;
                 rotateLeft: string;
                 rotateRight: string;
                 rotateUp: string;
@@ -1445,12 +1480,13 @@ declare namespace tesserxel {
                 refaceFront: string;
                 sectionConfigs: {
                     "retina+sections": string;
+                    "retina+bigsections": string;
                     retina: string;
                     sections: string;
-                    "retina+zslices": string;
-                    "retina+yslices": string;
                     zsection: string;
                     ysection: string;
+                    "retina+zslices": string;
+                    "retina+yslices": string;
                 };
             };
             constructor(r: renderer.SliceRenderer);
@@ -1461,13 +1497,17 @@ declare namespace tesserxel {
             private _q2;
             private _mat4;
             private refacingFront;
+            private needsUpdateRetinaZDistance;
             retinaZDistance: number;
+            crossHairSize: number;
+            maxRetinaResolution: number;
             update(state: ControllerState): void;
             setStereo(stereo: boolean): void;
             setSectionEyeOffset(offset: number): void;
             setRetinaEyeOffset(offset: number): void;
             setLayers(layers: number): void;
             setOpacity(opacity: number): void;
+            setRetinaResolution(retinaResolution: number): void;
             toggleSectionConfig(index: string): void;
             setSize(size: GPUExtent3DStrict): void;
         }
@@ -1499,8 +1539,6 @@ declare namespace tesserxel {
 declare namespace tesserxel {
     namespace renderer {
         interface SliceRendererOption {
-            /** Square slice framebuffer of dimension sliceResolution, should be 2^n */
-            sliceResolution?: number;
             /** Caution: must be 2^n, this includes cross section thumbnails */
             maxSlicesNumber?: number;
             /** Caution: must be 2^n, large number can waste lots GPU memory;
@@ -1512,10 +1550,6 @@ declare namespace tesserxel {
             enableFloat16Blend: boolean;
             /** whether initiate default confiuration like sliceconfigs and retina configs */
             defaultConfigs?: boolean;
-        }
-        interface SliceConfig {
-            layers?: number;
-            sections?: Array<SectionConfig>;
         }
         enum SliceFacing {
             POSZ = 0,
@@ -1540,14 +1574,12 @@ declare namespace tesserxel {
             rayEntryPoint: string;
             fragmentEntryPoint: string;
         }
-        interface TetraVertexState {
-            workgroupSize?: number;
-            code: string;
-            entryPoint: string;
-        }
         interface GeneralShaderState {
             code: string;
             entryPoint: string;
+        }
+        interface TetraVertexState extends GeneralShaderState {
+            workgroupSize?: number;
         }
         interface TetraSlicePipeline {
             computePipeline: GPUComputePipeline;
@@ -1571,19 +1603,26 @@ declare namespace tesserxel {
                 width: number;
                 height: number;
             };
+            resolution?: number;
+        }
+        interface SliceConfig {
+            layers?: number;
+            sections?: Array<SectionConfig>;
+            retinaResolution?: number;
         }
         class SliceRenderer {
             getSafeTetraNumInOnePass(): number;
             private maxSlicesNumber;
             private maxCrossSectionBufferSize;
-            private sliceResolution;
             /** On each computeshader slice calling numbers, should be 2^n */
             private sliceGroupSize;
             private sliceGroupSizeBit;
             private screenSize;
             private outputBufferStride;
+            private viewportCompressShift;
             private blendFormat;
             private displayConfig;
+            private sliceTextureSize;
             private gpu;
             private context;
             private crossRenderVertexShaderModule;
@@ -1604,9 +1643,8 @@ declare namespace tesserxel {
             private sliceOffsetBuffer;
             private emitIndexSliceBuffer;
             private refacingBuffer;
-            private eyeBuffer;
+            private eyeCrossBuffer;
             private thumbnailViewportBuffer;
-            private readBuffer;
             private sliceGroupOffsetBuffer;
             private retinaMVBuffer;
             private retinaPBuffer;
@@ -1625,6 +1663,7 @@ declare namespace tesserxel {
             private renderState;
             private enableEye3D;
             private refacingMatsCode;
+            private crossHairSize;
             private totalGroupNum;
             private sliceGroupNum;
             init(gpu: GPU, context: GPUCanvasContext, options?: SliceRendererOption): Promise<this>;
@@ -1638,7 +1677,6 @@ declare namespace tesserxel {
             createFragmentShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[], label?: string): GPUBindGroup;
             createTetraSlicePipeline(desc: TetraSlicePipelineDescriptor): Promise<TetraSlicePipeline>;
             setSize(size: GPUExtent3DStrict): void;
-            getScreenAspect(): number;
             set4DCameraProjectMatrix(camera: math.PerspectiveCamera): void;
             setRetinaProjectMatrix(camera: math.PerspectiveCamera): void;
             setRetinaViewMatrix(m: math.Mat4): void;
@@ -1646,9 +1684,17 @@ declare namespace tesserxel {
             getSectionEyeOffset(): number;
             getRetinaEyeOffset(): number;
             getLayers(): number;
+            getRetinaResolution(): number;
+            getMinResolutionMultiple(): number;
             getStereoMode(): boolean;
+            getSize(): {
+                width: number;
+                height: number;
+            };
             setOpacity(opacity: number): void;
             setEyeOffset(sectionEyeOffset?: number, retinaEyeOffset?: number): void;
+            setCrosshair(size: number): void;
+            getCrosshair(): number;
             setSliceConfig(sliceConfig: SliceConfig): void;
             render(drawCall: () => void): void;
             /** Set TetraSlicePipeline and prepare GPU resources.

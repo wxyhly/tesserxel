@@ -109,6 +109,7 @@ namespace examples {
             });
             this.renderer = renderer;
             renderer.setScreenClearColor({ r: 1, g: 1, b: 1, a: 1 });
+            renderer.setSliceConfig({retinaResolution: 64});
             let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
             let camController = new tesserxel.controller.FreeFlyController();
             camController.object.position.set(0.001, 0.00141, 0.00172, 3);

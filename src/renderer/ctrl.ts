@@ -425,50 +425,66 @@ namespace tesserxel {
             eye2: renderer.SectionConfig[]
         }
         export namespace sliceconfig {
-            export let size = 0.2;
 
-            export function singlezslice1eye(aspect: number): renderer.SectionConfig[] {
+            export function singlezslice1eye(screenSize: { width: number, height: number }): renderer.SectionConfig[] {
+                let aspect = screenSize.height / screenSize.width;
+                let resolution = screenSize.height;
                 return [{
                     slicePos: 0,
                     facing: tesserxel.renderer.SliceFacing.POSZ,
-                    viewport: { x: 0, y: 0, width: 1 / aspect, height: 1.0 }
+                    viewport: { x: 0, y: 0, width: 1 / aspect, height: 1.0 },
+                    resolution
                 }];
 
             }
-            export function singlezslice2eye(aspect: number): renderer.SectionConfig[] {
+            export function singlezslice2eye(screenSize: { width: number, height: number }): renderer.SectionConfig[] {
+                let aspect = screenSize.height / screenSize.width;
+                let resolution = screenSize.height * 0.8;
                 return [{
                     slicePos: 0,
                     facing: tesserxel.renderer.SliceFacing.POSZ,
                     eyeOffset: renderer.EyeOffset.LeftEye,
-                    viewport: { x: -0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
+                    viewport: { x: -0.5, y: 0, width: 0.5 / aspect, height: 0.8 },
+                    resolution
                 }, {
                     slicePos: 0,
                     facing: tesserxel.renderer.SliceFacing.POSZ,
                     eyeOffset: renderer.EyeOffset.RightEye,
-                    viewport: { x: 0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
+                    viewport: { x: 0.5, y: 0, width: 0.5 / aspect, height: 0.8 },
+                    resolution
                 }];
             }
-            export function singleyslice1eye(aspect: number): renderer.SectionConfig[] {
+            export function singleyslice1eye(screenSize: { width: number, height: number }): renderer.SectionConfig[] {
+                let aspect = screenSize.height / screenSize.width;
+                let resolution = screenSize.height;
                 return [{
                     slicePos: 0,
                     facing: tesserxel.renderer.SliceFacing.NEGY,
-                    viewport: { x: 0, y: 0, width: 1 / aspect, height: 1.0 }
+                    viewport: { x: 0, y: 0, width: 1 / aspect, height: 1.0 },
+                    resolution
                 }];
             }
-            export function singleyslice2eye(aspect: number): renderer.SectionConfig[] {
+            export function singleyslice2eye(screenSize: { width: number, height: number }): renderer.SectionConfig[] {
+                let aspect = screenSize.height / screenSize.width;
+                let resolution = screenSize.height * 0.8;
                 return [{
                     slicePos: 0,
                     facing: tesserxel.renderer.SliceFacing.NEGY,
                     eyeOffset: renderer.EyeOffset.LeftEye,
-                    viewport: { x: -0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
+                    viewport: { x: -0.5, y: 0, width: 0.5 / aspect, height: 0.8 },
+                    resolution
                 }, {
                     slicePos: 0,
                     facing: tesserxel.renderer.SliceFacing.NEGY,
                     eyeOffset: renderer.EyeOffset.RightEye,
-                    viewport: { x: 0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
+                    viewport: { x: 0.5, y: 0, width: 0.5 / aspect, height: 0.8 },
+                    resolution
                 }];
             }
-            export function zslices1eye(step: number, maxpos: number, aspect: number): renderer.SectionConfig[] {
+            export function zslices1eye(
+                step: number, maxpos: number, screenSize: { width: number, height: number }
+            ): renderer.SectionConfig[] {
+                let aspect = screenSize.height / screenSize.width;
                 let arr = [[0, 0]];
                 let j = 1;
                 for (let i = step; i <= maxpos; i += step, j++) {
@@ -477,13 +493,18 @@ namespace tesserxel {
                 }
                 let half = 2 / arr.length;
                 let size = 1 / (aspect * arr.length);
+                let resolution = screenSize.height * size;
                 return arr.map(pos => ({
                     slicePos: pos[0],
                     facing: tesserxel.renderer.SliceFacing.POSZ,
-                    viewport: { x: pos[1] * half, y: size - 1, width: size, height: size }
+                    viewport: { x: pos[1] * half, y: size - 1, width: size, height: size },
+                    resolution
                 }));
             }
-            export function zslices2eye(step: number, maxpos: number, aspect: number): renderer.SectionConfig[] {
+            export function zslices2eye(
+                step: number, maxpos: number, screenSize: { width: number, height: number }
+            ): renderer.SectionConfig[] {
+                let aspect = screenSize.height / screenSize.width;
                 let arr = [[0, 0]];
                 let j = 1;
                 for (let i = step; i <= maxpos; i += step, j++) {
@@ -493,22 +514,28 @@ namespace tesserxel {
                 arr.sort((a, b) => a[0] - b[0]);
                 let half = 1 / arr.length;
                 let size = 0.5 / (aspect * arr.length);
+                let resolution = screenSize.height * size;
                 return arr.map(pos => ({
                     slicePos: pos[0],
                     facing: tesserxel.renderer.SliceFacing.POSZ,
                     eyeOffset: renderer.EyeOffset.LeftEye,
-                    viewport: { x: (pos[1] * half) - 0.5, y: size - 1, width: size, height: size }
+                    viewport: { x: (pos[1] * half) - 0.5, y: size - 1, width: size, height: size },
+                    resolution
                 })).concat(
                     arr.map(pos => ({
                         slicePos: pos[0],
                         facing: tesserxel.renderer.SliceFacing.POSZ,
                         eyeOffset: renderer.EyeOffset.RightEye,
-                        viewport: { x: (pos[1] * half) + 0.5, y: size - 1, width: size, height: size }
+                        viewport: { x: (pos[1] * half) + 0.5, y: size - 1, width: size, height: size },
+                        resolution
                     }))
                 );
             }
 
-            export function yslices1eye(step: number, maxpos: number, aspect: number): renderer.SectionConfig[] {
+            export function yslices1eye(
+                step: number, maxpos: number, screenSize: { width: number, height: number }
+            ): renderer.SectionConfig[] {
+                let aspect = screenSize.height / screenSize.width;
                 let arr = [[0, 0]];
                 let j = 1;
                 for (let i = step; i <= maxpos; i += step, j++) {
@@ -517,13 +544,18 @@ namespace tesserxel {
                 }
                 let half = 2 / arr.length;
                 let size = 1 / (aspect * arr.length);
+                let resolution = screenSize.height * size;
                 return arr.map(pos => ({
                     slicePos: pos[0],
                     facing: tesserxel.renderer.SliceFacing.NEGY,
-                    viewport: { x: pos[1] * half, y: size - 1, width: size, height: size }
+                    viewport: { x: pos[1] * half, y: size - 1, width: size, height: size },
+                    resolution
                 }));
             }
-            export function yslices2eye(step: number, maxpos: number, aspect: number): renderer.SectionConfig[] {
+            export function yslices2eye(
+                step: number, maxpos: number, screenSize: { width: number, height: number }
+            ): renderer.SectionConfig[] {
+                let aspect = screenSize.height / screenSize.width;
                 let arr = [[0, 0]];
                 let j = 1;
                 for (let i = step; i <= maxpos; i += step, j++) {
@@ -533,21 +565,28 @@ namespace tesserxel {
                 arr.sort((a, b) => a[0] - b[0]);
                 let half = 1 / arr.length;
                 let size = 0.5 / (aspect * arr.length);
+                let resolution = screenSize.height * size;
                 return arr.map(pos => ({
                     slicePos: pos[0],
                     facing: tesserxel.renderer.SliceFacing.NEGY,
                     eyeOffset: renderer.EyeOffset.LeftEye,
-                    viewport: { x: (pos[1] * half) - 0.5, y: size - 1, width: size, height: size }
+                    viewport: { x: (pos[1] * half) - 0.5, y: size - 1, width: size, height: size },
+                    resolution
                 })).concat(
                     arr.map(pos => ({
                         slicePos: pos[0],
                         facing: tesserxel.renderer.SliceFacing.NEGY,
                         eyeOffset: renderer.EyeOffset.RightEye,
-                        viewport: { x: (pos[1] * half) + 0.5, y: size - 1, width: size, height: size }
+                        viewport: { x: (pos[1] * half) + 0.5, y: size - 1, width: size, height: size },
+                        resolution
                     }))
                 );
             }
-            export function default2eye(size: number, aspect: number): renderer.SectionConfig[] {
+            export function default2eye(
+                size: number, screenSize: { width: number, height: number }
+            ): renderer.SectionConfig[] {
+                let aspect = screenSize.height / screenSize.width;
+                let resolution = screenSize.height * size;
                 let wsize: number;
                 let size_aspect: number;
                 if (size >= 0.5) {
@@ -562,36 +601,44 @@ namespace tesserxel {
                     {
                         facing: tesserxel.renderer.SliceFacing.NEGX,
                         eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                        viewport: { x: -size_aspect, y: size - 1, width: wsize, height: size }
+                        viewport: { x: -size_aspect, y: size - 1, width: wsize, height: size },
+                        resolution
                     },
                     {
                         facing: tesserxel.renderer.SliceFacing.NEGX,
                         eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                        viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size }
+                        viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size },
+                        resolution
                     },
                     {
                         facing: tesserxel.renderer.SliceFacing.NEGY,
                         eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                        viewport: { x: -size_aspect, y: 1 - size, width: wsize, height: size }
+                        viewport: { x: -size_aspect, y: 1 - size, width: wsize, height: size },
+                        resolution
                     },
                     {
                         facing: tesserxel.renderer.SliceFacing.NEGY,
                         eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                        viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size }
+                        viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size },
+                        resolution
                     },
                     {
                         facing: tesserxel.renderer.SliceFacing.POSZ,
                         eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                        viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size }
+                        viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size },
+                        resolution
                     },
                     {
                         facing: tesserxel.renderer.SliceFacing.POSZ,
                         eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                        viewport: { x: size_aspect, y: size - 1, width: wsize, height: size }
+                        viewport: { x: size_aspect, y: size - 1, width: wsize, height: size },
+                        resolution
                     },
                 ];
             };
-            export function default1eye(size: number, aspect: number): renderer.SectionConfig[] {
+            export function default1eye(size: number, screenSize: { width: number, height: number }): renderer.SectionConfig[] {
+                let aspect = screenSize.height / screenSize.width;
+                let resolution = screenSize.height * size;
                 let wsize: number;
                 let size_aspect: number;
                 if (size >= 0.5) {
@@ -605,15 +652,18 @@ namespace tesserxel {
                 return [
                     {
                         facing: tesserxel.renderer.SliceFacing.NEGX,
-                        viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size }
+                        viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size },
+                        resolution
                     },
                     {
                         facing: tesserxel.renderer.SliceFacing.NEGY,
-                        viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size }
+                        viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size },
+                        resolution
                     },
                     {
                         facing: tesserxel.renderer.SliceFacing.POSZ,
-                        viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size }
+                        viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size },
+                        resolution
                     }
                 ];
             }
@@ -622,27 +672,30 @@ namespace tesserxel {
             enabled = true;
             renderer: renderer.SliceRenderer;
             mouseSpeed = 0.01;
-            wheelSpeed = 0.0001;
+            wheelSpeed = 0.0005;
             keyMoveSpeed = 0.1;
-            keyRotateSpeed = 0.01;
+            keyRotateSpeed = 0.002;
             opacityKeySpeed = 0.01;
             damp = 0.02;
             mouseButton = 0;
             retinaEyeOffset = 0.1;
             sectionEyeOffset = 0.2;
-            sectionPresets: (aspect: number) => { [label: string]: SectionPreset };
-            private sliceConfig: renderer.SliceConfig;
+            size: GPUExtent3DStrict;
+            sectionPresets: (screenSize: { width: number, height: number }) => { [label: string]: SectionPreset };
             private currentSectionConfig: string = "retina+sections";
             private rembemerLastLayers: number;
             private needResize: boolean = true;
             keyConfig = {
                 enable: "AltLeft",
                 disable: "",
-                toggle3D: ".KeyZ",
                 addOpacity: "KeyQ",
                 subOpacity: "KeyA",
                 addLayer: "KeyW",
                 subLayer: "KeyS",
+                addRetinaResolution: ".KeyE",
+                subRetinaResolution: ".KeyD",
+                toggle3D: ".KeyZ",
+                toggleCrosshair: ".KeyC",
                 rotateLeft: "ArrowLeft",
                 rotateRight: "ArrowRight",
                 rotateUp: "ArrowUp",
@@ -650,20 +703,29 @@ namespace tesserxel {
                 refaceFront: ".KeyR",
                 sectionConfigs: {
                     "retina+sections": ".Digit1",
-                    "retina": ".Digit2",
-                    "sections": ".Digit3",
-                    "retina+zslices": ".Digit4",
-                    "retina+yslices": ".Digit5",
-                    "zsection": ".Digit6",
-                    "ysection": ".Digit7"
+                    "retina+bigsections": ".Digit2",
+                    "retina": ".Digit3",
+                    "sections": ".Digit4",
+                    "zsection": ".Digit5",
+                    "ysection": ".Digit6",
+                    "retina+zslices": ".Digit7",
+                    "retina+yslices": ".Digit8",
                 },
             }
             constructor(r: renderer.SliceRenderer) {
                 this.renderer = r;
-                this.sectionPresets = (aspect: number) => ({
+                this.sectionPresets = (screenSize: {
+                    width: number;
+                    height: number;
+                }) => ({
                     "retina+sections": {
-                        eye1: sliceconfig.default1eye(0.2, aspect),
-                        eye2: sliceconfig.default2eye(0.2, aspect),
+                        eye1: sliceconfig.default1eye(0.3, screenSize),
+                        eye2: sliceconfig.default2eye(0.2, screenSize),
+                        retina: true
+                    },
+                    "retina+bigsections": {
+                        eye1: sliceconfig.default1eye(0.44, screenSize),
+                        eye2: sliceconfig.default2eye(0.33, screenSize),
                         retina: true
                     },
                     "retina": {
@@ -672,28 +734,28 @@ namespace tesserxel {
                         retina: true
                     },
                     "sections": {
-                        eye1: sliceconfig.default1eye(0.5, aspect),
-                        eye2: sliceconfig.default2eye(0.5, aspect),
+                        eye1: sliceconfig.default1eye(0.5, screenSize),
+                        eye2: sliceconfig.default2eye(0.5, screenSize),
                         retina: false
                     },
                     "retina+zslices": {
-                        eye1: sliceconfig.zslices1eye(0.15, 0.6, aspect),
-                        eye2: sliceconfig.zslices2eye(0.3, 0.6, aspect),
+                        eye1: sliceconfig.zslices1eye(0.15, 0.6, screenSize),
+                        eye2: sliceconfig.zslices2eye(0.3, 0.6, screenSize),
                         retina: true
                     },
                     "retina+yslices": {
-                        eye1: sliceconfig.yslices1eye(0.15, 0.6, aspect),
-                        eye2: sliceconfig.yslices2eye(0.3, 0.6, aspect),
+                        eye1: sliceconfig.yslices1eye(0.15, 0.6, screenSize),
+                        eye2: sliceconfig.yslices2eye(0.3, 0.6, screenSize),
                         retina: true
                     },
                     "zsection": {
-                        eye1: sliceconfig.singlezslice1eye(aspect),
-                        eye2: sliceconfig.singlezslice2eye(aspect),
+                        eye1: sliceconfig.singlezslice1eye(screenSize),
+                        eye2: sliceconfig.singlezslice2eye(screenSize),
                         retina: false
                     },
                     "ysection": {
-                        eye1: sliceconfig.singleyslice1eye(aspect),
-                        eye2: sliceconfig.singleyslice2eye(aspect),
+                        eye1: sliceconfig.singleyslice1eye(screenSize),
+                        eye2: sliceconfig.singleyslice2eye(screenSize),
                         retina: false
                     },
                 });
@@ -705,7 +767,10 @@ namespace tesserxel {
             private _q2 = new math.Quaternion();
             private _mat4 = new math.Mat4();
             private refacingFront: boolean = false;
+            private needsUpdateRetinaZDistance : boolean = false;
             retinaZDistance = 5;
+            crossHairSize = 0.03;
+            maxRetinaResolution = 1024;
             update(state: ControllerState): void {
                 let disabled = state.queryDisabled(this.keyConfig);
                 let on = state.isKeyHold;
@@ -719,16 +784,20 @@ namespace tesserxel {
                     } else {
                         this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
                     }
-                    sliceConfig.sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(
+                    sliceConfig.sections = this.sectionPresets(this.renderer.getSize())[this.currentSectionConfig][(
                         !stereo ? "eye2" : "eye1"
                     )];
                 } else if (this.needResize) {
-                    sliceConfig.sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(
+                    sliceConfig.sections = this.sectionPresets(this.renderer.getSize())[this.currentSectionConfig][(
                         this.renderer.getStereoMode() ? "eye2" : "eye1"
                     )];
                 }
                 if (!disabled) {
                     this.needResize = false;
+                    if (state.isKeyHold(this.keyConfig.toggleCrosshair)) {
+                        let crossHair = this.renderer.getCrosshair();
+                            this.renderer.setCrosshair(crossHair === 0?this.crossHairSize:0);
+                    }
                     if (state.isKeyHold(this.keyConfig.addOpacity)) {
                         this.renderer.setOpacity(this.renderer.getOpacity() * (1 + this.opacityKeySpeed));
                     }
@@ -752,6 +821,16 @@ namespace tesserxel {
                             sliceConfig.layers = layers;
                         }
                     }
+                    if (state.isKeyHold(this.keyConfig.addRetinaResolution)) {
+                        let res = this.renderer.getRetinaResolution();
+                        res += this.renderer.getMinResolutionMultiple();
+                        if (res <= this.maxRetinaResolution) sliceConfig.retinaResolution = res;
+                    }
+                    if (state.isKeyHold(this.keyConfig.subRetinaResolution)) {
+                        let res = this.renderer.getRetinaResolution();
+                        res -= this.renderer.getMinResolutionMultiple();
+                        if (res > 0) sliceConfig.retinaResolution = res;
+                    }
                     for (let [label, keyCode] of Object.entries(this.keyConfig.sectionConfigs)) {
                         if (state.isKeyHold(keyCode)) {
                             this.toggleSectionConfig(label);
@@ -767,6 +846,10 @@ namespace tesserxel {
                         if (state.moveX) this._vec2damp.x = state.moveX * this.mouseSpeed;
                         if (state.moveY) this._vec2damp.y = state.moveY * this.mouseSpeed;
                     }
+                    if(state.wheelY){
+                        this.needsUpdateRetinaZDistance = true;
+                        this.retinaZDistance += state.wheelY * this.wheelSpeed;
+                    }
                     if (on(key.refaceFront)) {
                         this.refacingFront = true;
                     }
@@ -774,7 +857,8 @@ namespace tesserxel {
                 if (this._vec2damp.norm1() < 1e-3 || this.refacingFront) {
                     this._vec2damp.set(0, 0);
                 }
-                if (this._vec2damp.norm1() > 1e-3 || this.refacingFront) {
+                if (this._vec2damp.norm1() > 1e-3 || this.refacingFront || this.needsUpdateRetinaZDistance) {
+                    this.needsUpdateRetinaZDistance = false;
                     this._vec2euler.x %= math._360;
                     this._vec2euler.y %= math._360;
                     let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
@@ -798,7 +882,7 @@ namespace tesserxel {
                 } else {
                     this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
                 }
-                let sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(
+                let sections = this.sectionPresets(this.renderer.getSize())[this.currentSectionConfig][(
                     !stereo ? "eye2" : "eye1"
                 )];
                 this.renderer.setSliceConfig({ sections });
@@ -817,9 +901,12 @@ namespace tesserxel {
             setOpacity(opacity: number) {
                 this.renderer.setOpacity(opacity);
             }
+            setRetinaResolution(retinaResolution: number) {
+                this.renderer.setSliceConfig({ retinaResolution });
+            }
             toggleSectionConfig(index: string) {
                 if (this.currentSectionConfig === index) return;
-                let preset = this.sectionPresets(this.renderer.getScreenAspect())[index];
+                let preset = this.sectionPresets(this.renderer.getSize())[index];
                 if (!preset) console.error(`Section Configuration "${index}" does not exsit.`);
                 let layers = this.renderer.getLayers();
                 if (preset.retina === false && layers > 0) {

@@ -6605,52 +6605,66 @@ var tesserxel;
         controller.KeepUpController = KeepUpController;
         let sliceconfig;
         (function (sliceconfig) {
-            sliceconfig.size = 0.2;
-            function singlezslice1eye(aspect) {
+            function singlezslice1eye(screenSize) {
+                let aspect = screenSize.height / screenSize.width;
+                let resolution = screenSize.height;
                 return [{
                         slicePos: 0,
                         facing: tesserxel.renderer.SliceFacing.POSZ,
-                        viewport: { x: 0, y: 0, width: 1 / aspect, height: 1.0 }
+                        viewport: { x: 0, y: 0, width: 1 / aspect, height: 1.0 },
+                        resolution
                     }];
             }
             sliceconfig.singlezslice1eye = singlezslice1eye;
-            function singlezslice2eye(aspect) {
+            function singlezslice2eye(screenSize) {
+                let aspect = screenSize.height / screenSize.width;
+                let resolution = screenSize.height * 0.8;
                 return [{
                         slicePos: 0,
                         facing: tesserxel.renderer.SliceFacing.POSZ,
                         eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                        viewport: { x: -0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
+                        viewport: { x: -0.5, y: 0, width: 0.5 / aspect, height: 0.8 },
+                        resolution
                     }, {
                         slicePos: 0,
                         facing: tesserxel.renderer.SliceFacing.POSZ,
                         eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                        viewport: { x: 0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
+                        viewport: { x: 0.5, y: 0, width: 0.5 / aspect, height: 0.8 },
+                        resolution
                     }];
             }
             sliceconfig.singlezslice2eye = singlezslice2eye;
-            function singleyslice1eye(aspect) {
+            function singleyslice1eye(screenSize) {
+                let aspect = screenSize.height / screenSize.width;
+                let resolution = screenSize.height;
                 return [{
                         slicePos: 0,
                         facing: tesserxel.renderer.SliceFacing.NEGY,
-                        viewport: { x: 0, y: 0, width: 1 / aspect, height: 1.0 }
+                        viewport: { x: 0, y: 0, width: 1 / aspect, height: 1.0 },
+                        resolution
                     }];
             }
             sliceconfig.singleyslice1eye = singleyslice1eye;
-            function singleyslice2eye(aspect) {
+            function singleyslice2eye(screenSize) {
+                let aspect = screenSize.height / screenSize.width;
+                let resolution = screenSize.height * 0.8;
                 return [{
                         slicePos: 0,
                         facing: tesserxel.renderer.SliceFacing.NEGY,
                         eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                        viewport: { x: -0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
+                        viewport: { x: -0.5, y: 0, width: 0.5 / aspect, height: 0.8 },
+                        resolution
                     }, {
                         slicePos: 0,
                         facing: tesserxel.renderer.SliceFacing.NEGY,
                         eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                        viewport: { x: 0.5, y: 0, width: 0.5 / aspect, height: 0.8 }
+                        viewport: { x: 0.5, y: 0, width: 0.5 / aspect, height: 0.8 },
+                        resolution
                     }];
             }
             sliceconfig.singleyslice2eye = singleyslice2eye;
-            function zslices1eye(step, maxpos, aspect) {
+            function zslices1eye(step, maxpos, screenSize) {
+                let aspect = screenSize.height / screenSize.width;
                 let arr = [[0, 0]];
                 let j = 1;
                 for (let i = step; i <= maxpos; i += step, j++) {
@@ -6659,14 +6673,17 @@ var tesserxel;
                 }
                 let half = 2 / arr.length;
                 let size = 1 / (aspect * arr.length);
+                let resolution = screenSize.height * size;
                 return arr.map(pos => ({
                     slicePos: pos[0],
                     facing: tesserxel.renderer.SliceFacing.POSZ,
-                    viewport: { x: pos[1] * half, y: size - 1, width: size, height: size }
+                    viewport: { x: pos[1] * half, y: size - 1, width: size, height: size },
+                    resolution
                 }));
             }
             sliceconfig.zslices1eye = zslices1eye;
-            function zslices2eye(step, maxpos, aspect) {
+            function zslices2eye(step, maxpos, screenSize) {
+                let aspect = screenSize.height / screenSize.width;
                 let arr = [[0, 0]];
                 let j = 1;
                 for (let i = step; i <= maxpos; i += step, j++) {
@@ -6676,20 +6693,24 @@ var tesserxel;
                 arr.sort((a, b) => a[0] - b[0]);
                 let half = 1 / arr.length;
                 let size = 0.5 / (aspect * arr.length);
+                let resolution = screenSize.height * size;
                 return arr.map(pos => ({
                     slicePos: pos[0],
                     facing: tesserxel.renderer.SliceFacing.POSZ,
                     eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                    viewport: { x: (pos[1] * half) - 0.5, y: size - 1, width: size, height: size }
+                    viewport: { x: (pos[1] * half) - 0.5, y: size - 1, width: size, height: size },
+                    resolution
                 })).concat(arr.map(pos => ({
                     slicePos: pos[0],
                     facing: tesserxel.renderer.SliceFacing.POSZ,
                     eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                    viewport: { x: (pos[1] * half) + 0.5, y: size - 1, width: size, height: size }
+                    viewport: { x: (pos[1] * half) + 0.5, y: size - 1, width: size, height: size },
+                    resolution
                 })));
             }
             sliceconfig.zslices2eye = zslices2eye;
-            function yslices1eye(step, maxpos, aspect) {
+            function yslices1eye(step, maxpos, screenSize) {
+                let aspect = screenSize.height / screenSize.width;
                 let arr = [[0, 0]];
                 let j = 1;
                 for (let i = step; i <= maxpos; i += step, j++) {
@@ -6698,14 +6719,17 @@ var tesserxel;
                 }
                 let half = 2 / arr.length;
                 let size = 1 / (aspect * arr.length);
+                let resolution = screenSize.height * size;
                 return arr.map(pos => ({
                     slicePos: pos[0],
                     facing: tesserxel.renderer.SliceFacing.NEGY,
-                    viewport: { x: pos[1] * half, y: size - 1, width: size, height: size }
+                    viewport: { x: pos[1] * half, y: size - 1, width: size, height: size },
+                    resolution
                 }));
             }
             sliceconfig.yslices1eye = yslices1eye;
-            function yslices2eye(step, maxpos, aspect) {
+            function yslices2eye(step, maxpos, screenSize) {
+                let aspect = screenSize.height / screenSize.width;
                 let arr = [[0, 0]];
                 let j = 1;
                 for (let i = step; i <= maxpos; i += step, j++) {
@@ -6715,20 +6739,25 @@ var tesserxel;
                 arr.sort((a, b) => a[0] - b[0]);
                 let half = 1 / arr.length;
                 let size = 0.5 / (aspect * arr.length);
+                let resolution = screenSize.height * size;
                 return arr.map(pos => ({
                     slicePos: pos[0],
                     facing: tesserxel.renderer.SliceFacing.NEGY,
                     eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                    viewport: { x: (pos[1] * half) - 0.5, y: size - 1, width: size, height: size }
+                    viewport: { x: (pos[1] * half) - 0.5, y: size - 1, width: size, height: size },
+                    resolution
                 })).concat(arr.map(pos => ({
                     slicePos: pos[0],
                     facing: tesserxel.renderer.SliceFacing.NEGY,
                     eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                    viewport: { x: (pos[1] * half) + 0.5, y: size - 1, width: size, height: size }
+                    viewport: { x: (pos[1] * half) + 0.5, y: size - 1, width: size, height: size },
+                    resolution
                 })));
             }
             sliceconfig.yslices2eye = yslices2eye;
-            function default2eye(size, aspect) {
+            function default2eye(size, screenSize) {
+                let aspect = screenSize.height / screenSize.width;
+                let resolution = screenSize.height * size;
                 let wsize;
                 let size_aspect;
                 if (size >= 0.5) {
@@ -6744,38 +6773,46 @@ var tesserxel;
                     {
                         facing: tesserxel.renderer.SliceFacing.NEGX,
                         eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                        viewport: { x: -size_aspect, y: size - 1, width: wsize, height: size }
+                        viewport: { x: -size_aspect, y: size - 1, width: wsize, height: size },
+                        resolution
                     },
                     {
                         facing: tesserxel.renderer.SliceFacing.NEGX,
                         eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                        viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size }
+                        viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size },
+                        resolution
                     },
                     {
                         facing: tesserxel.renderer.SliceFacing.NEGY,
                         eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                        viewport: { x: -size_aspect, y: 1 - size, width: wsize, height: size }
+                        viewport: { x: -size_aspect, y: 1 - size, width: wsize, height: size },
+                        resolution
                     },
                     {
                         facing: tesserxel.renderer.SliceFacing.NEGY,
                         eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                        viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size }
+                        viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size },
+                        resolution
                     },
                     {
                         facing: tesserxel.renderer.SliceFacing.POSZ,
                         eyeOffset: tesserxel.renderer.EyeOffset.LeftEye,
-                        viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size }
+                        viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size },
+                        resolution
                     },
                     {
                         facing: tesserxel.renderer.SliceFacing.POSZ,
                         eyeOffset: tesserxel.renderer.EyeOffset.RightEye,
-                        viewport: { x: size_aspect, y: size - 1, width: wsize, height: size }
+                        viewport: { x: size_aspect, y: size - 1, width: wsize, height: size },
+                        resolution
                     },
                 ];
             }
             sliceconfig.default2eye = default2eye;
             ;
-            function default1eye(size, aspect) {
+            function default1eye(size, screenSize) {
+                let aspect = screenSize.height / screenSize.width;
+                let resolution = screenSize.height * size;
                 let wsize;
                 let size_aspect;
                 if (size >= 0.5) {
@@ -6790,15 +6827,18 @@ var tesserxel;
                 return [
                     {
                         facing: tesserxel.renderer.SliceFacing.NEGX,
-                        viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size }
+                        viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size },
+                        resolution
                     },
                     {
                         facing: tesserxel.renderer.SliceFacing.NEGY,
-                        viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size }
+                        viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size },
+                        resolution
                     },
                     {
                         facing: tesserxel.renderer.SliceFacing.POSZ,
-                        viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size }
+                        viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size },
+                        resolution
                     }
                 ];
             }
@@ -6808,27 +6848,30 @@ var tesserxel;
             enabled = true;
             renderer;
             mouseSpeed = 0.01;
-            wheelSpeed = 0.0001;
+            wheelSpeed = 0.0005;
             keyMoveSpeed = 0.1;
-            keyRotateSpeed = 0.01;
+            keyRotateSpeed = 0.002;
             opacityKeySpeed = 0.01;
             damp = 0.02;
             mouseButton = 0;
             retinaEyeOffset = 0.1;
             sectionEyeOffset = 0.2;
+            size;
             sectionPresets;
-            sliceConfig;
             currentSectionConfig = "retina+sections";
             rembemerLastLayers;
             needResize = true;
             keyConfig = {
                 enable: "AltLeft",
                 disable: "",
-                toggle3D: ".KeyZ",
                 addOpacity: "KeyQ",
                 subOpacity: "KeyA",
                 addLayer: "KeyW",
                 subLayer: "KeyS",
+                addRetinaResolution: ".KeyE",
+                subRetinaResolution: ".KeyD",
+                toggle3D: ".KeyZ",
+                toggleCrosshair: ".KeyC",
                 rotateLeft: "ArrowLeft",
                 rotateRight: "ArrowRight",
                 rotateUp: "ArrowUp",
@@ -6836,20 +6879,26 @@ var tesserxel;
                 refaceFront: ".KeyR",
                 sectionConfigs: {
                     "retina+sections": ".Digit1",
-                    "retina": ".Digit2",
-                    "sections": ".Digit3",
-                    "retina+zslices": ".Digit4",
-                    "retina+yslices": ".Digit5",
-                    "zsection": ".Digit6",
-                    "ysection": ".Digit7"
+                    "retina+bigsections": ".Digit2",
+                    "retina": ".Digit3",
+                    "sections": ".Digit4",
+                    "zsection": ".Digit5",
+                    "ysection": ".Digit6",
+                    "retina+zslices": ".Digit7",
+                    "retina+yslices": ".Digit8",
                 },
             };
             constructor(r) {
                 this.renderer = r;
-                this.sectionPresets = (aspect) => ({
+                this.sectionPresets = (screenSize) => ({
                     "retina+sections": {
-                        eye1: sliceconfig.default1eye(0.2, aspect),
-                        eye2: sliceconfig.default2eye(0.2, aspect),
+                        eye1: sliceconfig.default1eye(0.3, screenSize),
+                        eye2: sliceconfig.default2eye(0.2, screenSize),
+                        retina: true
+                    },
+                    "retina+bigsections": {
+                        eye1: sliceconfig.default1eye(0.44, screenSize),
+                        eye2: sliceconfig.default2eye(0.33, screenSize),
                         retina: true
                     },
                     "retina": {
@@ -6858,28 +6907,28 @@ var tesserxel;
                         retina: true
                     },
                     "sections": {
-                        eye1: sliceconfig.default1eye(0.5, aspect),
-                        eye2: sliceconfig.default2eye(0.5, aspect),
+                        eye1: sliceconfig.default1eye(0.5, screenSize),
+                        eye2: sliceconfig.default2eye(0.5, screenSize),
                         retina: false
                     },
                     "retina+zslices": {
-                        eye1: sliceconfig.zslices1eye(0.15, 0.6, aspect),
-                        eye2: sliceconfig.zslices2eye(0.3, 0.6, aspect),
+                        eye1: sliceconfig.zslices1eye(0.15, 0.6, screenSize),
+                        eye2: sliceconfig.zslices2eye(0.3, 0.6, screenSize),
                         retina: true
                     },
                     "retina+yslices": {
-                        eye1: sliceconfig.yslices1eye(0.15, 0.6, aspect),
-                        eye2: sliceconfig.yslices2eye(0.3, 0.6, aspect),
+                        eye1: sliceconfig.yslices1eye(0.15, 0.6, screenSize),
+                        eye2: sliceconfig.yslices2eye(0.3, 0.6, screenSize),
                         retina: true
                     },
                     "zsection": {
-                        eye1: sliceconfig.singlezslice1eye(aspect),
-                        eye2: sliceconfig.singlezslice2eye(aspect),
+                        eye1: sliceconfig.singlezslice1eye(screenSize),
+                        eye2: sliceconfig.singlezslice2eye(screenSize),
                         retina: false
                     },
                     "ysection": {
-                        eye1: sliceconfig.singleyslice1eye(aspect),
-                        eye2: sliceconfig.singleyslice2eye(aspect),
+                        eye1: sliceconfig.singleyslice1eye(screenSize),
+                        eye2: sliceconfig.singleyslice2eye(screenSize),
                         retina: false
                     },
                 });
@@ -6891,7 +6940,10 @@ var tesserxel;
             _q2 = new tesserxel.math.Quaternion();
             _mat4 = new tesserxel.math.Mat4();
             refacingFront = false;
+            needsUpdateRetinaZDistance = false;
             retinaZDistance = 5;
+            crossHairSize = 0.03;
+            maxRetinaResolution = 1024;
             update(state) {
                 let disabled = state.queryDisabled(this.keyConfig);
                 let on = state.isKeyHold;
@@ -6906,13 +6958,17 @@ var tesserxel;
                     else {
                         this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
                     }
-                    sliceConfig.sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(!stereo ? "eye2" : "eye1")];
+                    sliceConfig.sections = this.sectionPresets(this.renderer.getSize())[this.currentSectionConfig][(!stereo ? "eye2" : "eye1")];
                 }
                 else if (this.needResize) {
-                    sliceConfig.sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(this.renderer.getStereoMode() ? "eye2" : "eye1")];
+                    sliceConfig.sections = this.sectionPresets(this.renderer.getSize())[this.currentSectionConfig][(this.renderer.getStereoMode() ? "eye2" : "eye1")];
                 }
                 if (!disabled) {
                     this.needResize = false;
+                    if (state.isKeyHold(this.keyConfig.toggleCrosshair)) {
+                        let crossHair = this.renderer.getCrosshair();
+                        this.renderer.setCrosshair(crossHair === 0 ? this.crossHairSize : 0);
+                    }
                     if (state.isKeyHold(this.keyConfig.addOpacity)) {
                         this.renderer.setOpacity(this.renderer.getOpacity() * (1 + this.opacityKeySpeed));
                     }
@@ -6937,6 +6993,18 @@ var tesserxel;
                             sliceConfig.layers = layers;
                         }
                     }
+                    if (state.isKeyHold(this.keyConfig.addRetinaResolution)) {
+                        let res = this.renderer.getRetinaResolution();
+                        res += this.renderer.getMinResolutionMultiple();
+                        if (res <= this.maxRetinaResolution)
+                            sliceConfig.retinaResolution = res;
+                    }
+                    if (state.isKeyHold(this.keyConfig.subRetinaResolution)) {
+                        let res = this.renderer.getRetinaResolution();
+                        res -= this.renderer.getMinResolutionMultiple();
+                        if (res > 0)
+                            sliceConfig.retinaResolution = res;
+                    }
                     for (let [label, keyCode] of Object.entries(this.keyConfig.sectionConfigs)) {
                         if (state.isKeyHold(keyCode)) {
                             this.toggleSectionConfig(label);
@@ -6956,6 +7024,10 @@ var tesserxel;
                         if (state.moveY)
                             this._vec2damp.y = state.moveY * this.mouseSpeed;
                     }
+                    if (state.wheelY) {
+                        this.needsUpdateRetinaZDistance = true;
+                        this.retinaZDistance += state.wheelY * this.wheelSpeed;
+                    }
                     if (on(key.refaceFront)) {
                         this.refacingFront = true;
                     }
@@ -6963,7 +7035,8 @@ var tesserxel;
                 if (this._vec2damp.norm1() < 1e-3 || this.refacingFront) {
                     this._vec2damp.set(0, 0);
                 }
-                if (this._vec2damp.norm1() > 1e-3 || this.refacingFront) {
+                if (this._vec2damp.norm1() > 1e-3 || this.refacingFront || this.needsUpdateRetinaZDistance) {
+                    this.needsUpdateRetinaZDistance = false;
                     this._vec2euler.x %= tesserxel.math._360;
                     this._vec2euler.y %= tesserxel.math._360;
                     let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
@@ -6987,7 +7060,7 @@ var tesserxel;
                 else {
                     this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
                 }
-                let sections = this.sectionPresets(this.renderer.getScreenAspect())[this.currentSectionConfig][(!stereo ? "eye2" : "eye1")];
+                let sections = this.sectionPresets(this.renderer.getSize())[this.currentSectionConfig][(!stereo ? "eye2" : "eye1")];
                 this.renderer.setSliceConfig({ sections });
             }
             setSectionEyeOffset(offset) {
@@ -7006,10 +7079,13 @@ var tesserxel;
             setOpacity(opacity) {
                 this.renderer.setOpacity(opacity);
             }
+            setRetinaResolution(retinaResolution) {
+                this.renderer.setSliceConfig({ retinaResolution });
+            }
             toggleSectionConfig(index) {
                 if (this.currentSectionConfig === index)
                     return;
-                let preset = this.sectionPresets(this.renderer.getScreenAspect())[index];
+                let preset = this.sectionPresets(this.renderer.getSize())[index];
                 if (!preset)
                     console.error(`Section Configuration "${index}" does not exsit.`);
                 let layers = this.renderer.getLayers();
@@ -7126,7 +7202,8 @@ var tesserxel;
         ;
         ;
         const DefaultWorkGroupSize = 256;
-        const DefaultSliceResolution = 512;
+        const DefaultRetinaResolution = 512;
+        const DefaultSliceGroupSize = 16;
         const DefaultMaxSlicesNumber = 256;
         const DefaultMaxCrossSectionBufferSize = 0x800000;
         const DefaultEnableFloat16Blend = true;
@@ -7140,14 +7217,15 @@ var tesserxel;
             // configurations
             maxSlicesNumber;
             maxCrossSectionBufferSize;
-            sliceResolution;
             /** On each computeshader slice calling numbers, should be 2^n */
             sliceGroupSize;
             sliceGroupSizeBit;
             screenSize;
             outputBufferStride;
+            viewportCompressShift;
             blendFormat;
             displayConfig;
+            sliceTextureSize;
             // GPU resources
             gpu;
             context;
@@ -7169,9 +7247,8 @@ var tesserxel;
             sliceOffsetBuffer;
             emitIndexSliceBuffer;
             refacingBuffer; // refacing buffer stores not only refacing but also retina slices
-            eyeBuffer;
+            eyeCrossBuffer;
             thumbnailViewportBuffer;
-            readBuffer;
             sliceGroupOffsetBuffer;
             retinaMVBuffer;
             retinaPBuffer;
@@ -7191,38 +7268,39 @@ var tesserxel;
             renderState;
             enableEye3D;
             refacingMatsCode;
+            crossHairSize = 0;
             // section thumbnail
             totalGroupNum;
             sliceGroupNum;
             async init(gpu, context, options) {
                 // constants generations
-                let sliceResolution = options?.sliceResolution ?? DefaultSliceResolution;
                 // by default we maximum sliceGroupSize value according to maximum 2d texture size
-                let sliceGroupSize = options?.sliceGroupSize ?? (gpu.device.limits.maxTextureDimension2D / sliceResolution);
+                let sliceGroupSize = options?.sliceGroupSize ?? DefaultSliceGroupSize;
                 // sliceTexture covered by sliceGroupSize x 2 atlas of sliceResolution x sliceResolution
-                let sliceTextureSize = { width: sliceResolution, height: sliceResolution * sliceGroupSize };
-                let sliceGroupSizeBit = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512].indexOf(sliceGroupSize);
+                let maxTextureSize = gpu.device.limits.maxTextureDimension2D;
+                let sliceTextureSize = { width: maxTextureSize >> 1, height: maxTextureSize };
+                let power2arr = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512];
+                let sliceGroupSizeBit = power2arr.indexOf(sliceGroupSize);
                 let outputBufferSize = (options?.maxCrossSectionBufferSize ?? DefaultMaxCrossSectionBufferSize);
                 let outputBufferStride = outputBufferSize >> sliceGroupSizeBit;
                 let maxSlicesNumber = options?.maxSlicesNumber ?? DefaultMaxSlicesNumber;
                 let enableFloat16Blend = (options?.enableFloat16Blend ?? DefaultEnableFloat16Blend);
                 let blendFormat = enableFloat16Blend === true ? 'rgba16float' : gpu.preferredFormat;
-                this.sliceResolution = sliceResolution;
                 this.sliceGroupSize = sliceGroupSize;
                 this.sliceGroupSizeBit = sliceGroupSizeBit;
                 this.maxCrossSectionBufferSize = outputBufferSize;
                 this.outputBufferStride = outputBufferStride;
                 this.maxSlicesNumber = maxSlicesNumber;
                 this.blendFormat = blendFormat;
+                this.sliceTextureSize = sliceTextureSize;
                 // buffers
-                this.readBuffer = gpu.createBuffer(GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ, outputBufferSize);
-                // external declaration : let mvpBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 6);
+                // this.readBuffer = gpu.createBuffer(GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ, outputBufferSize);
                 let sliceOffsetBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
                 let emitIndexSliceBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST, (4 << sliceGroupSizeBit) + (maxSlicesNumber << 4));
                 let retinaMVBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 64);
                 let retinaPBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 64);
                 let refacingBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
-                let eyeBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 8);
+                let eyeCrossBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 12);
                 let thumbnailViewportBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 16 * 16 * 4);
                 // here is the default builtin(position) outputbuffer
                 this.outputVaryBufferPool.push(gpu.createBuffer(SliceRenderer.outputAttributeUsage, outputBufferSize, "Output buffer for builtin(position)"));
@@ -7243,12 +7321,13 @@ var tesserxel;
                 this.retinaMVBuffer = retinaMVBuffer;
                 this.retinaPBuffer = retinaPBuffer;
                 this.refacingBuffer = refacingBuffer;
-                this.eyeBuffer = eyeBuffer;
+                this.eyeCrossBuffer = eyeCrossBuffer;
                 this.sliceGroupOffsetBuffer = sliceGroupOffsetBuffer;
                 this.screenAspectBuffer = screenAspectBuffer;
                 this.layerOpacityBuffer = layerOpacityBuffer;
                 this.camProjBuffer = camProjBuffer;
                 this.thumbnailViewportBuffer = thumbnailViewportBuffer;
+                this.viewportCompressShift = power2arr.indexOf(maxTextureSize >> 8);
                 // textures
                 let depthTexture = gpu.device.createTexture({
                     size: sliceTextureSize, format: 'depth24plus',
@@ -7359,19 +7438,21 @@ const determinantRefacingMats = array<f32,6>(1,-1,-1,-1,-1,-1);
 struct vOutputType{
     @builtin(position) position : vec4<f32>,
     @location(0) relativeFragPosition : vec3<f32>,
-    @location(1) rayForCalOpacity : vec4<f32>,
-    @location(2) normalForCalOpacity : vec4<f32>,
+    @location(1) crossHair : f32,
+    @location(2) rayForCalOpacity : vec4<f32>,
+    @location(3) normalForCalOpacity : vec4<f32>,
 }
 struct fInputType{
     @location(0) relativeFragPosition : vec3<f32>,
-    @location(1) rayForCalOpacity : vec4<f32>,
-    @location(2) normalForCalOpacity : vec4<f32>,
+    @location(1) crossHair : f32,
+    @location(2) rayForCalOpacity : vec4<f32>,
+    @location(3) normalForCalOpacity : vec4<f32>,
 }
 struct _SliceInfo{
     slicePos: f32,
     refacing: u32,
     flag: u32,
-    _pading: u32,
+    viewport: u32,
 }
 @group(0) @binding(0) var<uniform> mvmat: mat4x4<f32>;
 @group(0) @binding(1) var<uniform> pmat: mat4x4<f32>;
@@ -7381,7 +7462,7 @@ struct _SliceInfo{
 @group(0) @binding(5) var<uniform> screenAspect : f32;
 @group(0) @binding(6) var<uniform> layerOpacity : f32;
 @group(0) @binding(7) var<uniform> thumbnailViewport : array<vec4<f32>,16>;
-@group(0) @binding(8) var<uniform> eyeOffset : vec2<f32>; //(eye4,eye3)
+@group(0) @binding(8) var<uniform> eyeOffset : vec3<f32>; //(eye4,eye3,crosshair)
 
 @vertex fn mainVertex(@builtin(vertex_index) vindex : u32, @builtin(instance_index) iindex : u32) -> vOutputType {
     const pos = array<vec2<f32>, 4>(
@@ -7397,12 +7478,18 @@ struct _SliceInfo{
         sindex = iindex >> 1;
     }
     let s = slice[sindex + sliceoffset];
-    let coord = vec2<f32>(pos2d.x, -pos2d.y) * 0.5 + 0.5;
+    // let coord = vec2<f32>(pos2d.x, -pos2d.y) * 0.5 + 0.5;
     let ray = vec4<f32>(pos2d, s.slicePos, 1.0);
     var glPosition: vec4<f32>;
     var camRay: vec4<f32>;
     var normal: vec4<f32>;
+    let x = f32(((s.viewport >> 24) & 0xFF) << ${this.viewportCompressShift}) * ${1 / this.sliceTextureSize.width};
+    let y = f32(((s.viewport >> 16) & 0xFF) << ${this.viewportCompressShift}) * ${1 / this.sliceTextureSize.height};
+    let w = f32(((s.viewport >> 8 ) & 0xFF) << ${this.viewportCompressShift}) * ${1 / this.sliceTextureSize.width};
+    let h = f32((s.viewport & 0xFF) << ${this.viewportCompressShift}) * ${1 / this.sliceTextureSize.height};
+    var crossHair : f32;
     if (slice[sliceoffset].flag == 0){
+        crossHair = 0.0;
         let stereoLR_offset = -stereoLR * eyeOffset.y;
         let se = sin(stereoLR_offset);
         let ce = cos(stereoLR_offset);
@@ -7422,11 +7509,21 @@ struct _SliceInfo{
         glPosition.x = (glPosition.x) * screenAspect + step(0.0001, eyeOffset.y) * stereoLR * glPosition.w;
     }else{
         let vp = thumbnailViewport[sindex + sliceoffset - (refacing >> 5)];
+        crossHair = eyeOffset.z / vp.w * step(abs(s.slicePos),0.1);
         glPosition = vec4<f32>(ray.x * vp.z * screenAspect + vp.x, ray.y * vp.w + vp.y,0.5,1.0);
+        camRay = vec4<f32>(pos[vindex].x * vp.z / vp.w,pos[vindex].y,0.0,1.0); // for rendering crosshair
     }
+    
+    let texelCoord = array<vec2<f32>, 4>(
+        vec2<f32>(x, y+h),
+        vec2<f32>(x, y),
+        vec2<f32>( x+w, y+h),
+        vec2<f32>( x+w, y),
+    );
     return vOutputType(
         glPosition,
-        vec3<f32>(coord.x, (coord.y + f32(sindex))*${1 / sliceGroupSize} , s.slicePos),
+        vec3<f32>(texelCoord[vindex] , s.slicePos),
+        crossHair,
         camRay,
         normal
     );
@@ -7438,12 +7535,17 @@ struct _SliceInfo{
     let color = textureSample(txt, splr, input.relativeFragPosition.xy);
     var alpha: f32 = 1.0;
     let k = layerOpacity;
+    var factor = 0.0;
     if (slice[sliceoffset].flag == 0){
         let dotvalue = dot(normalize(input.rayForCalOpacity.xyz), input.normalForCalOpacity.xyz);
-        let factor = layerOpacity/(clamp(-dotvalue,0.0,1.0));
+        let factor = layerOpacity / (clamp(-dotvalue,0.0,1.0));
         alpha =  color.a * max(0.0, factor );
+    }else if(input.crossHair > 0.0){
+        let cross = abs(input.rayForCalOpacity.xy);
+        factor = step(cross.x,input.crossHair*0.05) + step(cross.y,input.crossHair*0.05);
+        factor *= step(cross.x,input.crossHair) * step(cross.y,input.crossHair);
     }
-    return vec4<f32>(color.rgb, alpha);
+    return vec4<f32>(mix(color.rgb,vec3<f32>(1.0) - color.rgb,clamp(factor,0.0,1.0)), alpha);
 }
 `;
                 let retinaRenderShaderModule = gpu.device.createShaderModule({
@@ -7499,7 +7601,7 @@ struct _SliceInfo{
                     { buffer: screenAspectBuffer },
                     { buffer: layerOpacityBuffer },
                     { buffer: thumbnailViewportBuffer },
-                    { buffer: eyeBuffer },
+                    { buffer: eyeCrossBuffer },
                     sliceView,
                     this.linearTextureSampler,
                 ], "retinaBindGroup");
@@ -7512,6 +7614,9 @@ struct _SliceInfo{
                 let screenRenderCode = `
 @group(0) @binding(0) var txt: texture_2d<f32>;
 @group(0) @binding(1) var splr: sampler;
+@group(0) @binding(2) var<uniform> eyeCross: vec3<f32>;
+@group(0) @binding(3) var<uniform> screenAspect : f32;
+@group(0) @binding(4) var<uniform> layerOpacity : f32;
 struct vOutputType{
     @builtin(position) position : vec4<f32>,
     @location(0) fragPosition : vec2<f32>,
@@ -7536,7 +7641,21 @@ struct fInputType{
 }
 @fragment fn mainFragment(input: fInputType) -> @location(0) vec4<f32> {
     let color = textureSample(txt, splr, input.fragPosition);
-    return vec4<f32>(color.rgb, 1.0);
+    var factor = 0.0;
+    if(eyeCross.z > 0.0 && layerOpacity > 0.0){
+        let aspectedCross = eyeCross.z*screenAspect;
+        if(eyeCross.x > 0.0 ){
+            let cross1 = abs(input.fragPosition - vec2<f32>(0.25 ,0.5))*2.0;
+            let cross2 = abs(input.fragPosition - vec2<f32>(0.75 ,0.5))*2.0;
+            factor = step(cross1.x,0.05*aspectedCross) + step(cross2.x,0.05*aspectedCross) + step(cross1.y,eyeCross.z*0.05);
+            factor *= step(cross1.y,eyeCross.z) * (step(cross1.x,aspectedCross) + step(cross2.x,aspectedCross));
+        }else{
+            let cross = abs(input.fragPosition - vec2<f32>(0.5 ,0.5))*2.0;
+            factor = step(cross.x,0.05*aspectedCross) + step(cross.y,eyeCross.z*0.05);
+            factor *= step(cross.y,eyeCross.z) * step(cross.x,aspectedCross);
+        }
+    }
+    return vec4<f32>(mix(color.rgb,vec3<f32>(1.0) - color.rgb,clamp(factor,0.0,1.0)), 1.0);
 }
 `;
                 let screenRenderShaderModule = gpu.device.createShaderModule({
@@ -7565,7 +7684,8 @@ struct fInputType{
                     sectionEyeOffset: 0,
                     opacity: 0,
                     sections: [],
-                    sliceNum: 0
+                    sliceNum: 0,
+                    retinaResolution: DefaultRetinaResolution
                 };
                 // default retina settings
                 if (options?.defaultConfigs !== false) {
@@ -7672,7 +7792,7 @@ struct fInputType{
                     { buffer: this.emitIndexSliceBuffer },
                     { buffer: this.sliceOffsetBuffer },
                     { buffer: this.refacingBuffer },
-                    { buffer: this.eyeBuffer },
+                    { buffer: this.eyeCrossBuffer },
                     { buffer: this.camProjBuffer },
                     { buffer: this.thumbnailViewportBuffer }
                 ];
@@ -8014,6 +8134,9 @@ struct vOutputType{
                 this.screenBindGroup = this.gpu.createBindGroup(this.screenRenderPipeline, 0, [
                     this.screenView,
                     this.linearTextureSampler,
+                    { buffer: this.eyeCrossBuffer },
+                    { buffer: this.screenAspectBuffer },
+                    { buffer: this.layerOpacityBuffer },
                 ], "screenBindGroup");
                 let aspect;
                 if (size.height) {
@@ -8023,12 +8146,6 @@ struct vOutputType{
                     aspect = size[1] / size[0];
                 }
                 this.gpu.device.queue.writeBuffer(this.screenAspectBuffer, 0, new Float32Array([aspect]));
-            }
-            getScreenAspect() {
-                if (!this.screenTexture) {
-                    return 1;
-                }
-                return this.screenTexture.height / this.screenTexture.width;
             }
             set4DCameraProjectMatrix(camera) {
                 tesserxel.math.getPerspectiveMatrix(camera).vec4.writeBuffer(this.camProjJsBuffer);
@@ -8065,27 +8182,36 @@ struct vOutputType{
             getSectionEyeOffset() { return this.displayConfig.sectionEyeOffset; }
             getRetinaEyeOffset() { return this.displayConfig.retinaEyeOffset; }
             getLayers() { return this.displayConfig.layers; }
+            getRetinaResolution() { return this.displayConfig.retinaResolution; }
+            getMinResolutionMultiple() { return 1 << this.viewportCompressShift; }
             getStereoMode() { return this.enableEye3D; }
+            getSize() {
+                if (!this.screenTexture) {
+                    return { width: 1, height: 1 };
+                }
+                return { width: this.screenTexture.width, height: this.screenTexture.height };
+            }
             setOpacity(opacity) {
                 this.displayConfig.opacity = opacity;
-                let value = this.displayConfig.sliceNum ? opacity / this.displayConfig.sliceNum : 1.0;
+                // This is useful: when sliceNum == 0, opacity is 0 -> detect opacity to not render crosshair
+                let value = this.displayConfig.sliceNum ? opacity / this.displayConfig.sliceNum : 0.0;
                 this.gpu.device.queue.writeBuffer(this.layerOpacityBuffer, 0, new Float32Array([value]));
             }
             setEyeOffset(sectionEyeOffset, retinaEyeOffset) {
                 let s = typeof sectionEyeOffset === "number";
                 let r = typeof retinaEyeOffset === "number";
                 if (s && r) {
-                    this.gpu.device.queue.writeBuffer(this.eyeBuffer, 0, new Float32Array([
+                    this.gpu.device.queue.writeBuffer(this.eyeCrossBuffer, 0, new Float32Array([
                         sectionEyeOffset, retinaEyeOffset
                     ]));
                 }
                 else if (s) {
-                    this.gpu.device.queue.writeBuffer(this.eyeBuffer, 0, new Float32Array([
+                    this.gpu.device.queue.writeBuffer(this.eyeCrossBuffer, 0, new Float32Array([
                         sectionEyeOffset
                     ]));
                 }
                 else if (r) {
-                    this.gpu.device.queue.writeBuffer(this.eyeBuffer, 4, new Float32Array([
+                    this.gpu.device.queue.writeBuffer(this.eyeCrossBuffer, 4, new Float32Array([
                         retinaEyeOffset
                     ]));
                 }
@@ -8095,7 +8221,20 @@ struct vOutputType{
                     this.displayConfig.retinaEyeOffset = retinaEyeOffset;
                 this.enableEye3D = this.displayConfig.sectionEyeOffset > 0 || this.displayConfig.retinaEyeOffset > 0;
             }
+            setCrosshair(size) {
+                this.crossHairSize = size;
+                this.gpu.device.queue.writeBuffer(this.eyeCrossBuffer, 8, new Float32Array([
+                    size
+                ]));
+            }
+            getCrosshair() {
+                return this.crossHairSize;
+            }
             setSliceConfig(sliceConfig) {
+                let vpShift = this.viewportCompressShift;
+                let prevRetinaResolution = this.displayConfig.retinaResolution;
+                if (sliceConfig.retinaResolution)
+                    this.displayConfig.retinaResolution = (sliceConfig.retinaResolution >> vpShift) << vpShift;
                 if (sliceConfig.sections) {
                     // deepcopy
                     this.displayConfig.sections = sliceConfig.sections.map(e => ({
@@ -8107,12 +8246,14 @@ struct vOutputType{
                             y: e.viewport.y,
                             width: e.viewport.width,
                             height: e.viewport.height,
-                        }
+                        },
+                        resolution: e.resolution ?? this.displayConfig.retinaResolution
                     }));
                 }
-                this.displayConfig.sections ??= [];
-                if ((!sliceConfig.sections) && ((typeof sliceConfig.layers !== "number") || this.displayConfig.layers == sliceConfig.layers))
+                if ((!sliceConfig.sections) && ((typeof sliceConfig.layers !== "number") ||
+                    this.displayConfig.layers == sliceConfig.layers) && (!sliceConfig.retinaResolution))
                     return;
+                this.displayConfig.sections ??= [];
                 sliceConfig.layers ??= this.displayConfig.layers ?? 0;
                 this.displayConfig.layers = sliceConfig.layers;
                 let sections = this.displayConfig.sections;
@@ -8129,10 +8270,31 @@ struct vOutputType{
                 let slices = (this.slicesJsBuffer?.length === totalNum << 2) ? this.slicesJsBuffer : new Float32Array(totalNum << 2);
                 this.slicesJsBuffer = slices;
                 slices.fill(0); // todo : check neccesity?
-                for (let slice = -1, i = 0; i < sliceNum; slice += sliceStep, i++) {
+                let retinaWidth = this.displayConfig.retinaResolution;
+                let retinaX = 0;
+                let retinaY = 0;
+                for (let slice = -1, i = 0, sliceGroupOffset = 0; i < sliceNum; slice += sliceStep, i++, sliceGroupOffset++) {
+                    if (sliceGroupOffset === this.sliceGroupSize) {
+                        sliceGroupOffset = 0;
+                        retinaX = 0;
+                        retinaY = 0;
+                    }
                     slices[(i << 2)] = slice; // if slice > 1, discard in shader
                     slices[(i << 2) + 1] = 0;
                     slices[(i << 2) + 2] = 0;
+                    let wshift = retinaWidth >> vpShift;
+                    slices[(i << 2) + 3] = u32_to_f32(((retinaX >> vpShift) << 24) + ((retinaY >> vpShift) << 16) + (wshift << 8) + wshift);
+                    if (retinaX + retinaWidth > this.sliceTextureSize.width ||
+                        retinaY + retinaWidth > this.sliceTextureSize.height) {
+                        this.setSliceConfig({ retinaResolution: prevRetinaResolution });
+                        console.warn("Maximum retinaResolution reached");
+                        return;
+                    }
+                    retinaY += retinaWidth;
+                    if (retinaY + retinaWidth > this.sliceTextureSize.height) {
+                        retinaX += retinaWidth;
+                        retinaY = 0;
+                    }
                 }
                 this.sliceGroupNum = sliceGroupNum;
                 this.totalGroupNum = sliceGroupNum + sectionGroupNum;
@@ -8140,25 +8302,52 @@ struct vOutputType{
                     let thumbnailViewportJsBuffer = new Float32Array(4 * 16);
                     let lastGroupPosition = sectionGroupNum - 1 << this.sliceGroupSizeBit;
                     let lastGroupSlices = sections.length - lastGroupPosition;
-                    for (let i = sliceNum, j = 0; i < totalNum; i++, j++) {
+                    // get max resolution widths per slice group
+                    let deltaX = [];
+                    let maxDx = 0;
+                    for (let j = 0, sliceGroupOffset = 0, l = sections.length; j < l; j++, sliceGroupOffset++) {
+                        let config = sections[j];
+                        if (sliceGroupOffset === this.sliceGroupSize) {
+                            sliceGroupOffset = 0;
+                            deltaX.push((maxDx >> vpShift) << vpShift);
+                            maxDx = 0;
+                        }
+                        maxDx = Math.max(maxDx, Math.ceil(config.resolution / config.viewport.height * config.viewport.width));
+                    }
+                    deltaX.push((maxDx >> 4) << 4);
+                    retinaX = 0;
+                    retinaY = 0;
+                    let sliceGroup = 0;
+                    for (let i = sliceNum, j = 0, sliceGroupOffset = 0; i < totalNum; i++, j++, sliceGroupOffset++) {
                         let config = sections[j];
                         slices[(i << 2)] = config?.slicePos ?? 0;
                         slices[(i << 2) + 1] = u32_to_f32(((config?.facing) ?? 0) | ((config?.eyeOffset ?? 1) << 3));
                         slices[(i << 2) + 2] = u32_to_f32(j < lastGroupPosition ? this.sliceGroupSize : lastGroupSlices);
                         if (config) {
+                            if (sliceGroupOffset === this.sliceGroupSize) {
+                                retinaX = 0;
+                                retinaY = 0;
+                                sliceGroupOffset = 0;
+                                sliceGroup++;
+                            }
+                            else if (retinaY + config.resolution > this.sliceTextureSize.height) {
+                                retinaX += deltaX[sliceGroup];
+                                retinaY = 0;
+                            }
+                            let wshift = Math.ceil(config.resolution / config.viewport.height * config.viewport.width) >> vpShift;
+                            let hshift = config.resolution >> vpShift;
+                            slices[(i << 2) + 3] = u32_to_f32((((retinaX >> vpShift)) << 24) + ((retinaY >> vpShift) << 16) + (wshift << 8) + hshift);
                             thumbnailViewportJsBuffer[j << 2] = config.viewport.x;
                             thumbnailViewportJsBuffer[(j << 2) + 1] = config.viewport.y;
                             thumbnailViewportJsBuffer[(j << 2) + 2] = config.viewport.width;
                             thumbnailViewportJsBuffer[(j << 2) + 3] = config.viewport.height;
+                            retinaY += (config.resolution >> vpShift) << vpShift;
                         }
                     }
                     this.gpu.device.queue.writeBuffer(this.thumbnailViewportBuffer, 0, thumbnailViewportJsBuffer);
                 }
                 this.gpu.device.queue.writeBuffer(this.emitIndexSliceBuffer, 0, slices);
                 this.retinaFacingChanged = true; // force to reload retina slice num into refacing buffer
-                function u32_to_f32(u32) {
-                    return new Float32Array(new Uint32Array([u32]).buffer)[0];
-                }
             }
             render(drawCall) {
                 if (!this.screenTexture) {
@@ -8318,7 +8507,7 @@ struct vOutputType{
             drawTetras(bindGroups) {
                 if (!this.renderState)
                     console.error("drawTetras should be called in a closure passed to render function");
-                let { commandEncoder, computePassEncoder, pipeline, needClear } = this.renderState;
+                let { commandEncoder, computePassEncoder, pipeline, needClear, sliceIndex } = this.renderState;
                 computePassEncoder.end();
                 let slicePassEncoder = commandEncoder.beginRenderPass(
                 // this.crossRenderPassDescClear
@@ -8336,9 +8525,11 @@ struct vOutputType{
                 let bitshift = 4 + this.sliceGroupSizeBit;
                 let verticesStride = this.maxCrossSectionBufferSize >> bitshift;
                 let offsetVert = 0;
-                let offsetPosY = 0;
-                for (let c = 0; c < this.sliceGroupSize; c++, offsetVert += verticesStride, offsetPosY += this.sliceResolution) {
-                    slicePassEncoder.setViewport(0, offsetPosY, this.sliceResolution, this.sliceResolution, 0, 1);
+                let sliceJsOffset = (sliceIndex << (2 + this.sliceGroupSizeBit)) + 3;
+                let vpShift = this.viewportCompressShift;
+                for (let c = 0; c < this.sliceGroupSize; c++, offsetVert += verticesStride) {
+                    let vp = f32_to_u32(this.slicesJsBuffer[sliceJsOffset + (c << 2)]);
+                    slicePassEncoder.setViewport(((vp >> 24) & 0xFF) << vpShift, ((vp >> 16) & 0xFF) << vpShift, ((vp >> 8) & 0xFF) << vpShift, (vp & 0xFF) << vpShift, 0, 1);
                     slicePassEncoder.draw(verticesStride, 1, offsetVert);
                 }
                 slicePassEncoder.end();
@@ -8382,14 +8573,11 @@ struct _SliceInfo{
     slicePos: f32,
     refacing: u32,
     flag: u32,
-    _pading: u32,
+    viewport: u32,
 }
 struct _vOut{
     @builtin(position) pos: vec4<f32>,
     ${retunTypeMembers}
-    // @location(0) rayDir: vec4<f32>,
-    // @location(1) rayPos: vec4<f32>,
-    // @location(2) retinaPosition: vec4<f32>,
 }
 struct AffineMat{
     matrix: mat4x4<f32>,
@@ -8418,7 +8606,6 @@ ${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_directi
         vec2<f32>( 1.0, 1.0),
     );
     let sliceInfo = _slice[_sliceoffset + i_index];
-    
     let sliceFlag = _slice[_sliceoffset].flag;
     var refacingEnum : u32;
 
@@ -8441,15 +8628,28 @@ ${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_directi
     let camRayOri = refacingMat * rayPos;
     ${dealRefacingCall}
     ${call}
-    return _vOut(
-        vec4<f32>(posidx.x,
-            -((
-                (-posidx.y + 1.0) * 0.5 + f32(i_index)
-            )*${1 / this.sliceGroupSize} - 0.5)*2.0, 0.999999, 1.0),
-        ${outputMembers}
-        // transpose(camMat.matrix) * (refacingMat * rayPos + camMat.vector),
-        // vec4<f32>(-pos[vindex], -sliceInfo.slicePos, 1.0)
-    );
+    let x = f32(((sliceInfo.viewport >> 24) & 0xFF) << ${this.viewportCompressShift}) * ${1 / this.sliceTextureSize.width};
+    let y = f32(((sliceInfo.viewport >> 16) & 0xFF) << ${this.viewportCompressShift}) * ${1 / this.sliceTextureSize.height};
+    let w = f32(((sliceInfo.viewport >> 8 ) & 0xFF) << ${this.viewportCompressShift}) * ${1 / this.sliceTextureSize.width};
+    let h = f32((sliceInfo.viewport & 0xFF) << ${this.viewportCompressShift}) * ${1 / this.sliceTextureSize.height};
+    let texelCoord = array<vec2<f32>, 4>(
+        vec2<f32>(x, y+h),
+        vec2<f32>(x, y),
+        vec2<f32>(x+w, y+h),
+        vec2<f32>(x+w, y),
+    )[vindex] * 2.0 - vec2<f32>(1.0);
+    
+    if(sliceInfo.slicePos > 1.0){
+        return _vOut(
+            vec4<f32>(0.0,0.0,0.0, -1.0),
+            ${outputMembers}
+        );
+    }else{
+        return _vOut(
+            vec4<f32>(texelCoord.x,-texelCoord.y, 0.999999, 1.0),
+            ${outputMembers}
+        );
+    }
 }
 fn calDepth(distance: f32)->f32{
     return -_camProj.z + _camProj.w / distance;
@@ -8480,7 +8680,7 @@ fn calDepth(distance: f32)->f32{
                     { buffer: this.emitIndexSliceBuffer },
                     { buffer: this.sliceOffsetBuffer },
                     { buffer: this.refacingBuffer },
-                    { buffer: this.eyeBuffer },
+                    { buffer: this.eyeCrossBuffer },
                     { buffer: this.camProjBuffer },
                     { buffer: this.thumbnailViewportBuffer },
                 ];
@@ -8491,7 +8691,7 @@ fn calDepth(distance: f32)->f32{
             drawRaytracing(pipeline, bindGroups) {
                 if (!this.renderState)
                     console.error("drawRaytracing should be called in a closure passed to render function");
-                let { commandEncoder, needClear, sliceIndex } = this.renderState;
+                let { commandEncoder, needClear } = this.renderState;
                 let slicePassEncoder = commandEncoder.beginRenderPass(needClear ? this.crossRenderPassDescClear : this.crossRenderPassDescLoad);
                 slicePassEncoder.setPipeline(pipeline.pipeline);
                 slicePassEncoder.setBindGroup(0, pipeline.bindGroup0);
@@ -8504,6 +8704,12 @@ fn calDepth(distance: f32)->f32{
         }
         renderer.SliceRenderer = SliceRenderer;
         ; // end class
+        function f32_to_u32(f32) {
+            return new Uint32Array(new Float32Array([f32]).buffer)[0];
+        }
+        function u32_to_f32(u32) {
+            return new Float32Array(new Uint32Array([u32]).buffer)[0];
+        }
     })(renderer = tesserxel.renderer || (tesserxel.renderer = {}));
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
