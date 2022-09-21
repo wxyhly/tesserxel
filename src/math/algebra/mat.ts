@@ -146,7 +146,7 @@ namespace tesserxel {
                 me[3] = a * detInv;
                 return this;
             }
-            pushPool(pool:Mat2Pool = mat2Pool){
+            pushPool(pool: Mat2Pool = mat2Pool) {
                 pool.push(this);
             }
         }
@@ -344,7 +344,7 @@ namespace tesserxel {
                     xz - wy, yz + wx, 1 - x2 - y2
                 );
             }
-            pushPool(pool:Mat3Pool = mat3Pool){
+            pushPool(pool: Mat3Pool = mat3Pool) {
                 pool.push(this);
             }
         }
@@ -701,7 +701,7 @@ namespace tesserxel {
                 me[15] = (n12 * n23 * n31 - n13 * n22 * n31 + n13 * n21 * n32 - n11 * n23 * n32 - n12 * n21 * n33 + n11 * n22 * n33) * detInv;
                 return this;
             }
-            pushPool(pool:Mat4Pool = mat4Pool){
+            pushPool(pool: Mat4Pool = mat4Pool) {
                 pool.push(this);
             }
         }
@@ -712,8 +712,17 @@ namespace tesserxel {
             /** aspect = width / height = depth / height */
             aspect?: number;
         }
-        /** Caution: This function calculates PerspectiveMatrix for 0-1 depth range */
-        export function getPerspectiveMatrix(c: PerspectiveCamera) {
+        export interface OrthographicCamera {
+            /** size = height */
+            size: number;
+            near: number;
+            far: number;
+            /** aspect = width / height = depth / height */
+            aspect?: number;
+        }
+        /** If fov == 0, then return Orthographic projection matrix
+         *  Caution: This function calculates PerspectiveMatrix for 0-1 depth range */
+        export function getPerspectiveProjectionMatrix(c: PerspectiveCamera) {
             let ky = Math.tan(math._90 - c.fov / 2 * math._DEG2RAD);
             let kxz = ky / (c.aspect ?? 1);
             let a = -c.far / (c.far - c.near);
@@ -732,6 +741,28 @@ namespace tesserxel {
                     0, 0, -1, 0
                 ),
                 /** used for 4d because of lack of mat5x5 */
+                vec4: new math.Vec4(kxz, ky, a, b)
+            }
+        }
+        export function getOrthographicProjectionMatrix(c: OrthographicCamera) {
+            let ky = 1 / c.size, kxz = ky / (c.aspect ?? 1);
+            let a = -1 / (c.far - c.near);
+            let b = c.near * a;
+            // [kxz   0    0    0    0]
+            // [0    ky   0    0    0]
+            // [0    0    kxz   0    0]
+            // [0    0    0    a    b]
+            // [0    0    0    0    1]
+            return {
+                /** used for 3d */
+                mat4: new math.Mat4(
+                    kxz, 0, 0, 0,
+                    0, ky, 0, 0,
+                    0, 0, a, b,
+                    0, 0, 0, 1
+                ),
+                /** used for 4d because of lack of mat5x5
+                 */
                 vec4: new math.Vec4(kxz, ky, a, b)
             }
         }

@@ -311,6 +311,8 @@ declare namespace tesserxel {
             static srand(seed: Srand): Quaternion;
             randset(): Quaternion;
             srandset(seed: Srand): Quaternion;
+            /** "from" and "to" must be normalized vectors*/
+            static lookAt(from: Vec3, to: Vec3): Quaternion;
             pushPool(pool?: QuaternionPool): void;
         }
         class Rotor {
@@ -357,6 +359,7 @@ declare namespace tesserxel {
             static lookAt(from: Vec4, to: Vec4): Rotor;
             /** "from" and "to" must be normalized vectors*/
             setFromLookAt(from: Vec4, to: Vec4): Rotor;
+            static lookAtbb(from: Bivec, to: Bivec): Rotor;
             static lookAtvb(from: Vec4, to: Bivec): Rotor;
             static rand(): Rotor;
             static srand(seed: Srand): Rotor;
@@ -490,11 +493,27 @@ declare namespace tesserxel {
             /** aspect = width / height = depth / height */
             aspect?: number;
         }
-        /** Caution: This function calculates PerspectiveMatrix for 0-1 depth range */
-        function getPerspectiveMatrix(c: PerspectiveCamera): {
+        interface OrthographicCamera {
+            /** size = height */
+            size: number;
+            near: number;
+            far: number;
+            /** aspect = width / height = depth / height */
+            aspect?: number;
+        }
+        /** If fov == 0, then return Orthographic projection matrix
+         *  Caution: This function calculates PerspectiveMatrix for 0-1 depth range */
+        function getPerspectiveProjectionMatrix(c: PerspectiveCamera): {
             /** used for 3d */
             mat4: Mat4;
             /** used for 4d because of lack of mat5x5 */
+            vec4: Vec4;
+        };
+        function getOrthographicProjectionMatrix(c: OrthographicCamera): {
+            /** used for 3d */
+            mat4: Mat4;
+            /** used for 4d because of lack of mat5x5
+             */
             vec4: Vec4;
         };
         let _mat2: Mat2;
@@ -740,6 +759,9 @@ declare namespace tesserxel {
         let _vec3: Vec3;
         let _vec3_1: Vec3;
         let _vec3_2: Vec3;
+        let _vec3_3: Vec3;
+        let _vec3_4: Vec3;
+        let _vec3_5: Vec3;
         let _vec4: Vec4;
         let _vec4_1: Vec4;
         let _Q: Quaternion;
@@ -1301,6 +1323,9 @@ declare namespace tesserxel {
             mouseSpeed: number;
             wheelSpeed: number;
             damp: number;
+            mouseButton3D: number;
+            mouseButtonRoll: number;
+            mouseButton4D: number;
             /** how many update cycles (2^n) to normalise rotor to avoid accuracy problem */
             normalisePeriodBit: 4;
             keyConfig: {
@@ -1448,6 +1473,7 @@ declare namespace tesserxel {
             keyMoveSpeed: number;
             keyRotateSpeed: number;
             opacityKeySpeed: number;
+            fovKeySpeed: number;
             damp: number;
             mouseButton: number;
             retinaEyeOffset: number;
@@ -1471,6 +1497,8 @@ declare namespace tesserxel {
                 subLayer: string;
                 addRetinaResolution: string;
                 subRetinaResolution: string;
+                addFov: string;
+                subFov: string;
                 toggle3D: string;
                 toggleCrosshair: string;
                 rotateLeft: string;
@@ -1497,9 +1525,11 @@ declare namespace tesserxel {
             private _q2;
             private _mat4;
             private refacingFront;
-            private needsUpdateRetinaZDistance;
-            retinaZDistance: number;
-            crossHairSize: number;
+            private needsUpdateRetinaCamera;
+            private retinaFov;
+            private retinaSize;
+            private retinaZDistance;
+            private crossHairSize;
             maxRetinaResolution: number;
             update(state: ControllerState): void;
             setStereo(stereo: boolean): void;
@@ -1507,7 +1537,10 @@ declare namespace tesserxel {
             setRetinaEyeOffset(offset: number): void;
             setLayers(layers: number): void;
             setOpacity(opacity: number): void;
+            setCrosshairSize(size: number): void;
             setRetinaResolution(retinaResolution: number): void;
+            setRetinaSize(size: number): void;
+            setRetinaFov(fov: number): void;
             toggleSectionConfig(index: string): void;
             setSize(size: GPUExtent3DStrict): void;
         }
@@ -1677,8 +1710,8 @@ declare namespace tesserxel {
             createFragmentShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[], label?: string): GPUBindGroup;
             createTetraSlicePipeline(desc: TetraSlicePipelineDescriptor): Promise<TetraSlicePipeline>;
             setSize(size: GPUExtent3DStrict): void;
-            set4DCameraProjectMatrix(camera: math.PerspectiveCamera): void;
-            setRetinaProjectMatrix(camera: math.PerspectiveCamera): void;
+            setCameraProjectMatrix(camera: math.PerspectiveCamera | math.OrthographicCamera): void;
+            setRetinaProjectMatrix(camera: math.PerspectiveCamera | math.OrthographicCamera): void;
             setRetinaViewMatrix(m: math.Mat4): void;
             getOpacity(): number;
             getSectionEyeOffset(): number;
@@ -1687,6 +1720,8 @@ declare namespace tesserxel {
             getRetinaResolution(): number;
             getMinResolutionMultiple(): number;
             getStereoMode(): boolean;
+            getCamera(): math.PerspectiveCamera | math.OrthographicCamera;
+            getRetinaCamera(): math.PerspectiveCamera | math.OrthographicCamera;
             getSize(): {
                 width: number;
                 height: number;

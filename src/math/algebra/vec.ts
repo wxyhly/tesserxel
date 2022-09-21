@@ -688,7 +688,10 @@ namespace tesserxel {
         export let _vec2 = new Vec2();
         export let _vec3 = new Vec3();
         export let _vec3_1 = new Vec3();
-        export let _vec3_2 = new Vec3();
+        export let _vec3_2 = new Vec3(); 
+        export let _vec3_3 = new Vec3(); 
+        export let _vec3_4 = new Vec3(); 
+        export let _vec3_5 = new Vec3(); 
         export let _vec4 = new Vec4();
         export let _vec4_1 = new Vec4();
         export let _Q = new Quaternion();

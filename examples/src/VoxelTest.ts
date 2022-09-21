@@ -206,7 +206,7 @@ namespace examples {
 
             let meshJsBuffer = tesserxel.mesh.tetra.tiger(1, 16, 1, 16, 0.2, 12);
             tesserxel.mesh.tetra.applyObj4(meshJsBuffer, new tesserxel.math.Obj4(
-                new tesserxel.math.Vec4(0,0,0,4)
+                new tesserxel.math.Vec4(0,0,0,2)
             ));
 
             const resolution = 256;
@@ -598,8 +598,8 @@ namespace examples {
 
             const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             const context = gpu.getContext(canvas);
-            const renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, { enableFloat16Blend: false });
-            renderer.setOpacity(20);
+            const renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context);
+            renderer.setOpacity(2);
             const RaytracingShaderCode = `
             
             struct Vec4Attachment{
@@ -676,7 +676,7 @@ namespace examples {
                     passEncoder.end();
                     device.queue.submit([commandEncoder.finish()]);
                 }
-                dispatch2();
+                // dispatch2();
                 renderer.render(() => {
                     renderer.drawRaytracing(pipeline, [renderBindgroup]);
                 });

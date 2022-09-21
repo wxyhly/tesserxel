@@ -174,6 +174,9 @@ namespace tesserxel {
             mouseSpeed = 0.01;
             wheelSpeed = 0.0001;
             damp = 0.1;
+            mouseButton3D = 0;
+            mouseButtonRoll = 1;
+            mouseButton4D = 2;
             /** how many update cycles (2^n) to normalise rotor to avoid accuracy problem */
             normalisePeriodBit: 4;
             keyConfig = {
@@ -193,13 +196,13 @@ namespace tesserxel {
                     let dy = -state.moveY * this.mouseSpeed;
                     let wy = state.wheelY * this.wheelSpeed;
                     switch (state.currentBtn) {
-                        case 0:
+                        case this.mouseButton3D:
                             this._bivec.set(0, dx, 0, dy);
                             break;
-                        case 1:
+                        case this.mouseButtonRoll:
                             this._bivec.set(dx, 0, 0, 0, 0, dy);
                             break;
-                        case 2:
+                        case this.mouseButton4D:
                             this._bivec.set(0, 0, dx, 0, dy);
                             break;
                         default:
@@ -676,6 +679,7 @@ namespace tesserxel {
             keyMoveSpeed = 0.1;
             keyRotateSpeed = 0.002;
             opacityKeySpeed = 0.01;
+            fovKeySpeed = 1;
             damp = 0.02;
             mouseButton = 0;
             retinaEyeOffset = 0.1;
@@ -694,6 +698,8 @@ namespace tesserxel {
                 subLayer: "KeyS",
                 addRetinaResolution: ".KeyE",
                 subRetinaResolution: ".KeyD",
+                addFov: "KeyT",
+                subFov: "KeyG",
                 toggle3D: ".KeyZ",
                 toggleCrosshair: ".KeyC",
                 rotateLeft: "ArrowLeft",
@@ -767,9 +773,11 @@ namespace tesserxel {
             private _q2 = new math.Quaternion();
             private _mat4 = new math.Mat4();
             private refacingFront: boolean = false;
-            private needsUpdateRetinaZDistance : boolean = false;
-            retinaZDistance = 5;
-            crossHairSize = 0.03;
+            private needsUpdateRetinaCamera: boolean = false;
+            private retinaFov: number = 40;
+            private retinaSize = 1.8;
+            private retinaZDistance = 5;
+            private crossHairSize = 0.03;
             maxRetinaResolution = 1024;
             update(state: ControllerState): void {
                 let disabled = state.queryDisabled(this.keyConfig);
@@ -796,7 +804,7 @@ namespace tesserxel {
                     this.needResize = false;
                     if (state.isKeyHold(this.keyConfig.toggleCrosshair)) {
                         let crossHair = this.renderer.getCrosshair();
-                            this.renderer.setCrosshair(crossHair === 0?this.crossHairSize:0);
+                        this.renderer.setCrosshair(crossHair === 0 ? this.crossHairSize : 0);
                     }
                     if (state.isKeyHold(this.keyConfig.addOpacity)) {
                         this.renderer.setOpacity(this.renderer.getOpacity() * (1 + this.opacityKeySpeed));
@@ -831,6 +839,16 @@ namespace tesserxel {
                         res -= this.renderer.getMinResolutionMultiple();
                         if (res > 0) sliceConfig.retinaResolution = res;
                     }
+                    if (state.isKeyHold(this.keyConfig.addFov)) {
+                        this.retinaFov += this.fovKeySpeed;
+                        if (this.retinaFov > 120) this.retinaFov = 120;
+                        this.needsUpdateRetinaCamera = true;
+                    }
+                    if (state.isKeyHold(this.keyConfig.subFov)) {
+                        this.retinaFov -= this.fovKeySpeed;
+                        if (this.retinaFov < 0.1) this.retinaFov = 0;
+                        this.needsUpdateRetinaCamera = true;
+                    }
                     for (let [label, keyCode] of Object.entries(this.keyConfig.sectionConfigs)) {
                         if (state.isKeyHold(keyCode)) {
                             this.toggleSectionConfig(label);
@@ -846,9 +864,9 @@ namespace tesserxel {
                         if (state.moveX) this._vec2damp.x = state.moveX * this.mouseSpeed;
                         if (state.moveY) this._vec2damp.y = state.moveY * this.mouseSpeed;
                     }
-                    if(state.wheelY){
-                        this.needsUpdateRetinaZDistance = true;
-                        this.retinaZDistance += state.wheelY * this.wheelSpeed;
+                    if (state.wheelY) {
+                        this.needsUpdateRetinaCamera = true;
+                        this.retinaSize += state.wheelY * this.wheelSpeed;
                     }
                     if (on(key.refaceFront)) {
                         this.refacingFront = true;
@@ -857,8 +875,25 @@ namespace tesserxel {
                 if (this._vec2damp.norm1() < 1e-3 || this.refacingFront) {
                     this._vec2damp.set(0, 0);
                 }
-                if (this._vec2damp.norm1() > 1e-3 || this.refacingFront || this.needsUpdateRetinaZDistance) {
-                    this.needsUpdateRetinaZDistance = false;
+                if (this._vec2damp.norm1() > 1e-3 || this.refacingFront || this.needsUpdateRetinaCamera) {
+                    if (this.needsUpdateRetinaCamera) {
+                        if (this.retinaFov > 0) {
+                            this.retinaZDistance = this.retinaSize / Math.tan(this.retinaFov / 2 * math._DEG2RAD);
+                            this.renderer.setRetinaProjectMatrix({
+                                fov: this.retinaFov,
+                                near: Math.max(0.01, this.retinaZDistance - 4),
+                                far: this.retinaZDistance + 4
+                            });
+                        }else{
+                            this.retinaZDistance = 4;
+                            this.renderer.setRetinaProjectMatrix({
+                                size: this.retinaSize,
+                                near: 2,
+                                far: 8
+                            });
+                        }
+                    }
+                    this.needsUpdateRetinaCamera = false;
                     this._vec2euler.x %= math._360;
                     this._vec2euler.y %= math._360;
                     let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
@@ -901,8 +936,20 @@ namespace tesserxel {
             setOpacity(opacity: number) {
                 this.renderer.setOpacity(opacity);
             }
+            setCrosshairSize(size: number) {
+                this.renderer.setCrosshair(size);
+                this.crossHairSize = size;
+            }
             setRetinaResolution(retinaResolution: number) {
                 this.renderer.setSliceConfig({ retinaResolution });
+            }
+            setRetinaSize(size: number) {
+                this.retinaSize = size;
+                this.needsUpdateRetinaCamera = true;
+            }
+            setRetinaFov(fov: number) {
+                this.retinaFov = fov;
+                this.needsUpdateRetinaCamera = true;
             }
             toggleSectionConfig(index: string) {
                 if (this.currentSectionConfig === index) return;

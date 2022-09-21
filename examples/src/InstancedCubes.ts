@@ -89,7 +89,7 @@ struct fInputType{
             let modelBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, jsbuffer);
             let vertBindGroup = renderer.createVertexShaderBindGroup(pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, camMat, modelBuffer]);
             renderer.setOpacity(30.0);
-            renderer.set4DCameraProjectMatrix({
+            renderer.setCameraProjectMatrix({
                 fov: 100, near: 0.02, far: 50
             });
 

@@ -328,7 +328,8 @@ namespace examples {
                 let scale = vec4.srand(srand);
                 scale.x += 3;
                 scale.z += 3;
-                scale.y *= 4; scale.y += 3;
+                scale.y += 1.5;
+                scale.y *= 4;
                 scale.w += 3;
                 scale.mulfs(1.5);
                 new tesserxel.math.AffineMat4(
@@ -449,7 +450,7 @@ namespace examples {
                 enableFloat16Blend: true,
                 sliceGroupSize: 8
             });
-            renderer.set4DCameraProjectMatrix({ fov: 100, near: 0.1, far: 500 });
+            renderer.setCameraProjectMatrix({ fov: 100, near: 0.1, far: 500 });
             let roadpipeline = await renderer.createTetraSlicePipeline({
                 vertex: { code: roadvertCode, entryPoint: "main" },
                 fragment: {

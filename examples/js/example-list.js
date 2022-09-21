@@ -3,6 +3,7 @@ let examples = [
         group: "geoms", zh: "几何体", en: "Geometries",
         child: [
             { target: "tesseract", zh: "超立方体", en: "Tesseract (Hypercube)" },
+            { target: "tesseract_ortho", zh: "超立方体（正交投影）", en: "Tesseract (Orthographic Projection)" },
             { target: "spheritorus", zh: "球环", en: "Spheritorus" },
             { target: "torisphere", zh: "环球", en: "Torisphere" },
             { target: "tiger", zh: "双圆环", en: "Tiger (Duotorus)" },

@@ -185,7 +185,7 @@ namespace tesserxel {
             activeCamera: Camera;
             setCamera(camera: Camera) {
                 if (camera.needsUpdate) {
-                    this.core.set4DCameraProjectMatrix(camera);
+                    this.core.setCameraProjectMatrix(camera);
                     camera.needsUpdate = false;
                 }
                 this.activeCamera = camera;

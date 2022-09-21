@@ -319,8 +319,8 @@ var examples;
                 let scale = vec4.srand(srand);
                 scale.x += 3;
                 scale.z += 3;
+                scale.y += 1.5;
                 scale.y *= 4;
-                scale.y += 3;
                 scale.w += 3;
                 scale.mulfs(1.5);
                 new tesserxel.math.AffineMat4(tesserxel.math.Mat4.diag(scale.x, scale.y, scale.z, scale.w).mulsr(new tesserxel.math.Mat4(randRot[0], 0, randRot[3], randRot[6], 0, 1, 0, 0, randRot[1], 0, randRot[4], randRot[7], randRot[2], 0, randRot[5], randRot[8])), new vec4(randVec.x, scale.y, randVec.y, randVec.z)).writeBuffer(buildingTransformBuffer, 20 * i);
@@ -432,7 +432,7 @@ var examples;
                 enableFloat16Blend: true,
                 sliceGroupSize: 8
             });
-            renderer.set4DCameraProjectMatrix({ fov: 100, near: 0.1, far: 500 });
+            renderer.setCameraProjectMatrix({ fov: 100, near: 0.1, far: 500 });
             let roadpipeline = await renderer.createTetraSlicePipeline({
                 vertex: { code: roadvertCode, entryPoint: "main" },
                 fragment: {
@@ -1015,7 +1015,7 @@ struct fInputType{
             let modelBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, jsbuffer);
             let vertBindGroup = renderer.createVertexShaderBindGroup(pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, camMat, modelBuffer]);
             renderer.setOpacity(30.0);
-            renderer.set4DCameraProjectMatrix({
+            renderer.setCameraProjectMatrix({
                 fov: 100, near: 0.02, far: 50
             });
             let retinaController = new tesserxel.controller.RetinaController(renderer);
@@ -2260,7 +2260,7 @@ var examples;
                 sliceGroupSize: 8
             });
             // set 4d camera
-            this.renderer.set4DCameraProjectMatrix({
+            this.renderer.setCameraProjectMatrix({
                 fov: 100, near: 0.01, far: 10
             });
             // create a tetra slice pipeline
@@ -2384,49 +2384,70 @@ var examples;
         }
         glome.load = load;
     })(glome = examples.glome || (examples.glome = {}));
+    let HypercubeFragCode = `
+    @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+        const colors = array<vec3<f32>,8> (
+            vec3<f32>(1, 0, 0),
+            vec3<f32>(1, 1, 0),
+            vec3<f32>(1, 0, 1),
+            vec3<f32>(0, 0, 1),
+            vec3<f32>(1, 0.5, 0),
+            vec3<f32>(0, 0.5, 1),
+            vec3<f32>(0, 1, 1),
+            vec3<f32>(0.6, 0.9, 0.2),
+        );
+        const radius: f32 = {radius};
+        const ambientLight = vec3<f32>(0.8);
+        const frontLightColor = vec3<f32>(5.0,4.6,3.5);
+        const backLightColor = vec3<f32>(1.9,2.4,2.8);
+        const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
+        var color:vec3<f32> = vec3(1.0,1.0,1.0);
+        var count:f32 = 0;
+        count += step({edge},abs(vary.uvw.x));
+        count += step({edge},abs(vary.uvw.y));
+        count += step({edge},abs(vary.uvw.z));
+        if(dot(vary.uvw.xyz,vary.uvw.xyz) < radius * radius * radius || count >= 2.0){
+            color = colors[u32(vary.uvw.w + 0.1)];
+            {count}
+        }
+        color = color * (
+            ambientLight + frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
+        );
+        {discard}
+        return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 0.2 + f32(count>=2.0));
+    }`;
     let tesseract;
     (function (tesseract) {
         async function load() {
-            let fragCode = `
-            @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
-                const colors = array<vec3<f32>,8> (
-                    vec3<f32>(1, 0, 0),
-                    vec3<f32>(1, 1, 0),
-                    vec3<f32>(1, 0, 1),
-                    vec3<f32>(0, 0, 1),
-                    vec3<f32>(1, 0.5, 0),
-                    vec3<f32>(0, 0.5, 1),
-                    vec3<f32>(0, 1, 1),
-                    vec3<f32>(0.6, 0.9, 0.2),
-                );
-                const radius: f32 = 0.8;
-                const ambientLight = vec3<f32>(0.8);
-                const frontLightColor = vec3<f32>(5.0,4.6,3.5);
-                const backLightColor = vec3<f32>(1.9,2.4,2.8);
-                const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
-                var color:vec3<f32> = vec3(1.0,1.0,1.0);
-                var count:f32 = 0;
-                count += step(0.8,abs(vary.uvw.x));
-                count += step(0.8,abs(vary.uvw.y));
-                count += step(0.8,abs(vary.uvw.z));
-                if(dot(vary.uvw.xyz,vary.uvw.xyz) < radius * radius * radius || count >= 2.0){
-                    color = colors[u32(vary.uvw.w + 0.1)];
-                }
-                color = color * (
-                    ambientLight + frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
-                );
-                return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 0.2 + f32(count>=2.0));
-            }`;
-            let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.tesseract());
+            let app = await new ShapesApp().init(HypercubeFragCode.replace("{discard}", "").replace("{radius}", "0.8").replace("{count}", "").replaceAll("{edge}", "0.8"), tesserxel.mesh.tetra.tesseract());
             // retina controller will own the slice config, so we should not call renderer.setSlice() directly
             app.retinaController.setOpacity(10.0);
-            app.renderer.set4DCameraProjectMatrix({ fov: 110, near: 0.01, far: 10.0 });
+            app.renderer.setCameraProjectMatrix({ fov: 110, near: 0.01, far: 10.0 });
             app.trackBallController.object.rotation.l.set();
             app.trackBallController.object.rotation.r.set();
             app.run();
         }
         tesseract.load = load;
     })(tesseract = examples.tesseract || (examples.tesseract = {}));
+    let tesseract_ortho;
+    (function (tesseract_ortho) {
+        async function load() {
+            let app = await new ShapesApp().init(HypercubeFragCode.replace("{count}", "count = 2.0;").replace("{radius}", "0.3").replace("{discard}", "if(count < 2.0){ discard; }").replaceAll("{edge}", "0.9"), tesserxel.mesh.tetra.tesseract());
+            // retina controller will own the slice config, so we should not call renderer.setSlice() directly
+            app.retinaController.setOpacity(50.0);
+            app.retinaController.setLayers(128);
+            app.renderer.setCameraProjectMatrix({ size: 2, near: -8, far: 8 });
+            app.retinaController.setRetinaFov(0);
+            app.retinaController.setRetinaEyeOffset(0.05);
+            // app.retinaController.setStereo(false);
+            app.trackBallController.object.rotation.setFromLookAt(tesserxel.math.Vec4.x, new tesserxel.math.Vec4(1, Math.SQRT1_2, 0, -Math.SQRT1_2).norms()).mulsl(tesserxel.math.Rotor.lookAt(tesserxel.math.Vec4.y.rotate(app.trackBallController.object.rotation), new tesserxel.math.Vec4(0, Math.SQRT1_2, 1, Math.SQRT1_2).norms())).conjs();
+            app.trackBallController.mouseButton3D = 2;
+            app.trackBallController.mouseButton4D = 1;
+            app.trackBallController.mouseButtonRoll = 0;
+            app.run();
+        }
+        tesseract_ortho.load = load;
+    })(tesseract_ortho = examples.tesseract_ortho || (examples.tesseract_ortho = {}));
 })(examples || (examples = {}));
 var examples;
 (function (examples) {
@@ -2628,7 +2649,7 @@ var examples;
             const device = gpu.device;
             // voxel render pass (compute pass)
             let meshJsBuffer = tesserxel.mesh.tetra.tiger(1, 16, 1, 16, 0.2, 12);
-            tesserxel.mesh.tetra.applyObj4(meshJsBuffer, new tesserxel.math.Obj4(new tesserxel.math.Vec4(0, 0, 0, 4)));
+            tesserxel.mesh.tetra.applyObj4(meshJsBuffer, new tesserxel.math.Obj4(new tesserxel.math.Vec4(0, 0, 0, 2)));
             const resolution = 256;
             const tetraCount = meshJsBuffer.tetraCount;
             const tileSize = 16;
@@ -3002,8 +3023,8 @@ var examples;
             // 3d retina render pass (use slice renderer)
             const canvas = document.getElementById("gpu-canvas");
             const context = gpu.getContext(canvas);
-            const renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, { enableFloat16Blend: false });
-            renderer.setOpacity(20);
+            const renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context);
+            renderer.setOpacity(2);
             const RaytracingShaderCode = `
             
             struct Vec4Attachment{
@@ -3072,7 +3093,7 @@ var examples;
                     passEncoder.end();
                     device.queue.submit([commandEncoder.finish()]);
                 }
-                dispatch2();
+                // dispatch2();
                 renderer.render(() => {
                     renderer.drawRaytracing(pipeline, [renderBindgroup]);
                 });

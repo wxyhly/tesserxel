@@ -528,6 +528,23 @@ namespace tesserxel {
                 let cc = Math.sqrt(1 - c);
                 return this.set(sc * Math.cos(a), sc * Math.sin(a), cc * Math.cos(b), cc * Math.sin(b));
             }
+            /** "from" and "to" must be normalized vectors*/
+            static lookAt(from: Vec3, to: Vec3): Quaternion {
+
+                let right = _vec3.wedgeset(from, to);
+                let s = right.norm();
+                let c = from.dot(to);
+                if (s > 0.000001) { // not aligned
+                    right.mulfs(Math.atan2(s, c) / s);
+                } else if (c < 0) { // almost n reversely aligned
+                    let v = _vec3_1.wedgeset(from, Vec3.x);
+                    if (v.norm1() < 0.01) {
+                        v = _vec3_1.wedgeset(from, Vec3.y);
+                    }
+                    return v.norms().mulfs(_180).exp();
+                }
+                return right.exp();
+            }
             pushPool(pool: QuaternionPool = qPool) {
                 pool.push(this);
             }
@@ -688,7 +705,15 @@ namespace tesserxel {
                 }
                 return this.expset(right);
             }
-            // todo: lookAtbb(from: Bivec, to: Bivec): Rotor plane to plane
+            /** Rotor: rotate from plane1 to plane2
+             *  Bivectors must be simple and normalised */ 
+            static lookAtbb(from: Bivec, to: Bivec): Rotor {
+                let A1 = _vec3_2.set(from.xy + from.zw, from.xz - from.yw, from.xw + from.yz);
+                let B1 = _vec3_3.set(from.xy - from.zw, from.xz + from.yw, from.xw - from.yz);
+                let A2 = _vec3_4.set(to.xy + to.zw, to.xz - to.yw, to.xw + to.yz);
+                let B2 = _vec3_5.set(to.xy - to.zw, to.xz + to.yw, to.xw - to.yz);
+                return new Rotor(Quaternion.lookAt(A1, A2), Quaternion.lookAt(B2, B1));
+            }
             // todo: lookAtvb(from: Vec4, to: Bivec): Rotor dir to plane or reverse
             static lookAtvb(from: Vec4, to: Bivec): Rotor {
                 let toVect = _vec4.copy(from).projbs(to).norms();

@@ -1073,6 +1073,23 @@ var tesserxel;
                 let cc = Math.sqrt(1 - c);
                 return this.set(sc * Math.cos(a), sc * Math.sin(a), cc * Math.cos(b), cc * Math.sin(b));
             }
+            /** "from" and "to" must be normalized vectors*/
+            static lookAt(from, to) {
+                let right = math._vec3.wedgeset(from, to);
+                let s = right.norm();
+                let c = from.dot(to);
+                if (s > 0.000001) { // not aligned
+                    right.mulfs(Math.atan2(s, c) / s);
+                }
+                else if (c < 0) { // almost n reversely aligned
+                    let v = math._vec3_1.wedgeset(from, math.Vec3.x);
+                    if (v.norm1() < 0.01) {
+                        v = math._vec3_1.wedgeset(from, math.Vec3.y);
+                    }
+                    return v.norms().mulfs(math._180).exp();
+                }
+                return right.exp();
+            }
             pushPool(pool = math.qPool) {
                 pool.push(this);
             }
@@ -1232,6 +1249,13 @@ var tesserxel;
                 return this.expset(right);
             }
             // todo: lookAtbb(from: Bivec, to: Bivec): Rotor plane to plane
+            static lookAtbb(from, to) {
+                let A1 = math._vec3_2.set(from.xy + from.zw, from.xz - from.yw, from.xw + from.yz).norms();
+                let B1 = math._vec3_3.set(from.xy - from.zw, from.xz + from.yw, from.xw - from.yz).norms();
+                let A2 = math._vec3_4.set(to.xy + to.zw, to.xz - to.yw, to.xw + to.yz).norms();
+                let B2 = math._vec3_5.set(to.xy - to.zw, to.xz + to.yw, to.xw - to.yz).norms();
+                return new Rotor(Quaternion.lookAt(A1, A2), Quaternion.lookAt(B2, B1));
+            }
             // todo: lookAtvb(from: Vec4, to: Bivec): Rotor dir to plane or reverse
             static lookAtvb(from, to) {
                 let toVect = math._vec4.copy(from).projbs(to).norms();
@@ -1804,8 +1828,9 @@ var tesserxel;
             }
         }
         math.Mat4 = Mat4;
-        /** Caution: This function calculates PerspectiveMatrix for 0-1 depth range */
-        function getPerspectiveMatrix(c) {
+        /** If fov == 0, then return Orthographic projection matrix
+         *  Caution: This function calculates PerspectiveMatrix for 0-1 depth range */
+        function getPerspectiveProjectionMatrix(c) {
             let ky = Math.tan(math._90 - c.fov / 2 * math._DEG2RAD);
             let kxz = ky / (c.aspect ?? 1);
             let a = -c.far / (c.far - c.near);
@@ -1822,7 +1847,25 @@ var tesserxel;
                 vec4: new math.Vec4(kxz, ky, a, b)
             };
         }
-        math.getPerspectiveMatrix = getPerspectiveMatrix;
+        math.getPerspectiveProjectionMatrix = getPerspectiveProjectionMatrix;
+        function getOrthographicProjectionMatrix(c) {
+            let ky = 1 / c.size, kxz = ky / (c.aspect ?? 1);
+            let a = -1 / (c.far - c.near);
+            let b = c.near * a;
+            // [kxz   0    0    0    0]
+            // [0    ky   0    0    0]
+            // [0    0    kxz   0    0]
+            // [0    0    0    a    b]
+            // [0    0    0    0    1]
+            return {
+                /** used for 3d */
+                mat4: new math.Mat4(kxz, 0, 0, 0, 0, ky, 0, 0, 0, 0, a, b, 0, 0, 0, 1),
+                /** used for 4d because of lack of mat5x5
+                 */
+                vec4: new math.Vec4(kxz, ky, a, b)
+            };
+        }
+        math.getOrthographicProjectionMatrix = getOrthographicProjectionMatrix;
         math._mat2 = new Mat2();
         math._mat3 = new Mat3();
         math._mat4 = new Mat4();
@@ -2605,6 +2648,9 @@ var tesserxel;
         math._vec3 = new Vec3();
         math._vec3_1 = new Vec3();
         math._vec3_2 = new Vec3();
+        math._vec3_3 = new Vec3();
+        math._vec3_4 = new Vec3();
+        math._vec3_5 = new Vec3();
         math._vec4 = new Vec4();
         math._vec4_1 = new Vec4();
         math._Q = new math.Quaternion();
@@ -6339,6 +6385,9 @@ var tesserxel;
             mouseSpeed = 0.01;
             wheelSpeed = 0.0001;
             damp = 0.1;
+            mouseButton3D = 0;
+            mouseButtonRoll = 1;
+            mouseButton4D = 2;
             /** how many update cycles (2^n) to normalise rotor to avoid accuracy problem */
             normalisePeriodBit;
             keyConfig = {
@@ -6359,13 +6408,13 @@ var tesserxel;
                     let dy = -state.moveY * this.mouseSpeed;
                     let wy = state.wheelY * this.wheelSpeed;
                     switch (state.currentBtn) {
-                        case 0:
+                        case this.mouseButton3D:
                             this._bivec.set(0, dx, 0, dy);
                             break;
-                        case 1:
+                        case this.mouseButtonRoll:
                             this._bivec.set(dx, 0, 0, 0, 0, dy);
                             break;
-                        case 2:
+                        case this.mouseButton4D:
                             this._bivec.set(0, 0, dx, 0, dy);
                             break;
                         default:
@@ -6852,6 +6901,7 @@ var tesserxel;
             keyMoveSpeed = 0.1;
             keyRotateSpeed = 0.002;
             opacityKeySpeed = 0.01;
+            fovKeySpeed = 1;
             damp = 0.02;
             mouseButton = 0;
             retinaEyeOffset = 0.1;
@@ -6870,6 +6920,8 @@ var tesserxel;
                 subLayer: "KeyS",
                 addRetinaResolution: ".KeyE",
                 subRetinaResolution: ".KeyD",
+                addFov: "KeyT",
+                subFov: "KeyG",
                 toggle3D: ".KeyZ",
                 toggleCrosshair: ".KeyC",
                 rotateLeft: "ArrowLeft",
@@ -6940,7 +6992,9 @@ var tesserxel;
             _q2 = new tesserxel.math.Quaternion();
             _mat4 = new tesserxel.math.Mat4();
             refacingFront = false;
-            needsUpdateRetinaZDistance = false;
+            needsUpdateRetinaCamera = false;
+            retinaFov = 40;
+            retinaSize = 1.8;
             retinaZDistance = 5;
             crossHairSize = 0.03;
             maxRetinaResolution = 1024;
@@ -7005,6 +7059,18 @@ var tesserxel;
                         if (res > 0)
                             sliceConfig.retinaResolution = res;
                     }
+                    if (state.isKeyHold(this.keyConfig.addFov)) {
+                        this.retinaFov += this.fovKeySpeed;
+                        if (this.retinaFov > 120)
+                            this.retinaFov = 120;
+                        this.needsUpdateRetinaCamera = true;
+                    }
+                    if (state.isKeyHold(this.keyConfig.subFov)) {
+                        this.retinaFov -= this.fovKeySpeed;
+                        if (this.retinaFov < 0.1)
+                            this.retinaFov = 0;
+                        this.needsUpdateRetinaCamera = true;
+                    }
                     for (let [label, keyCode] of Object.entries(this.keyConfig.sectionConfigs)) {
                         if (state.isKeyHold(keyCode)) {
                             this.toggleSectionConfig(label);
@@ -7025,8 +7091,8 @@ var tesserxel;
                             this._vec2damp.y = state.moveY * this.mouseSpeed;
                     }
                     if (state.wheelY) {
-                        this.needsUpdateRetinaZDistance = true;
-                        this.retinaZDistance += state.wheelY * this.wheelSpeed;
+                        this.needsUpdateRetinaCamera = true;
+                        this.retinaSize += state.wheelY * this.wheelSpeed;
                     }
                     if (on(key.refaceFront)) {
                         this.refacingFront = true;
@@ -7035,8 +7101,26 @@ var tesserxel;
                 if (this._vec2damp.norm1() < 1e-3 || this.refacingFront) {
                     this._vec2damp.set(0, 0);
                 }
-                if (this._vec2damp.norm1() > 1e-3 || this.refacingFront || this.needsUpdateRetinaZDistance) {
-                    this.needsUpdateRetinaZDistance = false;
+                if (this._vec2damp.norm1() > 1e-3 || this.refacingFront || this.needsUpdateRetinaCamera) {
+                    if (this.needsUpdateRetinaCamera) {
+                        if (this.retinaFov > 0) {
+                            this.retinaZDistance = this.retinaSize / Math.tan(this.retinaFov / 2 * tesserxel.math._DEG2RAD);
+                            this.renderer.setRetinaProjectMatrix({
+                                fov: this.retinaFov,
+                                near: Math.max(0.01, this.retinaZDistance - 4),
+                                far: this.retinaZDistance + 4
+                            });
+                        }
+                        else {
+                            this.retinaZDistance = 4;
+                            this.renderer.setRetinaProjectMatrix({
+                                size: this.retinaSize,
+                                near: 2,
+                                far: 8
+                            });
+                        }
+                    }
+                    this.needsUpdateRetinaCamera = false;
                     this._vec2euler.x %= tesserxel.math._360;
                     this._vec2euler.y %= tesserxel.math._360;
                     let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
@@ -7079,8 +7163,20 @@ var tesserxel;
             setOpacity(opacity) {
                 this.renderer.setOpacity(opacity);
             }
+            setCrosshairSize(size) {
+                this.renderer.setCrosshair(size);
+                this.crossHairSize = size;
+            }
             setRetinaResolution(retinaResolution) {
                 this.renderer.setSliceConfig({ retinaResolution });
+            }
+            setRetinaSize(size) {
+                this.retinaSize = size;
+                this.needsUpdateRetinaCamera = true;
+            }
+            setRetinaFov(fov) {
+                this.retinaFov = fov;
+                this.needsUpdateRetinaCamera = true;
             }
             toggleSectionConfig(index) {
                 if (this.currentSectionConfig === index)
@@ -7207,6 +7303,8 @@ var tesserxel;
         const DefaultMaxSlicesNumber = 256;
         const DefaultMaxCrossSectionBufferSize = 0x800000;
         const DefaultEnableFloat16Blend = true;
+        const DefaultRetinaFov = 40;
+        const DefaultRetinaSize = 1.8;
         class SliceRenderer {
             getSafeTetraNumInOnePass() {
                 // maximum vertices per slice
@@ -7504,6 +7602,9 @@ struct _SliceInfo{
         let omat = eyeMat * pureRotationMvMat * refacingMats[refacing & 7];
         camRay = omat * ray;
         glPosition = pmat * camRay;
+        if(pmat[3].w > 0){ // Orthographic
+            camRay = vec4<f32>(0.0,0.0,-1.0,1.0);
+        }
         normal = omat[2];
         // todo: viewport of retina slices
         glPosition.x = (glPosition.x) * screenAspect + step(0.0001, eyeOffset.y) * stereoLR * glPosition.w;
@@ -7727,11 +7828,12 @@ struct fInputType{
                     });
                     this.setEyeOffset(0.1, 0.2);
                     this.setOpacity(1);
-                    this.set4DCameraProjectMatrix({ fov: 90, near: 0.01, far: 10 });
+                    this.setCameraProjectMatrix({ fov: 90, near: 0.01, far: 10 });
                     this.setRetinaProjectMatrix({
-                        fov: 40, near: 0.01, far: 10
+                        fov: DefaultRetinaFov, near: 0.2, far: 20
                     });
-                    this.setRetinaViewMatrix(new tesserxel.math.Mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -5, 0, 0, 0, 1));
+                    let distance = DefaultRetinaSize / Math.tan(DefaultRetinaFov / 2 * tesserxel.math._DEG2RAD);
+                    this.setRetinaViewMatrix(new tesserxel.math.Mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -distance, 0, 0, 0, 1));
                 }
                 return this;
             } // end init
@@ -7904,6 +8006,53 @@ struct fInputType{
                     return str;
                 }
                 let cullOperator = desc.cullMode == "back" ? "<" : ">";
+                let commonCameraSliceCode = `
+let sign = step(vec4<f32>(0.0,0.0,0.0,0.0),scalar);
+let vertnum = sign.x + sign.y + sign.z + sign.w;
+if(!(vertnum == 0.0 || vertnum == 4.0)){ // if hit one slice
+    if(sign.x + sign.y == 1.0){
+        let alpha = scalar.x/(scalar.x - scalar.y);
+        ${makeInterpolate(0, 1)}
+        offset++;
+    }
+    if(sign.x + sign.z == 1.0){
+        let alpha = scalar.x/(scalar.x - scalar.z);
+        ${makeInterpolate(0, 2)}
+        offset++;
+    }
+    if(sign.x + sign.w == 1.0){
+        let alpha = scalar.x/(scalar.x - scalar.w);
+        ${makeInterpolate(0, 3)}
+        offset++;
+    }
+    if(sign.y + sign.z == 1.0){
+        let alpha = scalar.y/(scalar.y - scalar.z);
+        ${makeInterpolate(1, 2)}
+        offset++;
+    }
+    if(sign.y + sign.w == 1.0){
+        let alpha = scalar.y/(scalar.y - scalar.w);
+        ${makeInterpolate(1, 3)}
+        offset++;
+    }
+    if(sign.z + sign.w == 1.0){
+        let alpha = scalar.z/(scalar.z - scalar.w);
+        ${makeInterpolate(2, 3)}
+        offset++;
+    }
+
+    // offset is total verticex number (3 or 4), delta is faces number (3 or 6)
+    let delta:u32 = u32((offset - 2) * 3);
+    // get output location thread-safely
+    let outOffset : u32 = atomicAdd(&(_emitIndex_slice.emitIndex[i]), delta) + emitIndexOffset;
+    // write 3 vertices of first triangular face
+    ${emitOutput1}
+    // write 3 vertices of second triangular face if one has
+    if(offset == 4){
+        ${emitOutput2}
+    }
+} // end one hit
+`;
                 let crossComputeCode = this.refacingMatsCode + `
 
 struct _SliceInfo{
@@ -7941,120 +8090,136 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
     // call user defined code 
     ${call}
     let cameraPosMat = ${output["builtin(position)"].expr};
-    let preclipW = cameraPosMat[0].w >= 0 && cameraPosMat[1].w >= 0 && cameraPosMat[2].w >= 0  && cameraPosMat[3].w >= 0;
-    if(preclipW){ return; }
-    let projBiais:mat4x4<f32> = mat4x4<f32>(
-        0,0,_camProj.w,0,
-        0,0,_camProj.w,0,
-        0,0,_camProj.w,0,
-        0,0,_camProj.w,0
-    );
-    let projMat = mat4x4<f32>(
-        _camProj.x,0,0,0,
-        0,_camProj.y,0,0,
-        0,0,0,0,
-        0,0,_camProj.z,-1,
-    );
-    let eyeMat = mat4x4<f32>(
-        _eye4dOffset,0,0,0,
-        _eye4dOffset,0,0,0,
-        _eye4dOffset,0,0,0,
-        _eye4dOffset,0,0,0
-    );
+    
     var instanceLength:u32 = ${this.sliceGroupSize};
     var refPosMat : mat4x4<f32>;
     var refCamMat : mat4x4<f32>;
     let sliceFlag = _emitIndex_slice.slice[_sliceoffset].flag;
-    // [uniform if] all slices are in retina, no eye4D
-    if(sliceFlag == 0){
+
+    if(_camProj.x < 0){ // Orthographic
+        let projBiais:mat4x4<f32> = mat4x4<f32>(
+            0,0,_camProj.w,1,
+            0,0,_camProj.w,1,
+            0,0,_camProj.w,1,
+            0,0,_camProj.w,1,
+        );
+        let projMat = mat4x4<f32>(
+            -_camProj.x,0,0,0,
+            0,_camProj.y,0,0,
+            0,0,0,0,
+            0,0,_camProj.z,0,
+        );
+
         ${(desc.cullMode == "back" || desc.cullMode == "front") ? `
         // cull face: if all slices in this group has no eye4D offset, cull here
-        if(determinant(cameraPosMat) ${cullOperator} 0){ return; }` : ""}
-        
-        // we get refacing mat from uniform for retina slices
-        let retinaRefacingMat = refacingMats[_refacingMat & 7];
-        // calculate standard device coordinate for retina: projection * refacing * view * model * pos
-        refCamMat = retinaRefacingMat * cameraPosMat;
-        refPosMat = projMat * refCamMat + projBiais;
-    }else{
-        instanceLength = _emitIndex_slice.slice[_sliceoffset].flag;
-    }
-    
-    // prepare for interpolations
-    var emitIndexOffset = 0u;
-    for(var i:u32 = 0; i<instanceLength; i++){
-        ${varInterpolate}
-        let sliceInfo = _emitIndex_slice.slice[_sliceoffset + i];
-        if(sliceInfo.slicePos > 1.0){
-            emitIndexOffset += _emitIndexStride;
-            continue;
+        var cameraPosDetMat = transpose(cameraPosMat); 
+        cameraPosDetMat[3] = vec4<f32>(-1.0);
+        if(determinant(cameraPosDetMat) ${cullOperator} 0){ return; }` : ""}
+
+        // [uniform if] all slices are in retina, no eye4D
+        if(sliceFlag == 0){
+            // we get refacing mat from uniform for retina slices
+            let retinaRefacingMat = refacingMats[_refacingMat & 7];
+            // calculate standard device coordinate for retina: projection * refacing * view * model * pos
+            refCamMat = retinaRefacingMat * cameraPosMat;
+            refPosMat = projMat * refCamMat + projBiais;
+        }else{
+            instanceLength = _emitIndex_slice.slice[_sliceoffset].flag;
         }
-        var offset = 0u;
-        if(sliceFlag != 0){
-            refCamMat = refacingMats[sliceInfo.refacing & 7] * cameraPosMat + 
-                eyeMat * (f32(sliceInfo.refacing >> 3) - 1.0);
-                ${(desc.cullMode == "back" || desc.cullMode == "front") ? `
-            if(determinant(refCamMat) * determinantRefacingMats[sliceInfo.refacing & 7] ${cullOperator} 0){
+        
+        // prepare for interpolations
+        var emitIndexOffset = 0u;
+        for(var i:u32 = 0; i<instanceLength; i++){
+            ${varInterpolate}
+            let sliceInfo = _emitIndex_slice.slice[_sliceoffset + i];
+            if(sliceInfo.slicePos > 1.0){
                 emitIndexOffset += _emitIndexStride;
                 continue;
-            }` : ""}
-            refPosMat = projMat * refCamMat + projBiais;
-            let vp = thumbnailViewport[_sliceoffset + i - (_refacingMat >> 5)];
-            let aspect = vp.w / vp.z;
-            refPosMat[0].x *= aspect;
-            refPosMat[1].x *= aspect;
-            refPosMat[2].x *= aspect;
-            refPosMat[3].x *= aspect;
-        }
-        // calculate cross section pos * plane.normal
-        let scalar = transpose(refCamMat) * vec4(0.0,0.0,1.0,sliceInfo.slicePos / _camProj.x); 
-        let sign = step(vec4<f32>(0.0,0.0,0.0,0.0),scalar);
-        let vertnum = sign.x + sign.y + sign.z + sign.w;
-        if(!(vertnum == 0.0 || vertnum == 4.0)){ // if hit one slice
-            if(sign.x + sign.y == 1.0){
-                let alpha = scalar.x/(scalar.x - scalar.y);
-                ${makeInterpolate(0, 1)}
-                offset++;
             }
-            if(sign.x + sign.z == 1.0){
-                let alpha = scalar.x/(scalar.x - scalar.z);
-                ${makeInterpolate(0, 2)}
-                offset++;
+            var offset = 0u;
+            if(sliceFlag != 0){
+                refCamMat = refacingMats[sliceInfo.refacing & 7] * cameraPosMat;
+                refPosMat = projMat * refCamMat + projBiais;
+                let vp = thumbnailViewport[_sliceoffset + i - (_refacingMat >> 5)];
+                let aspect = vp.w / vp.z;
+                refPosMat[0].x *= aspect;
+                refPosMat[1].x *= aspect;
+                refPosMat[2].x *= aspect;
+                refPosMat[3].x *= aspect;
             }
-            if(sign.x + sign.w == 1.0){
-                let alpha = scalar.x/(scalar.x - scalar.w);
-                ${makeInterpolate(0, 3)}
-                offset++;
-            }
-            if(sign.y + sign.z == 1.0){
-                let alpha = scalar.y/(scalar.y - scalar.z);
-                ${makeInterpolate(1, 2)}
-                offset++;
-            }
-            if(sign.y + sign.w == 1.0){
-                let alpha = scalar.y/(scalar.y - scalar.w);
-                ${makeInterpolate(1, 3)}
-                offset++;
-            }
-            if(sign.z + sign.w == 1.0){
-                let alpha = scalar.z/(scalar.z - scalar.w);
-                ${makeInterpolate(2, 3)}
-                offset++;
-            }
+            // calculate cross section pos * plane.normal
+            let scalar = transpose(refCamMat)[2] + vec4<f32>(sliceInfo.slicePos / _camProj.x); 
+            ${commonCameraSliceCode}
+            emitIndexOffset += _emitIndexStride;
+        } // end all hits
+    }else{
+        let preclipW = cameraPosMat[0].w >= 0 && cameraPosMat[1].w >= 0 && cameraPosMat[2].w >= 0  && cameraPosMat[3].w >= 0;
+        if(preclipW){ return; }
+        let projBiais:mat4x4<f32> = mat4x4<f32>(
+            0,0,_camProj.w,0,
+            0,0,_camProj.w,0,
+            0,0,_camProj.w,0,
+            0,0,_camProj.w,0
+        );
+        let projMat = mat4x4<f32>(
+            _camProj.x,0,0,0,
+            0,_camProj.y,0,0,
+            0,0,0,0,
+            0,0,_camProj.z,-1,
+        );
+        let eyeMat = mat4x4<f32>(
+            _eye4dOffset,0,0,0,
+            _eye4dOffset,0,0,0,
+            _eye4dOffset,0,0,0,
+            _eye4dOffset,0,0,0
+        );
+        // [uniform if] all slices are in retina, no eye4D
+        if(sliceFlag == 0){
+            ${(desc.cullMode == "back" || desc.cullMode == "front") ? `
+            // cull face: if all slices in this group has no eye4D offset, cull here
+            if(determinant(cameraPosMat) ${cullOperator} 0){ return; }` : ""}
             
-            // offset is total verticex number (3 or 4), delta is faces number (3 or 6)
-            let delta:u32 = u32((offset - 2) * 3);
-            // get output location thread-safely
-            let outOffset : u32 = atomicAdd(&(_emitIndex_slice.emitIndex[i]), delta) + emitIndexOffset;
-            // write 3 vertices of first triangular face
-            ${emitOutput1}
-            // write 3 vertices of second triangular face if one has
-            if(offset == 4){
-                ${emitOutput2}
+            // we get refacing mat from uniform for retina slices
+            let retinaRefacingMat = refacingMats[_refacingMat & 7];
+            // calculate standard device coordinate for retina: projection * refacing * view * model * pos
+            refCamMat = retinaRefacingMat * cameraPosMat;
+            refPosMat = projMat * refCamMat + projBiais;
+        }else{
+            instanceLength = _emitIndex_slice.slice[_sliceoffset].flag;
+        }
+        
+        // prepare for interpolations
+        var emitIndexOffset = 0u;
+        for(var i:u32 = 0; i<instanceLength; i++){
+            ${varInterpolate}
+            let sliceInfo = _emitIndex_slice.slice[_sliceoffset + i];
+            if(sliceInfo.slicePos > 1.0){
+                emitIndexOffset += _emitIndexStride;
+                continue;
             }
-        } // end one hit
-        emitIndexOffset += _emitIndexStride;
-    } // end all hits
+            var offset = 0u;
+            if(sliceFlag != 0){
+                refCamMat = refacingMats[sliceInfo.refacing & 7] * cameraPosMat + 
+                    eyeMat * (f32(sliceInfo.refacing >> 3) - 1.0);
+                    ${(desc.cullMode == "back" || desc.cullMode == "front") ? `
+                if(determinant(refCamMat) * determinantRefacingMats[sliceInfo.refacing & 7] ${cullOperator} 0){
+                    emitIndexOffset += _emitIndexStride;
+                    continue;
+                }` : ""}
+                refPosMat = projMat * refCamMat + projBiais;
+                let vp = thumbnailViewport[_sliceoffset + i - (_refacingMat >> 5)];
+                let aspect = vp.w / vp.z;
+                refPosMat[0].x *= aspect;
+                refPosMat[1].x *= aspect;
+                refPosMat[2].x *= aspect;
+                refPosMat[3].x *= aspect;
+            }
+            // calculate cross section pos * plane.normal
+            let scalar = transpose(refCamMat) * vec4(0.0,0.0,1.0,sliceInfo.slicePos / _camProj.x); 
+            ${commonCameraSliceCode}
+            emitIndexOffset += _emitIndexStride;
+        } // end all hits
+    } // end camera type
 }
 `;
                 let computePipeline = await this.gpu.device.createComputePipelineAsync({
@@ -8147,12 +8312,23 @@ struct vOutputType{
                 }
                 this.gpu.device.queue.writeBuffer(this.screenAspectBuffer, 0, new Float32Array([aspect]));
             }
-            set4DCameraProjectMatrix(camera) {
-                tesserxel.math.getPerspectiveMatrix(camera).vec4.writeBuffer(this.camProjJsBuffer);
+            setCameraProjectMatrix(camera) {
+                if (camera.fov) {
+                    tesserxel.math.getPerspectiveProjectionMatrix(camera).vec4.writeBuffer(this.camProjJsBuffer);
+                }
+                else {
+                    tesserxel.math.getOrthographicProjectionMatrix(camera).vec4.writeBuffer(this.camProjJsBuffer);
+                    this.camProjJsBuffer[0] = -this.camProjJsBuffer[0]; // use negative to mark Orthographic in shader
+                }
                 this.gpu.device.queue.writeBuffer(this.camProjBuffer, 0, this.camProjJsBuffer);
             }
             setRetinaProjectMatrix(camera) {
-                tesserxel.math.getPerspectiveMatrix(camera).mat4.writeBuffer(this.retinaProjecJsBuffer);
+                if (camera.fov) {
+                    tesserxel.math.getPerspectiveProjectionMatrix(camera).mat4.writeBuffer(this.retinaProjecJsBuffer);
+                }
+                else {
+                    tesserxel.math.getOrthographicProjectionMatrix(camera).mat4.writeBuffer(this.retinaProjecJsBuffer);
+                }
                 this.gpu.device.queue.writeBuffer(this.retinaPBuffer, 0, this.retinaProjecJsBuffer);
             }
             setRetinaViewMatrix(m) {
@@ -8185,6 +8361,46 @@ struct vOutputType{
             getRetinaResolution() { return this.displayConfig.retinaResolution; }
             getMinResolutionMultiple() { return 1 << this.viewportCompressShift; }
             getStereoMode() { return this.enableEye3D; }
+            getCamera() {
+                let c = this.camProjJsBuffer;
+                let near = c[3] / c[2];
+                if (c[0] > 0) {
+                    return {
+                        fov: Math.atan(1 / c[1]) * tesserxel.math._RAD2DEG * 2,
+                        aspect: c[1] / c[0],
+                        near,
+                        far: c[2] * near / (1 + c[2])
+                    };
+                }
+                else {
+                    return {
+                        size: 1 / c[1],
+                        aspect: -c[1] / c[0],
+                        near,
+                        far: near - 1.0 / c[2]
+                    };
+                }
+            }
+            getRetinaCamera() {
+                let c = this.retinaProjecJsBuffer;
+                let near = c[3] / c[2];
+                if (c[0] > 0) {
+                    return {
+                        fov: Math.atan(1 / c[1]) * tesserxel.math._RAD2DEG * 2,
+                        aspect: c[1] / c[0],
+                        near,
+                        far: c[2] * near / (1 + c[2])
+                    };
+                }
+                else {
+                    return {
+                        size: 1 / c[1],
+                        aspect: -c[1] / c[0],
+                        near,
+                        far: near - 1.0 / c[2]
+                    };
+                }
+            }
             getSize() {
                 if (!this.screenTexture) {
                     return { width: 1, height: 1 };
@@ -8613,19 +8829,24 @@ ${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_directi
     let coord = vec2<f32>(posidx.x, posidx.y);
     var aspect = 1.0;
     var rayPos = vec4<f32>(0.0);// no eye offset for retina
-    if(sliceFlag == 0){
-        refacingEnum = _refacingMat;
+    var rayDir = vec4<f32>(0.0,0.0,0.0,-1.0);// point forward for Orthographic camera
+    if(_camProj.x < 0){
+        rayPos = vec4<f32>(coord.x/_camProj.x * aspect, coord.y/_camProj.y, sliceInfo.slicePos/_camProj.x, -_camProj.w/_camProj.z);
     }else{
-        refacingEnum = sliceInfo.refacing;
-        let vp = thumbnailViewport[_sliceoffset + i_index - (_refacingMat >> 5)];
-        aspect = vp.z / vp.w;
-        rayPos = vec4<f32>(-_eye4dOffset * (f32(sliceInfo.refacing >> 3) - 1.0), 0.0, 0.0, 0.0);
+        if(sliceFlag == 0){
+            refacingEnum = _refacingMat;
+        }else{
+            refacingEnum = sliceInfo.refacing;
+            let vp = thumbnailViewport[_sliceoffset + i_index - (_refacingMat >> 5)];
+            aspect = vp.z / vp.w;
+            rayPos = vec4<f32>(-_eye4dOffset * (f32(sliceInfo.refacing >> 3) - 1.0), 0.0, 0.0, 0.0);
+        }
+        rayDir = vec4<f32>(coord.x/_camProj.x * aspect, coord.y/_camProj.y, sliceInfo.slicePos/_camProj.x, -1.0);
     }
-    let rayDir = vec4<f32>(coord.x/_camProj.x * aspect, coord.y/_camProj.y, sliceInfo.slicePos/_camProj.x, -1.0);
     let refacingMat = refacingMats[refacingEnum & 7];
-    let voxelCoord = (refacingMat * vec4<f32>(coord, sliceInfo.slicePos,0.0)).xyz;
     let camRayDir = refacingMat * rayDir;
     let camRayOri = refacingMat * rayPos;
+    let voxelCoord = (refacingMat * vec4<f32>(coord, sliceInfo.slicePos,0.0)).xyz;
     ${dealRefacingCall}
     ${call}
     let x = f32(((sliceInfo.viewport >> 24) & 0xFF) << ${this.viewportCompressShift}) * ${1 / this.sliceTextureSize.width};
@@ -11679,7 +11900,7 @@ var tesserxel;
             activeCamera;
             setCamera(camera) {
                 if (camera.needsUpdate) {
-                    this.core.set4DCameraProjectMatrix(camera);
+                    this.core.setCameraProjectMatrix(camera);
                     camera.needsUpdate = false;
                 }
                 this.activeCamera = camera;
