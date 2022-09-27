@@ -8,6 +8,8 @@ let examples = [
             { target: "torisphere", zh: "环球", en: "Torisphere" },
             { target: "tiger", zh: "双圆环", en: "Tiger (Duotorus)" },
             { target: "glome", zh: "超球", en: "Glome (Hyphersphere)" },
+            { target: "suzanne3d", zh: "猴头放样", en: "Lofted Suzanne" },
+            { target: "directproduct", zh: "直积形", en: "Direct Product" },
         ]
     },
     {
@@ -23,6 +25,8 @@ let examples = [
             { target: "spring_rope", zh: "弹簧绳", en: "Rope with Springs" },
             { target: "rigid_test", zh: "刚体测试", en: "Rigid Body Test" },
             { target: "st_ts_chain", zh: "环球球环链", en: "ST-TS Chain" },
+            { target: "tg_tg_chain", zh: "双圆环链", en: "Tiger(Duotorus) Chain" },
+            { target: "mix_chain", zh: "杂环链", en: "Mixed Chain" },
             { target: "st_pile", zh: "球环堆", en: "Spheritorus Pile" },
         ]
     },

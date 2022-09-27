@@ -72,9 +72,31 @@ namespace tesserxel {
                     return 1;
                 }
             }
-            constructor() {
-                this.min = new Vec4(Infinity, Infinity, Infinity, Infinity,);
-                this.max = new Vec4(-Infinity, -Infinity, -Infinity, -Infinity,);
+            getPoints() {
+                return [
+                    new Vec4(this.min.x, this.min.y, this.min.z, this.min.w),
+                    new Vec4(this.max.x, this.min.y, this.min.z, this.min.w),
+                    new Vec4(this.min.x, this.max.y, this.min.z, this.min.w),
+                    new Vec4(this.max.x, this.max.y, this.min.z, this.min.w),
+                    new Vec4(this.min.x, this.min.y, this.max.z, this.min.w),
+                    new Vec4(this.max.x, this.min.y, this.max.z, this.min.w),
+                    new Vec4(this.min.x, this.max.y, this.max.z, this.min.w),
+                    new Vec4(this.max.x, this.max.y, this.max.z, this.min.w),
+                    new Vec4(this.min.x, this.min.y, this.min.z, this.max.w),
+                    new Vec4(this.max.x, this.min.y, this.min.z, this.max.w),
+                    new Vec4(this.min.x, this.max.y, this.min.z, this.max.w),
+                    new Vec4(this.max.x, this.max.y, this.min.z, this.max.w),
+                    new Vec4(this.min.x, this.min.y, this.max.z, this.max.w),
+                    new Vec4(this.max.x, this.min.y, this.max.z, this.max.w),
+                    new Vec4(this.min.x, this.max.y, this.max.z, this.max.w),
+                    new Vec4(this.max.x, this.max.y, this.max.z, this.max.w),
+
+
+                ]
+            }
+            constructor(min?: Vec4, max?: Vec4) {
+                this.min = min ?? new Vec4(Infinity, Infinity, Infinity, Infinity,);
+                this.max = max ?? new Vec4(-Infinity, -Infinity, -Infinity, -Infinity,);
             }
             static fromPoints(points: Vec4[]) {
                 let aabb = new AABB();

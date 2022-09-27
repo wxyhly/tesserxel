@@ -51,7 +51,7 @@ var examples;
                         0, separatorHeight, -yLanes, 0,
                         0, separatorHeight, yLanes, 0,
                     ]),
-                    uv: new Float32Array([
+                    uvw: new Float32Array([
                         2, 1, -1, 0,
                         2, 1, 1, 0,
                         2, -1, 1, 0,
@@ -85,7 +85,7 @@ var examples;
                         -fenceWidthHalf, fenceHeight, yLanes, 0,
                         -fenceWidthHalf, fenceHeight, -yLanes, 0,
                     ]),
-                    uv: new Float32Array([
+                    uvw: new Float32Array([
                         0, 1, -1, 0,
                         0, 1, 1, 0,
                         0, -1, 1, 0,
@@ -499,10 +499,10 @@ var examples;
                 gpu.device.queue.writeBuffer(camBuffer, 0, camMatJSBuffer);
                 renderer.render(() => {
                     renderer.beginTetras(roadpipeline);
-                    renderer.sliceTetras(roadmeshBindGroup, roadmesh.tetraCount);
+                    renderer.sliceTetras(roadmeshBindGroup, roadmesh.count);
                     renderer.drawTetras();
                     renderer.beginTetras(buildingPipeline);
-                    renderer.sliceTetras(buildingBindGroup, buildingMesh.tetraCount - 5, buildingCount);
+                    renderer.sliceTetras(buildingBindGroup, buildingMesh.count - 5, buildingCount);
                     renderer.sliceTetras(terrainBindGroup, 5);
                     renderer.drawTetras();
                     renderer.drawRaytracing(rtPipeline, rtBindGroup);
@@ -1035,7 +1035,7 @@ struct fInputType{
                 gpu.device.queue.writeBuffer(camMat, 0, camMatJSBuffer);
                 renderer.render(() => {
                     renderer.beginTetras(pipeline);
-                    renderer.sliceTetras(vertBindGroup, mesh.tetraCount, cubeCount);
+                    renderer.sliceTetras(vertBindGroup, mesh.count, cubeCount);
                     renderer.drawTetras();
                 });
                 window.requestAnimationFrame(run);
@@ -1625,6 +1625,11 @@ var examples;
                     geometryData[type] = new FOUR.TorisphereGeometry(Number(parse[2]), Number(parse[1]));
                     return geometryData[type];
                 }
+                parse = type.match(/^tg(.+),(.+),(.+)$/);
+                if (parse) {
+                    geometryData[type] = new FOUR.TigerGeometry(Number(parse[3]), Number(parse[1]), Number(parse[2]));
+                    return geometryData[type];
+                }
         }
     }
     function updateRidigsInScene() {
@@ -1665,6 +1670,10 @@ var examples;
             }
             else if (rigid.geometry instanceof phy.rigid.Torisphere) {
                 geom = getGeometryData("ts" + rigid.geometry.majorRadius + "," + rigid.geometry.minorRadius);
+                obj4 = new math.Obj4();
+            }
+            else if (rigid.geometry instanceof phy.rigid.Tiger) {
+                geom = getGeometryData("tg" + rigid.geometry.majorRadius1 + "," + rigid.geometry.majorRadius2 + "," + rigid.geometry.minorRadius);
                 obj4 = new math.Obj4();
             }
             if (!geom) {
@@ -2180,6 +2189,206 @@ var examples;
         }
         st_ts_chain.load1 = load1;
     })(st_ts_chain = examples.st_ts_chain || (examples.st_ts_chain = {}));
+    let tg_tg_chain;
+    (function (tg_tg_chain) {
+        async function load() {
+            const math = tesserxel.math;
+            const phy = tesserxel.physics;
+            const engine = new phy.Engine({ substep: 30 });
+            const world = new phy.World();
+            const scene = new FOUR.Scene();
+            // define physical materials: frictions and restitutions
+            const phyMatChain = new phy.Material(0.4, 0.4);
+            const phyMatGround = new phy.Material(1, 0.4);
+            // define render materials
+            const renderMatTiger1 = new FOUR.LambertMaterial([1, 0.1, 0.1, 1]);
+            const renderMatTiger2 = new FOUR.LambertMaterial([0.2, 0.2, 1, 1]);
+            const renderMatGround = new FOUR.LambertMaterial([0.2, 1, 0.2, 0.03]);
+            // add ground
+            addRigidToScene(world, scene, renderMatGround, new phy.Rigid({
+                geometry: new phy.rigid.Plane(new math.Vec4(0, 1)),
+                mass: 0, material: phyMatGround
+            }));
+            // add tiger chain
+            let tg1Arr = [];
+            let tg2Arr = [];
+            const gap = 2.718;
+            for (let i = -2; i <= 2; i++) {
+                let tg1 = new phy.Rigid({
+                    geometry: new phy.rigid.Tiger(1, 1, 0.15),
+                    material: phyMatChain, mass: 1
+                });
+                addRigidToScene(world, scene, renderMatTiger1, tg1);
+                tg1.rotatesb(math.Bivec.yw.mulf(math._90)).rotatesb(math.Bivec.xy.mulf(math._60));
+                tg1.position.x = i * gap;
+                tg1.position.y = 15.4;
+                tg1Arr.push(tg1);
+                let tg2 = new phy.Rigid({
+                    geometry: new phy.rigid.Tiger(0.7, 0.5, 0.15),
+                    material: phyMatChain, mass: 1
+                });
+                addRigidToScene(world, scene, renderMatTiger2, tg2);
+                tg2.position.y = 15.4;
+                tg2.position.x = (i + 0.5) * gap;
+                tg2.rotatesb(new math.Bivec(0.2));
+                tg2Arr.push(tg2);
+            }
+            // add point constrain to the first ring
+            world.add(new phy.PointConstrain(tg1Arr[0], null, math.Vec4.x, tg1Arr[0].position.add(math.Vec4.x.rotate(tg1Arr[0].rotation))));
+            // set up lights, camera and renderer
+            let camera = new FOUR.Camera();
+            camera.position.w = 9;
+            camera.position.y = 8;
+            scene.add(camera);
+            scene.add(new FOUR.AmbientLight(0.3));
+            scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
+            scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+            const canvas = document.getElementById("gpu-canvas");
+            const renderer = await new FOUR.Renderer(canvas).init();
+            renderer.core.setScreenClearColor([1, 1, 1, 1]);
+            renderer.core.setEyeOffset(0.5);
+            renderer.core.setOpacity(20);
+            // controllers
+            const camCtrl = new tesserxel.controller.KeepUpController(camera);
+            camCtrl.keyMoveSpeed = 0.01;
+            const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
+            const emitCtrl = new EmitGlomeController(world, scene, camera);
+            emitCtrl.glomeRadius = 2;
+            emitCtrl.maximumBulletDistance = 70;
+            emitCtrl.initialSpeed = 10;
+            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+                retinaCtrl,
+                camCtrl,
+                emitCtrl
+            ], { requsetPointerLock: true });
+            function setSize() {
+                let width = window.innerWidth * window.devicePixelRatio;
+                let height = window.innerHeight * window.devicePixelRatio;
+                renderer.setSize({ width, height });
+            }
+            function run() {
+                // syncronise physics world and render scene
+                updateRidigsInScene();
+                // update controller states
+                controllerRegistry.update();
+                // rendering
+                renderer.render(scene, camera);
+                // simulating physics
+                engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
+                window.requestAnimationFrame(run);
+            }
+            window.addEventListener("resize", setSize);
+            setSize();
+            run();
+        }
+        tg_tg_chain.load = load;
+    })(tg_tg_chain = examples.tg_tg_chain || (examples.tg_tg_chain = {}));
+    let mix_chain;
+    (function (mix_chain) {
+        async function load() {
+            const math = tesserxel.math;
+            const phy = tesserxel.physics;
+            const engine = new phy.Engine({ substep: 30 });
+            const world = new phy.World();
+            const scene = new FOUR.Scene();
+            // define physical materials: frictions and restitutions
+            const phyMatChain = new phy.Material(0.4, 0.4);
+            const phyMatGround = new phy.Material(1, 0.4);
+            // define render materials
+            const renderMatTiger = new FOUR.LambertMaterial([0.4, 0.4, 0.4, 1]);
+            const renderMatST = new FOUR.LambertMaterial([1, 0.1, 0.1, 1]);
+            const renderMatTS = new FOUR.LambertMaterial([0.2, 0.2, 1, 1]);
+            const renderMatGround = new FOUR.LambertMaterial([0.2, 1, 0.2, 0.03]);
+            // add ground
+            addRigidToScene(world, scene, renderMatGround, new phy.Rigid({
+                geometry: new phy.rigid.Plane(new math.Vec4(0, 1)),
+                mass: 0, material: phyMatGround
+            }));
+            // add tiger chain
+            let tgArr = [];
+            let tsArr = [];
+            let stArr = [];
+            const gap = 3.1;
+            for (let i = -2; i < 2; i++) {
+                let tg = new phy.Rigid({
+                    geometry: new phy.rigid.Tiger(0.7, 0.5, 0.15),
+                    material: phyMatChain, mass: 1
+                });
+                addRigidToScene(world, scene, renderMatTiger, tg);
+                // tg.rotatesb(math.Bivec.yw.mulf(math._90)).rotatesb(math.Bivec.xy.mulf(math._60));
+                tg.position.x = i * gap;
+                tg.position.y = 15.4;
+                tgArr.push(tg);
+                let ts = new phy.Rigid({
+                    geometry: new phy.rigid.Torisphere(1, 0.15),
+                    material: phyMatChain, mass: 1
+                });
+                addRigidToScene(world, scene, renderMatTS, ts);
+                ts.position.y = 15.1;
+                ts.position.x = (i + 0.33) * gap;
+                // ts.rotatesb(new math.Bivec(0.2));
+                tsArr.push(ts);
+                let st = new phy.Rigid({
+                    geometry: new phy.rigid.Spheritorus(0.9, 0.15),
+                    material: phyMatChain, mass: 0.8
+                });
+                addRigidToScene(world, scene, renderMatST, st);
+                st.position.y = 15.2;
+                st.position.w = -0.5;
+                st.position.x = (i + 0.62) * gap;
+                st.rotatesb(new math.Bivec(0, 0, 0, 0, 0.9)).rotatesb(new math.Bivec(0, 0, 0.5)).rotatesb(new math.Bivec(-0.4));
+                stArr.push(st);
+            }
+            // add point constrain to the first ring
+            world.add(new phy.PointConstrain(tgArr[0], null, math.Vec4.x, tgArr[0].position.add(math.Vec4.x.rotate(tgArr[0].rotation))));
+            // set up lights, camera and renderer
+            let camera = new FOUR.Camera();
+            camera.position.w = 9;
+            camera.position.y = 8;
+            scene.add(camera);
+            scene.add(new FOUR.AmbientLight(0.3));
+            scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
+            scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+            const canvas = document.getElementById("gpu-canvas");
+            const renderer = await new FOUR.Renderer(canvas).init();
+            renderer.core.setScreenClearColor([1, 1, 1, 1]);
+            renderer.core.setEyeOffset(0.5);
+            renderer.core.setOpacity(20);
+            // controllers
+            const camCtrl = new tesserxel.controller.KeepUpController(camera);
+            camCtrl.keyMoveSpeed = 0.01;
+            const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
+            const emitCtrl = new EmitGlomeController(world, scene, camera);
+            emitCtrl.glomeRadius = 2;
+            emitCtrl.maximumBulletDistance = 70;
+            emitCtrl.initialSpeed = 10;
+            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+                retinaCtrl,
+                camCtrl,
+                emitCtrl
+            ], { requsetPointerLock: true });
+            function setSize() {
+                let width = window.innerWidth * window.devicePixelRatio;
+                let height = window.innerHeight * window.devicePixelRatio;
+                renderer.setSize({ width, height });
+            }
+            function run() {
+                // syncronise physics world and render scene
+                updateRidigsInScene();
+                // update controller states
+                controllerRegistry.update();
+                // rendering
+                renderer.render(scene, camera);
+                // simulating physics
+                engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
+                window.requestAnimationFrame(run);
+            }
+            window.addEventListener("resize", setSize);
+            setSize();
+            run();
+        }
+        mix_chain.load = load;
+    })(mix_chain = examples.mix_chain || (examples.mix_chain = {}));
 })(examples || (examples = {}));
 var examples;
 (function (examples) {
@@ -2309,7 +2518,7 @@ var examples;
             this.gpu.device.queue.writeBuffer(this.camBuffer, 0, this.camMatJSBuffer);
             this.renderer.render(() => {
                 this.renderer.beginTetras(this.pipeline);
-                this.renderer.sliceTetras(this.vertBindGroup, this.mesh.tetraCount);
+                this.renderer.sliceTetras(this.vertBindGroup, this.mesh.count);
                 this.renderer.drawTetras();
             });
             window.requestAnimationFrame(this.run.bind(this));
@@ -2420,7 +2629,6 @@ var examples;
     (function (tesseract) {
         async function load() {
             let app = await new ShapesApp().init(HypercubeFragCode.replace("{discard}", "").replace("{radius}", "0.8").replace("{count}", "").replaceAll("{edge}", "0.8"), tesserxel.mesh.tetra.tesseract());
-            // retina controller will own the slice config, so we should not call renderer.setSlice() directly
             app.retinaController.setOpacity(10.0);
             app.renderer.setCameraProjectMatrix({ fov: 110, near: 0.01, far: 10.0 });
             app.trackBallController.object.rotation.l.set();
@@ -2448,6 +2656,85 @@ var examples;
         }
         tesseract_ortho.load = load;
     })(tesseract_ortho = examples.tesseract_ortho || (examples.tesseract_ortho = {}));
+    async function loadFile(src) {
+        return new Promise((resolve, reject) => {
+            let xhr = new XMLHttpRequest();
+            xhr.open("GET", src, true);
+            xhr.onload = e => {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        resolve(xhr.responseText);
+                    }
+                    else {
+                        console.error(xhr.statusText);
+                        reject();
+                    }
+                }
+            };
+            xhr.onerror = function (e) {
+                console.error(xhr.statusText);
+                reject();
+            };
+            xhr.send();
+        });
+    }
+    let suzanne3d;
+    (function (suzanne3d) {
+        async function load() {
+            let s = 2;
+            let s2 = 3.2;
+            let spline = new tesserxel.math.Spline([
+                new tesserxel.math.Vec4(-s, 0),
+                new tesserxel.math.Vec4(0, s),
+                new tesserxel.math.Vec4(s, 0),
+                new tesserxel.math.Vec4(0, -s),
+                new tesserxel.math.Vec4(-s, 0),
+            ], [
+                new tesserxel.math.Vec4(0, s2),
+                new tesserxel.math.Vec4(s2, 0),
+                new tesserxel.math.Vec4(0, -s2),
+                new tesserxel.math.Vec4(-s2, 0),
+                new tesserxel.math.Vec4(0, s2),
+            ]);
+            let meshFile = new tesserxel.mesh.ObjFile(await loadFile("resource/suzanne.obj"));
+            let mesh = tesserxel.mesh.face.toNonIndexMesh(meshFile.parse());
+            let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.loft(spline, mesh, 9));
+            app.retinaController.setOpacity(10.0);
+            app.renderer.setCameraProjectMatrix({ fov: 80, near: 0.01, far: 50.0 });
+            app.trackBallController.object.rotation.l.set(Math.SQRT1_2, 0, Math.SQRT1_2, 0);
+            app.trackBallController.object.rotation.r.set();
+            app.run();
+        }
+        suzanne3d.load = load;
+    })(suzanne3d = examples.suzanne3d || (examples.suzanne3d = {}));
+    let directproduct;
+    (function (directproduct) {
+        async function load() {
+            let meshFile1 = new tesserxel.mesh.ObjFile(await loadFile("resource/text.obj")).parse();
+            let meshFile2 = new tesserxel.mesh.ObjFile(await loadFile("resource/text.obj")).parse();
+            let mesh = tesserxel.mesh.tetra.directProduct(meshFile1, meshFile2);
+            let app = await new ShapesApp().init(`
+            @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+                const ambientLight = vec3<f32>(0.1);
+                const frontLightColor = vec3<f32>(5.0,4.6,3.5);
+                const backLightColor = vec3<f32>(0.1,1.2,1.4);
+                const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
+                let halfvec = normalize(directionalLight_dir - normalize(vary.pos));
+                let highLight = pow(max(0.0,dot(vary.normal,halfvec)),30);
+                var color:vec3<f32> = mix(vec3<f32>(1.0),vec3<f32>(1.0,0.0,0.0), vary.uvw.w);
+                color = color * (
+                    frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
+                )* (0.4 + 0.8*highLight);
+                return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
+            }`, mesh);
+            app.retinaController.setOpacity(10.0);
+            app.renderer.setCameraProjectMatrix({ fov: 80, near: 0.01, far: 50.0 });
+            app.trackBallController.object.rotation.l.set(Math.SQRT1_2, 0, Math.SQRT1_2, 0);
+            app.trackBallController.object.rotation.r.set();
+            app.run();
+        }
+        directproduct.load = load;
+    })(directproduct = examples.directproduct || (examples.directproduct = {}));
 })(examples || (examples = {}));
 var examples;
 (function (examples) {
@@ -2651,7 +2938,7 @@ var examples;
             let meshJsBuffer = tesserxel.mesh.tetra.tiger(1, 16, 1, 16, 0.2, 12);
             tesserxel.mesh.tetra.applyObj4(meshJsBuffer, new tesserxel.math.Obj4(new tesserxel.math.Vec4(0, 0, 0, 2)));
             const resolution = 256;
-            const tetraCount = meshJsBuffer.tetraCount;
+            const tetraCount = meshJsBuffer.count;
             const tileSize = 16;
             const workgroupSizeX = 8;
             const workgroupSizeY = 4;

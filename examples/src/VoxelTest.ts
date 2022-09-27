@@ -210,7 +210,7 @@ namespace examples {
             ));
 
             const resolution = 256;
-            const tetraCount = meshJsBuffer.tetraCount;
+            const tetraCount = meshJsBuffer.count;
 
             const tileSize = 16;
             const workgroupSizeX = 8;

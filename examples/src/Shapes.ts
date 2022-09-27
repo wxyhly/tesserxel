@@ -125,7 +125,7 @@ namespace examples {
             this.gpu.device.queue.writeBuffer(this.camBuffer, 0, this.camMatJSBuffer);
             this.renderer.render(() => {
                 this.renderer.beginTetras(this.pipeline);
-                this.renderer.sliceTetras(this.vertBindGroup, this.mesh.tetraCount);
+                this.renderer.sliceTetras(this.vertBindGroup, this.mesh.count);
                 this.renderer.drawTetras();
             });
             window.requestAnimationFrame(this.run.bind(this));
@@ -226,8 +226,7 @@ namespace examples {
     }`;
     export namespace tesseract {
         export async function load() {
-            let app = await new ShapesApp().init(HypercubeFragCode.replace("{discard}","").replace("{radius}","0.8").replace("{count}","").replaceAll("{edge}","0.8"), tesserxel.mesh.tetra.tesseract());
-            // retina controller will own the slice config, so we should not call renderer.setSlice() directly
+            let app = await new ShapesApp().init(HypercubeFragCode.replace("{discard}", "").replace("{radius}", "0.8").replace("{count}", "").replaceAll("{edge}", "0.8"), tesserxel.mesh.tetra.tesseract());
             app.retinaController.setOpacity(10.0);
             app.renderer.setCameraProjectMatrix({ fov: 110, near: 0.01, far: 10.0 });
             app.trackBallController.object.rotation.l.set();
@@ -238,7 +237,7 @@ namespace examples {
     export namespace tesseract_ortho {
         export async function load() {
 
-            let app = await new ShapesApp().init(HypercubeFragCode.replace("{count}","count = 2.0;").replace("{radius}","0.3").replace("{discard}","if(count < 2.0){ discard; }").replaceAll("{edge}","0.9"), tesserxel.mesh.tetra.tesseract());
+            let app = await new ShapesApp().init(HypercubeFragCode.replace("{count}", "count = 2.0;").replace("{radius}", "0.3").replace("{discard}", "if(count < 2.0){ discard; }").replaceAll("{edge}", "0.9"), tesserxel.mesh.tetra.tesseract());
             // retina controller will own the slice config, so we should not call renderer.setSlice() directly
             app.retinaController.setOpacity(50.0);
             app.retinaController.setLayers(128);
@@ -257,6 +256,84 @@ namespace examples {
             app.trackBallController.mouseButton4D = 1;
             app.trackBallController.mouseButtonRoll = 0;
             app.run();
+        }
+    }
+    async function loadFile(src: string) {
+        return new Promise((resolve, reject) => {
+            let xhr = new XMLHttpRequest();
+            xhr.open("GET", src, true);
+            xhr.onload = e => {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        resolve(xhr.responseText);
+                    } else {
+                        console.error(xhr.statusText);
+                        reject();
+                    }
+                }
+            };
+            xhr.onerror = function (e) {
+                console.error(xhr.statusText);
+                reject();
+            };
+            xhr.send();
+        });
+    }
+    export namespace suzanne3d {
+        export async function load() {
+            let s = 2;
+            let s2 = 3.2;
+            let spline = new tesserxel.math.Spline([
+                new tesserxel.math.Vec4(-s, 0),
+                new tesserxel.math.Vec4(0, s),
+                new tesserxel.math.Vec4(s, 0),
+                new tesserxel.math.Vec4(0, -s),
+                new tesserxel.math.Vec4(-s, 0),
+            ],
+                [
+                    new tesserxel.math.Vec4(0, s2),
+                    new tesserxel.math.Vec4(s2, 0),
+                    new tesserxel.math.Vec4(0, -s2),
+                    new tesserxel.math.Vec4(-s2, 0),
+                    new tesserxel.math.Vec4(0, s2),
+                ]);
+            let meshFile = new tesserxel.mesh.ObjFile(await loadFile("resource/suzanne.obj") as string);
+            let mesh = tesserxel.mesh.face.toNonIndexMesh(meshFile.parse());
+            let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.loft(spline, mesh, 9));
+            app.retinaController.setOpacity(10.0);
+            app.renderer.setCameraProjectMatrix({ fov: 80, near: 0.01, far: 50.0 });
+            app.trackBallController.object.rotation.l.set(Math.SQRT1_2, 0, Math.SQRT1_2, 0);
+            app.trackBallController.object.rotation.r.set();
+            app.run();
+
+        }
+    }
+
+    export namespace directproduct {
+        export async function load() {
+            let meshFile1 = new tesserxel.mesh.ObjFile(await loadFile("resource/text.obj") as string).parse();
+            let meshFile2 = new tesserxel.mesh.ObjFile(await loadFile("resource/text.obj") as string).parse();
+            let mesh = tesserxel.mesh.tetra.directProduct(meshFile1, meshFile2);
+            let app = await new ShapesApp().init(`
+            @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+                const ambientLight = vec3<f32>(0.1);
+                const frontLightColor = vec3<f32>(5.0,4.6,3.5);
+                const backLightColor = vec3<f32>(0.1,1.2,1.4);
+                const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
+                let halfvec = normalize(directionalLight_dir - normalize(vary.pos));
+                let highLight = pow(max(0.0,dot(vary.normal,halfvec)),30);
+                var color:vec3<f32> = mix(vec3<f32>(1.0),vec3<f32>(1.0,0.0,0.0), vary.uvw.w);
+                color = color * (
+                    frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
+                )* (0.4 + 0.8*highLight);
+                return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
+            }`, mesh);
+            app.retinaController.setOpacity(10.0);
+            app.renderer.setCameraProjectMatrix({ fov: 80, near: 0.01, far: 50.0 });
+            app.trackBallController.object.rotation.l.set(Math.SQRT1_2, 0, Math.SQRT1_2, 0);
+            app.trackBallController.object.rotation.r.set();
+            app.run();
+
         }
     }
 }

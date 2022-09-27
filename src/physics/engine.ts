@@ -14,7 +14,7 @@ namespace tesserxel {
             substep: number;
             constructor(option?: EngineOption) {
                 this.forceAccumulator = new (option?.forceAccumulator ?? force_accumulator.Predict3)();
-                this.broadPhase = new (option?.broadPhase ?? NaiveBroadPhase)();
+                this.broadPhase = new (option?.broadPhase ?? BoundingGlomeBroadPhase)();
                 this.narrowPhase = new NarrowPhase();
                 this.solver = new (option?.solver ?? IterativeImpulseSolver)();
                 this.substep = option.substep ?? 1;

@@ -1248,12 +1248,13 @@ var tesserxel;
                 }
                 return this.expset(right);
             }
-            // todo: lookAtbb(from: Bivec, to: Bivec): Rotor plane to plane
+            /** Rotor: rotate from plane1 to plane2
+             *  Bivectors must be simple and normalised */
             static lookAtbb(from, to) {
-                let A1 = math._vec3_2.set(from.xy + from.zw, from.xz - from.yw, from.xw + from.yz).norms();
-                let B1 = math._vec3_3.set(from.xy - from.zw, from.xz + from.yw, from.xw - from.yz).norms();
-                let A2 = math._vec3_4.set(to.xy + to.zw, to.xz - to.yw, to.xw + to.yz).norms();
-                let B2 = math._vec3_5.set(to.xy - to.zw, to.xz + to.yw, to.xw - to.yz).norms();
+                let A1 = math._vec3_2.set(from.xy + from.zw, from.xz - from.yw, from.xw + from.yz);
+                let B1 = math._vec3_3.set(from.xy - from.zw, from.xz + from.yw, from.xw - from.yz);
+                let A2 = math._vec3_4.set(to.xy + to.zw, to.xz - to.yw, to.xw + to.yz);
+                let B2 = math._vec3_5.set(to.xy - to.zw, to.xz + to.yw, to.xw - to.yz);
                 return new Rotor(Quaternion.lookAt(A1, A2), Quaternion.lookAt(B2, B1));
             }
             // todo: lookAtvb(from: Vec4, to: Bivec): Rotor dir to plane or reverse
@@ -2051,6 +2052,13 @@ var tesserxel;
                 let a = seed.nextf() * math._360;
                 return new Vec2(Math.cos(a), Math.sin(a));
             }
+            distanceTo(p) {
+                return Math.hypot(p.x - this.x, p.y - this.y);
+            }
+            distanceSqrTo(p) {
+                let x = p.x - this.x, y = p.y - this.y;
+                return x * x + y * y;
+            }
             pushPool(pool = math.vec2Pool) {
                 pool.push(this);
             }
@@ -2306,6 +2314,13 @@ var tesserxel;
                 let c = seed.nextf() * 2.0 - 1.0;
                 let b = Math.sqrt(1.0 - c * c);
                 return new Vec3(b * Math.cos(a), b * Math.sin(a), c);
+            }
+            distanceTo(p) {
+                return Math.hypot(p.x - this.x, p.y - this.y, p.z - this.z);
+            }
+            distanceSqrTo(p) {
+                let x = p.x - this.x, y = p.y - this.y, z = p.z - this.z;
+                return x * x + y * y + z * z;
             }
             reflect(normal) {
                 return this.sub(normal.mulf(this.dot(normal) * 2));
@@ -2597,6 +2612,13 @@ var tesserxel;
                 this.w -= normal.w * k;
                 return this;
             }
+            distanceTo(p) {
+                return Math.hypot(p.x - this.x, p.y - this.y, p.z - this.z, p.w - this.w);
+            }
+            distanceSqrTo(p) {
+                let x = p.x - this.x, y = p.y - this.y, z = p.z - this.z, w = p.w - this.w;
+                return x * x + y * y + z * z + w * w;
+            }
             randset() {
                 let a = Math.random() * math._360;
                 let b = Math.random() * math._360;
@@ -2735,9 +2757,29 @@ var tesserxel;
                     return 1;
                 }
             }
-            constructor() {
-                this.min = new math.Vec4(Infinity, Infinity, Infinity, Infinity);
-                this.max = new math.Vec4(-Infinity, -Infinity, -Infinity, -Infinity);
+            getPoints() {
+                return [
+                    new math.Vec4(this.min.x, this.min.y, this.min.z, this.min.w),
+                    new math.Vec4(this.max.x, this.min.y, this.min.z, this.min.w),
+                    new math.Vec4(this.min.x, this.max.y, this.min.z, this.min.w),
+                    new math.Vec4(this.max.x, this.max.y, this.min.z, this.min.w),
+                    new math.Vec4(this.min.x, this.min.y, this.max.z, this.min.w),
+                    new math.Vec4(this.max.x, this.min.y, this.max.z, this.min.w),
+                    new math.Vec4(this.min.x, this.max.y, this.max.z, this.min.w),
+                    new math.Vec4(this.max.x, this.max.y, this.max.z, this.min.w),
+                    new math.Vec4(this.min.x, this.min.y, this.min.z, this.max.w),
+                    new math.Vec4(this.max.x, this.min.y, this.min.z, this.max.w),
+                    new math.Vec4(this.min.x, this.max.y, this.min.z, this.max.w),
+                    new math.Vec4(this.max.x, this.max.y, this.min.z, this.max.w),
+                    new math.Vec4(this.min.x, this.min.y, this.max.z, this.max.w),
+                    new math.Vec4(this.max.x, this.min.y, this.max.z, this.max.w),
+                    new math.Vec4(this.min.x, this.max.y, this.max.z, this.max.w),
+                    new math.Vec4(this.max.x, this.max.y, this.max.z, this.max.w),
+                ];
+            }
+            constructor(min, max) {
+                this.min = min ?? new math.Vec4(Infinity, Infinity, Infinity, Infinity);
+                this.max = max ?? new math.Vec4(-Infinity, -Infinity, -Infinity, -Infinity);
             }
             static fromPoints(points) {
                 let aabb = new AABB();
@@ -2856,17 +2898,17 @@ var tesserxel;
                     uSegment = 1;
                 if (vSegment < 1)
                     vSegment = 1;
-                let uv_seg = uSegment * uSegment;
-                let arraySize = uv_seg << 4;
+                let arraySize = vSegment * vSegment << 4;
                 uSegment++;
                 vSegment++;
-                let positions = new Float32Array((uv_seg) << 2);
-                let normals = new Float32Array((uv_seg) << 2);
-                let uvws = new Float32Array((uv_seg) << 2);
+                let uvw_seg = uSegment * uSegment;
+                let positions = new Float32Array((uvw_seg) << 2);
+                let normals = new Float32Array((uvw_seg) << 2);
+                let uvws = new Float32Array((uvw_seg) << 2);
                 let position = new Float32Array(arraySize);
                 let normal = new Float32Array(arraySize);
                 let uvw = new Float32Array(arraySize);
-                let inputUV = new tesserxel.math.Vec2;
+                let inputuvw = new tesserxel.math.Vec2;
                 let outputVertex = new tesserxel.math.Vec4;
                 let outputNormal = new tesserxel.math.Vec4;
                 let ptr = 0;
@@ -2888,11 +2930,11 @@ var tesserxel;
                     uvw[idxPtr++] = uvws[i + 3];
                 }
                 for (let u_index = 0; u_index < uSegment; u_index++) {
-                    inputUV.x = u_index / (uSegment - 1);
+                    inputuvw.x = u_index / (uSegment - 1);
                     let offset = vSegment * u_index;
-                    for (let v_index = 0; v_index < vSegment; v_index++) {
-                        inputUV.y = v_index / (vSegment - 1);
-                        fn(inputUV, outputVertex, outputNormal);
+                    for (let v_index = 0; v_index < vSegment; v_index++, offset++) {
+                        inputuvw.y = v_index / (vSegment - 1);
+                        fn(inputuvw, outputVertex, outputNormal);
                         positions[ptr++] = outputVertex.x;
                         positions[ptr++] = outputVertex.y;
                         positions[ptr++] = outputVertex.z;
@@ -2903,8 +2945,8 @@ var tesserxel;
                         normals[ptr++] = outputNormal.z;
                         normals[ptr++] = outputNormal.w;
                         ptr -= 4;
-                        uvws[ptr++] = inputUV.x;
-                        uvws[ptr++] = inputUV.y;
+                        uvws[ptr++] = inputuvw.x;
+                        uvws[ptr++] = inputuvw.y;
                         uvws[ptr++] = 0;
                         uvws[ptr++] = 0;
                         if (u_index && v_index) {
@@ -2916,9 +2958,420 @@ var tesserxel;
                         }
                     }
                 }
+                return {
+                    quad: { position, normal, uvw }
+                };
             }
             face.parametricSurface = parametricSurface;
+            /** m must be a manifold or manifold with border */
+            function findBorder(m) {
+                if (!m.position)
+                    console.error("findBorder can onnly apply to FaceIndexMesh.");
+                let borders = [];
+                for (let i = 0, l = m.quad?.position?.length; i < l; i += 4) {
+                    let p = m.quad.position;
+                    pushBorder(p[i], p[i + 1]);
+                    pushBorder(p[i + 1], p[i + 2]);
+                    pushBorder(p[i + 2], p[i + 3]);
+                    pushBorder(p[i + 3], p[i]);
+                }
+                for (let i = 0, l = m.triangle?.position?.length; i < l; i += 3) {
+                    let p = m.triangle.position;
+                    pushBorder(p[i], p[i + 1]);
+                    pushBorder(p[i + 1], p[i + 2]);
+                    pushBorder(p[i + 2], p[i]);
+                }
+                function pushBorder(a, b) {
+                    let count = 0;
+                    let found = false;
+                    for (let [j, k] of borders) {
+                        if (j === b && k === a) {
+                            found = true;
+                            break;
+                        }
+                        if (j === a && k === b) {
+                            found = true;
+                            console.warn("findBorder: Non manifold mesh found.");
+                            break;
+                        }
+                        count++;
+                    }
+                    if (found) {
+                        borders.splice(count, 1);
+                    }
+                    else {
+                        borders.push([a, b]);
+                    }
+                }
+                return borders;
+            }
+            face.findBorder = findBorder;
         })(face = mesh.face || (mesh.face = {}));
+    })(mesh = tesserxel.mesh || (tesserxel.mesh = {}));
+})(tesserxel || (tesserxel = {}));
+var tesserxel;
+(function (tesserxel) {
+    let mesh;
+    (function (mesh) {
+        let face;
+        (function (face) {
+            function toIndexMesh(m) {
+                let position = [];
+                let normal = [];
+                let uvw = [];
+                let posIdx4 = [];
+                let normalIdx4 = [];
+                let uvwIdx4 = [];
+                let posIdx3 = [];
+                let normalIdx3 = [];
+                let uvwIdx3 = [];
+                if (m.quad) {
+                    toIndexbuffer(m.quad.position, position, posIdx4, 4);
+                    if (m.quad.normal)
+                        toIndexbuffer(m.quad.normal, normal, normalIdx4, 4);
+                    if (m.quad.uvw)
+                        toIndexbuffer(m.quad.uvw, uvw, uvwIdx4, 4);
+                }
+                if (m.triangle) {
+                    toIndexbuffer(m.triangle.position, position, posIdx3, 4);
+                    if (m.triangle.normal)
+                        toIndexbuffer(m.triangle.normal, normal, normalIdx3, 4);
+                    if (m.triangle.uvw)
+                        toIndexbuffer(m.triangle.uvw, uvw, uvwIdx3, 4);
+                }
+                let out = {
+                    position: new Float32Array(position)
+                };
+                if (m.quad) {
+                    out.quad = {
+                        position: new Uint32Array(posIdx4)
+                    };
+                    if (m.quad.normal)
+                        out.quad.normal = new Uint32Array(normalIdx4);
+                    if (m.quad.uvw)
+                        out.quad.uvw = new Uint32Array(uvwIdx4);
+                }
+                if (m.triangle) {
+                    out.triangle = {
+                        position: new Uint32Array(posIdx4)
+                    };
+                    if (m.triangle.normal)
+                        out.triangle.normal = new Uint32Array(normalIdx4);
+                    if (m.triangle.uvw)
+                        out.triangle.uvw = new Uint32Array(uvwIdx4);
+                }
+                if (normal.length)
+                    out.normal = new Float32Array(normal);
+                if (uvw.length)
+                    out.uvw = new Float32Array(uvw);
+                return out;
+            }
+            face.toIndexMesh = toIndexMesh;
+            function toNonIndexMesh(m) {
+                let out = {};
+                if (m.quad) {
+                    let count = m.quad.position.length << 2;
+                    out.quad = {
+                        position: new Float32Array(count),
+                        count: count >> 4
+                    };
+                    toNonIndex(m.position, m.quad.position, out.quad.position, 4);
+                    if (m.normal) {
+                        out.quad.normal = new Float32Array(count);
+                        toNonIndex(m.normal, m.quad.normal, out.quad.normal, 4);
+                    }
+                    if (m.uvw) {
+                        out.quad.uvw = new Float32Array(count);
+                        toNonIndex(m.uvw, m.quad.uvw, out.quad.uvw, 4);
+                    }
+                }
+                if (m.triangle) {
+                    let count = m.triangle.position.length << 2;
+                    out.triangle = {
+                        position: new Float32Array(count),
+                        count: count / 12
+                    };
+                    toNonIndex(m.position, m.triangle.position, out.triangle.position, 4);
+                    if (m.normal) {
+                        out.triangle.normal = new Float32Array(count);
+                        toNonIndex(m.normal, m.triangle.normal, out.triangle.normal, 4);
+                    }
+                    if (m.uvw) {
+                        out.triangle.uvw = new Float32Array(count);
+                        toNonIndex(m.uvw, m.triangle.uvw, out.triangle.uvw, 4);
+                    }
+                }
+                return out;
+            }
+            face.toNonIndexMesh = toNonIndexMesh;
+        })(face = mesh.face || (mesh.face = {}));
+        let tetra;
+        (function (tetra) {
+            function toIndexMesh(m) {
+                let position = [];
+                let normal = [];
+                let uvw = [];
+                let posIdx = [];
+                let normalIdx = [];
+                let uvwIdx = [];
+                toIndexbuffer(m.position, position, posIdx, 4);
+                if (m.normal)
+                    toIndexbuffer(m.normal, normal, normalIdx, 4);
+                if (m.uvw)
+                    toIndexbuffer(m.uvw, uvw, uvwIdx, 4);
+                let out = {
+                    position: new Float32Array(position),
+                    positionIndex: new Uint32Array(posIdx)
+                };
+                if (m.normal)
+                    out.normalIndex = new Uint32Array(normalIdx);
+                if (m.uvw)
+                    out.uvwIndex = new Uint32Array(uvwIdx);
+                if (normal.length)
+                    out.normal = new Float32Array(normal);
+                if (uvw.length)
+                    out.uvw = new Float32Array(uvw);
+                return out;
+            }
+            tetra.toIndexMesh = toIndexMesh;
+            function toNonIndexMesh(m) {
+                let count = m.position.length << 2;
+                let out = {
+                    position: new Float32Array(count),
+                    count: count >> 4
+                };
+                toNonIndex(m.position, m.positionIndex, out.position, 4);
+                if (m.normal) {
+                    out.normal = new Float32Array(count);
+                    toNonIndex(m.normal, m.normalIndex, out.normal, 4);
+                }
+                if (m.uvw) {
+                    out.uvw = new Float32Array(count);
+                    toNonIndex(m.uvw, m.uvwIndex, out.uvw, 4);
+                }
+                return out;
+            }
+            tetra.toNonIndexMesh = toNonIndexMesh;
+        })(tetra = mesh.tetra || (mesh.tetra = {}));
+        function toIndexbuffer(srcArr, dstArr, dstIdxArr, stride) {
+            for (let i = 0, l = srcArr.length; i < l; i += stride) {
+                let idx = indexOf(srcArr, i, dstArr, 4);
+                if (idx === -1) {
+                    idx = dstArr.length;
+                    for (let q = 0; q < stride; q++) {
+                        dstArr.push(srcArr[i + q]);
+                    }
+                }
+                idx >>= 2;
+                dstIdxArr.push(idx);
+            }
+        }
+        function indexOf(srcArr, srcIdx, dstArr, stride) {
+            for (let i = 0, j = 0, l = dstArr.length; i < l; i += stride, j++) {
+                let same = true;
+                for (let q = 0; q < stride; q++) {
+                    same &&= srcArr[srcIdx + q] === dstArr[i + q];
+                }
+                if (same) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+        function toNonIndex(srcArr, idxArr, dstArr, stride) {
+            let ptr = 0;
+            for (let i = 0, l = idxArr.length; i < l; i++) {
+                let idx = idxArr[i] * stride;
+                for (let q = 0; q < stride; q++) {
+                    dstArr[ptr++] = srcArr[idx + q];
+                }
+            }
+        }
+    })(mesh = tesserxel.mesh || (tesserxel.mesh = {}));
+})(tesserxel || (tesserxel = {}));
+var tesserxel;
+(function (tesserxel) {
+    let mesh;
+    (function (mesh) {
+        class ObjFile {
+            data;
+            constructor(data) {
+                this.data = this.stringify(data);
+            }
+            stringify(data) {
+                if (typeof data === "string")
+                    return data;
+                let out = "# Tesserxel ObjFile Parser\n# github.com/wxyhly/tesserxel\n";
+                out += writeVertexLike("v", data.position);
+                if (data.normal)
+                    out += writeVertexLike("vn", data.normal);
+                if (data.uvw)
+                    out += writeVertexLike("vt", data.uvw);
+                if (data.positionIndex) {
+                    let m = data;
+                    out += writeFaceLike("t", m.positionIndex, m.uvwIndex, m.normalIndex, 4);
+                    return out;
+                }
+                let m = data;
+                if (m.triangle) {
+                    out += writeFaceLike("f", m.triangle.position, m.triangle.uvw, m.triangle.normal, 3);
+                }
+                if (m.quad) {
+                    out += writeFaceLike("f", m.quad.position, m.quad.uvw, m.quad.normal, 4);
+                }
+                return out;
+                function writeVertexLike(identifier, data) {
+                    let out = "\n";
+                    const reg = new RegExp(" " + (0).toPrecision(7) + "$", "g");
+                    for (let i = 0, l = data.length; i < l; i += 4) {
+                        let line = identifier;
+                        for (let q = 0; q < 4; q++) {
+                            line += " " + data[i + q].toPrecision(7);
+                        }
+                        line = line.trim().replace(reg, "");
+                        if (identifier === "vt")
+                            line = line.replace(reg, "");
+                        out += line + "\n";
+                    }
+                    return out;
+                }
+                function writeFaceLike(identifier, v, vt, vn, stride) {
+                    let out = "\n";
+                    for (let i = 0, l = v.length; i < l; i += stride) {
+                        let line = identifier;
+                        for (let q = 0; q < stride; q++) {
+                            line += " " + (v[i + q] + 1);
+                            if (vt)
+                                line += "/" + (vt[i + q] + 1);
+                            if (vn)
+                                line += "/" + (vn[i + q] + 1);
+                            line = line.replace(/\/+$/, "");
+                        }
+                        out += line + "\n";
+                    }
+                    return out;
+                }
+            }
+            parse() {
+                let lines = this.data.split("\n");
+                let v = [];
+                let vt = [];
+                let vn = [];
+                let quad = {
+                    v: [],
+                    vt: [],
+                    vn: [],
+                };
+                let tetra = {
+                    v: [],
+                    vt: [],
+                    vn: [],
+                };
+                let triangle = {
+                    v: [],
+                    vt: [],
+                    vn: [],
+                };
+                for (let i = 0, l = lines.length; i < l; i++) {
+                    let line = lines[i].trim();
+                    if (isCommentOrEmpty(line))
+                        continue;
+                    let splitArr = line.toLowerCase().split(/\s/g);
+                    switch (splitArr[0]) {
+                        case "o":
+                            // parseObj(splitArr);
+                            break;
+                        case "v":
+                            parseVertexLike(v, splitArr);
+                            break;
+                        case "vt":
+                            parseVertexLike(vt, splitArr);
+                            break;
+                        case "vn":
+                            parseVertexLike(vn, splitArr);
+                            break;
+                        case "f":
+                            if (splitArr.length === 5) {
+                                parseFaceLike(quad, splitArr);
+                            }
+                            else if (splitArr.length === 4) {
+                                parseFaceLike(triangle, splitArr);
+                            }
+                            else {
+                                error(i, "Unsupported polygonal face: Only triangles and quads are allowed.");
+                            }
+                            break;
+                        case "t":
+                            if (splitArr.length === 5) {
+                                parseFaceLike(tetra, splitArr);
+                            }
+                            else {
+                                error(i, `Vertices of tetrahedron must be 4, found ${splitArr.length - 1} vertices.`);
+                            }
+                    }
+                }
+                let out = tetra.v.length ? {
+                    position: new Float32Array(v),
+                    positionIndex: new Uint32Array(tetra.v)
+                } : {
+                    position: new Float32Array(v)
+                };
+                if (vt.length)
+                    out.uvw = new Float32Array(vt);
+                if (vn.length)
+                    out.normal = new Float32Array(vn);
+                if (triangle.v.length) {
+                    out.triangle = {
+                        position: new Uint32Array(triangle.v)
+                    };
+                    if (triangle.vt.length)
+                        out.triangle.uvw = new Uint32Array(triangle.vt);
+                    if (triangle.vn.length)
+                        out.triangle.normal = new Uint32Array(triangle.vn);
+                }
+                if (quad.v.length) {
+                    out.quad = {
+                        position: new Uint32Array(quad.v)
+                    };
+                    if (quad.vt.length)
+                        out.quad.uvw = new Uint32Array(quad.vt);
+                    if (quad.vn.length)
+                        out.quad.normal = new Uint32Array(quad.vn);
+                }
+                if (tetra.v.length) {
+                    if (tetra.vt.length)
+                        out.uvwIndex = new Uint32Array(tetra.vt);
+                    if (tetra.vn.length)
+                        out.normalIndex = new Uint32Array(tetra.vn);
+                }
+                return out;
+                function parseVertexLike(dst, splitArr) {
+                    while (splitArr.length < 5) {
+                        splitArr.push("0");
+                    }
+                    for (let i = 1, l = splitArr.length; i < l; i++) {
+                        dst.push(Number(splitArr[i]));
+                    }
+                }
+                function parseFaceLike(dst, splitArr) {
+                    for (let i = 1, l = splitArr.length; i < l; i++) {
+                        let attrs = splitArr[i].split("/");
+                        dst.v.push(Number(attrs[0]) - 1);
+                        if (attrs[1])
+                            dst.vt.push(Number(attrs[1]) - 1);
+                        if (attrs[2])
+                            dst.vn.push(Number(attrs[2]) - 1);
+                    }
+                }
+                function isCommentOrEmpty(line) {
+                    return line === "" || line[0] === "#";
+                }
+                function error(line, msg) {
+                    console.error("ObjFileParser: " + msg + "\n at line " + line + `"${lines[line]}"`);
+                }
+            }
+        }
+        mesh.ObjFile = ObjFile;
     })(mesh = tesserxel.mesh || (tesserxel.mesh = {}));
 })(tesserxel || (tesserxel = {}));
 var tesserxel;
@@ -2994,7 +3447,7 @@ var tesserxel;
                     -1, -1, 1, 0,
                     1, -1, 1, 0,
                 ]),
-                tetraCount: 5
+                count: 5
             };
             function applyAffineMat4(mesh, am) {
                 let vp = new tesserxel.math.Vec4();
@@ -3034,7 +3487,7 @@ var tesserxel;
                 let position = new Float32Array(mesh1.position.length + mesh2.position.length);
                 position.set(mesh1.position);
                 position.set(mesh2.position, mesh1.position.length);
-                let ret = { position, tetraCount: position.length << 4 };
+                let ret = { position, count: position.length << 4 };
                 if (mesh1.normal && mesh2.normal) {
                     let normal = new Float32Array(mesh1.normal.length + mesh2.normal.length);
                     normal.set(mesh1.normal);
@@ -3060,7 +3513,7 @@ var tesserxel;
                     hasNormal = hasNormal && (meshes[i].normal ? true : false);
                 }
                 let position = new Float32Array(length);
-                let ret = { position, tetraCount: length << 4 };
+                let ret = { position, count: length << 4 };
                 let normal, uvw;
                 if (hasNormal) {
                     normal = new Float32Array(length);
@@ -3087,7 +3540,7 @@ var tesserxel;
             function clone(mesh) {
                 let ret = {
                     position: mesh.position.slice(0),
-                    tetraCount: mesh.tetraCount
+                    count: mesh.count
                 };
                 if (mesh.uvw)
                     ret.uvw = mesh.uvw.slice(0);
@@ -3327,7 +3780,7 @@ var tesserxel;
                     1, 0, 1, 15,
                     0, 1, 1, 15,
                 ]),
-                tetraCount: 16
+                count: 16
             };
             function glome(radius, xySegment, zwSegment, latitudeSegment) {
                 if (xySegment < 3)
@@ -3411,8 +3864,8 @@ var tesserxel;
                     vSegment = 1;
                 if (wSegment < 1)
                     wSegment = 1;
-                let tetraCount = uSegment * vSegment * wSegment * 5;
-                let arraySize = tetraCount << 4;
+                let count = uSegment * vSegment * wSegment * 5;
+                let arraySize = count << 4;
                 uSegment++;
                 vSegment++;
                 wSegment++;
@@ -3506,7 +3959,7 @@ var tesserxel;
                         }
                     }
                 }
-                return { position, normal, uvw, tetraCount };
+                return { position, normal, uvw, count };
             }
             tetra.parametricSurface = parametricSurface;
             function convexhull(points) {
@@ -3581,7 +4034,7 @@ var tesserxel;
                 temp = points[4];
                 points[4] = points[e];
                 points[e] = temp;
-                let tetraCount = 5; // indices.length === tetraCount * 4 always is true
+                let count = 5; // indices.length === count * 4 always is true
                 console.log(determinant);
                 console.log(det(0, 1, 2, 3, 4));
                 let indices = det(0, 1, 2, 3, 4) > 0 ?
@@ -3612,7 +4065,7 @@ var tesserxel;
                             border.push(item);
                         }
                     }
-                    for (let cell = 0; cell < tetraCount; cell++) {
+                    for (let cell = 0; cell < count; cell++) {
                         let a = indices[cell << 2];
                         let b = indices[(cell << 2) + 1];
                         let c = indices[(cell << 2) + 2];
@@ -3637,23 +4090,23 @@ var tesserxel;
                             newIndices.push(b[0], b[2], b[1], cursor);
                     }
                     indices = newIndices;
-                    tetraCount = indices.length >> 2;
+                    count = indices.length >> 2;
                 }
-                let position = new Float32Array(tetraCount << 4);
-                let count = 0;
-                for (let p = 0; p < tetraCount; p++) {
-                    points[indices[(p << 2)]].writeBuffer(position, count);
-                    count += 4;
-                    points[indices[(p << 2) + 1]].writeBuffer(position, count);
-                    count += 4;
-                    points[indices[(p << 2) + 2]].writeBuffer(position, count);
-                    count += 4;
-                    points[indices[(p << 2) + 3]].writeBuffer(position, count);
-                    count += 4;
+                let position = new Float32Array(count << 4);
+                let countPtr = 0;
+                for (let p = 0; p < count; p++) {
+                    points[indices[(p << 2)]].writeBuffer(position, countPtr);
+                    countPtr += 4;
+                    points[indices[(p << 2) + 1]].writeBuffer(position, countPtr);
+                    countPtr += 4;
+                    points[indices[(p << 2) + 2]].writeBuffer(position, countPtr);
+                    countPtr += 4;
+                    points[indices[(p << 2) + 3]].writeBuffer(position, countPtr);
+                    countPtr += 4;
                 }
                 return {
                     position,
-                    tetraCount
+                    count
                 };
             }
             tetra.convexhull = convexhull;
@@ -3684,10 +4137,14 @@ var tesserxel;
             tetra.duocylinder = duocylinder;
             function loft(sp, section, step) {
                 let { points, rotors, curveLength } = sp.generate(step);
-                let quadcount = section.quad.position.length >> 4;
-                let tetraCount = quadcount * (points.length - 1) * 5;
-                let arraySize = tetraCount << 4;
-                let pslen = quadcount * points.length << 4;
+                let quadcount = section.quad ? section.quad.position.length >> 4 : 0;
+                let count4 = quadcount * (points.length - 1) * 5;
+                let tricount = section.triangle ? section.triangle.position.length / 12 : 0;
+                let count3 = tricount * (points.length - 1) * 3;
+                let arraySize = count4 + count3 << 4;
+                let pslen4 = quadcount * points.length << 4;
+                let pslen3 = tricount * points.length * 12;
+                let pslen = Math.max(pslen4, pslen3);
                 let positions = new Float32Array(pslen);
                 let uvws = new Float32Array(pslen);
                 let normals = new Float32Array(pslen);
@@ -3697,32 +4154,64 @@ var tesserxel;
                 let _vec4 = new tesserxel.math.Vec4(); // cache
                 let offset = 0;
                 let idxPtr = 0;
-                let pos = section.quad.position;
-                let norm = section.quad.normal;
-                let uv = section.quad.uv;
-                for (let ptr = 0; ptr < (quadcount << 4); ptr += 16) {
-                    for (let j = 0; j < rotors.length; j++) {
-                        let r = rotors[j];
-                        let p = points[j];
-                        for (let i = 0; i < 4; i++, ptr += 4) {
-                            _vec4.set(pos[ptr], pos[ptr + 1], pos[ptr + 2], pos[ptr + 3]);
-                            _vec4.rotates(r).adds(p);
-                            _vec4.writeBuffer(positions, offset);
-                            _vec4.set(norm[ptr], norm[ptr + 1], norm[ptr + 2], norm[ptr + 3]);
-                            _vec4.rotates(r);
-                            _vec4.writeBuffer(normals, offset);
-                            _vec4.set(uv[ptr], uv[ptr + 1], uv[ptr + 2], curveLength[j]);
-                            _vec4.writeBuffer(uvws, offset);
-                            offset += 4;
+                if (section.quad) {
+                    let pos = section.quad.position;
+                    let norm = section.quad.normal;
+                    let uv = section.quad.uvw;
+                    for (let ptr = 0; ptr < (quadcount << 4); ptr += 16) {
+                        for (let j = 0; j < rotors.length; j++) {
+                            let r = rotors[j];
+                            let p = points[j];
+                            for (let i = 0; i < 4; i++, ptr += 4) {
+                                _vec4.set(pos[ptr], pos[ptr + 1], pos[ptr + 2], pos[ptr + 3]);
+                                _vec4.rotates(r).adds(p);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(norm[ptr], norm[ptr + 1], norm[ptr + 2], norm[ptr + 3]);
+                                _vec4.rotates(r);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[ptr], uv[ptr + 1], uv[ptr + 2], curveLength[j]);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 16;
+                            if (j) {
+                                let doffset = offset - 32;
+                                pushTetra(doffset, 0, 1, 3, 4);
+                                pushTetra(doffset, 1, 5, 6, 4);
+                                pushTetra(doffset, 1, 3, 6, 2);
+                                pushTetra(doffset, 4, 7, 6, 3);
+                                pushTetra(doffset, 1, 3, 4, 6);
+                            }
                         }
-                        ptr -= 16;
-                        if (j) {
-                            let doffset = offset - 32;
-                            pushTetra(doffset, 0, 1, 3, 4);
-                            pushTetra(doffset, 1, 5, 6, 4);
-                            pushTetra(doffset, 1, 3, 6, 2);
-                            pushTetra(doffset, 4, 7, 6, 3);
-                            pushTetra(doffset, 1, 3, 4, 6);
+                    }
+                }
+                if (section.triangle) {
+                    offset = 0;
+                    let pos = section.triangle.position;
+                    let norm = section.triangle.normal;
+                    let uv = section.triangle.uvw;
+                    for (let ptr = 0, l = tricount * 12; ptr < l; ptr += 12) {
+                        for (let j = 0; j < rotors.length; j++) {
+                            let r = rotors[j];
+                            let p = points[j];
+                            for (let i = 0; i < 3; i++, ptr += 4) {
+                                _vec4.set(pos[ptr], pos[ptr + 1], pos[ptr + 2], pos[ptr + 3]);
+                                _vec4.rotates(r).adds(p);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(norm[ptr], norm[ptr + 1], norm[ptr + 2], norm[ptr + 3]);
+                                _vec4.rotates(r);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[ptr], uv[ptr + 1], uv[ptr + 2], curveLength[j]);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 12;
+                            if (j) {
+                                let doffset = offset - 24;
+                                pushTetra(doffset, 0, 1, 2, 3);
+                                pushTetra(doffset, 1, 2, 3, 5);
+                                pushTetra(doffset, 3, 4, 5, 1);
+                            }
                         }
                     }
                 }
@@ -3752,9 +4241,263 @@ var tesserxel;
                     uvw[idxPtr++] = uvws[i + 2];
                     uvw[idxPtr++] = uvws[i + 3];
                 }
-                return { position, uvw, normal, tetraCount };
+                return { position, uvw, normal, count: count3 + count4 };
             }
             tetra.loft = loft;
+            function directProduct(shape1, shape2) {
+                /** border(A x B) = border(A) x B + A x border(B) */
+                let edge1 = mesh_1.face.findBorder(shape1);
+                let edge2 = mesh_1.face.findBorder(shape2);
+                // A x border(B)
+                let quadcount1 = shape1.quad ? shape1.quad.position.length >> 2 : 0;
+                let count14 = quadcount1 * edge2.length * 5;
+                let tricount1 = shape1.triangle ? shape1.triangle.position.length / 3 : 0;
+                let count13 = tricount1 * edge2.length * 3;
+                let pslen1 = Math.max(quadcount1 * edge2.length << 5, tricount1 * edge2.length * 24);
+                // border(A) x B 
+                let quadcount2 = shape2.quad ? shape2.quad.position.length >> 2 : 0;
+                let count24 = quadcount2 * edge1.length * 5;
+                let tricount2 = shape2.triangle ? shape2.triangle.position.length / 3 : 0;
+                let count23 = tricount2 * edge1.length * 3;
+                let pslen2 = Math.max(quadcount2 * edge1.length << 5, tricount2 * edge1.length * 24);
+                let arraySize = count14 + count13 + count23 + count24 << 4;
+                let pslen = Math.max(pslen1, pslen2);
+                let positions = new Float32Array(pslen);
+                let uvws = new Float32Array(pslen);
+                let normals = new Float32Array(pslen);
+                let position = new Float32Array(arraySize);
+                let uvw = new Float32Array(arraySize);
+                let normal = new Float32Array(arraySize);
+                let _vec4 = new tesserxel.math.Vec4(); // cache
+                let _vec4p = new tesserxel.math.Vec4(); // cache
+                let _vec4q = new tesserxel.math.Vec4(); // cache
+                let _vec4n = new tesserxel.math.Vec4(); // cache
+                let offset = 0;
+                let idxPtr = 0;
+                if (shape1.quad) {
+                    let posIdx = shape1.quad.position;
+                    let uvIdx = shape1.quad.uvw;
+                    let pos = shape1.position;
+                    let uv = shape1.uvw;
+                    for (let ptr = 0, l = posIdx.length; ptr < l; ptr += 4) {
+                        for (let j of edge2) {
+                            let ie = j[0] << 2;
+                            // pq is border segment
+                            let p = _vec4p.set(shape2.position[ie + 2], shape2.position[ie + 3], shape2.position[ie], shape2.position[ie + 1]);
+                            ie = j[1] << 2;
+                            let q = _vec4q.set(shape2.position[ie + 2], shape2.position[ie + 3], shape2.position[ie], shape2.position[ie + 1]);
+                            let normal = _vec4n.subset(q, p).norms();
+                            [normal.z, normal.w] = [-normal.w, normal.z];
+                            for (let i = 0; i < 4; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos], pos[ipos + 1], pos[ipos + 2], pos[ipos + 3]);
+                                _vec4.adds(p);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(0, 0, normal.z, normal.w);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 0);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 4;
+                            for (let i = 0; i < 4; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos], pos[ipos + 1], pos[ipos + 2], pos[ipos + 3]);
+                                _vec4.adds(q);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(0, 0, normal.z, normal.w);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 0);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 4;
+                            let doffset = offset - 32;
+                            pushTetra(doffset, 0, 1, 3, 4);
+                            pushTetra(doffset, 1, 5, 6, 4);
+                            pushTetra(doffset, 1, 3, 6, 2);
+                            pushTetra(doffset, 4, 7, 6, 3);
+                            pushTetra(doffset, 1, 3, 4, 6);
+                        }
+                    }
+                }
+                offset = 0;
+                if (shape1.triangle) {
+                    let posIdx = shape1.triangle.position;
+                    let uvIdx = shape1.triangle.uvw;
+                    let pos = shape1.position;
+                    let uv = shape1.uvw;
+                    for (let ptr = 0, l = posIdx.length; ptr < l; ptr += 3) {
+                        for (let j of edge2) {
+                            let ie = j[0] << 2;
+                            // pq is border segment
+                            let p = _vec4p.set(shape2.position[ie + 2], shape2.position[ie + 3], shape2.position[ie], shape2.position[ie + 1]);
+                            ie = j[1] << 2;
+                            let q = _vec4q.set(shape2.position[ie + 2], shape2.position[ie + 3], shape2.position[ie], shape2.position[ie + 1]);
+                            let normal = _vec4n.subset(q, p).norms();
+                            [normal.z, normal.w] = [-normal.w, normal.z];
+                            for (let i = 0; i < 3; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos], pos[ipos + 1], pos[ipos + 2], pos[ipos + 3]);
+                                _vec4.adds(p);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(0, 0, normal.z, normal.w);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 0);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 3;
+                            for (let i = 0; i < 3; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos], pos[ipos + 1], pos[ipos + 2], pos[ipos + 3]);
+                                _vec4.adds(q);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(0, 0, normal.z, normal.w);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 0);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 3;
+                            let doffset = offset - 24;
+                            pushTetra(doffset, 0, 1, 2, 3);
+                            pushTetra(doffset, 1, 2, 3, 5);
+                            pushTetra(doffset, 3, 4, 5, 1);
+                        }
+                    }
+                }
+                offset = 0;
+                if (shape2.quad) {
+                    let posIdx = shape2.quad.position;
+                    let uvIdx = shape2.quad.uvw;
+                    let pos = shape2.position;
+                    let uv = shape2.uvw;
+                    for (let ptr = 0, l = posIdx.length; ptr < l; ptr += 4) {
+                        for (let j of edge1) {
+                            let ie = j[0] << 2;
+                            // pq is border segment
+                            let p = _vec4p.set(shape1.position[ie], shape1.position[ie + 1], shape1.position[ie + 2], shape1.position[ie + 3]);
+                            ie = j[1] << 2;
+                            let q = _vec4q.set(shape1.position[ie], shape1.position[ie + 1], shape1.position[ie + 2], shape1.position[ie + 3]);
+                            let normal = _vec4n.subset(q, p).norms();
+                            [normal.x, normal.y] = [-normal.y, normal.x];
+                            for (let i = 0; i < 4; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos + 2], pos[ipos + 3], pos[ipos], pos[ipos + 1]);
+                                _vec4.adds(p);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(normal.x, normal.y);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 1);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 4;
+                            for (let i = 0; i < 4; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos + 2], pos[ipos + 3], pos[ipos], pos[ipos + 1]);
+                                _vec4.adds(q);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(normal.x, normal.y);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 1);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 4;
+                            let doffset = offset - 32;
+                            pushTetra(doffset, 0, 1, 3, 4);
+                            pushTetra(doffset, 1, 5, 6, 4);
+                            pushTetra(doffset, 1, 3, 6, 2);
+                            pushTetra(doffset, 4, 7, 6, 3);
+                            pushTetra(doffset, 1, 3, 4, 6);
+                        }
+                    }
+                }
+                offset = 0;
+                if (shape2.triangle) {
+                    let posIdx = shape2.triangle.position;
+                    let uvIdx = shape2.triangle.uvw;
+                    let pos = shape2.position;
+                    let uv = shape2.uvw;
+                    for (let ptr = 0, l = posIdx.length; ptr < l; ptr += 3) {
+                        for (let j of edge1) {
+                            let ie = j[0] << 2;
+                            // pq is border segment
+                            let p = _vec4p.set(shape1.position[ie], shape1.position[ie + 1], shape1.position[ie + 2], shape1.position[ie + 3]);
+                            ie = j[1] << 2;
+                            let q = _vec4q.set(shape1.position[ie], shape1.position[ie + 1], shape1.position[ie + 2], shape1.position[ie + 3]);
+                            let normal = _vec4n.subset(q, p).norms();
+                            [normal.x, normal.y] = [-normal.y, normal.x];
+                            for (let i = 0; i < 3; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos + 2], pos[ipos + 3], pos[ipos], pos[ipos + 1]);
+                                _vec4.adds(p);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(normal.x, normal.y);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 1);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 3;
+                            for (let i = 0; i < 3; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos + 2], pos[ipos + 3], pos[ipos], pos[ipos + 1]);
+                                _vec4.adds(q);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(normal.x, normal.y);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 1);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 3;
+                            let doffset = offset - 24;
+                            pushTetra(doffset, 0, 1, 2, 3);
+                            pushTetra(doffset, 1, 2, 3, 5);
+                            pushTetra(doffset, 3, 4, 5, 1);
+                        }
+                    }
+                }
+                function pushTetra(offset, a, b, c, d) {
+                    a = offset + (a << 2);
+                    b = offset + (b << 2);
+                    c = offset + (c << 2);
+                    d = offset + (d << 2);
+                    pushIdx(a);
+                    pushIdx(b);
+                    pushIdx(c);
+                    pushIdx(d);
+                }
+                function pushIdx(i) {
+                    position[idxPtr++] = positions[i];
+                    position[idxPtr++] = positions[i + 1];
+                    position[idxPtr++] = positions[i + 2];
+                    position[idxPtr++] = positions[i + 3];
+                    idxPtr -= 4;
+                    normal[idxPtr++] = normals[i];
+                    normal[idxPtr++] = normals[i + 1];
+                    normal[idxPtr++] = normals[i + 2];
+                    normal[idxPtr++] = normals[i + 3];
+                    idxPtr -= 4;
+                    uvw[idxPtr++] = uvws[i];
+                    uvw[idxPtr++] = uvws[i + 1];
+                    uvw[idxPtr++] = uvws[i + 2];
+                    uvw[idxPtr++] = uvws[i + 3];
+                }
+                return { position, normal, uvw, count: position.length >> 4 };
+            }
+            tetra.directProduct = directProduct;
         })(tetra = mesh_1.tetra || (mesh_1.tetra = {}));
     })(mesh = tesserxel.mesh || (tesserxel.mesh = {}));
 })(tesserxel || (tesserxel = {}));
@@ -3770,6 +4513,73 @@ var tesserxel;
             }
         }
         physics.BroadPhase = BroadPhase;
+        class BoundingGlomeBroadPhase extends BroadPhase {
+            checkBoundingGlome(ri, rj) {
+                let gi = ri.geometry instanceof physics.rigid.Glome;
+                let gj = rj.geometry instanceof physics.rigid.Glome;
+                let pi = ri.geometry instanceof physics.rigid.Plane;
+                let pj = rj.geometry instanceof physics.rigid.Plane;
+                let directDetect = (gi || pi) && (gj || pj);
+                let radi = ri.geometry.boundingGlome;
+                let radj = rj.geometry.boundingGlome;
+                if (!directDetect && radi && radj) {
+                    let r = radi + radj;
+                    if (ri.position.distanceSqrTo(rj.position) > r * r) {
+                        return false;
+                    }
+                }
+                else if (pi && radj) {
+                    let d = radj - (rj.position.dot(ri.geometry.normal) - ri.geometry.offset);
+                    if (d < 0)
+                        return false;
+                }
+                else if (pj && radi) {
+                    let d = radi - (ri.position.dot(rj.geometry.normal) - rj.geometry.offset);
+                    if (d < 0)
+                        return false;
+                }
+                return true;
+            }
+            run(world) {
+                this.clearCheckList();
+                for (let i = 0; i < world.rigids.length; i++) {
+                    for (let j = i + 1; j < world.rigids.length; j++) {
+                        let ri = world.rigids[i], rj = world.rigids[j];
+                        if (!this.checkBoundingGlome(ri, rj))
+                            continue;
+                        let iU = ri.geometry instanceof physics.rigid.Union;
+                        let jU = rj.geometry instanceof physics.rigid.Union;
+                        if (!iU && !jU) {
+                            this.checkList.push([ri, rj]);
+                        }
+                        else if (iU && !jU) {
+                            for (let r of ri.geometry.components) {
+                                if (!this.checkBoundingGlome(r, rj))
+                                    continue;
+                                this.checkList.push([r, rj]);
+                            }
+                        }
+                        else if (!iU && jU) {
+                            for (let r of rj.geometry.components) {
+                                if (!this.checkBoundingGlome(r, ri))
+                                    continue;
+                                this.checkList.push([r, ri]);
+                            }
+                        }
+                        else {
+                            for (let r1 of ri.geometry.components) {
+                                for (let r2 of rj.geometry.components) {
+                                    if (!this.checkBoundingGlome(r1, r2))
+                                        continue;
+                                    this.checkList.push([r1, r2]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        physics.BoundingGlomeBroadPhase = BoundingGlomeBroadPhase;
         class NaiveBroadPhase extends BroadPhase {
             run(world) {
                 this.clearCheckList();
@@ -3823,7 +4633,7 @@ var tesserxel;
             substep;
             constructor(option) {
                 this.forceAccumulator = new (option?.forceAccumulator ?? physics.force_accumulator.Predict3)();
-                this.broadPhase = new (option?.broadPhase ?? physics.NaiveBroadPhase)();
+                this.broadPhase = new (option?.broadPhase ?? physics.BoundingGlomeBroadPhase)();
                 this.narrowPhase = new physics.NarrowPhase();
                 this.solver = new (option?.solver ?? physics.IterativeImpulseSolver)();
                 this.substep = option.substep ?? 1;
@@ -4159,7 +4969,7 @@ var tesserxel;
         }
         physics.Force = Force;
         let force;
-        (function (force) {
+        (function (force_1) {
             /** apply a spring force between object a and b
              *  pointA and pointB are in local coordinates,
              *  refering connect point of spring's two ends.
@@ -4212,7 +5022,108 @@ var tesserxel;
                         this.b.torque.subs(this._bivec.wedgevvset(this._vec4f, this._vec4b.subs(pb)));
                 }
             }
-            force.Spring = Spring;
+            force_1.Spring = Spring;
+            class Damp extends Force {
+                objects;
+                linearFactor;
+                // assume angular damp matrix(6x6) has the same eigen vector with inertia matrix
+                // this is diagonalized angular damp matrix
+                angularFactor;
+                // todo isotopy simplification
+                _bivec = new tesserxel.math.Bivec();
+                apply(time) {
+                    for (let o of this.objects) {
+                        o.force.addmulfs(o.velocity, -this.linearFactor);
+                        o.torque.subs(physics.mulBivec(this._bivec, this._bivec.copy(o.angularVelocity).rotatesconj(o.rotation), this.angularFactor));
+                    }
+                }
+            }
+            force_1.Damp = Damp;
+            class MaxWell extends Force {
+                electricCharge;
+                electricDipole;
+                magneticDipole;
+                currentElement;
+                currentCircuit;
+                permittivity = 8.854187817e-12;
+                permeability = Math.PI * 4e-7;
+                constantElectricField = new tesserxel.math.Vec4;
+                /** magnetic field direction is defined by positive charge's velocity wedge it's lorentz force */
+                constantMagneticField = new tesserxel.math.Bivec;
+                _vecE = new tesserxel.math.Vec4;
+                _vecdE = new tesserxel.math.Mat4;
+                _vecB = new tesserxel.math.Bivec;
+                _vecP = new tesserxel.math.Vec4;
+                add() {
+                }
+                getBAt(p, ignore) {
+                    let magneticField = this._vecB.copy(this.constantMagneticField);
+                    return magneticField;
+                }
+                getEAt(p, ignore) {
+                    let electricFied = this._vecE.copy(this.constantElectricField);
+                    for (let s of this.electricCharge) {
+                        if (ignore === s.position || ignore === s?.rigid)
+                            continue;
+                        this.addEOfElectricCharge(electricFied, this._vecP, s);
+                        // todo: electron move produce magnetic field
+                    }
+                    for (let s of this.electricDipole) {
+                        // this.addEOfElectricDipole(electricFied, q, s);
+                    }
+                    for (let s of this.magneticDipole) {
+                    }
+                    return electricFied;
+                }
+                apply(time) {
+                    // outter loop: test point, inner loop: source point
+                    for (let q of this.electricCharge) {
+                        if (!q.rigid)
+                            continue;
+                        this._vecP.subset(q.position, q.rigid.position).rotates(q.rigid.rotation);
+                        this.getEAt(this._vecP, q.rigid ?? q.position);
+                        this.getBAt(this._vecP, null);
+                        let force = tesserxel.math.vec4Pool.pop();
+                        q.rigid.getlinearVelocity(force, this._vecP);
+                        // F = q(E+B.v)
+                        force.dotbsr(this._vecB).adds(this._vecE).mulfs(q.charge);
+                        q.rigid.force.adds(force);
+                        q.rigid.torque.adds(this._vecB.wedgevvset(this._vecE.subset(this._vecP, q.rigid.position), force));
+                        force.pushPool();
+                    }
+                    for (let q of this.electricDipole) {
+                        if (!q.rigid)
+                            continue;
+                        this._vecP.subset(q.position, q.rigid.position).rotates(q.rigid.rotation);
+                        this.getEAt(this._vecP, q.rigid ?? q.position);
+                        this.getBAt(this._vecP, null);
+                        // this.getdEAt(this._vecP, q.rigid ?? q.position);
+                        // this.getdBAt(this._vecP, null);
+                        let v4 = tesserxel.math.vec4Pool.pop();
+                        q.rigid.getlinearVelocity(v4, this._vecP);
+                        // F = p.(dE+dB.v)
+                        // tau = p^(E+B.v)
+                        let biv = tesserxel.math.bivecPool.pop();
+                        biv.wedgevvset(v4.dotbsr(this._vecB).adds(this._vecE), q.moment);
+                        q.rigid.torque.adds(biv);
+                        q.rigid.force.adds(v4);
+                        v4.pushPool();
+                    }
+                }
+                addEOfElectricCharge(vecE, p, s) {
+                    let r = tesserxel.math.vec4Pool.pop().subset(p, s.position);
+                    let r2 = r.normsqr();
+                    vecE.addmulfs(r, s.charge / (r2 * r2));
+                    r.pushPool();
+                }
+                addEOfElectricDipole(vecE, p, s) {
+                    let r = tesserxel.math.vec4Pool.pop().subset(p, s.position);
+                    let r2 = r.normsqr();
+                    // u = -2 r.s / (r.r)^2
+                    r.pushPool();
+                }
+            }
+            force_1.MaxWell = MaxWell;
         })(force = physics.force || (physics.force = {}));
     })(physics = tesserxel.physics || (tesserxel.physics = {}));
 })(tesserxel || (tesserxel = {}));
@@ -5148,6 +6059,8 @@ var tesserxel;
                         return this.detectSpheritorusGlome(b, a);
                     if (b instanceof physics.rigid.Torisphere)
                         return this.detectTorisphereGlome(b, a);
+                    if (b instanceof physics.rigid.Tiger)
+                        return this.detectTigerGlome(b, a);
                 }
                 if (a instanceof physics.rigid.Plane) {
                     if (b instanceof physics.rigid.Glome)
@@ -5158,6 +6071,8 @@ var tesserxel;
                         return this.detectSpheritorusPlane(b, a);
                     if (b instanceof physics.rigid.Torisphere)
                         return this.detectTorispherePlane(b, a);
+                    if (b instanceof physics.rigid.Tiger)
+                        return this.detectTigerPlane(b, a);
                 }
                 if (a instanceof physics.rigid.Convex) {
                     if (b instanceof physics.rigid.Plane)
@@ -5180,6 +6095,8 @@ var tesserxel;
                         return this.detectSpheritorusPlane(a, b);
                     if (b instanceof physics.rigid.Glome)
                         return this.detectSpheritorusGlome(a, b);
+                    if (b instanceof physics.rigid.Tiger)
+                        return this.detectTigerSpheritorus(b, a);
                 }
                 if (a instanceof physics.rigid.Torisphere) {
                     if (b instanceof physics.rigid.Torisphere)
@@ -5190,6 +6107,20 @@ var tesserxel;
                         return this.detectTorispherePlane(a, b);
                     if (b instanceof physics.rigid.Glome)
                         return this.detectTorisphereGlome(a, b);
+                    if (b instanceof physics.rigid.Tiger)
+                        return this.detectTigerTorisphere(b, a);
+                }
+                if (a instanceof physics.rigid.Tiger) {
+                    if (b instanceof physics.rigid.Tiger)
+                        return this.detectTigerTiger(a, b);
+                    if (b instanceof physics.rigid.Spheritorus)
+                        return this.detectTigerSpheritorus(a, b);
+                    if (b instanceof physics.rigid.Torisphere)
+                        return this.detectTigerTorisphere(a, b);
+                    if (b instanceof physics.rigid.Plane)
+                        return this.detectTigerPlane(a, b);
+                    if (b instanceof physics.rigid.Glome)
+                        return this.detectTigerGlome(a, b);
                 }
             }
             detectGlomeGlome(a, b) {
@@ -5595,6 +6526,234 @@ var tesserxel;
                     });
                 }
             }
+            detectTigerPlane(a, b) {
+                // convert plane to ts's coord
+                let normal = _vec4.copy(b.normal).rotatesconj(a.rigid.rotation);
+                let offset = a.rigid.position.dot(b.normal) - b.offset;
+                let len1 = Math.hypot(normal.x, normal.y);
+                let len2 = Math.hypot(normal.z, normal.w);
+                let depth = a.minorRadius - offset + len1 * a.majorRadius1 + len2 * a.majorRadius2;
+                if (depth < 0)
+                    return;
+                // point on flat torus
+                let s1 = len1 ? -a.majorRadius1 / len1 : 0;
+                let s2 = len2 ? -a.majorRadius2 / len2 : 0;
+                let point = new tesserxel.math.Vec4(normal.x * s1, normal.y * s1, normal.z * s2, normal.w * s2);
+                // then to world coord and add normal
+                point.rotates(a.rigid.rotation).adds(a.rigid.position).addmulfs(b.normal, depth * 0.5 - a.minorRadius);
+                this.collisionList.push({ point, normal: b.normal.neg(), depth, a: a.rigid, b: b.rigid });
+            }
+            detectTigerGlome(a, b) {
+                // convert glome to st's coord
+                let p = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let xy = p.x * p.x + p.y * p.y;
+                let zw = p.z * p.z + p.w * p.w;
+                let sqrtxy = Math.sqrt(xy);
+                let sqrtzw = Math.sqrt(zw);
+                let distance = Math.sqrt(a.majorRadius1 * a.majorRadius1 + a.majorRadius2 * a.majorRadius2
+                    + xy + zw - 2 * (sqrtxy * a.majorRadius1 + sqrtzw * a.majorRadius2));
+                let depth = a.minorRadius + b.radius - distance;
+                if (depth < 0)
+                    return;
+                // find support of circle along normal
+                let k1 = sqrtxy ? a.majorRadius1 / sqrtxy : 0;
+                let k2 = sqrtzw ? a.majorRadius2 / sqrtzw : 0;
+                let point = new tesserxel.math.Vec4(p.x * k1, p.y * k1, p.z * k2, p.w * k2).rotates(a.rigid.rotation);
+                let normal = point.adds(a.rigid.position).sub(b.rigid.position).norms().negs();
+                point.addmulfs(normal, a.minorRadius - depth * 0.5);
+                this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
+            }
+            detectTigerTiger(a, b) {
+                // position and rotation are b in a's frame 
+                let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+                let temp1 = b.majorRadius1;
+                let temp2 = b.majorRadius2;
+                // choose 8 initial points (w1=0.5,w2=1/4+1/4i) on b for iteration
+                let initialPB = [
+                    tesserxel.math.vec4Pool.pop().set(temp1, 0, temp2, 0),
+                    tesserxel.math.vec4Pool.pop().set(temp1, 0, -temp2, 0),
+                    tesserxel.math.vec4Pool.pop().set(-temp1, 0, temp2, 0),
+                    tesserxel.math.vec4Pool.pop().set(-temp1, 0, -temp2, 0),
+                    tesserxel.math.vec4Pool.pop().set(0, temp1, 0, temp2),
+                    tesserxel.math.vec4Pool.pop().set(0, temp1, 0, -temp2),
+                    tesserxel.math.vec4Pool.pop().set(0, -temp1, 0, temp2),
+                    tesserxel.math.vec4Pool.pop().set(0, -temp1, 0, -temp2),
+                ];
+                let newP = tesserxel.math.vec4Pool.pop();
+                let prevPInA = tesserxel.math.vec4Pool.pop();
+                let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+                for (let p of initialPB) {
+                    // newP and p are in b
+                    newP.copy(p);
+                    for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                        // from b to a
+                        newP.rotates(rotation).adds(position);
+                        let k1 = a.majorRadius1 / Math.hypot(newP.x, newP.y);
+                        if (!isFinite(k1))
+                            break;
+                        let k2 = a.majorRadius2 / Math.hypot(newP.z, newP.w);
+                        if (!isFinite(k2))
+                            break;
+                        // project to a
+                        newP.set(newP.x * k1, newP.y * k1, newP.z * k2, newP.w * k2);
+                        prevPInA.copy(newP);
+                        // from a to b
+                        newP.subs(position).rotatesconj(rotation);
+                        k1 = b.majorRadius1 / Math.hypot(newP.x, newP.y);
+                        if (!isFinite(k1))
+                            break;
+                        k2 = b.majorRadius2 / Math.hypot(newP.z, newP.w);
+                        if (!isFinite(k2))
+                            break;
+                        // project to b
+                        newP.set(newP.x * k1, newP.y * k1, newP.z * k2, newP.w * k2);
+                        // test if iteration still moves
+                        let dx = Math.abs(newP.x - p.x);
+                        let dy = Math.abs(newP.y - p.y);
+                        let dz = Math.abs(newP.z - p.z);
+                        let dw = Math.abs(newP.w - p.w);
+                        p.copy(newP);
+                        if (dx + dy + dz + dw < epsilon)
+                            break;
+                    }
+                    // console.log(converge);
+                    // else there might be collision
+                    // transform newP to a, then compare newP and prevPInA
+                    newP.rotates(rotation).adds(position);
+                    let normal = newP.sub(prevPInA);
+                    let depth = a.minorRadius + b.minorRadius - normal.norm();
+                    if (depth < 0)
+                        continue;
+                    normal.rotates(a.rigid.rotation).norms();
+                    let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+                    point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+                    this.collisionList.push({
+                        normal, point, depth, a: a.rigid, b: b.rigid
+                    });
+                }
+            }
+            detectTigerTorisphere(a, b) {
+                // position and rotation are b in a's frame 
+                let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+                let temp = b.majorRadius * tesserxel.math._TAN30;
+                // choose 4 initial points (regular tetrahedron) on b for iteration
+                let initialPB = [
+                    tesserxel.math.vec4Pool.pop().set(temp, 0, temp, temp),
+                    tesserxel.math.vec4Pool.pop().set(-temp, 0, -temp, temp),
+                    tesserxel.math.vec4Pool.pop().set(-temp, 0, temp, -temp),
+                    tesserxel.math.vec4Pool.pop().set(temp, 0, -temp, -temp),
+                ];
+                let newP = tesserxel.math.vec4Pool.pop();
+                let prevPInA = tesserxel.math.vec4Pool.pop();
+                let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+                for (let p of initialPB) {
+                    // newP and p are in b
+                    newP.copy(p);
+                    for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                        // from b to a
+                        newP.rotates(rotation).adds(position);
+                        let k1 = a.majorRadius1 / Math.hypot(newP.x, newP.y);
+                        if (!isFinite(k1))
+                            break;
+                        let k2 = a.majorRadius2 / Math.hypot(newP.z, newP.w);
+                        if (!isFinite(k2))
+                            break;
+                        // project to a
+                        newP.set(newP.x * k1, newP.y * k1, newP.z * k2, newP.w * k2);
+                        prevPInA.copy(newP);
+                        // from a to b
+                        newP.subs(position).rotatesconj(rotation);
+                        let k = b.majorRadius / Math.hypot(newP.x, newP.z, newP.w);
+                        if (!isFinite(k))
+                            break;
+                        // project to b
+                        newP.set(newP.x * k, 0, newP.z * k, newP.w * k);
+                        // test if iteration still moves
+                        let dx = Math.abs(newP.x - p.x);
+                        let dz = Math.abs(newP.z - p.z);
+                        let dw = Math.abs(newP.w - p.w);
+                        p.copy(newP);
+                        if (dx + dz + dw < epsilon)
+                            break;
+                    }
+                    // console.log(converge);
+                    // else there might be collision
+                    // transform newP to a, then compare newP and prevPInA
+                    newP.rotates(rotation).adds(position);
+                    let normal = newP.sub(prevPInA);
+                    let depth = a.minorRadius + b.minorRadius - normal.norm();
+                    if (depth < 0)
+                        continue;
+                    normal.rotates(a.rigid.rotation).norms();
+                    let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+                    point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+                    this.collisionList.push({
+                        normal, point, depth, a: a.rigid, b: b.rigid
+                    });
+                }
+            }
+            detectTigerSpheritorus(a, b) {
+                // position and rotation are b in a's frame 
+                let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+                let tempa = b.majorRadius * 0.5;
+                let tempb = b.majorRadius * tesserxel.math._COS30;
+                // choose 3 initial points (120 degree) on b for iteration
+                let initialPB = [
+                    tesserxel.math.vec4Pool.pop().set(tempa, 0, 0, tempb),
+                    tesserxel.math.vec4Pool.pop().set(tempa, 0, 0, -tempb),
+                    tesserxel.math.vec4Pool.pop().set(-b.majorRadius)
+                ];
+                let newP = tesserxel.math.vec4Pool.pop();
+                let prevPInA = tesserxel.math.vec4Pool.pop();
+                let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+                for (let p of initialPB) {
+                    // newP and p are in b
+                    newP.copy(p);
+                    for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                        // from b to a
+                        newP.rotates(rotation).adds(position);
+                        let k1 = a.majorRadius1 / Math.hypot(newP.x, newP.y);
+                        if (!isFinite(k1))
+                            break;
+                        let k2 = a.majorRadius2 / Math.hypot(newP.z, newP.w);
+                        if (!isFinite(k2))
+                            break;
+                        // project to a
+                        newP.set(newP.x * k1, newP.y * k1, newP.z * k2, newP.w * k2);
+                        prevPInA.copy(newP);
+                        // from a to b
+                        newP.subs(position).rotatesconj(rotation);
+                        let k = b.majorRadius / Math.hypot(newP.x, newP.w);
+                        if (!isFinite(k))
+                            break;
+                        // project to b
+                        newP.set(newP.x * k, 0, 0, newP.w * k);
+                        // test if iteration still moves
+                        let dx = Math.abs(newP.x - p.x);
+                        let dw = Math.abs(newP.w - p.w);
+                        p.copy(newP);
+                        if (dx + dw < epsilon)
+                            break;
+                    }
+                    // console.log(converge);
+                    // else there might be collision
+                    // transform newP to a, then compare newP and prevPInA
+                    newP.rotates(rotation).adds(position);
+                    let normal = newP.sub(prevPInA);
+                    let depth = a.minorRadius + b.minorRadius - normal.norm();
+                    if (depth < 0)
+                        continue;
+                    normal.rotates(a.rigid.rotation).norms();
+                    let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+                    point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+                    this.collisionList.push({
+                        normal, point, depth, a: a.rigid, b: b.rigid
+                    });
+                }
+            }
         }
         physics.NarrowPhase = NarrowPhase;
     })(physics = tesserxel.physics || (tesserxel.physics = {}));
@@ -5656,6 +6815,9 @@ var tesserxel;
         physics.Rigid = Rigid;
         class RigidGeometry {
             rigid;
+            obb;
+            aabb;
+            boundingGlome;
             initialize(rigid) {
                 this.rigid = rigid;
                 this.initializeMassInertia(rigid);
@@ -5732,6 +6894,7 @@ var tesserxel;
                 constructor(radius) {
                     super();
                     this.radius = radius;
+                    this.boundingGlome = radius;
                     this.radiusSqr = radius * radius;
                 }
                 initializeMassInertia(rigid) {
@@ -5746,6 +6909,12 @@ var tesserxel;
                 constructor(points) {
                     super();
                     this.points = points;
+                    this.obb = tesserxel.math.AABB.fromPoints(points);
+                    this.boundingGlome = 0;
+                    for (let i of points) {
+                        this.boundingGlome = Math.max(this.boundingGlome, i.normsqr());
+                    }
+                    this.boundingGlome = Math.sqrt(this.boundingGlome);
                 }
                 initializeMassInertia(rigid) {
                     // todo inertia calc
@@ -5825,6 +6994,8 @@ var tesserxel;
                     super();
                     this.majorRadius = majorRadius;
                     this.minorRadius = minorRadius;
+                    this.obb = new tesserxel.math.AABB(new tesserxel.math.Vec4(-majorRadius - minorRadius, -minorRadius, -minorRadius, -majorRadius - minorRadius), new tesserxel.math.Vec4(majorRadius + minorRadius, minorRadius, minorRadius, majorRadius + minorRadius));
+                    this.boundingGlome = majorRadius + minorRadius;
                 }
                 initializeMassInertia(rigid) {
                     rigid.inertiaIsotroy = false;
@@ -5846,6 +7017,8 @@ var tesserxel;
                     super();
                     this.majorRadius = majorRadius;
                     this.minorRadius = minorRadius;
+                    this.obb = new tesserxel.math.AABB(new tesserxel.math.Vec4(-majorRadius - minorRadius, -minorRadius, -majorRadius - minorRadius, -majorRadius - minorRadius), new tesserxel.math.Vec4(majorRadius + minorRadius, minorRadius, majorRadius + minorRadius, majorRadius + minorRadius));
+                    this.boundingGlome = majorRadius + minorRadius;
                 }
                 initializeMassInertia(rigid) {
                     rigid.inertiaIsotroy = false;
@@ -5868,6 +7041,8 @@ var tesserxel;
                     this.majorRadius1 = majorRadius1;
                     this.majorRadius2 = majorRadius2;
                     this.minorRadius = minorRadius;
+                    this.obb = new tesserxel.math.AABB(new tesserxel.math.Vec4(-majorRadius1 - minorRadius, -majorRadius1 - minorRadius, -majorRadius2 - minorRadius, -majorRadius2 - minorRadius), new tesserxel.math.Vec4(majorRadius1 + minorRadius, majorRadius1 + minorRadius, majorRadius2 + minorRadius, majorRadius2 + minorRadius));
+                    this.boundingGlome = Math.max(majorRadius1, majorRadius2) + minorRadius;
                 }
                 initializeMassInertia(rigid) {
                     rigid.inertiaIsotroy = false;
@@ -11066,7 +12241,7 @@ var tesserxel;
                 let pos = this.jsBuffer.position;
                 obb.min.set(Infinity, Infinity, Infinity, Infinity);
                 obb.max.set(-Infinity, -Infinity, -Infinity, -Infinity);
-                for (let i = 0, l = this.jsBuffer.tetraCount << 4; i < l; i += 4) {
+                for (let i = 0, l = this.jsBuffer.count << 4; i < l; i += 4) {
                     obb.min.x = Math.min(obb.min.x, pos[i]);
                     obb.min.y = Math.min(obb.min.y, pos[i + 1]);
                     obb.min.z = Math.min(obb.min.z, pos[i + 2]);
@@ -11113,6 +12288,12 @@ var tesserxel;
             }
         }
         four.TorisphereGeometry = TorisphereGeometry;
+        class TigerGeometry extends Geometry {
+            constructor(circleRadius = 0.2, radius1 = 0.8, radius2 = 0.8) {
+                super(tesserxel.mesh.tetra.tiger(radius1, 16, radius2, 16, circleRadius, 12));
+            }
+        }
+        four.TigerGeometry = TigerGeometry;
         class ConvexHullGeometry extends Geometry {
             constructor(points) {
                 super(tesserxel.mesh.tetra.convexhull(points));
@@ -11950,8 +13131,8 @@ var tesserxel;
                                 tetraCount = 0;
                                 tetraState = true;
                             }
-                            this.core.sliceTetras(mesh.bindGroup, mesh.geometry.jsBuffer.tetraCount);
-                            tetraCount += mesh.geometry.jsBuffer.tetraCount;
+                            this.core.sliceTetras(mesh.bindGroup, mesh.geometry.jsBuffer.count);
+                            tetraCount += mesh.geometry.jsBuffer.count;
                             if (tetraCount > this.maxTetraNumInOnePass) {
                                 this.core.drawTetras(binding);
                                 tetraState = false;

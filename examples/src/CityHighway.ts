@@ -51,7 +51,7 @@ namespace examples {
                         0, separatorHeight, -yLanes, 0,
                         0, separatorHeight, yLanes, 0,
                     ]),
-                    uv: new Float32Array([
+                    uvw: new Float32Array([
                         2, 1, -1, 0,
                         2, 1, 1, 0,
                         2, -1, 1, 0,
@@ -90,7 +90,7 @@ namespace examples {
                         -fenceWidthHalf, fenceHeight, yLanes, 0,
                         -fenceWidthHalf, fenceHeight, -yLanes, 0,
                     ]),
-                    uv: new Float32Array([
+                    uvw: new Float32Array([
                         0, 1, -1, 0,
                         0, 1, 1, 0,
                         0, -1, 1, 0,
@@ -518,10 +518,10 @@ namespace examples {
 
                 renderer.render(() => {
                     renderer.beginTetras(roadpipeline);
-                    renderer.sliceTetras(roadmeshBindGroup, roadmesh.tetraCount);
+                    renderer.sliceTetras(roadmeshBindGroup, roadmesh.count);
                     renderer.drawTetras();
                     renderer.beginTetras(buildingPipeline);
-                    renderer.sliceTetras(buildingBindGroup, buildingMesh.tetraCount - 5, buildingCount);
+                    renderer.sliceTetras(buildingBindGroup, buildingMesh.count - 5, buildingCount);
                     renderer.sliceTetras(terrainBindGroup, 5);
                     renderer.drawTetras();
                     renderer.drawRaytracing(rtPipeline, rtBindGroup);

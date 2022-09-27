@@ -73,6 +73,9 @@ namespace tesserxel {
         }
         export abstract class RigidGeometry {
             rigid: Rigid;
+            obb: math.AABB;
+            aabb: math.AABB;
+            boundingGlome: number;
             initialize(rigid: Rigid) {
                 this.rigid = rigid;
                 this.initializeMassInertia(rigid);
@@ -142,6 +145,7 @@ namespace tesserxel {
                 constructor(radius: number) {
                     super();
                     this.radius = radius;
+                    this.boundingGlome = radius;
                     this.radiusSqr = radius * radius;
                 }
                 initializeMassInertia(rigid: Rigid) {
@@ -155,6 +159,12 @@ namespace tesserxel {
                 constructor(points: math.Vec4[]) {
                     super();
                     this.points = points;
+                    this.obb = math.AABB.fromPoints(points);
+                    this.boundingGlome = 0;
+                    for (let i of points) {
+                        this.boundingGlome = Math.max(this.boundingGlome, i.normsqr());
+                    }
+                    this.boundingGlome = Math.sqrt(this.boundingGlome);
                 }
                 initializeMassInertia(rigid: Rigid) {
                     // todo inertia calc
@@ -229,6 +239,15 @@ namespace tesserxel {
                     super();
                     this.majorRadius = majorRadius;
                     this.minorRadius = minorRadius;
+                    this.obb = new math.AABB(
+                        new math.Vec4(
+                            -majorRadius - minorRadius, -minorRadius, -minorRadius, -majorRadius - minorRadius
+                        ),
+                        new math.Vec4(
+                            majorRadius + minorRadius, minorRadius, minorRadius, majorRadius + minorRadius
+                        ),
+                    );
+                    this.boundingGlome = majorRadius + minorRadius;
                 }
                 initializeMassInertia(rigid: Rigid) {
                     rigid.inertiaIsotroy = false;
@@ -249,6 +268,15 @@ namespace tesserxel {
                     super();
                     this.majorRadius = majorRadius;
                     this.minorRadius = minorRadius;
+                    this.obb = new math.AABB(
+                        new math.Vec4(
+                            -majorRadius - minorRadius, -minorRadius, -majorRadius - minorRadius, -majorRadius - minorRadius
+                        ),
+                        new math.Vec4(
+                            majorRadius + minorRadius, minorRadius, majorRadius + minorRadius, majorRadius + minorRadius
+                        ),
+                    );
+                    this.boundingGlome = majorRadius + minorRadius;
                 }
                 initializeMassInertia(rigid: Rigid) {
                     rigid.inertiaIsotroy = false;
@@ -270,6 +298,12 @@ namespace tesserxel {
                     this.majorRadius1 = majorRadius1;
                     this.majorRadius2 = majorRadius2;
                     this.minorRadius = minorRadius;
+                    this.obb = new math.AABB(
+                        new math.Vec4(-majorRadius1 - minorRadius, -majorRadius1 - minorRadius, -majorRadius2 - minorRadius, -majorRadius2 - minorRadius),
+                        new math.Vec4(majorRadius1 + minorRadius, majorRadius1 + minorRadius, majorRadius2 + minorRadius, majorRadius2 + minorRadius),
+                    );
+
+                    this.boundingGlome = Math.max(majorRadius1, majorRadius2) + minorRadius;
                 }
                 initializeMassInertia(rigid: Rigid) {
                     rigid.inertiaIsotroy = false;

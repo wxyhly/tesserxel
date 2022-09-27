@@ -76,7 +76,7 @@ namespace tesserxel {
                 let pos = this.jsBuffer.position;
                 obb.min.set(Infinity, Infinity, Infinity, Infinity);
                 obb.max.set(-Infinity, -Infinity, -Infinity, -Infinity);
-                for (let i = 0, l = this.jsBuffer.tetraCount << 4; i < l; i += 4) {
+                for (let i = 0, l = this.jsBuffer.count << 4; i < l; i += 4) {
                     obb.min.x = Math.min(obb.min.x, pos[i]);
                     obb.min.y = Math.min(obb.min.y, pos[i + 1]);
                     obb.min.z = Math.min(obb.min.z, pos[i + 2]);
@@ -116,7 +116,12 @@ namespace tesserxel {
         }
         export class TorisphereGeometry extends Geometry {
             constructor(circleRadius: number = 0.2, sphereRadius: number = 0.8) {
-                super(mesh.tetra.torisphere(circleRadius, 12, sphereRadius, 16, 12, ));
+                super(mesh.tetra.torisphere(circleRadius, 12, sphereRadius, 16, 12));
+            }
+        }
+        export class TigerGeometry extends Geometry {
+            constructor(circleRadius: number = 0.2, radius1: number = 0.8, radius2: number = 0.8) {
+                super(mesh.tetra.tiger(radius1, 16, radius2, 16, circleRadius, 12));
             }
         }
         export class ConvexHullGeometry extends Geometry {

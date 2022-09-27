@@ -7,7 +7,7 @@ namespace tesserxel {
             position: Float32Array;
             normal?: Float32Array;
             uvw?: Float32Array;
-            tetraCount: number;
+            count?: number;
         }
         /** TetraIndexMesh is not supported for tetraslice rendering
          *  It is only used in data storage and mesh construction
@@ -19,7 +19,7 @@ namespace tesserxel {
             positionIndex: Uint32Array;
             normalIndex?: Uint32Array;
             uvwIndex?: Uint32Array;
-            tetraCount: number;
+            count?: number;
         }
         export namespace tetra {
             export let cube: TetraMesh = {
@@ -93,7 +93,7 @@ namespace tesserxel {
                     -1, -1, 1, 0,
                     1, -1, 1, 0,
                 ]),
-                tetraCount: 5
+                count: 5
             }
             export function applyAffineMat4(mesh: TetraMesh, am: math.AffineMat4) {
                 let vp = new math.Vec4();
@@ -160,7 +160,7 @@ namespace tesserxel {
                 let position = new Float32Array(mesh1.position.length + mesh2.position.length);
                 position.set(mesh1.position);
                 position.set(mesh2.position, mesh1.position.length);
-                let ret: TetraMesh = { position, tetraCount: position.length << 4 };
+                let ret: TetraMesh = { position, count: position.length << 4 };
                 if (mesh1.normal && mesh2.normal) {
                     let normal = new Float32Array(mesh1.normal.length + mesh2.normal.length);
                     normal.set(mesh1.normal);
@@ -185,7 +185,7 @@ namespace tesserxel {
                     hasNormal = hasNormal && (meshes[i].normal ? true : false);
                 }
                 let position = new Float32Array(length);
-                let ret: TetraMesh = { position, tetraCount: length << 4 };
+                let ret: TetraMesh = { position, count: length << 4 };
                 let normal: Float32Array, uvw: Float32Array;
                 if (hasNormal) {
                     normal = new Float32Array(length);
@@ -211,7 +211,7 @@ namespace tesserxel {
             export function clone(mesh: TetraMesh): TetraMesh {
                 let ret: TetraMesh = {
                     position: mesh.position.slice(0),
-                    tetraCount: mesh.tetraCount
+                    count: mesh.count
                 }
                 if (mesh.uvw) ret.uvw = mesh.uvw.slice(0);
                 if (mesh.normal) ret.normal = mesh.normal.slice(0);
@@ -455,7 +455,7 @@ namespace tesserxel {
                     1, 0, 1, 15,
                     0, 1, 1, 15,
                 ]),
-                tetraCount: 16
+                count: 16
             };
             export function glome(radius: number, xySegment: number, zwSegment: number, latitudeSegment: number) {
                 if (xySegment < 3) xySegment = 3;
@@ -559,8 +559,8 @@ namespace tesserxel {
                 if (uSegment < 1) uSegment = 1;
                 if (vSegment < 1) vSegment = 1;
                 if (wSegment < 1) wSegment = 1;
-                let tetraCount = uSegment * vSegment * wSegment * 5;
-                let arraySize = tetraCount << 4;
+                let count = uSegment * vSegment * wSegment * 5;
+                let arraySize = count << 4;
                 uSegment++; vSegment++; wSegment++;
                 let vw_seg = vSegment * wSegment;
                 let uvw_seg = uSegment * vw_seg;
@@ -649,7 +649,7 @@ namespace tesserxel {
                         }
                     }
                 }
-                return { position, normal, uvw, tetraCount };
+                return { position, normal, uvw, count };
             }
             export function convexhull(points: math.Vec4[]) {
                 // todo: fix a random dead loop bug
@@ -691,7 +691,7 @@ namespace tesserxel {
                 temp = points[3]; points[3] = points[d]; points[d] = temp;
                 if (e === 3) e = d;
                 temp = points[4]; points[4] = points[e]; points[e] = temp;
-                let tetraCount = 5; // indices.length === tetraCount * 4 always is true
+                let count = 5; // indices.length === count * 4 always is true
                 console.log(determinant);
                 console.log(det(0, 1, 2, 3, 4));
                 let indices = det(0, 1, 2, 3, 4) > 0 ?
@@ -727,7 +727,7 @@ namespace tesserxel {
                             border.push(item);
                         }
                     }
-                    for (let cell = 0; cell < tetraCount; cell++) {
+                    for (let cell = 0; cell < count; cell++) {
                         let a = indices[cell << 2];
                         let b = indices[(cell << 2) + 1];
                         let c = indices[(cell << 2) + 2];
@@ -748,19 +748,19 @@ namespace tesserxel {
                         else if (b[3] === 1) newIndices.push(b[0], b[2], b[1], cursor);
                     }
                     indices = newIndices;
-                    tetraCount = indices.length >> 2;
+                    count = indices.length >> 2;
                 }
-                let position = new Float32Array(tetraCount << 4);
-                let count = 0;
-                for (let p = 0; p < tetraCount; p++) {
-                    points[indices[(p << 2)]].writeBuffer(position, count); count += 4;
-                    points[indices[(p << 2) + 1]].writeBuffer(position, count); count += 4;
-                    points[indices[(p << 2) + 2]].writeBuffer(position, count); count += 4;
-                    points[indices[(p << 2) + 3]].writeBuffer(position, count); count += 4;
+                let position = new Float32Array(count << 4);
+                let countPtr = 0;
+                for (let p = 0; p < count; p++) {
+                    points[indices[(p << 2)]].writeBuffer(position, countPtr); countPtr += 4;
+                    points[indices[(p << 2) + 1]].writeBuffer(position, countPtr); countPtr += 4;
+                    points[indices[(p << 2) + 2]].writeBuffer(position, countPtr); countPtr += 4;
+                    points[indices[(p << 2) + 3]].writeBuffer(position, countPtr); countPtr += 4;
                 }
                 return {
                     position,
-                    tetraCount
+                    count
                 }
             }
             export function duocone(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number) {
@@ -792,10 +792,14 @@ namespace tesserxel {
             }
             export function loft(sp: tesserxel.math.Spline, section: tesserxel.mesh.FaceMesh, step: number): tesserxel.mesh.TetraMesh {
                 let { points, rotors, curveLength } = sp.generate(step);
-                let quadcount = section.quad.position.length >> 4;
-                let tetraCount = quadcount * (points.length - 1) * 5;
-                let arraySize = tetraCount << 4;
-                let pslen = quadcount * points.length << 4;
+                let quadcount = section.quad ? section.quad.position.length >> 4 : 0;
+                let count4 = quadcount * (points.length - 1) * 5;
+                let tricount = section.triangle ? section.triangle.position.length / 12 : 0;
+                let count3 = tricount * (points.length - 1) * 3;
+                let arraySize = count4 + count3 << 4;
+                let pslen4 = quadcount * points.length << 4;
+                let pslen3 = tricount * points.length * 12;
+                let pslen = Math.max(pslen4, pslen3);
                 let positions = new Float32Array(pslen);
                 let uvws = new Float32Array(pslen);
                 let normals = new Float32Array(pslen);
@@ -805,32 +809,64 @@ namespace tesserxel {
                 let _vec4 = new math.Vec4(); // cache
                 let offset = 0;
                 let idxPtr = 0;
-                let pos = section.quad.position;
-                let norm = section.quad.normal;
-                let uv = section.quad.uv;
-                for (let ptr = 0; ptr < (quadcount << 4); ptr += 16) {
-                    for (let j = 0; j < rotors.length; j++) {
-                        let r = rotors[j];
-                        let p = points[j];
-                        for (let i = 0; i < 4; i++, ptr += 4) {
-                            _vec4.set(pos[ptr], pos[ptr + 1], pos[ptr + 2], pos[ptr + 3]);
-                            _vec4.rotates(r).adds(p);
-                            _vec4.writeBuffer(positions, offset);
-                            _vec4.set(norm[ptr], norm[ptr + 1], norm[ptr + 2], norm[ptr + 3]);
-                            _vec4.rotates(r);
-                            _vec4.writeBuffer(normals, offset);
-                            _vec4.set(uv[ptr], uv[ptr + 1], uv[ptr + 2], curveLength[j]);
-                            _vec4.writeBuffer(uvws, offset);
-                            offset += 4;
+                if (section.quad) {
+                    let pos = section.quad.position;
+                    let norm = section.quad.normal;
+                    let uv = section.quad.uvw;
+                    for (let ptr = 0; ptr < (quadcount << 4); ptr += 16) {
+                        for (let j = 0; j < rotors.length; j++) {
+                            let r = rotors[j];
+                            let p = points[j];
+                            for (let i = 0; i < 4; i++, ptr += 4) {
+                                _vec4.set(pos[ptr], pos[ptr + 1], pos[ptr + 2], pos[ptr + 3]);
+                                _vec4.rotates(r).adds(p);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(norm[ptr], norm[ptr + 1], norm[ptr + 2], norm[ptr + 3]);
+                                _vec4.rotates(r);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[ptr], uv[ptr + 1], uv[ptr + 2], curveLength[j]);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 16;
+                            if (j) {
+                                let doffset = offset - 32;
+                                pushTetra(doffset, 0, 1, 3, 4);
+                                pushTetra(doffset, 1, 5, 6, 4);
+                                pushTetra(doffset, 1, 3, 6, 2);
+                                pushTetra(doffset, 4, 7, 6, 3);
+                                pushTetra(doffset, 1, 3, 4, 6);
+                            }
                         }
-                        ptr -= 16;
-                        if (j) {
-                            let doffset = offset - 32;
-                            pushTetra(doffset, 0, 1, 3, 4);
-                            pushTetra(doffset, 1, 5, 6, 4);
-                            pushTetra(doffset, 1, 3, 6, 2);
-                            pushTetra(doffset, 4, 7, 6, 3);
-                            pushTetra(doffset, 1, 3, 4, 6);
+                    }
+                }
+                if (section.triangle) {
+                    offset = 0;
+                    let pos = section.triangle.position;
+                    let norm = section.triangle.normal;
+                    let uv = section.triangle.uvw;
+                    for (let ptr = 0, l = tricount * 12; ptr < l; ptr += 12) {
+                        for (let j = 0; j < rotors.length; j++) {
+                            let r = rotors[j];
+                            let p = points[j];
+                            for (let i = 0; i < 3; i++, ptr += 4) {
+                                _vec4.set(pos[ptr], pos[ptr + 1], pos[ptr + 2], pos[ptr + 3]);
+                                _vec4.rotates(r).adds(p);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(norm[ptr], norm[ptr + 1], norm[ptr + 2], norm[ptr + 3]);
+                                _vec4.rotates(r);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[ptr], uv[ptr + 1], uv[ptr + 2], curveLength[j]);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 12;
+                            if (j) {
+                                let doffset = offset - 24;
+                                pushTetra(doffset, 0, 1, 2, 3);
+                                pushTetra(doffset, 1, 2, 3, 5);
+                                pushTetra(doffset, 3, 4, 5, 1);
+                            }
                         }
                     }
                 }
@@ -857,7 +893,283 @@ namespace tesserxel {
                     uvw[idxPtr++] = uvws[i + 2];
                     uvw[idxPtr++] = uvws[i + 3];
                 }
-                return { position, uvw, normal, tetraCount };
+                return { position, uvw, normal, count: count3 + count4 };
+            }
+            export function directProduct(shape1: FaceIndexMesh, shape2: FaceIndexMesh) {
+                /** border(A x B) = border(A) x B + A x border(B) */
+                let edge1 = face.findBorder(shape1);
+                let edge2 = face.findBorder(shape2);
+                // A x border(B)
+                let quadcount1 = shape1.quad ? shape1.quad.position.length >> 2 : 0;
+                let count14 = quadcount1 * edge2.length * 5;
+                let tricount1 = shape1.triangle ? shape1.triangle.position.length / 3 : 0;
+                let count13 = tricount1 * edge2.length * 3;
+                let pslen1 = Math.max(quadcount1 * edge2.length << 5, tricount1 * edge2.length * 24);
+
+                // border(A) x B 
+                let quadcount2 = shape2.quad ? shape2.quad.position.length >> 2 : 0;
+                let count24 = quadcount2 *  edge1.length * 5;
+                let tricount2 = shape2.triangle ? shape2.triangle.position.length / 3 : 0;
+                let count23 = tricount2 *  edge1.length * 3;
+                let pslen2 = Math.max(quadcount2 * edge1.length << 5, tricount2 * edge1.length * 24);
+
+                let arraySize = count14 + count13 + count23 + count24 << 4;
+                let pslen = Math.max(pslen1, pslen2);
+                let positions = new Float32Array(pslen);
+                let uvws = new Float32Array(pslen);
+                let normals = new Float32Array(pslen);
+                let position = new Float32Array(arraySize);
+                let uvw = new Float32Array(arraySize);
+                let normal = new Float32Array(arraySize);
+                let _vec4 = new math.Vec4(); // cache
+                let _vec4p = new math.Vec4(); // cache
+                let _vec4q = new math.Vec4(); // cache
+                let _vec4n = new math.Vec4(); // cache
+                let offset = 0;
+                let idxPtr = 0;
+                if (shape1.quad) {
+                    let posIdx = shape1.quad.position;
+                    let uvIdx = shape1.quad.uvw;
+                    let pos = shape1.position;
+                    let uv = shape1.uvw;
+                    for (let ptr = 0, l = posIdx.length; ptr < l;ptr+=4) {
+                        for (let j of edge2) {
+                            let ie = j[0] << 2;
+                            // pq is border segment
+                            let p = _vec4p.set(
+                                shape2.position[ie + 2], shape2.position[ie + 3],
+                                shape2.position[ie], shape2.position[ie + 1],
+                            );
+                            ie = j[1] << 2;
+                            let q = _vec4q.set(
+                                shape2.position[ie + 2], shape2.position[ie + 3],
+                                shape2.position[ie], shape2.position[ie + 1],
+                            );
+                            let normal = _vec4n.subset(q, p).norms();
+                            [normal.z, normal.w] = [-normal.w, normal.z];
+                            for (let i = 0; i < 4; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos], pos[ipos + 1], pos[ipos + 2], pos[ipos + 3]);
+                                _vec4.adds(p);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(0, 0, normal.z, normal.w);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 0);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 4;
+                            for (let i = 0; i < 4; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos], pos[ipos + 1], pos[ipos + 2], pos[ipos + 3]);
+                                _vec4.adds(q);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(0, 0, normal.z, normal.w);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 0);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 4;
+                            let doffset = offset - 32;
+                            pushTetra(doffset, 0, 1, 3, 4);
+                            pushTetra(doffset, 1, 5, 6, 4);
+                            pushTetra(doffset, 1, 3, 6, 2);
+                            pushTetra(doffset, 4, 7, 6, 3);
+                            pushTetra(doffset, 1, 3, 4, 6);
+                        }
+                    }
+                }
+                offset = 0;
+                if (shape1.triangle) {
+                    let posIdx = shape1.triangle.position;
+                    let uvIdx = shape1.triangle.uvw;
+                    let pos = shape1.position;
+                    let uv = shape1.uvw;
+                    for (let ptr = 0, l = posIdx.length; ptr < l;ptr+=3) {
+                        for (let j of edge2) {
+                            let ie = j[0] << 2;
+                            // pq is border segment
+                            let p = _vec4p.set(
+                                shape2.position[ie + 2], shape2.position[ie + 3],
+                                shape2.position[ie], shape2.position[ie + 1],
+                            );
+                            ie = j[1] << 2;
+                            let q = _vec4q.set(
+                                shape2.position[ie + 2], shape2.position[ie + 3],
+                                shape2.position[ie], shape2.position[ie + 1],
+                            );
+                            let normal = _vec4n.subset(q, p).norms();
+                            [normal.z, normal.w] = [-normal.w, normal.z];
+                            for (let i = 0; i < 3; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos], pos[ipos + 1], pos[ipos + 2], pos[ipos + 3]);
+                                _vec4.adds(p);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(0, 0, normal.z, normal.w);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 0);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 3;
+                            for (let i = 0; i < 3; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos], pos[ipos + 1], pos[ipos + 2], pos[ipos + 3]);
+                                _vec4.adds(q);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(0, 0, normal.z, normal.w);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 0);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 3;
+                            let doffset = offset - 24;
+                            pushTetra(doffset, 0, 1, 2, 3);
+                            pushTetra(doffset, 1, 2, 3, 5);
+                            pushTetra(doffset, 3, 4, 5, 1);
+                        }
+                    }
+                }
+                offset = 0;
+                if (shape2.quad) {
+                    let posIdx = shape2.quad.position;
+                    let uvIdx = shape2.quad.uvw;
+                    let pos = shape2.position;
+                    let uv = shape2.uvw;
+                    for (let ptr = 0, l = posIdx.length; ptr < l;ptr+=4) {
+                        for (let j of edge1) {
+                            let ie = j[0] << 2;
+                            // pq is border segment
+                            let p = _vec4p.set(
+                                shape1.position[ie], shape1.position[ie + 1],
+                                shape1.position[ie + 2], shape1.position[ie + 3],
+                            );
+                            ie = j[1] << 2;
+                            let q = _vec4q.set(
+                                shape1.position[ie], shape1.position[ie + 1],
+                                shape1.position[ie + 2], shape1.position[ie + 3],
+                            );
+                            let normal = _vec4n.subset(q, p).norms();
+                            [normal.x, normal.y] = [-normal.y, normal.x];
+                            for (let i = 0; i < 4; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos + 2], pos[ipos + 3], pos[ipos], pos[ipos + 1]);
+                                _vec4.adds(p);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(normal.x,normal.y);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 1);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 4;
+                            for (let i = 0; i < 4; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos + 2], pos[ipos + 3], pos[ipos], pos[ipos + 1]);
+                                _vec4.adds(q);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(normal.x,normal.y);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 1);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 4;
+                            let doffset = offset - 32;
+                            pushTetra(doffset, 0, 1, 3, 4);
+                            pushTetra(doffset, 1, 5, 6, 4);
+                            pushTetra(doffset, 1, 3, 6, 2);
+                            pushTetra(doffset, 4, 7, 6, 3);
+                            pushTetra(doffset, 1, 3, 4, 6);
+                        }
+                    }
+                }
+                offset = 0;
+                if (shape2.triangle) {
+                    let posIdx = shape2.triangle.position;
+                    let uvIdx = shape2.triangle.uvw;
+                    let pos = shape2.position;
+                    let uv = shape2.uvw;
+                    for (let ptr = 0, l = posIdx.length; ptr < l;ptr+=3) {
+                        for (let j of edge1) {
+                            let ie = j[0] << 2;
+                            // pq is border segment
+                            let p = _vec4p.set(
+                                shape1.position[ie], shape1.position[ie + 1],
+                                shape1.position[ie + 2], shape1.position[ie + 3],
+                            );
+                            ie = j[1] << 2;
+                            let q = _vec4q.set(
+                                shape1.position[ie], shape1.position[ie + 1],
+                                shape1.position[ie + 2], shape1.position[ie + 3],
+                            );
+                            let normal = _vec4n.subset(q, p).norms();
+                            [normal.x, normal.y] = [-normal.y, normal.x];
+                            for (let i = 0; i < 3; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos + 2], pos[ipos + 3], pos[ipos], pos[ipos + 1]);
+                                _vec4.adds(p);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(normal.x,normal.y);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 1);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 3;
+                            for (let i = 0; i < 3; i++, ptr++) {
+                                let ipos = posIdx[ptr] << 2;
+                                let iuv = uvIdx[ptr] << 2;
+                                _vec4.set(pos[ipos + 2], pos[ipos + 3], pos[ipos], pos[ipos + 1]);
+                                _vec4.adds(q);
+                                _vec4.writeBuffer(positions, offset);
+                                _vec4.set(normal.x,normal.y);
+                                _vec4.writeBuffer(normals, offset);
+                                _vec4.set(uv[iuv], uv[iuv + 1], uv[iuv + 2], 1);
+                                _vec4.writeBuffer(uvws, offset);
+                                offset += 4;
+                            }
+                            ptr -= 3;
+                            let doffset = offset - 24;
+                            pushTetra(doffset, 0, 1, 2, 3);
+                            pushTetra(doffset, 1, 2, 3, 5);
+                            pushTetra(doffset, 3, 4, 5, 1);
+                        }
+                    }
+                }
+                function pushTetra(offset: number, a: number, b: number, c: number, d: number) {
+                    a = offset + (a << 2);
+                    b = offset + (b << 2);
+                    c = offset + (c << 2);
+                    d = offset + (d << 2);
+                    pushIdx(a); pushIdx(b); pushIdx(c); pushIdx(d);
+                }
+                function pushIdx(i: number) {
+                    position[idxPtr++] = positions[i];
+                    position[idxPtr++] = positions[i + 1];
+                    position[idxPtr++] = positions[i + 2];
+                    position[idxPtr++] = positions[i + 3];
+                    idxPtr -= 4;
+                    normal[idxPtr++] = normals[i];
+                    normal[idxPtr++] = normals[i + 1];
+                    normal[idxPtr++] = normals[i + 2];
+                    normal[idxPtr++] = normals[i + 3];
+                    idxPtr -= 4;
+                    uvw[idxPtr++] = uvws[i];
+                    uvw[idxPtr++] = uvws[i + 1];
+                    uvw[idxPtr++] = uvws[i + 2];
+                    uvw[idxPtr++] = uvws[i + 3];
+                }
+                return { position, normal, uvw, count: position.length >> 4 }
             }
         }
     }

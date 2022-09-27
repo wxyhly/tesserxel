@@ -145,7 +145,13 @@ namespace tesserxel {
                 let a = seed.nextf() * _360;
                 return new Vec2(Math.cos(a), Math.sin(a));
             }
-
+            distanceTo(p: Vec2) {
+                return Math.hypot(p.x - this.x, p.y - this.y);
+            }
+            distanceSqrTo(p: Vec2) {
+                let x = p.x - this.x, y = p.y - this.y;
+                return x * x + y * y;
+            }
             pushPool(pool: Vec2Pool = vec2Pool) {
                 pool.push(this);
             }
@@ -367,6 +373,13 @@ namespace tesserxel {
                 return new Vec3(b * Math.cos(a), b * Math.sin(a), c);
             }
 
+            distanceTo(p: Vec3) {
+                return Math.hypot(p.x - this.x, p.y - this.y, p.z - this.z);
+            }
+            distanceSqrTo(p: Vec3) {
+                let x = p.x - this.x, y = p.y - this.y, z = p.z - this.z;
+                return x * x + y * y + z * z;
+            }
             reflect(normal: Vec3): Vec3 {
                 return this.sub(normal.mulf(this.dot(normal) * 2));
             }
@@ -639,6 +652,13 @@ namespace tesserxel {
                 this.w -= normal.w * k;
                 return this;
             }
+            distanceTo(p: Vec4) {
+                return Math.hypot(p.x - this.x, p.y - this.y, p.z - this.z, p.w - this.w);
+            }
+            distanceSqrTo(p: Vec4) {
+                let x = p.x - this.x, y = p.y - this.y, z = p.z - this.z, w = p.w - this.w;
+                return x * x + y * y + z * z + w * w;
+            }
             randset(): Vec4 {
                 let a = Math.random() * _360;
                 let b = Math.random() * _360;
@@ -688,10 +708,10 @@ namespace tesserxel {
         export let _vec2 = new Vec2();
         export let _vec3 = new Vec3();
         export let _vec3_1 = new Vec3();
-        export let _vec3_2 = new Vec3(); 
-        export let _vec3_3 = new Vec3(); 
-        export let _vec3_4 = new Vec3(); 
-        export let _vec3_5 = new Vec3(); 
+        export let _vec3_2 = new Vec3();
+        export let _vec3_3 = new Vec3();
+        export let _vec3_4 = new Vec3();
+        export let _vec3_5 = new Vec3();
         export let _vec4 = new Vec4();
         export let _vec4_1 = new Vec4();
         export let _Q = new Quaternion();

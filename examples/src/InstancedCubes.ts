@@ -114,7 +114,7 @@ struct fInputType{
 
                 renderer.render(() => {
                     renderer.beginTetras(pipeline);
-                    renderer.sliceTetras(vertBindGroup, mesh.tetraCount, cubeCount);
+                    renderer.sliceTetras(vertBindGroup, mesh.count, cubeCount);
                     renderer.drawTetras();
                 });
                 window.requestAnimationFrame(run);

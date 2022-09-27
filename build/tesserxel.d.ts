@@ -359,6 +359,8 @@ declare namespace tesserxel {
             static lookAt(from: Vec4, to: Vec4): Rotor;
             /** "from" and "to" must be normalized vectors*/
             setFromLookAt(from: Vec4, to: Vec4): Rotor;
+            /** Rotor: rotate from plane1 to plane2
+             *  Bivectors must be simple and normalised */
             static lookAtbb(from: Bivec, to: Bivec): Rotor;
             static lookAtvb(from: Vec4, to: Bivec): Rotor;
             static rand(): Rotor;
@@ -572,6 +574,8 @@ declare namespace tesserxel {
             rotates(angle: number): Vec2;
             static rand(): Vec2;
             static srand(seed: Srand): Vec2;
+            distanceTo(p: Vec2): number;
+            distanceSqrTo(p: Vec2): number;
             pushPool(pool?: Vec2Pool): void;
         }
         class Vec3 {
@@ -639,6 +643,8 @@ declare namespace tesserxel {
             srandset(seed: Srand): Vec3;
             static rand(): Vec3;
             static srand(seed: Srand): Vec3;
+            distanceTo(p: Vec3): number;
+            distanceSqrTo(p: Vec3): number;
             reflect(normal: Vec3): Vec3;
             reflects(normal: Vec3): Vec3;
             pushPool(pool?: Vec3Pool): void;
@@ -744,6 +750,8 @@ declare namespace tesserxel {
             rotatesconj(r: Rotor): Vec4;
             reflect(normal: Vec4): Vec4;
             reflects(normal: Vec4): Vec4;
+            distanceTo(p: Vec4): number;
+            distanceSqrTo(p: Vec4): number;
             randset(): Vec4;
             srandset(seed: Srand): Vec4;
             /** project vector on a plane determined by bivector.
@@ -791,7 +799,8 @@ declare namespace tesserxel {
             testAABB(aabb: AABB): boolean;
             /** when intersected return 0, when aabb is along the normal direction return 1, otherwise -1 */
             testPlane(plane: Plane): 1 | -1 | 0;
-            constructor();
+            getPoints(): Vec4[];
+            constructor(min?: Vec4, max?: Vec4);
             static fromPoints(points: Vec4[]): AABB;
         }
         export {};
@@ -822,34 +831,91 @@ declare namespace tesserxel {
             quad?: {
                 position: Float32Array;
                 normal?: Float32Array;
-                uv?: Float32Array;
+                uvw?: Float32Array;
+                count?: number;
             };
             triangle?: {
                 position: Float32Array;
                 normal?: Float32Array;
-                uv?: Float32Array;
+                uvw?: Float32Array;
+                count?: number;
             };
         }
         interface FaceIndexMesh {
             position: Float32Array;
             normal?: Float32Array;
-            uv?: Float32Array;
+            uvw?: Float32Array;
             quad?: {
                 position: Uint32Array;
                 normal?: Uint32Array;
-                uv?: Uint32Array;
-                count: number;
+                uvw?: Uint32Array;
+                count?: number;
             };
             triangle?: {
                 position: Uint32Array;
                 normal?: Uint32Array;
-                uv?: Uint32Array;
-                count: number;
+                uvw?: Uint32Array;
+                count?: number;
             };
         }
         namespace face {
             function sphere(u: any, v: any): void;
-            function parametricSurface(fn: (inputUV: math.Vec2, outputPosition: math.Vec4, outputNormal: math.Vec4) => void, uSegment: number, vSegment: number): void;
+            function parametricSurface(fn: (inputuvw: math.Vec2, outputPosition: math.Vec4, outputNormal: math.Vec4) => void, uSegment: number, vSegment: number): {
+                quad: {
+                    position: Float32Array;
+                    normal: Float32Array;
+                    uvw: Float32Array;
+                };
+            };
+            /** m must be a manifold or manifold with border */
+            function findBorder(m: FaceIndexMesh): any[];
+        }
+    }
+}
+declare namespace tesserxel {
+    namespace mesh {
+        namespace face {
+            function toIndexMesh(m: FaceMesh): FaceIndexMesh;
+            function toNonIndexMesh(m: FaceIndexMesh): FaceMesh;
+        }
+        namespace tetra {
+            function toIndexMesh(m: TetraMesh): TetraIndexMesh;
+            function toNonIndexMesh(m: TetraIndexMesh): TetraMesh;
+        }
+    }
+}
+declare namespace tesserxel {
+    namespace mesh {
+        interface IndexMesh extends FaceIndexMesh {
+            positionIndex?: Uint32Array;
+            normalIndex?: Uint32Array;
+            uvwIndex?: Uint32Array;
+            count?: number;
+        }
+        export class ObjFile {
+            data: string;
+            constructor(data: string | TetraIndexMesh | FaceIndexMesh);
+            private stringify;
+            parse(): IndexMesh;
+        }
+        export {};
+    }
+}
+declare namespace tesserxel {
+    namespace mesh {
+        /** PathMesh store lines
+         *  This mesh is for constructing complex facemeshes tetrameshes
+         *  It is not aimed for rendering purpose
+         */
+        interface PathMesh {
+            position: Float32Array;
+            normal?: Float32Array;
+        }
+        interface PathindexMesh {
+            position: Float32Array;
+            normal?: Float32Array;
+            positionIndex?: Uint32Array;
+            normalIndex?: Uint32Array;
         }
     }
 }
@@ -862,7 +928,7 @@ declare namespace tesserxel {
             position: Float32Array;
             normal?: Float32Array;
             uvw?: Float32Array;
-            tetraCount: number;
+            count?: number;
         }
         /** TetraIndexMesh is not supported for tetraslice rendering
          *  It is only used in data storage and mesh construction
@@ -874,7 +940,7 @@ declare namespace tesserxel {
             positionIndex: Uint32Array;
             normalIndex?: Uint32Array;
             uvwIndex?: Uint32Array;
-            tetraCount: number;
+            count?: number;
         }
         namespace tetra {
             let cube: TetraMesh;
@@ -893,17 +959,23 @@ declare namespace tesserxel {
             function parametricSurface(fn: (inputUVW: math.Vec3, outputPosition: math.Vec4, outputNormal: math.Vec4) => void, uSegment: number, vSegment: number, wSegment: number): TetraMesh;
             function convexhull(points: math.Vec4[]): {
                 position: Float32Array;
-                tetraCount: number;
+                count: number;
             };
             function duocone(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number): {
                 position: Float32Array;
-                tetraCount: number;
+                count: number;
             };
             function duocylinder(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number): {
                 position: Float32Array;
-                tetraCount: number;
+                count: number;
             };
             function loft(sp: tesserxel.math.Spline, section: tesserxel.mesh.FaceMesh, step: number): tesserxel.mesh.TetraMesh;
+            function directProduct(shape1: FaceIndexMesh, shape2: FaceIndexMesh): {
+                position: Float32Array;
+                normal: Float32Array;
+                uvw: Float32Array;
+                count: number;
+            };
         }
     }
 }
@@ -917,6 +989,10 @@ declare namespace tesserxel {
             checkList: BroadPhaseList;
             protected clearCheckList(): void;
             abstract run(world: World): void;
+        }
+        class BoundingGlomeBroadPhase extends BroadPhase {
+            checkBoundingGlome(ri: Rigid, rj: Rigid): boolean;
+            run(world: World): void;
         }
         class NaiveBroadPhase extends BroadPhase {
             run(world: World): void;
@@ -1034,6 +1110,61 @@ declare namespace tesserxel {
                 constructor(a: Rigid, b: Rigid | null, pointA: math.Vec4, pointB: math.Vec4, k: number, length?: number, damp?: number);
                 apply(time: number): void;
             }
+            class Damp extends Force {
+                objects: Rigid[];
+                linearFactor: number;
+                angularFactor: math.Bivec;
+                private _bivec;
+                apply(time: number): void;
+            }
+            type ElectricCharge = {
+                rigid: Rigid | null;
+                position: math.Vec4;
+                charge: number;
+            };
+            type ElectricDipole = {
+                rigid: Rigid | null;
+                position: math.Vec4;
+                moment: math.Vec4;
+            };
+            type MagneticDipole = {
+                rigid: Rigid | null;
+                position: math.Vec4;
+                moment: math.Bivec;
+            };
+            type CurrentElement = {
+                rigid: Rigid | null;
+                position: math.Vec4;
+                current: math.Vec4;
+            };
+            type CurrentCircuit = {
+                rigid: Rigid | null;
+                position: math.Vec4;
+                current: math.Vec4;
+                radius: number;
+            };
+            class MaxWell extends Force {
+                electricCharge: ElectricCharge[];
+                electricDipole: ElectricDipole[];
+                magneticDipole: MagneticDipole[];
+                currentElement: CurrentElement[];
+                currentCircuit: CurrentCircuit[];
+                permittivity: number;
+                permeability: number;
+                constantElectricField: math.Vec4;
+                /** magnetic field direction is defined by positive charge's velocity wedge it's lorentz force */
+                constantMagneticField: math.Bivec;
+                private _vecE;
+                private _vecdE;
+                private _vecB;
+                private _vecP;
+                add(): void;
+                getBAt(p: math.Vec4, ignore: Rigid | math.Vec4): math.Bivec;
+                getEAt(p: math.Vec4, ignore: Rigid | math.Vec4): math.Vec4;
+                apply(time: number): void;
+                addEOfElectricCharge(vecE: math.Vec4, p: math.Vec4, s: ElectricCharge): void;
+                addEOfElectricDipole(vecE: math.Vec4, p: math.Vec4, s: ElectricDipole): void;
+            }
         }
     }
 }
@@ -1112,6 +1243,11 @@ declare namespace tesserxel {
             private detectTorisphereGlome;
             private detectTorisphereTorisphere;
             private detectTorisphereSpheritorus;
+            private detectTigerPlane;
+            private detectTigerGlome;
+            private detectTigerTiger;
+            private detectTigerTorisphere;
+            private detectTigerSpheritorus;
         }
     }
 }
@@ -1164,6 +1300,9 @@ declare namespace tesserxel {
         }
         export abstract class RigidGeometry {
             rigid: Rigid;
+            obb: math.AABB;
+            aabb: math.AABB;
+            boundingGlome: number;
             initialize(rigid: Rigid): void;
             abstract initializeMassInertia(rigid: Rigid): void;
         }
@@ -1944,6 +2083,9 @@ declare namespace tesserxel {
         }
         class TorisphereGeometry extends Geometry {
             constructor(circleRadius?: number, sphereRadius?: number);
+        }
+        class TigerGeometry extends Geometry {
+            constructor(circleRadius?: number, radius1?: number, radius2?: number);
         }
         class ConvexHullGeometry extends Geometry {
             constructor(points: math.Vec4[]);

@@ -231,8 +231,8 @@ namespace tesserxel {
                                 tetraCount = 0;
                                 tetraState = true;
                             }
-                            this.core.sliceTetras(mesh.bindGroup, mesh.geometry.jsBuffer.tetraCount);
-                            tetraCount += mesh.geometry.jsBuffer.tetraCount;
+                            this.core.sliceTetras(mesh.bindGroup, mesh.geometry.jsBuffer.count);
+                            tetraCount += mesh.geometry.jsBuffer.count;
                             if (tetraCount > this.maxTetraNumInOnePass) {
                                 this.core.drawTetras(binding);
                                 tetraState = false;

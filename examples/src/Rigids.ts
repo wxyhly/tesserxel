@@ -23,6 +23,10 @@ namespace examples {
                 if (parse) {
                     geometryData[type] = new FOUR.TorisphereGeometry(Number(parse[2]), Number(parse[1])); return geometryData[type];
                 }
+                parse = type.match(/^tg(.+),(.+),(.+)$/);
+                if (parse) {
+                    geometryData[type] = new FOUR.TigerGeometry(Number(parse[3]), Number(parse[1]), Number(parse[2])); return geometryData[type];
+                }
         }
     }
     function updateRidigsInScene() {
@@ -60,6 +64,9 @@ namespace examples {
                 obj4 = new math.Obj4();
             } else if (rigid.geometry instanceof phy.rigid.Torisphere) {
                 geom = getGeometryData("ts" + rigid.geometry.majorRadius + "," + rigid.geometry.minorRadius);
+                obj4 = new math.Obj4();
+            } else if (rigid.geometry instanceof phy.rigid.Tiger) {
+                geom = getGeometryData("tg" + rigid.geometry.majorRadius1 + "," + rigid.geometry.majorRadius2 + "," + rigid.geometry.minorRadius);
                 obj4 = new math.Obj4();
             }
             if (!geom) {
@@ -627,6 +634,231 @@ namespace examples {
                     console.log(epadiff);
                 }
             }
+        }
+    }
+
+    export namespace tg_tg_chain {
+        export async function load() {
+            const math = tesserxel.math;
+            const phy = tesserxel.physics;
+            const engine = new phy.Engine({ substep: 30 });
+            const world = new phy.World();
+            const scene = new FOUR.Scene();
+            // define physical materials: frictions and restitutions
+            const phyMatChain = new phy.Material(0.4, 0.4);
+            const phyMatGround = new phy.Material(1, 0.4);
+            // define render materials
+            const renderMatTiger1 = new FOUR.LambertMaterial([1, 0.1, 0.1, 1]);
+            const renderMatTiger2 = new FOUR.LambertMaterial([0.2, 0.2, 1, 1]);
+            const renderMatGround = new FOUR.LambertMaterial([0.2, 1, 0.2, 0.03]);
+            // add ground
+            addRigidToScene(world, scene, renderMatGround, new phy.Rigid({
+                geometry: new phy.rigid.Plane(new math.Vec4(0, 1)),
+                mass: 0, material: phyMatGround
+            }));
+            // add tiger chain
+            let tg1Arr = [];
+            let tg2Arr = [];
+            const gap = 2.718;
+            for (let i = -2; i <= 2; i++) {
+                let tg1 = new phy.Rigid({
+                    geometry: new phy.rigid.Tiger(1, 1, 0.15),
+                    material: phyMatChain, mass: 1
+                });
+                addRigidToScene(world, scene, renderMatTiger1, tg1);
+                tg1.rotatesb(math.Bivec.yw.mulf(math._90)).rotatesb(math.Bivec.xy.mulf(math._60));
+                tg1.position.x = i * gap;
+                tg1.position.y = 15.4;
+                tg1Arr.push(tg1);
+                let tg2 = new phy.Rigid({
+                    geometry: new phy.rigid.Tiger(0.7, 0.5, 0.15),
+                    material: phyMatChain, mass: 1
+                });
+                addRigidToScene(world, scene, renderMatTiger2, tg2);
+                tg2.position.y = 15.4;
+                tg2.position.x = (i + 0.5) * gap;
+                tg2.rotatesb(new math.Bivec(0.2));
+                tg2Arr.push(tg2);
+            }
+            // add point constrain to the first ring
+            world.add(new phy.PointConstrain(
+                tg1Arr[0], null, math.Vec4.x, tg1Arr[0].position.add(math.Vec4.x.rotate(tg1Arr[0].rotation))
+            ));
+
+            // set up lights, camera and renderer
+
+            let camera = new FOUR.Camera();
+            camera.position.w = 9;
+            camera.position.y = 8;
+            scene.add(camera);
+            scene.add(new FOUR.AmbientLight(0.3));
+            scene.add(new FOUR.DirectionalLight(
+                [2.2, 2.0, 1.9],
+                new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()
+            ));
+            scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+
+            const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+            const renderer = await new FOUR.Renderer(canvas).init();
+            renderer.core.setScreenClearColor([1, 1, 1, 1]);
+            renderer.core.setEyeOffset(0.5);
+            renderer.core.setOpacity(20);
+
+            // controllers
+
+            const camCtrl = new tesserxel.controller.KeepUpController(camera);
+            camCtrl.keyMoveSpeed = 0.01;
+
+            const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
+
+            const emitCtrl = new EmitGlomeController(world, scene, camera);
+            emitCtrl.glomeRadius = 2;
+            emitCtrl.maximumBulletDistance = 70;
+            emitCtrl.initialSpeed = 10;
+
+            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+                retinaCtrl,
+                camCtrl,
+                emitCtrl
+            ], { requsetPointerLock: true });
+
+            function setSize() {
+                let width = window.innerWidth * window.devicePixelRatio;
+                let height = window.innerHeight * window.devicePixelRatio;
+                renderer.setSize({ width, height });
+            }
+            function run() {
+                // syncronise physics world and render scene
+                updateRidigsInScene();
+                // update controller states
+                controllerRegistry.update();
+                // rendering
+                renderer.render(scene, camera);
+                // simulating physics
+                engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
+                window.requestAnimationFrame(run);
+            }
+            window.addEventListener("resize", setSize);
+            setSize();
+            run();
+        }
+    }
+    export namespace mix_chain {
+        export async function load() {
+            const math = tesserxel.math;
+            const phy = tesserxel.physics;
+            const engine = new phy.Engine({ substep: 30 });
+            const world = new phy.World();
+            const scene = new FOUR.Scene();
+            // define physical materials: frictions and restitutions
+            const phyMatChain = new phy.Material(0.4, 0.4);
+            const phyMatGround = new phy.Material(1, 0.4);
+            // define render materials
+            const renderMatTiger = new FOUR.LambertMaterial([0.4, 0.4, 0.4, 1]);
+            const renderMatST = new FOUR.LambertMaterial([1, 0.1, 0.1, 1]);
+            const renderMatTS = new FOUR.LambertMaterial([0.2, 0.2, 1, 1]);
+            const renderMatGround = new FOUR.LambertMaterial([0.2, 1, 0.2, 0.03]);
+            // add ground
+            addRigidToScene(world, scene, renderMatGround, new phy.Rigid({
+                geometry: new phy.rigid.Plane(new math.Vec4(0, 1)),
+                mass: 0, material: phyMatGround
+            }));
+            // add tiger chain
+            let tgArr = [];
+            let tsArr = [];
+            let stArr = [];
+            const gap = 3.1;
+            for (let i = -2; i < 2; i++) {
+                let tg = new phy.Rigid({
+                    geometry: new phy.rigid.Tiger(0.7, 0.5, 0.15),
+                    material: phyMatChain, mass: 1
+                });
+                addRigidToScene(world, scene, renderMatTiger, tg);
+                // tg.rotatesb(math.Bivec.yw.mulf(math._90)).rotatesb(math.Bivec.xy.mulf(math._60));
+                tg.position.x = i * gap;
+                tg.position.y = 15.4;
+                tgArr.push(tg);
+                let ts = new phy.Rigid({
+                    geometry: new phy.rigid.Torisphere(1, 0.15),
+                    material: phyMatChain, mass: 1
+                });
+                addRigidToScene(world, scene, renderMatTS, ts);
+                ts.position.y = 15.1;
+                ts.position.x = (i + 0.33) * gap;
+                // ts.rotatesb(new math.Bivec(0.2));
+                tsArr.push(ts);
+                let st = new phy.Rigid({
+                    geometry: new phy.rigid.Spheritorus(0.9, 0.15),
+                    material: phyMatChain, mass: 0.8
+                });
+                addRigidToScene(world, scene, renderMatST, st);
+                st.position.y = 15.2;
+                st.position.w = -0.5;
+                st.position.x = (i + 0.62) * gap;
+                st.rotatesb(new math.Bivec(0,0,0,0,0.9)).rotatesb(new math.Bivec(0,0,0.5)).rotatesb(new math.Bivec(-0.4));
+                stArr.push(st);
+            }
+            // add point constrain to the first ring
+            world.add(new phy.PointConstrain(
+                tgArr[0], null, math.Vec4.x, tgArr[0].position.add(math.Vec4.x.rotate(tgArr[0].rotation))
+            ));
+
+            // set up lights, camera and renderer
+
+            let camera = new FOUR.Camera();
+            camera.position.w = 9;
+            camera.position.y = 8;
+            scene.add(camera);
+            scene.add(new FOUR.AmbientLight(0.3));
+            scene.add(new FOUR.DirectionalLight(
+                [2.2, 2.0, 1.9],
+                new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()
+            ));
+            scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+
+            const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+            const renderer = await new FOUR.Renderer(canvas).init();
+            renderer.core.setScreenClearColor([1, 1, 1, 1]);
+            renderer.core.setEyeOffset(0.5);
+            renderer.core.setOpacity(20);
+
+            // controllers
+
+            const camCtrl = new tesserxel.controller.KeepUpController(camera);
+            camCtrl.keyMoveSpeed = 0.01;
+
+            const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
+
+            const emitCtrl = new EmitGlomeController(world, scene, camera);
+            emitCtrl.glomeRadius = 2;
+            emitCtrl.maximumBulletDistance = 70;
+            emitCtrl.initialSpeed = 10;
+
+            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+                retinaCtrl,
+                camCtrl,
+                emitCtrl
+            ], { requsetPointerLock: true });
+
+            function setSize() {
+                let width = window.innerWidth * window.devicePixelRatio;
+                let height = window.innerHeight * window.devicePixelRatio;
+                renderer.setSize({ width, height });
+            }
+            function run() {
+                // syncronise physics world and render scene
+                updateRidigsInScene();
+                // update controller states
+                controllerRegistry.update();
+                // rendering
+                renderer.render(scene, camera);
+                // simulating physics
+                engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
+                window.requestAnimationFrame(run);
+            }
+            window.addEventListener("resize", setSize);
+            setSize();
+            run();
         }
     }
 }

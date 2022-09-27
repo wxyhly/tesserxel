@@ -32,12 +32,14 @@ namespace tesserxel {
                     if (b instanceof rigid.Convex) return this.detectConvexGlome(b, a);
                     if (b instanceof rigid.Spheritorus) return this.detectSpheritorusGlome(b, a);
                     if (b instanceof rigid.Torisphere) return this.detectTorisphereGlome(b, a);
+                    if (b instanceof rigid.Tiger) return this.detectTigerGlome(b, a);
                 }
                 if (a instanceof rigid.Plane) {
                     if (b instanceof rigid.Glome) return this.detectGlomePlane(b, a);
                     if (b instanceof rigid.Convex) return this.detectConvexPlane(b, a);
                     if (b instanceof rigid.Spheritorus) return this.detectSpheritorusPlane(b, a);
                     if (b instanceof rigid.Torisphere) return this.detectTorispherePlane(b, a);
+                    if (b instanceof rigid.Tiger) return this.detectTigerPlane(b, a);
                 }
                 if (a instanceof rigid.Convex) {
                     if (b instanceof rigid.Plane) return this.detectConvexPlane(a, b);
@@ -54,12 +56,22 @@ namespace tesserxel {
                     if (b instanceof rigid.Torisphere) return this.detectTorisphereSpheritorus(b, a);
                     if (b instanceof rigid.Plane) return this.detectSpheritorusPlane(a, b);
                     if (b instanceof rigid.Glome) return this.detectSpheritorusGlome(a, b);
+                    if (b instanceof rigid.Tiger) return this.detectTigerSpheritorus(b, a);
                 }
                 if (a instanceof rigid.Torisphere) {
                     if (b instanceof rigid.Torisphere) return this.detectTorisphereTorisphere(a, b);
                     if (b instanceof rigid.Spheritorus) return this.detectTorisphereSpheritorus(a, b);
                     if (b instanceof rigid.Plane) return this.detectTorispherePlane(a, b);
                     if (b instanceof rigid.Glome) return this.detectTorisphereGlome(a, b);
+                    if (b instanceof rigid.Tiger) return this.detectTigerTorisphere(b, a);
+
+                }
+                if (a instanceof rigid.Tiger) {
+                    if (b instanceof rigid.Tiger) return this.detectTigerTiger(a, b);
+                    if (b instanceof rigid.Spheritorus) return this.detectTigerSpheritorus(a, b);
+                    if (b instanceof rigid.Torisphere) return this.detectTigerTorisphere(a, b);
+                    if (b instanceof rigid.Plane) return this.detectTigerPlane(a, b);
+                    if (b instanceof rigid.Glome) return this.detectTigerGlome(a, b);
                 }
             }
             private detectGlomeGlome(a: rigid.Glome, b: rigid.Glome) {
@@ -423,6 +435,218 @@ namespace tesserxel {
                         p.copy(newP);
                         if (dx + dw < epsilon) break;
                     }
+                    // else there might be collision
+                    // transform newP to a, then compare newP and prevPInA
+                    newP.rotates(rotation).adds(position);
+                    let normal = newP.sub(prevPInA);
+                    let depth = a.minorRadius + b.minorRadius - normal.norm();
+                    if (depth < 0) continue;
+                    normal.rotates(a.rigid.rotation).norms();
+                    let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+                    point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+                    this.collisionList.push({
+                        normal, point, depth, a: a.rigid, b: b.rigid
+                    })
+                }
+            }
+            private detectTigerPlane(a: rigid.Tiger, b: rigid.Plane) {
+                // convert plane to ts's coord
+                let normal = _vec4.copy(b.normal).rotatesconj(a.rigid.rotation);
+                let offset = a.rigid.position.dot(b.normal) - b.offset;
+                let len1 = Math.hypot(normal.x, normal.y);
+                let len2 = Math.hypot(normal.z, normal.w);
+                let depth = a.minorRadius - offset + len1 * a.majorRadius1 + len2 * a.majorRadius2;
+                if (depth < 0) return;
+                // point on flat torus
+                let s1 = len1 ? -a.majorRadius1 / len1 : 0;
+                let s2 = len2 ? -a.majorRadius2 / len2 : 0;
+                let point = new math.Vec4(normal.x * s1, normal.y * s1, normal.z * s2, normal.w * s2);
+                // then to world coord and add normal
+                point.rotates(a.rigid.rotation).adds(a.rigid.position).addmulfs(b.normal, depth * 0.5 - a.minorRadius);
+                this.collisionList.push({ point, normal: b.normal.neg(), depth, a: a.rigid, b: b.rigid });
+            }
+            private detectTigerGlome(a: rigid.Tiger, b: rigid.Glome) {
+                // convert glome to st's coord
+                let p = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let xy = p.x * p.x + p.y * p.y;
+                let zw = p.z * p.z + p.w * p.w;
+                let sqrtxy = Math.sqrt(xy);
+                let sqrtzw = Math.sqrt(zw);
+                let distance = Math.sqrt(
+                    a.majorRadius1 * a.majorRadius1 + a.majorRadius2 * a.majorRadius2
+                    + xy + zw - 2 * (sqrtxy * a.majorRadius1 + sqrtzw * a.majorRadius2)
+                );
+                let depth = a.minorRadius + b.radius - distance;
+                if (depth < 0) return;
+                // find support of circle along normal
+                let k1 = sqrtxy ? a.majorRadius1 / sqrtxy : 0;
+                let k2 = sqrtzw ? a.majorRadius2 / sqrtzw : 0;
+                let point = new math.Vec4(p.x * k1, p.y * k1, p.z * k2, p.w * k2).rotates(a.rigid.rotation);
+                let normal = point.adds(a.rigid.position).sub(b.rigid.position).norms().negs();
+                point.addmulfs(normal, a.minorRadius - depth * 0.5);
+                this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
+            }
+            private detectTigerTiger(a: rigid.Tiger, b: rigid.Tiger) {
+                // position and rotation are b in a's frame 
+                let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+                let temp1 = b.majorRadius1;
+                let temp2 = b.majorRadius2;
+                // choose 8 initial points (w1=0.5,w2=1/4+1/4i) on b for iteration
+                let initialPB = [
+                    math.vec4Pool.pop().set(temp1, 0, temp2, 0),
+                    math.vec4Pool.pop().set(temp1, 0, -temp2, 0),
+                    math.vec4Pool.pop().set(-temp1, 0, temp2, 0),
+                    math.vec4Pool.pop().set(-temp1, 0, -temp2, 0),
+                    math.vec4Pool.pop().set(0, temp1, 0, temp2),
+                    math.vec4Pool.pop().set(0, temp1, 0, -temp2),
+                    math.vec4Pool.pop().set(0, -temp1, 0, temp2),
+                    math.vec4Pool.pop().set(0, -temp1, 0, -temp2),
+                ];
+                let newP = math.vec4Pool.pop();
+                let prevPInA = math.vec4Pool.pop();
+                let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+                for (let p of initialPB) {
+                    // newP and p are in b
+                    newP.copy(p);
+                    for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                        // from b to a
+                        newP.rotates(rotation).adds(position);
+                        let k1 = a.majorRadius1 / Math.hypot(newP.x, newP.y);
+                        if (!isFinite(k1)) break;
+                        let k2 = a.majorRadius2 / Math.hypot(newP.z, newP.w);
+                        if (!isFinite(k2)) break;
+                        // project to a
+                        newP.set(newP.x * k1, newP.y * k1, newP.z * k2, newP.w * k2);
+                        prevPInA.copy(newP);
+                        // from a to b
+                        newP.subs(position).rotatesconj(rotation);
+                        k1 = b.majorRadius1 / Math.hypot(newP.x, newP.y);
+                        if (!isFinite(k1)) break;
+                        k2 = b.majorRadius2 / Math.hypot(newP.z, newP.w);
+                        if (!isFinite(k2)) break;
+                        // project to b
+                        newP.set(newP.x * k1, newP.y * k1, newP.z * k2, newP.w * k2);
+                        // test if iteration still moves
+                        let dx = Math.abs(newP.x - p.x);
+                        let dy = Math.abs(newP.y - p.y);
+                        let dz = Math.abs(newP.z - p.z);
+                        let dw = Math.abs(newP.w - p.w);
+                        p.copy(newP);
+                        if (dx + dy + dz + dw < epsilon) break;
+                    }
+                    // console.log(converge);
+                    // else there might be collision
+                    // transform newP to a, then compare newP and prevPInA
+                    newP.rotates(rotation).adds(position);
+                    let normal = newP.sub(prevPInA);
+                    let depth = a.minorRadius + b.minorRadius - normal.norm();
+                    if (depth < 0) continue;
+                    normal.rotates(a.rigid.rotation).norms();
+                    let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+                    point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+                    this.collisionList.push({
+                        normal, point, depth, a: a.rigid, b: b.rigid
+                    })
+                }
+            }
+            private detectTigerTorisphere(a: rigid.Tiger, b: rigid.Torisphere) {
+                // position and rotation are b in a's frame 
+                let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+                let temp = b.majorRadius * math._TAN30;
+                // choose 4 initial points (regular tetrahedron) on b for iteration
+                let initialPB = [
+                    math.vec4Pool.pop().set(temp, 0, temp, temp),
+                    math.vec4Pool.pop().set(-temp, 0, -temp, temp),
+                    math.vec4Pool.pop().set(-temp, 0, temp, -temp),
+                    math.vec4Pool.pop().set(temp, 0, -temp, -temp),
+                ];
+                let newP = math.vec4Pool.pop();
+                let prevPInA = math.vec4Pool.pop();
+                let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+                for (let p of initialPB) {
+                    // newP and p are in b
+                    newP.copy(p);
+                    for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                        // from b to a
+                        newP.rotates(rotation).adds(position);
+                        let k1 = a.majorRadius1 / Math.hypot(newP.x, newP.y);
+                        if (!isFinite(k1)) break;
+                        let k2 = a.majorRadius2 / Math.hypot(newP.z, newP.w);
+                        if (!isFinite(k2)) break;
+                        // project to a
+                        newP.set(newP.x * k1, newP.y * k1, newP.z * k2, newP.w * k2);
+                        prevPInA.copy(newP);
+                        // from a to b
+                        newP.subs(position).rotatesconj(rotation);
+                        let k = b.majorRadius / Math.hypot(newP.x, newP.z, newP.w);
+                        if (!isFinite(k)) break;
+                        // project to b
+                        newP.set(newP.x * k, 0, newP.z * k, newP.w * k);
+                        // test if iteration still moves
+                        let dx = Math.abs(newP.x - p.x);
+                        let dz = Math.abs(newP.z - p.z);
+                        let dw = Math.abs(newP.w - p.w);
+                        p.copy(newP);
+                        if (dx + dz + dw < epsilon) break;
+                    }
+                    // console.log(converge);
+                    // else there might be collision
+                    // transform newP to a, then compare newP and prevPInA
+                    newP.rotates(rotation).adds(position);
+                    let normal = newP.sub(prevPInA);
+                    let depth = a.minorRadius + b.minorRadius - normal.norm();
+                    if (depth < 0) continue;
+                    normal.rotates(a.rigid.rotation).norms();
+                    let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+                    point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+                    this.collisionList.push({
+                        normal, point, depth, a: a.rigid, b: b.rigid
+                    })
+                }
+            }
+            private detectTigerSpheritorus(a: rigid.Tiger, b: rigid.Spheritorus) {
+                // position and rotation are b in a's frame 
+                let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+                let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+                let tempa = b.majorRadius * 0.5;
+                let tempb = b.majorRadius * math._COS30;
+                // choose 3 initial points (120 degree) on b for iteration
+                let initialPB = [
+                    math.vec4Pool.pop().set(tempa, 0, 0, tempb),
+                    math.vec4Pool.pop().set(tempa, 0, 0, -tempb),
+                    math.vec4Pool.pop().set(-b.majorRadius)
+                ];
+                let newP = math.vec4Pool.pop();
+                let prevPInA = math.vec4Pool.pop();
+                let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+                for (let p of initialPB) {
+                    // newP and p are in b
+                    newP.copy(p);
+                    for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                        // from b to a
+                        newP.rotates(rotation).adds(position);
+                        let k1 = a.majorRadius1 / Math.hypot(newP.x, newP.y);
+                        if (!isFinite(k1)) break;
+                        let k2 = a.majorRadius2 / Math.hypot(newP.z, newP.w);
+                        if (!isFinite(k2)) break;
+                        // project to a
+                        newP.set(newP.x * k1, newP.y * k1, newP.z * k2, newP.w * k2);
+                        prevPInA.copy(newP);
+                        // from a to b
+                        newP.subs(position).rotatesconj(rotation);
+                        let k = b.majorRadius / Math.hypot(newP.x, newP.w);
+                        if (!isFinite(k)) break;
+                        // project to b
+                        newP.set(newP.x * k, 0, 0, newP.w * k);
+                        // test if iteration still moves
+                        let dx = Math.abs(newP.x - p.x);
+                        let dw = Math.abs(newP.w - p.w);
+                        p.copy(newP);
+                        if (dx + dw < epsilon) break;
+                    }
+                    // console.log(converge);
                     // else there might be collision
                     // transform newP to a, then compare newP and prevPInA
                     newP.rotates(rotation).adds(position);
