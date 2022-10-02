@@ -28,6 +28,11 @@ let examples = [
             { target: "tg_tg_chain", zh: "双圆环链", en: "Tiger(Duotorus) Chain" },
             { target: "mix_chain", zh: "杂环链", en: "Mixed Chain" },
             { target: "st_pile", zh: "球环堆", en: "Spheritorus Pile" },
+            { target: "e_charge", zh: "静电点电荷", en: "Static Electric Charges" },
+            { target: "e_dipole", zh: "电偶极子", en: "Electric Dipoles" },
+            { target: "m_dipole", zh: "磁偶极子", en: "Magnetic Dipoles" },
+            { target: "m_dipole_dual", zh: "自对偶磁偶极子", en: "Magnetic Dipoles (Self Dual)" },
+            // { target: "m_dipole_antidual", zh: "反自对偶磁偶极子", en: "Magnetic Dipoles (Self Dual)" },
         ]
     },
     {

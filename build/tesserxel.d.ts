@@ -240,6 +240,7 @@ declare namespace tesserxel {
              *  */
             dotv(V: Vec4): Vec4;
             cross(V: Bivec): Bivec;
+            crossset(b1: Bivec, b2: Bivec): Bivec;
             crossrs(V: Bivec): Bivec;
             exp(): Rotor;
             /** return two angles [max, min] between a and b
@@ -601,6 +602,7 @@ declare namespace tesserxel {
             zxy(): Vec3;
             xzy(): Vec3;
             xyz0(): Vec4;
+            x0yz(): Vec4;
             clone(): Vec3;
             add(v2: Vec3): Vec3;
             addset(v1: Vec3, v2: Vec3): Vec3;
@@ -903,24 +905,6 @@ declare namespace tesserxel {
 }
 declare namespace tesserxel {
     namespace mesh {
-        /** PathMesh store lines
-         *  This mesh is for constructing complex facemeshes tetrameshes
-         *  It is not aimed for rendering purpose
-         */
-        interface PathMesh {
-            position: Float32Array;
-            normal?: Float32Array;
-        }
-        interface PathindexMesh {
-            position: Float32Array;
-            normal?: Float32Array;
-            positionIndex?: Uint32Array;
-            normalIndex?: Uint32Array;
-        }
-    }
-}
-declare namespace tesserxel {
-    namespace mesh {
         /** Tetramesh store 4D mesh as tetrahedral list
          *  Each tetrahedral uses four vertices in the position list
          */
@@ -1110,36 +1094,45 @@ declare namespace tesserxel {
                 constructor(a: Rigid, b: Rigid | null, pointA: math.Vec4, pointB: math.Vec4, k: number, length?: number, damp?: number);
                 apply(time: number): void;
             }
-            class Damp extends Force {
+            class Damping extends Force {
                 objects: Rigid[];
                 linearFactor: number;
                 angularFactor: math.Bivec;
                 private _bivec;
                 apply(time: number): void;
+                constructor(linearFactor: number, angularFactor: number | math.Bivec);
+                add(...objects: Rigid[]): void;
             }
             type ElectricCharge = {
                 rigid: Rigid | null;
                 position: math.Vec4;
+                worldPos?: math.Vec4;
                 charge: number;
             };
             type ElectricDipole = {
                 rigid: Rigid | null;
                 position: math.Vec4;
+                worldPos?: math.Vec4;
                 moment: math.Vec4;
+                worldMoment?: math.Vec4;
             };
             type MagneticDipole = {
                 rigid: Rigid | null;
                 position: math.Vec4;
+                worldPos?: math.Vec4;
                 moment: math.Bivec;
+                worldMoment?: math.Bivec;
             };
             type CurrentElement = {
                 rigid: Rigid | null;
                 position: math.Vec4;
+                worldPos?: math.Vec4;
                 current: math.Vec4;
             };
             type CurrentCircuit = {
                 rigid: Rigid | null;
                 position: math.Vec4;
+                worldPos?: math.Vec4;
                 current: math.Vec4;
                 radius: number;
             };
@@ -1157,13 +1150,17 @@ declare namespace tesserxel {
                 private _vecE;
                 private _vecdE;
                 private _vecB;
+                private _vecdB;
                 private _vecP;
-                add(): void;
-                getBAt(p: math.Vec4, ignore: Rigid | math.Vec4): math.Bivec;
-                getEAt(p: math.Vec4, ignore: Rigid | math.Vec4): math.Vec4;
+                addElectricCharge(s: ElectricCharge): void;
+                addElectricDipole(s: ElectricDipole): void;
+                addMagneticDipole(s: MagneticDipole): void;
+                private getEAt;
+                private getBAt;
                 apply(time: number): void;
-                addEOfElectricCharge(vecE: math.Vec4, p: math.Vec4, s: ElectricCharge): void;
-                addEOfElectricDipole(vecE: math.Vec4, p: math.Vec4, s: ElectricDipole): void;
+                private addEOfElectricCharge;
+                private addBOfMagneticDipole;
+                private addEOfElectricDipole;
             }
         }
     }
@@ -1901,6 +1898,29 @@ declare namespace tesserxel {
 }
 declare namespace tesserxel {
     namespace renderer {
+        type Size3DDict = {
+            width: number;
+            height: number;
+            depth: number;
+        };
+        interface VoxelBuffer {
+            buffer: GPUBuffer;
+            header?: ArrayBuffer;
+            width: number;
+            height: number;
+            depth: number;
+            length: number;
+            formatSize: number;
+        }
+        function createVoxelBuffer(gpu: GPU, size: GPUExtent3D, formatSize: number, header?: ArrayBuffer, headerSize?: number): {
+            buffer: GPUBuffer;
+            width: number;
+            height: number;
+            depth: number;
+            length: number;
+            formatSize: number;
+            header: ArrayBuffer;
+        };
     }
 }
 declare namespace tesserxel {

@@ -184,6 +184,16 @@ namespace tesserxel {
                     V.xz * this.xw - this.xz * V.xw + V.yz * this.yw - this.yz * V.yw
                 );
             }
+            crossset(b1: Bivec, b2: Bivec): Bivec {
+                return this.set(
+                    b2.xz * b1.yz - b1.xz * b2.yz + b2.xw * b1.yw - b1.xw * b2.yw,
+                    -b2.xy * b1.yz + b1.xy * b2.yz + b2.xw * b1.zw - b1.xw * b2.zw,
+                    -b2.xy * b1.yw + b1.xy * b2.yw - b2.xz * b1.zw + b1.xz * b2.zw,
+                    b2.xy * b1.xz - b1.xy * b2.xz + b2.yw * b1.zw - b1.yw * b2.zw,
+                    b2.xy * b1.xw - b1.xy * b2.xw - b2.yz * b1.zw + b1.yz * b2.zw,
+                    b2.xz * b1.xw - b1.xz * b2.xw + b2.yz * b1.yw - b1.yz * b2.yw
+                );
+            }
             crossrs(V: Bivec): Bivec {
                 return this.set(
                     V.xz * this.yz - this.xz * V.yz + V.xw * this.yw - this.xw * V.yw,
@@ -224,8 +234,12 @@ namespace tesserxel {
              * "a" and "b" must be normalized simple bivectors*/
             static angle(a: Bivec, b: Bivec): number[] {
                 let cc = a.dot(b); let ss = a.wedge(b);
-                let sub = Math.acos(cc + ss);
-                let add = Math.acos(cc - ss);
+                let ccpss = cc + ss;
+                let ccmss = cc - ss;
+                if (Math.abs(ccpss) > 1) ccpss = Math.sign(ccpss);
+                if (Math.abs(ccmss) > 1) ccmss = Math.sign(ccmss);
+                let sub = Math.acos(ccpss);
+                let add = Math.acos(ccmss);
                 return [(add + sub) * 0.5, (add - sub) * 0.5];
             }
             rotate(r: Rotor): Bivec {
@@ -706,7 +720,7 @@ namespace tesserxel {
                 return this.expset(right);
             }
             /** Rotor: rotate from plane1 to plane2
-             *  Bivectors must be simple and normalised */ 
+             *  Bivectors must be simple and normalised */
             static lookAtbb(from: Bivec, to: Bivec): Rotor {
                 let A1 = _vec3_2.set(from.xy + from.zw, from.xz - from.yw, from.xw + from.yz);
                 let B1 = _vec3_3.set(from.xy - from.zw, from.xz + from.yw, from.xw - from.yz);

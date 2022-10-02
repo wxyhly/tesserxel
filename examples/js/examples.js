@@ -523,6 +523,48 @@ var examples;
         city_highway.load = load;
     })(city_highway = examples.city_highway || (examples.city_highway = {}));
 })(examples || (examples = {}));
+var example;
+(function (example) {
+    let erosion;
+    (function (erosion) {
+        async function load() {
+            const gpu = await tesserxel.renderer.createGPU();
+            let resolution = [128, 128, 128];
+            // vec4 : terrain water, wvx,wvy,wvz,
+            // 
+            let bufferA = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);
+            let bufferB = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);
+            let code = `
+            struct Vec4Attachment{
+                size: vec4<u32>,
+                data: array<vec4<u32>>
+            }
+            const gridSize = 10.0;
+            const dt = 1.0;
+            const kr = 0.01;
+            @compute @workgroup_size(8,8,8) 
+            fn calcFlow(@builtin(global_invocation_id) pos: vec3<u32>){
+                if(pos.x >= input.size.x || pos.y >= input.size.y || pos.z >= input.size.z){
+                    return;
+                }
+                let offset = pos.x + input.size.x*(pos.y + input.size.y*input.size.z);
+                var offsetxp:u32; if(offset.x == input.size.x - 1) {offsetxp = offset - input.size.x;}else{offsetxp = offset - 1;}
+                var offsetxm:u32; if(offset.x == 0) {offsetxm = offset + 1;}else{offsetxm = offset + input.size.x;}
+                var offsetyp:u32; if(offset.y == input.size.y - 1) {offsetyp = offset - input.size.y;}else{offsetyp = offset - 1;}
+                var offsetym:u32; if(offset.y == 0) {offsetym = offset + 1;}else{offsetym = offset + input.size.y;}
+                var offsetzp:u32; if(offset.z == input.size.z - 1) {offsetzp = offset - input.size.z;}else{offsetzp = offset - 1;}
+                var offsetzm:u32; if(offset.z == 0) {offsetzm = offset + 1;}else{offsetzm = offset + input.size.z;}
+                var offsetwp:u32; if(offset.w == input.size.w - 1) {offsetwp = offset - input.size.w;}else{offsetwp = offset - 1;}
+                var offsetwm:u32; if(offset.w == 0) {offsetwm = offset + 1;}else{offsetwm = offset + input.size.w;}
+                let d = input.data[offset].x;//todo
+                let d1 = d + dt * kr; 
+                
+            }
+            `;
+        }
+        erosion.load = load;
+    })(erosion = example.erosion || (example.erosion = {}));
+})(example || (example = {}));
 var examples;
 (function (examples) {
     let spring_rope;
@@ -1834,9 +1876,7 @@ var examples;
         }
         st_pile.load1 = load1;
         async function load() {
-            const math = tesserxel.math;
-            const phy = tesserxel.physics;
-            const engine = new phy.Engine({ substep: 30 });
+            const engine = new phy.Engine({ substep: 8 });
             const world = new phy.World();
             const scene = new FOUR.Scene();
             // define physical materials: frictions and restitutions
@@ -1944,8 +1984,6 @@ var examples;
     let rigid_test;
     (function (rigid_test) {
         async function load() {
-            const math = tesserxel.math;
-            const phy = tesserxel.physics;
             const engine = new phy.Engine({ substep: 30 });
             const world = new phy.World();
             const scene = new FOUR.Scene();
@@ -2029,8 +2067,6 @@ var examples;
     let st_ts_chain;
     (function (st_ts_chain) {
         async function load() {
-            const math = tesserxel.math;
-            const phy = tesserxel.physics;
             const engine = new phy.Engine({ substep: 30 });
             const world = new phy.World();
             const scene = new FOUR.Scene();
@@ -2192,8 +2228,6 @@ var examples;
     let tg_tg_chain;
     (function (tg_tg_chain) {
         async function load() {
-            const math = tesserxel.math;
-            const phy = tesserxel.physics;
             const engine = new phy.Engine({ substep: 30 });
             const world = new phy.World();
             const scene = new FOUR.Scene();
@@ -2286,8 +2320,6 @@ var examples;
     let mix_chain;
     (function (mix_chain) {
         async function load() {
-            const math = tesserxel.math;
-            const phy = tesserxel.physics;
             const engine = new phy.Engine({ substep: 30 });
             const world = new phy.World();
             const scene = new FOUR.Scene();
@@ -2362,6 +2394,7 @@ var examples;
             emitCtrl.glomeRadius = 2;
             emitCtrl.maximumBulletDistance = 70;
             emitCtrl.initialSpeed = 10;
+            await emitCtrl.glomeMaterial.compile(renderer);
             const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
                 retinaCtrl,
                 camCtrl,
@@ -2389,6 +2422,212 @@ var examples;
         }
         mix_chain.load = load;
     })(mix_chain = examples.mix_chain || (examples.mix_chain = {}));
+    async function loadMaxwell(cb) {
+        const engine = new phy.Engine({ substep: 30, forceAccumulator: phy.force_accumulator.RK4 });
+        const world = new phy.World();
+        const scene = new FOUR.Scene();
+        // define physical materials: frictions and restitutions
+        const phyMatGround = new phy.Material(1, 0.8);
+        // define render materials
+        const renderMatGround = new FOUR.LambertMaterial([0.2, 1, 0.2, 0.03]);
+        renderMatGround.cullMode = "back";
+        const roomSize = 6;
+        // floor
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, 1)), material: phyMatGround, mass: 0
+        }));
+        // ceil
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, -1), -roomSize * 2), material: phyMatGround, mass: 0
+        }));
+        // left wall
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(1), -roomSize), material: phyMatGround, mass: 0
+        }));
+        // right wall
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(-1), -roomSize), material: phyMatGround, mass: 0
+        }));
+        // ana wall
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 1), -roomSize), material: phyMatGround, mass: 0
+        }));
+        //kata wall
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, 0, -1), -roomSize), material: phyMatGround, mass: 0
+        }));
+        // front wall
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 0, 1), -roomSize), material: phyMatGround, mass: 0
+        }));
+        //back wall
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 0, -1), -roomSize), material: phyMatGround, mass: 0
+        }));
+        let roomMesh = new FOUR.Mesh(new FOUR.TesseractGeometry(roomSize), renderMatGround);
+        roomMesh.position.y += roomSize;
+        tesserxel.mesh.tetra.inverseNormal(roomMesh.geometry.jsBuffer);
+        scene.add(roomMesh);
+        let maxwell = new phy.force.MaxWell();
+        world.add(maxwell);
+        const canvas = document.getElementById("gpu-canvas");
+        const renderer = await new FOUR.Renderer(canvas).init();
+        await cb(world, maxwell, scene, renderer);
+        // set up lights, camera and renderer
+        let camera = new FOUR.Camera();
+        camera.position.w = 9;
+        camera.position.y = 8;
+        scene.add(camera);
+        scene.add(new FOUR.AmbientLight(0.3));
+        scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
+        scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+        renderer.core.setScreenClearColor([1, 1, 1, 1]);
+        renderer.core.setEyeOffset(0.5);
+        renderer.core.setOpacity(20);
+        // controllers
+        const camCtrl = new tesserxel.controller.KeepUpController(camera);
+        camCtrl.keyMoveSpeed = 0.01;
+        const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
+        const emitCtrl = new EmitGlomeController(world, scene, camera);
+        emitCtrl.glomeRadius = 1;
+        emitCtrl.maximumBulletDistance = 70;
+        emitCtrl.initialSpeed = 10;
+        const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+            retinaCtrl,
+            camCtrl,
+            emitCtrl
+        ], { requsetPointerLock: true });
+        function setSize() {
+            let width = window.innerWidth * window.devicePixelRatio;
+            let height = window.innerHeight * window.devicePixelRatio;
+            renderer.setSize({ width, height });
+        }
+        function run() {
+            // syncronise physics world and render scene
+            updateRidigsInScene();
+            // update controller states
+            controllerRegistry.update();
+            // rendering
+            renderer.render(scene, camera);
+            // simulating physics
+            engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
+            window.requestAnimationFrame(run);
+        }
+        window.addEventListener("resize", setSize);
+        setSize();
+        run();
+    }
+    let e_charge;
+    (function (e_charge) {
+        async function load() {
+            await loadMaxwell(async (world, maxwell, scene, renderer) => {
+                const phyMatCharge = new phy.Material(1, 0.5);
+                const renderMatPos = new FOUR.LambertMaterial([1, 0, 0, 1]);
+                const renderMatNeg = new FOUR.LambertMaterial([0, 0, 1, 1]);
+                const chargeNum = 8;
+                const radius = 4;
+                await renderMatNeg.compile(renderer);
+                await renderMatPos.compile(renderer);
+                for (let i = 0; i < chargeNum; i++) {
+                    let pos = new phy.Rigid({ geometry: new phy.rigid.Glome(1), mass: 1, material: phyMatCharge });
+                    let neg = new phy.Rigid({ geometry: new phy.rigid.Glome(1), mass: 1, material: phyMatCharge });
+                    let gndPos = math.Vec3.rand().mulfs(radius);
+                    pos.position.set(gndPos.x, 3 + Math.random(), gndPos.y, gndPos.z);
+                    gndPos = math.Vec3.rand().mulfs(radius);
+                    neg.position.set(gndPos.x, 3 + Math.random(), gndPos.y, gndPos.z);
+                    maxwell.addElectricCharge({ rigid: pos, charge: 10, position: math.Vec4.origin });
+                    maxwell.addElectricCharge({ rigid: neg, charge: -10, position: math.Vec4.origin });
+                    addRigidToScene(world, scene, renderMatPos, pos);
+                    addRigidToScene(world, scene, renderMatNeg, neg);
+                }
+            });
+        }
+        e_charge.load = load;
+    })(e_charge = examples.e_charge || (examples.e_charge = {}));
+    let e_dipole;
+    (function (e_dipole) {
+        async function load() {
+            await loadMaxwell(async (world, maxwell, scene, renderer) => {
+                const phyMatCharge = new phy.Material(1, 0.5);
+                const renderMatEDipole = new FOUR.LambertMaterial(new FOUR.CheckerTexture([1, 0, 0, 1], [0, 0, 1, 1], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new math.Obj4(new math.Vec4(0.45), null, new math.Vec4(0.1, 0.1, 0.1, 0.1)))));
+                const chargeNum = 10;
+                const radius = 4;
+                await renderMatEDipole.compile(renderer);
+                const srand = new math.Srand(0);
+                for (let i = 0; i < chargeNum; i++) {
+                    let dipole = new phy.Rigid({ geometry: new phy.rigid.Glome(1), mass: 1, material: phyMatCharge });
+                    let gndPos = math.Vec3.rand().mulfs(radius).x0yz();
+                    dipole.position.copy(gndPos);
+                    dipole.position.y = 3 + Math.random();
+                    dipole.rotation.srandset(srand);
+                    maxwell.addElectricDipole({ rigid: dipole, moment: new math.Vec4(0, 10), position: math.Vec4.origin.clone() });
+                    addRigidToScene(world, scene, renderMatEDipole, dipole);
+                }
+            });
+        }
+        e_dipole.load = load;
+    })(e_dipole = examples.e_dipole || (examples.e_dipole = {}));
+    let m_dipole;
+    (function (m_dipole) {
+        async function load() {
+            await loadMaxwell(async (world, maxwell, scene, renderer) => {
+                const phyMatCharge = new phy.Material(1, 0.5);
+                const renderMatMDipole = new FOUR.LambertMaterial(new FOUR.CheckerTexture([1, 0, 0, 1], new FOUR.CheckerTexture([0.6, 0.6, 0.6, 0.2], [0, 0, 1, 1], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new math.Obj4(new math.Vec4(0, 0, 0.41), null, new math.Vec4(0.1, 0.1, 0.1, 0.1)))), new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new math.Obj4(new math.Vec4(0, 0, 0.49), null, new math.Vec4(0.1, 0.1, 0.1, 0.1)))));
+                const chargeNum = 6;
+                const radius = 5;
+                await renderMatMDipole.compile(renderer);
+                let damp = new phy.force.Damping(0.01, 0.01);
+                world.add(damp);
+                for (let i = 0; i < chargeNum; i++) {
+                    let dipole = new phy.Rigid({ geometry: new phy.rigid.Glome(1), mass: 1, material: phyMatCharge });
+                    let gndPos = math.Vec3.rand().mulfs(radius).x0yz();
+                    dipole.position.copy(gndPos);
+                    dipole.position.y = 3 + Math.random();
+                    maxwell.addMagneticDipole({ rigid: dipole, moment: new math.Bivec(10), position: math.Vec4.origin.clone() });
+                    damp.add(dipole);
+                    addRigidToScene(world, scene, renderMatMDipole, dipole);
+                }
+            });
+        }
+        m_dipole.load = load;
+    })(m_dipole = examples.m_dipole || (examples.m_dipole = {}));
+    let m_dipole_dual;
+    (function (m_dipole_dual) {
+        async function load() {
+            await loadMaxwell(async (world, maxwell, scene, renderer) => {
+                const phyMatCharge = new phy.Material(1, 0.5);
+                const renderMatMDipoleDual = new FOUR.LambertMaterial(new FOUR.CheckerTexture([1, 0, 0, 1], new FOUR.CheckerTexture([1, 0.5, 0.5, 0.2], [0, 0, 1, 1], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new math.Obj4(new math.Vec4(0, 0, 0.41), null, new math.Vec4(0.1, 0.1, 0.1, 0.1)))), new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new math.Obj4(new math.Vec4(0, 0, 0.49), null, new math.Vec4(0.1, 0.1, 0.1, 0.1)))));
+                const renderMatMDipoleAntiDual = new FOUR.LambertMaterial(new FOUR.CheckerTexture([1, 0, 0, 1], new FOUR.CheckerTexture([0.5, 0.5, 1, 0.2], [0, 0, 1, 1], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new math.Obj4(new math.Vec4(0, 0, 0.41), null, new math.Vec4(0.1, 0.1, 0.1, 0.1)))), new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new math.Obj4(new math.Vec4(0, 0, 0.49), null, new math.Vec4(0.1, 0.1, 0.1, 0.1)))));
+                const chargeNum = 12;
+                const radius = 5;
+                await renderMatMDipoleDual.compile(renderer);
+                await renderMatMDipoleAntiDual.compile(renderer);
+                let damp = new phy.force.Damping(0.01, 0.01);
+                world.add(damp);
+                let dipoleB = new phy.Rigid({ geometry: new phy.rigid.Glome(1), mass: 1, material: phyMatCharge });
+                let gndPos = math.Vec3.rand().mulfs(radius).x0yz();
+                dipoleB.position.x *= 0.5;
+                dipoleB.position.x += 2;
+                dipoleB.position.copy(gndPos);
+                dipoleB.position.y = 7 + Math.random();
+                maxwell.addMagneticDipole({ rigid: dipoleB, moment: new math.Bivec(-10, 0, 0, 0, 0, 10), position: math.Vec4.origin.clone() });
+                damp.add(dipoleB);
+                addRigidToScene(world, scene, renderMatMDipoleAntiDual, dipoleB);
+                for (let i = 0; i < chargeNum; i++) {
+                    let dipoleA = new phy.Rigid({ geometry: new phy.rigid.Glome(1), mass: 1, material: phyMatCharge });
+                    let gndPos = math.Vec3.rand().mulfs(radius).x0yz();
+                    dipoleA.position.copy(gndPos);
+                    dipoleA.position.x *= 0.5;
+                    dipoleA.position.x -= 4;
+                    dipoleA.position.y = 3 + Math.random();
+                    maxwell.addMagneticDipole({ rigid: dipoleA, moment: new math.Bivec(10, 0, 0, 0, 0, 10), position: math.Vec4.origin.clone() });
+                    damp.add(dipoleA);
+                    addRigidToScene(world, scene, renderMatMDipoleDual, dipoleA);
+                }
+            });
+        }
+        m_dipole_dual.load = load;
+    })(m_dipole_dual = examples.m_dipole_dual || (examples.m_dipole_dual = {}));
 })(examples || (examples = {}));
 var examples;
 (function (examples) {
@@ -3252,35 +3491,9 @@ var examples;
                 layout: "auto"
             });
             let internalTetraBuffer = gpu.createBuffer(GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE, 0x400000, "internalTetra");
-            function createVoxelBuffer(size, format) {
-                let width = 0;
-                let height = 0;
-                let depth = 0;
-                if (size.width) {
-                    width = size.width;
-                    height = size.height;
-                    depth = size.depthOrArrayLayers;
-                }
-                else {
-                    width = size[0];
-                    height = size[1];
-                    depth = size[2];
-                }
-                let length = width * height * depth;
-                let formatSize = format === "u32" ? 1 : 4;
-                let buffer = device.createBuffer({
-                    size: (8 + length * formatSize) * 4,
-                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-                    mappedAtCreation: true,
-                    label: `VoxelBuffer<${width},${height},${depth},${format}`
-                });
-                let jsBuffer = new Uint32Array(buffer.getMappedRange(0, 28));
-                let tileNum = [Math.ceil(width / tileSize), Math.ceil(height / tileSize), Math.ceil(depth / tileSize)];
-                jsBuffer.set([width, height, depth, 0, ...tileNum]);
-                buffer.unmap();
-                return { buffer, width, height, depth, size: length, tileNum, format: "vec4<f32>" };
-            }
-            let voxelBuffer = createVoxelBuffer([resolution, resolution, resolution], "u32");
+            let size = [resolution, resolution, resolution];
+            let tileNums = new Uint32Array([Math.ceil(size[0] / tileSize), Math.ceil(size[1] / tileSize), Math.ceil(size[2] / tileSize)]);
+            let voxelBuffer = tesserxel.renderer.createVoxelBuffer(gpu, size, 1, tileNums.buffer);
             let uSizeJsBuffer = new Float32Array(1);
             let uSizeBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, uSizeJsBuffer);
             let meshBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, meshJsBuffer.position);
@@ -3303,7 +3516,7 @@ var examples;
                 passEncoder.dispatchWorkgroups(Math.ceil(tetraCount / 256));
                 passEncoder.setPipeline(computePipeline);
                 passEncoder.setBindGroup(0, computeBindgroup);
-                passEncoder.dispatchWorkgroups(Math.ceil(tetraCount / workgroupSizeX), Math.ceil(voxelBuffer.tileNum[0] / workgroupSizeY), Math.ceil(voxelBuffer.tileNum[1] * voxelBuffer.tileNum[2] / workgroupSizeZ));
+                passEncoder.dispatchWorkgroups(Math.ceil(tetraCount / workgroupSizeX), Math.ceil(tileNums[0] / workgroupSizeY), Math.ceil(tileNums[1] * tileNums[2] / workgroupSizeZ));
                 passEncoder.end();
                 device.queue.submit([commandEncoder.finish()]);
             }
@@ -3376,11 +3589,10 @@ var examples;
                     passEncoder.dispatchWorkgroups(Math.ceil(tetraCount / 256));
                     passEncoder.setPipeline(computePipeline);
                     passEncoder.setBindGroup(0, computeBindgroup);
-                    passEncoder.dispatchWorkgroups(Math.ceil(tetraCount / workgroupSizeX), Math.ceil(voxelBuffer.tileNum[0] / workgroupSizeY), Math.ceil(voxelBuffer.tileNum[1] * voxelBuffer.tileNum[2] / workgroupSizeZ));
+                    passEncoder.dispatchWorkgroups(Math.ceil(tetraCount / workgroupSizeX), Math.ceil(tileNums[0] / workgroupSizeY), Math.ceil(tileNums[1] * tileNums[2] / workgroupSizeZ));
                     passEncoder.end();
                     device.queue.submit([commandEncoder.finish()]);
                 }
-                // dispatch2();
                 renderer.render(() => {
                     renderer.drawRaytracing(pipeline, [renderBindgroup]);
                 });

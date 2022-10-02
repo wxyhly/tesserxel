@@ -207,8 +207,8 @@ namespace tesserxel {
                         invInertiaB = pB.dotbset(pB, collision.dwB).dot(normal);
                         pB.pushPool();
                     }
-                    console.assert(invInertiaA >= 0);
-                    console.assert(invInertiaB >= 0);
+                    // console.assert(invInertiaA >= 0);
+                    // console.assert(invInertiaB >= 0);
                     let depthDivTotalInvs = depth * this.PositionRelaxationFactor / (a.invMass + (b?.invMass ?? 0) + invInertiaA + invInertiaB);
                     if (!isFinite(depthDivTotalInvs)) {
                         console.error("A numeric error occured in Rigid collision solver: depthDivTotalInvs in resolvePosition");

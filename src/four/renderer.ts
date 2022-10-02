@@ -12,7 +12,7 @@ namespace tesserxel {
             lightShaderInfomation = _initLightShader();
             private cameraInScene: boolean;
             private safeTetraNumInOnePass: number;
-            private tetraNumOccupancyRatio: number = 0.05;
+            private tetraNumOccupancyRatio: number = 0.08;
             private maxTetraNumInOnePass: number;
             constructor(canvas: HTMLCanvasElement) {
                 this.canvas = canvas;

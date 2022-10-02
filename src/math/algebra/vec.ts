@@ -213,7 +213,10 @@ namespace tesserxel {
                 return new Vec3(this.x, this.z, this.y);
             }
             xyz0(): Vec4 {
-                return new Vec4(this.x, this.z, this.y);
+                return new Vec4(this.x, this.y, this.z);
+            }
+            x0yz(): Vec4 {
+                return new Vec4(this.x, 0, this.y, this.z);
             }
             clone(): Vec3 {
                 return new Vec3(this.x, this.y, this.z);
