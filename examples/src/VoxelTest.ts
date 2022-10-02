@@ -206,7 +206,7 @@ namespace examples {
 
             let meshJsBuffer = tesserxel.mesh.tetra.tiger(1, 16, 1, 16, 0.2, 12);
             tesserxel.mesh.tetra.applyObj4(meshJsBuffer, new tesserxel.math.Obj4(
-                new tesserxel.math.Vec4(0,0,0,2)
+                new tesserxel.math.Vec4(0, 0, 0, 2)
             ));
 
             const resolution = 256;
@@ -526,36 +526,11 @@ namespace examples {
                 layout: "auto"
             });
             let internalTetraBuffer = gpu.createBuffer(GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE, 0x400000, "internalTetra");
-
-            type VoxelFormat = "vec4<f32>" | "u32";
-            function createVoxelBuffer(size: GPUExtent3D, format: VoxelFormat) {
-                let width = 0;
-                let height = 0;
-                let depth = 0;
-                if ((size as GPUExtent3DDict).width) {
-                    width = (size as GPUExtent3DDict).width;
-                    height = (size as GPUExtent3DDict).height;
-                    depth = (size as GPUExtent3DDict).depthOrArrayLayers;
-                } else {
-                    width = size[0];
-                    height = size[1];
-                    depth = size[2];
-                }
-                let length = width * height * depth;
-                let formatSize = format === "u32" ? 1 : 4;
-                let buffer = device.createBuffer({
-                    size: (8 + length * formatSize) * 4,
-                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-                    mappedAtCreation: true,
-                    label: `VoxelBuffer<${width},${height},${depth},${format}`
-                });
-                let jsBuffer = new Uint32Array(buffer.getMappedRange(0, 28));
-                let tileNum = [Math.ceil(width / tileSize), Math.ceil(height / tileSize), Math.ceil(depth / tileSize)];
-                jsBuffer.set([width, height, depth, 0, ...tileNum]);
-                buffer.unmap();
-                return { buffer, width, height, depth, size: length, tileNum, format: "vec4<f32>" };
-            }
-            let voxelBuffer = createVoxelBuffer([resolution, resolution, resolution], "u32");
+            let size = [resolution, resolution, resolution];
+            let tileNums = new Uint32Array([Math.ceil(size[0] / tileSize), Math.ceil(size[1] / tileSize), Math.ceil(size[2] / tileSize)]);
+            let voxelBuffer = tesserxel.renderer.createVoxelBuffer(
+                gpu, size, 1, tileNums.buffer
+            );
             let uSizeJsBuffer = new Float32Array(1);
             let uSizeBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, uSizeJsBuffer);
             let meshBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, meshJsBuffer.position);
@@ -583,8 +558,8 @@ namespace examples {
                 passEncoder.setBindGroup(0, computeBindgroup);
                 passEncoder.dispatchWorkgroups(
                     Math.ceil(tetraCount / workgroupSizeX),
-                    Math.ceil(voxelBuffer.tileNum[0] / workgroupSizeY),
-                    Math.ceil(voxelBuffer.tileNum[1] * voxelBuffer.tileNum[2] / workgroupSizeZ),
+                    Math.ceil(tileNums[0] / workgroupSizeY),
+                    Math.ceil(tileNums[1] * tileNums[2] / workgroupSizeZ),
                 );
                 passEncoder.end();
                 device.queue.submit([commandEncoder.finish()]);
@@ -670,13 +645,12 @@ namespace examples {
                     passEncoder.setBindGroup(0, computeBindgroup);
                     passEncoder.dispatchWorkgroups(
                         Math.ceil(tetraCount / workgroupSizeX),
-                        Math.ceil(voxelBuffer.tileNum[0] / workgroupSizeY),
-                        Math.ceil(voxelBuffer.tileNum[1] * voxelBuffer.tileNum[2] / workgroupSizeZ),
+                        Math.ceil(tileNums[0] / workgroupSizeY),
+                        Math.ceil(tileNums[1] * tileNums[2] / workgroupSizeZ),
                     );
                     passEncoder.end();
                     device.queue.submit([commandEncoder.finish()]);
                 }
-                // dispatch2();
                 renderer.render(() => {
                     renderer.drawRaytracing(pipeline, [renderBindgroup]);
                 });
