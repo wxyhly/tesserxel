@@ -921,7 +921,7 @@ namespace examples {
             new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()
         ));
         scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
-
+        await renderer.compileMaterials(scene);
         renderer.core.setScreenClearColor([1, 1, 1, 1]);
         renderer.core.setEyeOffset(0.5);
         renderer.core.setOpacity(20);
@@ -973,8 +973,7 @@ namespace examples {
                 const renderMatNeg = new FOUR.LambertMaterial([0, 0, 1, 1]);
                 const chargeNum = 8;
                 const radius = 4;
-                await renderMatNeg.compile(renderer);
-                await renderMatPos.compile(renderer);
+                // await renderer.compileMaterials([renderMatNeg, renderMatPos]);
                 for (let i = 0; i < chargeNum; i++) {
                     let pos = new phy.Rigid({ geometry: new phy.rigid.Glome(1), mass: 1, material: phyMatCharge });
                     let neg = new phy.Rigid({ geometry: new phy.rigid.Glome(1), mass: 1, material: phyMatCharge });
@@ -1004,7 +1003,7 @@ namespace examples {
                 ));
                 const chargeNum = 10;
                 const radius = 4;
-                await renderMatEDipole.compile(renderer);
+                // await renderMatEDipole.compile(renderer);
                 const srand = new math.Srand(0);
                 for (let i = 0; i < chargeNum; i++) {
                     let dipole = new phy.Rigid({ geometry: new phy.rigid.Glome(1), mass: 1, material: phyMatCharge });
@@ -1037,7 +1036,7 @@ namespace examples {
                 ));
                 const chargeNum = 6;
                 const radius = 5;
-                await renderMatMDipole.compile(renderer);
+                // await renderMatMDipole.compile(renderer);
                 let damp = new phy.force.Damping(0.01, 0.01);
                 world.add(damp);
                 for (let i = 0; i < chargeNum; i++) {
@@ -1085,8 +1084,8 @@ namespace examples {
                 ));
                 const chargeNum = 12;
                 const radius = 5;
-                await renderMatMDipoleDual.compile(renderer);
-                await renderMatMDipoleAntiDual.compile(renderer);
+                // await renderMatMDipoleDual.compile(renderer);
+                // await renderMatMDipoleAntiDual.compile(renderer);
                 let damp = new phy.force.Damping(0.01, 0.01);
                 world.add(damp);
                 

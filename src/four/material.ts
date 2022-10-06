@@ -2,7 +2,6 @@ namespace tesserxel {
     export namespace four {
         type ColorOutputNode = MaterialNode & { output: "color" };
         type Vec4OutputNode = MaterialNode & { output: "vec4" };
-        // todo: Simplex3D Noise https://www.shadertoy.com/view/XsX3zB
         type FloatOutputNode = MaterialNode & { output: "f32" };
         type TransformOutputNode = MaterialNode & { output: "affineMat4" };
 
@@ -45,6 +44,7 @@ namespace tesserxel {
             declUniforms: { [name: string]: { location: number, type: string, buffer: GPUBuffer } } = {};
             declUniformLocation = 0;
             declVarys: string[] = [];
+            declHeaders: { [name: string]: string };
             createBindGroup(r: Renderer, p: renderer.TetraSlicePipeline) {
                 this.bindGroup = this.bindGroupBuffers.length ? [r.core.createFragmentShaderBindGroup(p, 0, this.bindGroupBuffers)] : [];
             }
@@ -76,6 +76,14 @@ namespace tesserxel {
                     this.fetchBuffers.push(a);
                 }
             }
+            // when a subnode uses header, call this function to check whether headers are already included
+            addHeader(key: string, value: string) {
+                if (!this.declHeaders[key]) {
+                    this.declHeaders[key] = value;
+                } else if(this.declHeaders[key]!== value){
+                    console.warn(`Found multiple definition of header "${key}".`);
+                }
+            }
             // when a subnode uses uniform, call this function to add uniform globally
             addUniform(type: string, u: string, buffer: GPUBuffer) {
                 if (!this.declUniforms[u]) {
@@ -97,14 +105,16 @@ namespace tesserxel {
                 this.bindGroupBuffers = [];
                 // renderPipeline's uniform bindgroup's location number
                 this.declUniformLocation = 0;
+                this.declHeaders = {};
                 // iteratively generate code
                 let code = this.getCode(r, this, "");
                 // deal no need for vary input
                 let fsIn = this.declVarys.length ? 'vary: fourInputType' : "";
                 let lightCode = r.lightShaderInfomation.lightCode;
+                let headers = globalThis.Object.values(this.declHeaders).join("\n");
                 // if no uniform at group0, then bind lights on 0, or 1
                 if (this.declUniformLocation === 0) { lightCode = lightCode.replace("@group(1)", "@group(0)") }
-                let header = lightCode + `
+                let header = headers + lightCode + `
     struct AffineMat{
         matrix: mat4x4<f32>,
         vector: vec4<f32>,
@@ -466,6 +476,120 @@ namespace tesserxel {
                 transform = (!(transform instanceof MaterialNode)) ? new TransformConstValue(transform) : transform;
                 super("vec4tr(" + vec4.identifier + "," + transform.identifier + ")");
                 this.input = { vec4, transform };
+            }
+        }
+        /** simplex 3D noise */
+        export const NoiseWGSLHeader = `
+        fn mod289v3(x:vec3<f32>)->vec3<f32> {
+            return x - floor(x * (1.0 / 289.0)) * 289.0; 
+        }
+        fn mod289v4(x:vec4<f32>)->vec4<f32> {
+            return x - floor(x * (1.0 / 289.0)) * 289.0; 
+        }
+        fn mod289f(x:f32)->f32 {
+            return x - floor(x * (1.0 / 289.0)) * 289.0; 
+        }
+        fn permutev4(x:vec4<f32>)->vec4<f32> {
+            return mod289v4(((x * 34.0) + 1.0) * x);
+        }
+        fn permutef(x:f32)-> f32 {
+            return mod289f(((x * 34.0) + 1.0) * x);
+        }
+        fn taylorInvSqrtv4(r:vec4<f32>)->vec4<f32> {
+            return vec4(1.79284291400159) - 0.85373472095314 * r;
+        }
+        fn taylorInvSqrtf(r:f32)->f32{
+            return 1.79284291400159 - 0.85373472095314 * r;
+        }
+        
+        fn snoise(v1:vec3<f32>)->f32{
+            let v = v1 + vec3(0.00001,0.00002,0.00003);
+            const C = vec2(1.0/6.0, 1.0/3.0);
+            const D = vec4(0.0, 0.5, 1.0, 2.0);
+
+            // First corner
+            var i  = floor(v + dot(v, vec3(C.y)) );
+            let x0 =   v - i + dot(i, vec3(C.x)) ;
+
+            // Other corners
+            let g = step(x0.yzx, x0.xyz);
+            let l = 1.0 - g;
+            let i1 = min( g.xyz, l.zxy );
+            let i2 = max( g.xyz, l.zxy );
+
+            let x1 = x0 - i1 + vec3(C.x);
+            let x2 = x0 - i2 + vec3(C.y); // 2.0*C.x = 1/3 = C.y
+            let x3 = x0 - vec3(D.y);      // -1.0+3.0*C.x = -0.5 = -D.y
+
+            // Permutations
+            i = mod289v3(i);
+            let p = permutev4( permutev4( permutev4(
+                        vec4(i.z) + vec4(0.0, i1.z, i2.z, 1.0 ))
+                    + vec4(i.y) + vec4(0.0, i1.y, i2.y, 1.0 ))
+                    + vec4(i.x) + vec4(0.0, i1.x, i2.x, 1.0 ));
+
+            // Gradients: 7x7 points over a square, mapped onto an octahedron.
+            // The ring size 17*17 = 289 is close to a multiple of 49 (49*6 = 294)
+            const n_ = 0.142857142857; // 1.0/7.0
+            let  ns = n_ * D.wyz - D.xzx;
+
+            let j = p - 49.0 * floor(p * ns.z * ns.z);  //  mod(p,7*7)
+
+            let x_ = floor(j * ns.z);
+            let y_ = floor(j - 7.0 * x_ );    // mod(j,N)
+
+            let x = x_ *ns.x + vec4(ns.y);
+            let y = y_ *ns.x + vec4(ns.y);
+            let h = 1.0 - abs(x) - abs(y);
+
+            let b0 = vec4( x.xy, y.xy );
+            let b1 = vec4( x.zw, y.zw );
+
+            //vec4 s0 = vec4(lessThan(b0,0.0))*2.0 - 1.0;
+            //vec4 s1 = vec4(lessThan(b1,0.0))*2.0 - 1.0;
+            let s0 = floor(b0)*2.0 + 1.0;
+            let s1 = floor(b1)*2.0 + 1.0;
+            let sh = -step(h, vec4(0.0));
+
+            let a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+            let a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+
+            var p0 = vec3(a0.xy,h.x);
+            var p1 = vec3(a0.zw,h.y);
+            var p2 = vec3(a1.xy,h.z);
+            var p3 = vec3(a1.zw,h.w);
+
+            //Normalise gradients
+            let norm = taylorInvSqrtv4(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+            p0 *= norm.x;
+            p1 *= norm.y;
+            p2 *= norm.z;
+            p3 *= norm.w;
+
+            // Mix final noise value
+            var m = max(vec4(0.6) - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), vec4(0.0));
+            m = m * m;
+            return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
+        }
+        `;
+
+        export class NoiseTexture extends MaterialNode {
+            declare output: "f32";
+            declare input: {
+                uvw: Vec4OutputNode;
+            }
+            getCode(r: Renderer, root: Material, outputToken: string) {
+                // Tell root material that CheckerTexture needs deal dependency of vary input uvw
+                root.addHeader("NoiseWGSLHeader", NoiseWGSLHeader);
+                let { token, code } = this.getInputCode(r, root, outputToken);
+                return code + `
+                let ${outputToken} = snoise(${token.uvw});
+                `;
+            }
+            constructor(uvw?: Vec4OutputNode) {
+                uvw ??= new UVWVec4Input();
+                super(`Noise(${uvw.identifier})`);
+                this.input = { uvw };
             }
         }
     }

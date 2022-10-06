@@ -7229,6 +7229,65 @@ var tesserxel;
                 }
             }
             rigid_1.Tiger = Tiger;
+            class ThickHexahedronGrid extends RigidGeometry {
+                grid1;
+                grid2;
+                convex;
+                constructor(grid1, grid2) {
+                    super();
+                    this.grid1 = grid1;
+                    this.grid2 = grid2;
+                    this.convex = [];
+                    for (let w = 0, lw = grid1.length - 1; w < lw; w++) {
+                        let grd1w = grid1[w];
+                        let grd2w = grid2[w];
+                        let grd1w1 = grid1[w + 1];
+                        let grd2w1 = grid2[w + 1];
+                        for (let z = 0, lz = grid1[0].length - 1; z < lz; z++) {
+                            let grd1wz = grd1w[z];
+                            let grd2wz = grd2w[z];
+                            let grd1wz1 = grd1w[z + 1];
+                            let grd2wz1 = grd2w[z + 1];
+                            let grd1w1z = grd1w1[z];
+                            let grd2w1z = grd2w1[z];
+                            let grd1w1z1 = grd1w1[z + 1];
+                            let grd2w1z1 = grd2w1[z + 1];
+                            for (let x = 0, lx = grid1[0][0].length - 1; x < lx; x++) {
+                                let c = [
+                                    grd1wz[x],
+                                    grd1wz[x + 1],
+                                    grd1wz1[x],
+                                    grd1wz1[x + 1],
+                                    grd1w1z[x],
+                                    grd1w1z[x + 1],
+                                    grd1w1z1[x],
+                                    grd1w1z1[x + 1],
+                                    grd2wz[x],
+                                    grd2wz[x + 1],
+                                    grd2wz1[x],
+                                    grd2wz1[x + 1],
+                                    grd2w1z[x],
+                                    grd2w1z[x + 1],
+                                    grd2w1z1[x],
+                                    grd2w1z1[x + 1],
+                                ];
+                                let sum = new tesserxel.math.Vec4();
+                                c.reduceRight((a, b) => { return sum.addset(a, b); }).divfs(16);
+                                this.convex.push(new Convex(c.map(c => c.sub(sum))));
+                            }
+                        }
+                    }
+                }
+                initializeMassInertia(rigid) {
+                    if (rigid.mass)
+                        console.warn("HeightField doesnt support a finitive mass.");
+                    rigid.mass = null;
+                    rigid.invMass = 0;
+                    rigid.inertia = null;
+                    rigid.invInertia = null;
+                }
+            }
+            rigid_1.ThickHexahedronGrid = ThickHexahedronGrid;
         })(rigid = physics.rigid || (physics.rigid = {}));
     })(physics = tesserxel.physics || (tesserxel.physics = {}));
 })(tesserxel || (tesserxel = {}));
@@ -10305,7 +10364,7 @@ var tesserxel;
             let device = gpu.device;
             let { width, height, depth } = toSize3DDict(size);
             let length = width * height * depth;
-            headerSize ??= 0;
+            headerSize ??= header?.byteLength ?? 0;
             let buffer = device.createBuffer({
                 size: (4 + length * formatSize) * 4 + headerSize,
                 usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
@@ -12639,6 +12698,7 @@ var tesserxel;
             declUniforms = {};
             declUniformLocation = 0;
             declVarys = [];
+            declHeaders;
             createBindGroup(r, p) {
                 this.bindGroup = this.bindGroupBuffers.length ? [r.core.createFragmentShaderBindGroup(p, 0, this.bindGroupBuffers)] : [];
             }
@@ -12671,6 +12731,15 @@ var tesserxel;
                     this.fetchBuffers.push(a);
                 }
             }
+            // when a subnode uses header, call this function to check whether headers are already included
+            addHeader(key, value) {
+                if (!this.declHeaders[key]) {
+                    this.declHeaders[key] = value;
+                }
+                else if (this.declHeaders[key] !== value) {
+                    console.warn(`Found multiple definition of header "${key}".`);
+                }
+            }
             // when a subnode uses uniform, call this function to add uniform globally
             addUniform(type, u, buffer) {
                 if (!this.declUniforms[u]) {
@@ -12692,16 +12761,18 @@ var tesserxel;
                 this.bindGroupBuffers = [];
                 // renderPipeline's uniform bindgroup's location number
                 this.declUniformLocation = 0;
+                this.declHeaders = {};
                 // iteratively generate code
                 let code = this.getCode(r, this, "");
                 // deal no need for vary input
                 let fsIn = this.declVarys.length ? 'vary: fourInputType' : "";
                 let lightCode = r.lightShaderInfomation.lightCode;
+                let headers = globalThis.Object.values(this.declHeaders).join("\n");
                 // if no uniform at group0, then bind lights on 0, or 1
                 if (this.declUniformLocation === 0) {
                     lightCode = lightCode.replace("@group(1)", "@group(0)");
                 }
-                let header = lightCode + `
+                let header = headers + lightCode + `
     struct AffineMat{
         matrix: mat4x4<f32>,
         vector: vec4<f32>,
@@ -13032,6 +13103,116 @@ var tesserxel;
             }
         }
         four.Vec4TransformNode = Vec4TransformNode;
+        /** simplex 3D noise */
+        four.NoiseWGSLHeader = `
+        fn mod289v3(x:vec3<f32>)->vec3<f32> {
+            return x - floor(x * (1.0 / 289.0)) * 289.0; 
+        }
+        fn mod289v4(x:vec4<f32>)->vec4<f32> {
+            return x - floor(x * (1.0 / 289.0)) * 289.0; 
+        }
+        fn mod289f(x:f32)->f32 {
+            return x - floor(x * (1.0 / 289.0)) * 289.0; 
+        }
+        fn permutev4(x:vec4<f32>)->vec4<f32> {
+            return mod289v4(((x * 34.0) + 1.0) * x);
+        }
+        fn permutef(x:f32)-> f32 {
+            return mod289f(((x * 34.0) + 1.0) * x);
+        }
+        fn taylorInvSqrtv4(r:vec4<f32>)->vec4<f32> {
+            return vec4(1.79284291400159) - 0.85373472095314 * r;
+        }
+        fn taylorInvSqrtf(r:f32)->f32{
+            return 1.79284291400159 - 0.85373472095314 * r;
+        }
+        
+        fn snoise(v1:vec3<f32>)->f32{
+            let v = v1 + vec3(0.00001,0.00002,0.00003);
+            const C = vec2(1.0/6.0, 1.0/3.0);
+            const D = vec4(0.0, 0.5, 1.0, 2.0);
+
+            // First corner
+            var i  = floor(v + dot(v, vec3(C.y)) );
+            let x0 =   v - i + dot(i, vec3(C.x)) ;
+
+            // Other corners
+            let g = step(x0.yzx, x0.xyz);
+            let l = 1.0 - g;
+            let i1 = min( g.xyz, l.zxy );
+            let i2 = max( g.xyz, l.zxy );
+
+            let x1 = x0 - i1 + vec3(C.x);
+            let x2 = x0 - i2 + vec3(C.y); // 2.0*C.x = 1/3 = C.y
+            let x3 = x0 - vec3(D.y);      // -1.0+3.0*C.x = -0.5 = -D.y
+
+            // Permutations
+            i = mod289v3(i);
+            let p = permutev4( permutev4( permutev4(
+                        vec4(i.z) + vec4(0.0, i1.z, i2.z, 1.0 ))
+                    + vec4(i.y) + vec4(0.0, i1.y, i2.y, 1.0 ))
+                    + vec4(i.x) + vec4(0.0, i1.x, i2.x, 1.0 ));
+
+            // Gradients: 7x7 points over a square, mapped onto an octahedron.
+            // The ring size 17*17 = 289 is close to a multiple of 49 (49*6 = 294)
+            const n_ = 0.142857142857; // 1.0/7.0
+            let  ns = n_ * D.wyz - D.xzx;
+
+            let j = p - 49.0 * floor(p * ns.z * ns.z);  //  mod(p,7*7)
+
+            let x_ = floor(j * ns.z);
+            let y_ = floor(j - 7.0 * x_ );    // mod(j,N)
+
+            let x = x_ *ns.x + vec4(ns.y);
+            let y = y_ *ns.x + vec4(ns.y);
+            let h = 1.0 - abs(x) - abs(y);
+
+            let b0 = vec4( x.xy, y.xy );
+            let b1 = vec4( x.zw, y.zw );
+
+            //vec4 s0 = vec4(lessThan(b0,0.0))*2.0 - 1.0;
+            //vec4 s1 = vec4(lessThan(b1,0.0))*2.0 - 1.0;
+            let s0 = floor(b0)*2.0 + 1.0;
+            let s1 = floor(b1)*2.0 + 1.0;
+            let sh = -step(h, vec4(0.0));
+
+            let a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+            let a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+
+            var p0 = vec3(a0.xy,h.x);
+            var p1 = vec3(a0.zw,h.y);
+            var p2 = vec3(a1.xy,h.z);
+            var p3 = vec3(a1.zw,h.w);
+
+            //Normalise gradients
+            let norm = taylorInvSqrtv4(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+            p0 *= norm.x;
+            p1 *= norm.y;
+            p2 *= norm.z;
+            p3 *= norm.w;
+
+            // Mix final noise value
+            var m = max(vec4(0.6) - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), vec4(0.0));
+            m = m * m;
+            return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
+        }
+        `;
+        class NoiseTexture extends MaterialNode {
+            getCode(r, root, outputToken) {
+                // Tell root material that CheckerTexture needs deal dependency of vary input uvw
+                root.addHeader("NoiseWGSLHeader", four.NoiseWGSLHeader);
+                let { token, code } = this.getInputCode(r, root, outputToken);
+                return code + `
+                let ${outputToken} = snoise(${token.uvw});
+                `;
+            }
+            constructor(uvw) {
+                uvw ??= new UVWVec4Input();
+                super(`Noise(${uvw.identifier})`);
+                this.input = { uvw };
+            }
+        }
+        four.NoiseTexture = NoiseTexture;
     })(four = tesserxel.four || (tesserxel.four = {}));
 })(tesserxel || (tesserxel = {}));
 /** threejs like 4D lib */
@@ -13175,6 +13356,34 @@ var tesserxel;
                     m.material.createBindGroup(this, pipeline);
                 }
                 m.material.update(this);
+            }
+            async compileMaterials(mats) {
+                let promises = [];
+                if (mats instanceof four.Scene) {
+                    addMaterialInObject(this, promises, mats.child);
+                }
+                else {
+                    for (let m of mats) {
+                        promises.push(m.compile(this));
+                    }
+                }
+                await Promise.all(promises);
+                function addMaterialInObject(self, promises, child) {
+                    for (let m of child) {
+                        if (m instanceof four.Mesh) {
+                            let pipeline = self.fetchPipeline(m.material.identifier);
+                            if (!pipeline) {
+                                m.material.bindGroup = null;
+                                m.bindGroup = null;
+                                promises.push(m.material.compile(self));
+                            }
+                            if (!m.material.compiled) {
+                                m.material.init(self);
+                            }
+                        }
+                        addMaterialInObject(self, promises, m.child);
+                    }
+                }
             }
             updateMesh(m) {
                 if (m.needsUpdateCoord) {

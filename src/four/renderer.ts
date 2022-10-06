@@ -126,6 +126,31 @@ namespace tesserxel {
                 }
                 m.material.update(this);
             }
+
+            async compileMaterials(mats: Iterable<Material> | Scene) {
+                let promises = [];
+                if (mats instanceof Scene) {
+                    addMaterialInObject(this, promises, mats.child);
+                } else {
+                    for (let m of mats) {
+                        promises.push(m.compile(this));
+                    }
+                }
+                await Promise.all(promises);
+                function addMaterialInObject(self: Renderer,promises: Promise<void>[], child: Object[]) {
+                    for (let m of child) {
+                        if (m instanceof Mesh) {
+                            let pipeline = self.fetchPipeline(m.material.identifier);
+                            if (!pipeline) { 
+                                m.material.bindGroup = null; m.bindGroup = null; 
+                                promises.push(m.material.compile(self));
+                            }
+                            if (!m.material.compiled) { m.material.init(self); }
+                        }
+                        addMaterialInObject(self, promises, m.child);
+                    }
+                }
+            }
             updateMesh(m: Mesh) {
                 if (m.needsUpdateCoord) {
                     m.worldCoord.writeBuffer(this.jsBuffer, 0);
@@ -156,7 +181,7 @@ namespace tesserxel {
                             this.gpu.device.queue.writeBuffer(buffer, 0, g.jsBuffer[label]);
                         }
                     }
-                }                
+                }
                 if (m.visible) this.addToDrawList(m);
             }
             updateScene(scene: Scene) {

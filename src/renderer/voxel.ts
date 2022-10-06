@@ -26,7 +26,7 @@ namespace tesserxel {
             let device = gpu.device;
             let { width, height, depth } = toSize3DDict(size);
             let length = width * height * depth;
-            headerSize ??= 0;
+            headerSize ??= header?.byteLength ?? 0;
             let buffer = device.createBuffer({
                 size: (4 + length * formatSize) * 4 + headerSize,
                 usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
