@@ -140,6 +140,10 @@ namespace tesserxel {
                 this.rotation.mulsl(r);
                 return this;
             }
+            rotatesconj(r: Rotor): Obj4 {
+                this.rotation.mulslconj(r);
+                return this;
+            }
             rotatesb(b: Bivec): Obj4 {
                 this.rotation.mulsl(_r.expset(b));
                 return this;

@@ -105,6 +105,7 @@ declare namespace tesserxel {
             getAffineMat4inv(): AffineMat4;
             translates(v: Vec4): Obj4;
             rotates(r: Rotor): Obj4;
+            rotatesconj(r: Rotor): Obj4;
             rotatesb(b: Bivec): Obj4;
             rotatesAt(r: Rotor, center?: Vec4): Obj4;
             lookAt(direction: Vec4, target: Vec4): this;
@@ -1559,6 +1560,28 @@ declare namespace tesserxel {
             private verticalRotor;
             constructor(object?: math.Obj4);
             updateObj(): void;
+            update(state: ControllerState): void;
+        }
+        export class VoxelViewerController implements IController {
+            enabled: boolean;
+            object: math.Obj4;
+            mouseSpeed: number;
+            wheelSpeed: number;
+            damp: number;
+            mousePan: number;
+            mousePanZ: number;
+            mouseRotate: number;
+            /** how many update cycles (2^n) to normalise rotor to avoid accuracy problem */
+            normalisePeriodBit: 4;
+            keyConfig: {
+                disable: string;
+                enable: string;
+            };
+            private _bivec;
+            private _vec;
+            private _wy;
+            private normalisePeriodMask;
+            constructor(object?: math.Obj4);
             update(state: ControllerState): void;
         }
         interface SectionPreset {

@@ -253,20 +253,34 @@ namespace examples {
         }
 
     }
-    export namespace erosion_soor_evni {
+    export namespace erosion {
         export async function load() {
-            const gpu = await tesserxel.renderer.createGPU();
-            const simres = 202;
-            const heightscale = 10;
-            let resolution = [simres, simres, 202];
-            let tx00 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// bdsr
-            let tx01 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// bdsr
-            let tx02 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// fxy
-            let tx03 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 2);// fz
-            let tx04 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// fxy
-            let tx05 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 2);// fz
-            let tx06 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// dbg
-            let computeCode = tesserxel.four.NoiseWGSLHeader + `
+            await simulateTerrain(1);
+        }
+    }
+    export namespace river_evolution {
+        export async function load() {
+            await simulateTerrain(0);
+        }
+    }
+    export namespace coriolis {
+        export async function load() {
+            await simulateTerrain(1,true);
+        }
+    }
+    async function simulateTerrain(erosionRate: number, coriolis?: boolean) {
+        const gpu = await tesserxel.renderer.createGPU();
+        const simres = 202;
+        const heightscale = 10;
+        let resolution = [simres, simres, 202];
+        let tx00 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// bdsr
+        let tx01 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// bdsr
+        let tx02 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// fxy
+        let tx03 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 2);// fz
+        let tx04 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// fxy
+        let tx05 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 2);// fz
+        let tx06 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// dbg
+        let computeCode = tesserxel.four.NoiseWGSLHeader + `
             struct Vec4Attachment{
                 size: vec4<u32>,
                 data: array<vec4<f32>> 
@@ -293,21 +307,21 @@ namespace examples {
             @group(0) @binding(7) var<uniform> uBlock: UniformBlock;
             const l = 0.8;
             const dt = 0.05;
-            const rainRate = 0.01;
+            const rainRate = 0.02;
             const evaporationRate = 0.1;
             const A = 10.0;
             const g = 9.81;
             const pipelen = 0.8;
             const flux_coeff = 2.0 * 9.81 / 0.8 * 0.05;
             const kc = 0.1;
-            const ks = 2;
-            const kd = 4;
+            const ks = 2.0 * ${erosionRate};
+            const kd = 4.0 * ${erosionRate};
             const kav = 9.0; // sedimentflow speed
             const kh = 2.0;
             const kt = 1.0;
             const ka = 0.8*5 * ${heightscale};
             const ki = 0.1*5 * ${heightscale};
-            const kk = 0.01; // corioli
+            const kk = 0.05; // corioli
             const kdp = 0.99; // velocity damping
             const kdmax = 0.2;
             
@@ -325,7 +339,11 @@ namespace examples {
                 let coord = (vec3<f32>(pos) / vec3<f32>(tx00.size.xyz) - vec3<f32>(0.5)) * 2.0;
                 tx00.data[offset].x = (
                     // snoise(vec3(coord.xy,0.2)) + 0.4 * snoise(vec3(coord.xy * 2.0,0.5)) + 0.15 * snoise(vec3(coord.xy * 4.0,0.2)) + 0.07 * snoise(vec3(coord.xy * 8.0,0.2))+ 0.03 * snoise(vec3(coord.xy * 16.0,0.2)) + 0.5
-                    snoise(vec3(coord.xy,0.2 + coord.z)) + 0.4 * snoise(vec3(coord.xy * 2.0,0.5 + coord.z * 2.0)) + 0.15 * snoise(vec3(coord.xy * 4.0,0.2 + coord.z * 4.0)) + 0.07 * snoise(vec3(coord.xy * 8.0,0.2 + coord.z * 8.0))+ 0.03 * snoise(vec3(coord.xy * 16.0,0.2 + coord.z * 16.0)) + 0.5
+                    ${
+                        coriolis ? 
+                        `(snoise(vec3(coord.xy,0.2 + coord.z)) + 0.4 * snoise(vec3(coord.xy * 2.0,0.5 + coord.z * 2.0)) + 0.15 * snoise(vec3(coord.xy * 4.0,0.2 + coord.z * 4.0)) + 0.07 * snoise(vec3(coord.xy * 8.0,0.2 + coord.z * 8.0))+ 0.03 * snoise(vec3(coord.xy * 16.0,0.2 + coord.z * 16.0)) + 0.5) * 0.1 + (coord.x - 0.5) * (coord.x - 0.5) * 0.6 - 0.3`: 
+                        `snoise(vec3(coord.xy,0.2 + coord.z)) + 0.4 * snoise(vec3(coord.xy * 2.0,0.5 + coord.z * 2.0)) + 0.15 * snoise(vec3(coord.xy * 4.0,0.2 + coord.z * 4.0)) + 0.07 * snoise(vec3(coord.xy * 8.0,0.2 + coord.z * 8.0))+ 0.03 * snoise(vec3(coord.xy * 16.0,0.2 + coord.z * 16.0)) + 0.5`
+                    }
                     // snoise(coord*1.0) + 0.4 * snoise(coord * 2.0) + 0.2 * snoise(coord * 4.0) + 0.05 * snoise(coord * 8.0) + 0.02 * snoise(coord * 16.0)
                     // snoise(coord*2.0) + 0.5 * snoise(coord * 4.0) + 0.25 * snoise(coord * 8.0) + 0.125 * snoise(coord * 16.0)
                     // min(0.25,dot(coord,coord))
@@ -334,8 +352,8 @@ namespace examples {
                     // min(0.25,dot(coord.xy,coord.xy))*4.0
                     // (dot(coord.xy,coord.xy) - cos(coord.x*15.0)*cos(coord.y*15.0)*0.08 + 0.1) * 3.0
                 ) * 20.0 * ${heightscale};
-                tx00.data[offset].y = (
-                    step(length(coord.xy - vec2(0.5,0.5)),0.2)
+                tx00.data[offset].y = ( 0.0
+                    // step(length(coord.xy - vec2(0.5,0.5)),0.2)
                 );
                 tx00.data[offset].z = 0.0;//cos(coord.x*80.0)*cos(coord.y*80.0)*0.0003;
                 tx00.data[offset].w = 1.0;
@@ -608,7 +626,7 @@ namespace examples {
                 );
             }
             `;
-            const raytracingShaderCode = `
+        const raytracingShaderCode = `
             struct Vec4Attachment{
                 size: vec4<u32>,
                 data: array<vec4<f32>> 
@@ -663,512 +681,149 @@ namespace examples {
                             clamp(watermap, 0.0, 1.0)
                         ),
                     vec3<f32>(1.0,0.0,0.0), vec3<f32>(clamp(uBlock.sediment * tx06.data[offset].w * 30.0,0.0,1.0))),
-                    clamp(watermap - v * 10.0, uBlock.terrainOpacity / (1 + terrainOpacityFactor*terrainOpacityFactor), 1.0)
+                    clamp(watermap - v * 10.0 * ${erosionRate}, uBlock.terrainOpacity / (1 + terrainOpacityFactor*terrainOpacityFactor), 1.0)
                     
                 );
             }
             `;
-            const device = gpu.device;
-            let computeModule = device.createShaderModule({ code: computeCode });
-            const computePipelineInit = await device.createComputePipelineAsync({
-                compute: {
-                    module: computeModule,
-                    entryPoint: "init"
-                },
-                layout: "auto"
-            });
-            const computePipeline1 = await device.createComputePipelineAsync({
-                compute: {
-                    module: computeModule,
-                    entryPoint: "main1"
-                },
-                layout: "auto", label: "main1"
-            });
-            const computePipeline2 = await device.createComputePipelineAsync({
-                compute: {
-                    module: computeModule,
-                    entryPoint: "main2"
-                },
-                layout: "auto", label: "main2"
-            });
-            const computePipeline3 = await device.createComputePipelineAsync({
-                compute: {
-                    module: computeModule,
-                    entryPoint: "main3"
-                },
-                layout: "auto", label: "main3"
-            });
-            const computePipeline4 = await device.createComputePipelineAsync({
-                compute: {
-                    module: computeModule,
-                    entryPoint: "main4"
-                },
-                layout: "auto", label: "main4"
-            });
-            let uBlockJsBuffer = new Float32Array(28);
-            let uBlockBuffer = gpu.createBuffer(GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM, uBlockJsBuffer);
-            const bufferlist = [
-                { buffer: tx00.buffer },
-                { buffer: tx01.buffer },
-                { buffer: tx02.buffer },
-                { buffer: tx03.buffer },
-                { buffer: tx04.buffer },
-                { buffer: tx05.buffer },
-                { buffer: tx06.buffer },
-                { buffer: uBlockBuffer },
-            ]
-            const computeBindgroupInit = gpu.createBindGroup(computePipelineInit, 0, bufferlist, "gi");
-            const computeBindgroup1 = gpu.createBindGroup(computePipeline1, 0, bufferlist, "g1");
-            const computeBindgroup2 = gpu.createBindGroup(computePipeline2, 0, bufferlist, "g2");
-            const computeBindgroup3 = gpu.createBindGroup(computePipeline3, 0, bufferlist, "g3");
-            const computeBindgroup4 = gpu.createBindGroup(computePipeline4, 0, bufferlist, "g4");
+        const device = gpu.device;
+        let computeModule = device.createShaderModule({ code: computeCode });
+        const computePipelineInit = await device.createComputePipelineAsync({
+            compute: {
+                module: computeModule,
+                entryPoint: "init"
+            },
+            layout: "auto"
+        });
+        const computePipeline1 = await device.createComputePipelineAsync({
+            compute: {
+                module: computeModule,
+                entryPoint: "main1"
+            },
+            layout: "auto", label: "main1"
+        });
+        const computePipeline2 = await device.createComputePipelineAsync({
+            compute: {
+                module: computeModule,
+                entryPoint: "main2"
+            },
+            layout: "auto", label: "main2"
+        });
+        const computePipeline3 = await device.createComputePipelineAsync({
+            compute: {
+                module: computeModule,
+                entryPoint: "main3"
+            },
+            layout: "auto", label: "main3"
+        });
+        const computePipeline4 = await device.createComputePipelineAsync({
+            compute: {
+                module: computeModule,
+                entryPoint: "main4"
+            },
+            layout: "auto", label: "main4"
+        });
+        let uBlockJsBuffer = new Float32Array(28);
+        let uBlockBuffer = gpu.createBuffer(GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM, uBlockJsBuffer);
+        const bufferlist = [
+            { buffer: tx00.buffer },
+            { buffer: tx01.buffer },
+            { buffer: tx02.buffer },
+            { buffer: tx03.buffer },
+            { buffer: tx04.buffer },
+            { buffer: tx05.buffer },
+            { buffer: tx06.buffer },
+            { buffer: uBlockBuffer },
+        ]
+        const computeBindgroupInit = gpu.createBindGroup(computePipelineInit, 0, bufferlist, "gi");
+        const computeBindgroup1 = gpu.createBindGroup(computePipeline1, 0, bufferlist, "g1");
+        const computeBindgroup2 = gpu.createBindGroup(computePipeline2, 0, bufferlist, "g2");
+        const computeBindgroup3 = gpu.createBindGroup(computePipeline3, 0, bufferlist, "g3");
+        const computeBindgroup4 = gpu.createBindGroup(computePipeline4, 0, bufferlist, "g4");
 
-            const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-            const context = gpu.getContext(canvas);
-            const renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context);
-            renderer.setOpacity(20);
-            renderer.setSliceConfig({ layers: 96 });
-            const pipeline = await renderer.createRaytracingPipeline({
-                code: raytracingShaderCode,
-                rayEntryPoint: "mainRay",
-                fragmentEntryPoint: "mainFrag"
-            });
-            const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
-                { buffer: tx00.buffer },
-                { buffer: tx06.buffer },
-                { buffer: uBlockBuffer },
-            ], "renderBindgroup");
-            let retinaCtrl = new tesserxel.controller.RetinaController(renderer);
-            // retinaCtrl.keyConfig.enable = "";
-            retinaCtrl.toggleSectionConfig("zsection");
-            // retinaCtrl.setStereo(false);
-            let displayCtrl = new ErosionDisplayController(uBlockJsBuffer);
-            let viewObj = new tesserxel.math.Obj4(new tesserxel.math.Vec4, new tesserxel.math.Rotor, new tesserxel.math.Vec4(1, 1, 1, 1));
-            let viewCtrl = new tesserxel.controller.VoxelViewerController(viewObj);
-            let ctrlReg = new tesserxel.controller.ControllerRegistry(canvas, [
-                retinaCtrl, displayCtrl, viewCtrl
-            ],{requsetPointerLock: true});
+        const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+        const context = gpu.getContext(canvas);
+        const renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context);
+        renderer.setOpacity(20);
+        renderer.setSliceConfig({ layers: 96 });
+        const pipeline = await renderer.createRaytracingPipeline({
+            code: raytracingShaderCode,
+            rayEntryPoint: "mainRay",
+            fragmentEntryPoint: "mainFrag"
+        });
+        const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
+            { buffer: tx00.buffer },
+            { buffer: tx06.buffer },
+            { buffer: uBlockBuffer },
+        ], "renderBindgroup");
+        let retinaCtrl = new tesserxel.controller.RetinaController(renderer);
+        // retinaCtrl.keyConfig.enable = "";
+        // retinaCtrl.toggleSectionConfig("zsection");
+        // retinaCtrl.setStereo(false);
+        let displayCtrl = new ErosionDisplayController(uBlockJsBuffer);
+        let viewObj = new tesserxel.math.Obj4(new tesserxel.math.Vec4, new tesserxel.math.Rotor, new tesserxel.math.Vec4(1, 1, 1, 1));
+        let viewCtrl = new tesserxel.controller.VoxelViewerController(viewObj);
+        let ctrlReg = new tesserxel.controller.ControllerRegistry(canvas, [
+            retinaCtrl, displayCtrl, viewCtrl
+        ], { requsetPointerLock: true });
 
-            function setSize() {
-                const width = window.innerWidth * window.devicePixelRatio;
-                const height = window.innerHeight * window.devicePixelRatio;
-                canvas.width = width;
-                canvas.height = height;
-                renderer.setSize({ width, height });
-            }
-            setSize();
-            window.addEventListener("resize", setSize);
-            let init = true;
-            let step = 0;
-            let viewAffine = new tesserxel.math.AffineMat4;
-            function dispatch() {
-                let dispatchSize: [number, number, number] = [
-                    Math.ceil(tx00.width / 8),
-                    Math.ceil(tx00.height / 8),
-                    Math.ceil(tx00.depth / 4)
-                ];
-                let commandEncoder = device.createCommandEncoder();
-                let passEncoder = commandEncoder.beginComputePass();
-                // let step = 1;
-                let dt = 0.05;//1 / 60 / step / 6;
-
-                viewAffine.setFromObj4(viewObj).writeBuffer(uBlockJsBuffer, 8);
-                if (init) {
-                    passEncoder.setPipeline(computePipelineInit);
-                    passEncoder.setBindGroup(0, computeBindgroupInit);
-                    passEncoder.dispatchWorkgroups(...dispatchSize);
-                }
-                device.queue.writeBuffer(uBlockBuffer, 0, uBlockJsBuffer);
-                init = false;
-                passEncoder.setPipeline(computePipeline1);
-                passEncoder.setBindGroup(0, computeBindgroup1);
-                passEncoder.dispatchWorkgroups(...dispatchSize);
-                passEncoder.setPipeline(computePipeline2);
-                passEncoder.setBindGroup(0, computeBindgroup2);
-                passEncoder.dispatchWorkgroups(...dispatchSize);
-                passEncoder.setPipeline(computePipeline3);
-                passEncoder.setBindGroup(0, computeBindgroup3);
-                passEncoder.dispatchWorkgroups(...dispatchSize);
-                passEncoder.setPipeline(computePipeline4);
-                passEncoder.setBindGroup(0, computeBindgroup4);
-                passEncoder.dispatchWorkgroups(...dispatchSize);
-                passEncoder.end();
-                device.queue.submit([commandEncoder.finish()]);
-            }
-            function loop() {
-                ctrlReg.update();
-                dispatch();
-
-                step++;
-                renderer.render(() => {
-                    renderer.drawRaytracing(pipeline, [renderBindgroup]);
-                });
-                // if(step > 100) return;
-                window.requestAnimationFrame(loop);
-            }
-            loop();
-
+        function setSize() {
+            const width = window.innerWidth * window.devicePixelRatio;
+            const height = window.innerHeight * window.devicePixelRatio;
+            canvas.width = width;
+            canvas.height = height;
+            renderer.setSize({ width, height });
         }
-    }
-    export namespace erosion {
-        export async function load() {
-            const config = {
-                resolution: 128,
-                dt: 0.05,
-                A: 0.6,
-                pipeLen: 0.8,
-                rainRate: 0.01,
-                evaporationRate: 0.1
+        setSize();
+        window.addEventListener("resize", setSize);
+        let init = true;
+        let step = 0;
+        let viewAffine = new tesserxel.math.AffineMat4;
+        function dispatch() {
+            let dispatchSize: [number, number, number] = [
+                Math.ceil(tx00.width / 8),
+                Math.ceil(tx00.height / 8),
+                Math.ceil(tx00.depth / 4)
+            ];
+            let commandEncoder = device.createCommandEncoder();
+            let passEncoder = commandEncoder.beginComputePass();
+            // let step = 1;
+            let dt = 0.05;//1 / 60 / step / 6;
+
+            viewAffine.setFromObj4(viewObj).writeBuffer(uBlockJsBuffer, 8);
+            if (init) {
+                passEncoder.setPipeline(computePipelineInit);
+                passEncoder.setBindGroup(0, computeBindgroupInit);
+                passEncoder.dispatchWorkgroups(...dispatchSize);
             }
-            const configConstHeader = `
-                const div = 1.0 / ${config.resolution}.0;
-                const flowCoeff = ${config.dt * 9.81 * config.A / config.pipeLen};
-                const pipeLen = ${config.pipeLen};
-                const rainRate = ${config.rainRate};
-                const dt = ${config.dt};
-                const evaporationRate = ${config.evaporationRate};
-                const kc = 0.6;
-                const ks = 0.0;
-                const kd = 0.0;
-                const kav = 1.0; // sedimentflow speed
-                const kh = 5.0;
-            `;
-            const gpu = await tesserxel.renderer.createGPU();
-            const device = gpu.device;
-            const txtDescriptor: GPUTextureDescriptor = {
-                size: [config.resolution, config.resolution],
-                format: "rgba16float",
-                usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
-            };
-            const quadShader = device.createShaderModule({
-                code: `
-                struct output{
-                    @builtin(position) pos: vec4<f32>,
-                    @location(0) uv: vec2<f32>
-                }
-                @vertex fn main(@builtin(vertex_index) vindex : u32) -> output {
-                    const pos = array<vec2<f32>, 4>(
-                        vec2<f32>(-1.0, -1.0),
-                        vec2<f32>(-1.0, 1.0),
-                        vec2<f32>( 1.0, -1.0),
-                        vec2<f32>( 1.0, 1.0),
-                    );
-                    const uv = array<vec2<f32>, 4>(
-                        vec2<f32>(0, 1),
-                        vec2<f32>(0, 0),
-                        vec2<f32>(1, 1),
-                        vec2<f32>(1, 0),
-                    );
-                    return output(
-                        vec4<f32>(pos[vindex],0.0,1.0),
-                        uv[vindex]
-                    );
-                }
-                `
-            });
-            const tx00 = device.createTexture(txtDescriptor);
-            const tx01 = device.createTexture(txtDescriptor);
-            const tx02 = device.createTexture(txtDescriptor);
-            const tx03 = device.createTexture(txtDescriptor);
-            const linearTextureSampler = device.createSampler({
-                magFilter: 'linear',
-                minFilter: 'linear',
-                addressModeU: "repeat",
-                addressModeV: "repeat",
-            });
-            const nearestTextureSampler = device.createSampler({
-                magFilter: 'nearest',
-                minFilter: 'nearest',
-                addressModeU: "repeat",
-                addressModeV: "repeat",
-            });
-            const clearValue = { r: 0, g: 0, b: 0, a: 0 }, loadOp: GPULoadOp = 'clear', storeOp: GPUStoreOp = 'store';
-            const entryPoint = "main";
-
-            const initPass: GPURenderPassDescriptor = {
-                colorAttachments: [
-                    { view: tx00.createView(), clearValue, loadOp, storeOp },
-                    { view: tx01.createView(), clearValue, loadOp, storeOp },
-                ]
-            };
-            const initShader = device.createShaderModule({
-                code: tesserxel.four.NoiseWGSLHeader + `
-                ${configConstHeader}
-                fn fbm(x:vec3<f32>)->f32{
-                    return snoise(x) + 0.5*snoise(x*2.0) + 0.25*snoise(x*4.0) + 0.125*snoise(x*8) + 0.0625*snoise(x*16);
-                }
-                struct output{
-                    @location(0) c0: vec4<f32>,
-                    @location(1) c1: vec4<f32>
-                }
-                @fragment fn main(@location(0) UV: vec2<f32>) -> output {
-                    let uv = vec2(UV.x,1.0-UV.y) - vec2(0.5) - vec2(div) * 0.5;
-                    // let h = length(uv - vec2(0.5) - vec2(0.0,0.5));
-                    let h = snoise(vec3(uv,0.2)) + 0.4 * snoise(vec3(uv * 2.0,0.5)) + 0.15 * snoise(vec3(uv * 4.0,0.2)) + 0.07 * snoise(vec3(uv * 8.0,0.2))+ 0.03 * snoise(vec3(uv * 16.0,0.2)) + 0.5;
-                    return output(
-                        vec4<f32>(h * 200.0 ,
-                        step(length(uv - vec2(0.5,0.5)),0.2)
-                        ,0.0,1.0),
-                        vec4<f32>(0.0)
-                    );
-                }
-                `
-            });
-            const initPipeline = device.createRenderPipeline({
-                fragment: {
-                    module: initShader, entryPoint,
-                    targets: [{ format: txtDescriptor.format }, { format: txtDescriptor.format }]
-                },
-                vertex: { module: quadShader, entryPoint },
-                layout: 'auto', primitive: { topology: 'triangle-strip' }, label: 'init'
-            });
-            const flowShader = device.createShaderModule({
-                code: configConstHeader + `
-                @group(0) @binding(0) var splr: sampler;
-                @group(0) @binding(1) var tx00: texture_2d<f32>;
-                @group(0) @binding(2) var tx01: texture_2d<f32>;
-                @fragment fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-                    let c = textureSample(tx00, splr, uv);
-                    let l = textureSample(tx00, splr, uv + vec2<f32>(-div,0));
-                    let r = textureSample(tx00, splr, uv + vec2<f32>( div,0));
-                    let d = textureSample(tx00, splr, uv + vec2<f32>(0,-div));
-                    let u = textureSample(tx00, splr, uv + vec2<f32>(0, div));
-                    let hc = c.x + c.y;
-                    var fxy = textureSample(tx01, splr, uv);
-                    fxy = max(vec4(0.0), fxy + flowCoeff * (vec4<f32>(hc,hc,hc,hc) - vec4<f32>(l.x,r.x,d.x,u.x) - vec4<f32>(l.y,r.y,d.y,u.y)));
-                    let flux_out = fxy.x + fxy.y + fxy.z + fxy.w;
-                    return fxy * min(1.0, c.y * pipeLen * pipeLen / (dt * flux_out));
-                }
-                `
-            });
-            const flowPipeline = device.createRenderPipeline({
-                fragment: {
-                    module: flowShader, entryPoint,
-                    targets: [{ format: txtDescriptor.format }]
-                },
-                vertex: { module: quadShader, entryPoint },
-                layout: 'auto', primitive: { topology: 'triangle-strip' }, label: 'flow'
-            });
-            const flowBindgroup = gpu.createBindGroup(flowPipeline, 0, [
-                nearestTextureSampler,
-                tx00.createView(),
-                tx01.createView(),
-            ], 'flow');
-            const flowPass: GPURenderPassDescriptor = {
-                colorAttachments: [{
-                    view: tx02.createView(), clearValue, loadOp, storeOp
-                }], label: 'flow'
-            };
-            const waterShader = device.createShaderModule({
-                code: configConstHeader + `
-                @group(0) @binding(0) var splr: sampler;
-                @group(0) @binding(1) var tx00: texture_2d<f32>;
-                @group(0) @binding(2) var tx02: texture_2d<f32>;
-                @fragment fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-                    let c = textureSample(tx00, splr, uv);
-                    let l = textureSample(tx02, splr, uv + vec2<f32>(-div,0));
-                    let r = textureSample(tx02, splr, uv + vec2<f32>( div,0));
-                    let d = textureSample(tx02, splr, uv + vec2<f32>(0,-div));
-                    let u = textureSample(tx02, splr, uv + vec2<f32>(0, div));
-
-                    
-                    let bdl = textureSample(tx00, splr, uv + vec2<f32>(-div,0));
-                    let bdr = textureSample(tx00, splr, uv + vec2<f32>( div,0));
-                    let bdd = textureSample(tx00, splr, uv + vec2<f32>(0,-div));
-                    let bdu = textureSample(tx00, splr, uv + vec2<f32>(0, div));
-
-                    let fxy = textureSample(tx02, splr, uv);
-                    let flux_out = fxy.x + fxy.y + fxy.z + fxy.w;
-                    let flux_in = l.y + r.x + d.w + u.z;
-                    let d1 = max(0.0, c.y + dt * ((flux_in - flux_out) / ( pipeLen * pipeLen) + rainRate - c.y * evaporationRate));
-                    var w = vec2(
-                        fxy.y - fxy.x + l.y - r.x,
-                        fxy.w - fxy.z + d.w - u.z,
-                    );
-                    if(c.y + d1 <= 0.0001 || d1 < 0.0001) {w = vec2(0.0);}else{w /= (c.y + d1) * pipeLen;}
-                    let v = length(w);
-                    let N = normalize(vec3(
-                        bdr.x - bdl.x,
-                        bdu.x - bdd.x, 2.0
-                    ));
-                    let slopeSin = sqrt(1.0 - N.z*N.z);
-                    let slope = max(0.1, slopeSin) ;
-                    let cap = 0.1;//max(0.0, kc * v * slope);
-                    let avoc = uv - w * dt * kav;
-                    let s = textureSample(tx00, splr, avoc).z;
-                    let rt = c.w;
-                    let ds = -0.001;//dt * mix(kd, ks, step(s, cap)) * (s - cap);
-
-                    return vec4<f32>(
-                        c.x - 0.1, d1, s,
-                        v
-                    );
-                }
-                `
-            });
-            const waterPipeline = device.createRenderPipeline({
-                fragment: {
-                    module: waterShader, entryPoint,
-                    targets: [{ format: txtDescriptor.format }]
-                },
-                vertex: { module: quadShader, entryPoint },
-                layout: 'auto', primitive: { topology: 'triangle-strip' },
-                label: 'water'
-            });
-            const waterBindgroup = gpu.createBindGroup(waterPipeline, 0, [
-                nearestTextureSampler,
-                tx00.createView(),
-                tx02.createView(),
-            ], 'water');
-            const waterPass: GPURenderPassDescriptor = {
-                colorAttachments: [{
-                    view: tx03.createView(), clearValue, loadOp, storeOp
-                }],
-                label: 'water'
-            };
-            const sedShader = device.createShaderModule({
-                code: configConstHeader + `
-                @group(0) @binding(0) var splr: sampler;
-                @group(0) @binding(1) var tx02: texture_2d<f32>;
-                @group(0) @binding(2) var tx03: texture_2d<f32>;
-                struct output{
-                    @location(0) c0: vec4<f32>,
-                    @location(1) c1: vec4<f32>
-                }
-                @fragment fn main(@location(0) uv: vec2<f32>) -> output {
-                    let c0 = textureSample(tx03, splr, uv);
-                    let c1 = textureSample(tx02, splr, uv);
-
-                    return output(c0, c1);
-                }
-                `
-            });
-            const sedPipeline = device.createRenderPipeline({
-                fragment: {
-                    module: sedShader, entryPoint,
-                    targets: [{ format: txtDescriptor.format }, { format: txtDescriptor.format }]
-                },
-                vertex: { module: quadShader, entryPoint },
-                layout: 'auto', primitive: { topology: 'triangle-strip' },
-                label: 'sed'
-            });
-            const sedBindgroup = gpu.createBindGroup(sedPipeline, 0, [
-                nearestTextureSampler,
-                tx02.createView(),
-                tx03.createView(),
-            ], 'sed');
-            const sedPass: GPURenderPassDescriptor = {
-                colorAttachments: [
-                    { view: tx00.createView(), clearValue, loadOp, storeOp },
-                    { view: tx01.createView(), clearValue, loadOp, storeOp },
-                ],
-                label: 'sed'
-            };
-            const showShader = device.createShaderModule({
-                code: `
-                @group(0) @binding(0) var splr: sampler;
-                @group(0) @binding(1) var tx00: texture_2d<f32>;
-                fn heightmap(h:f32)->vec3<f32>{
-                    return mix(mix(
-                            mix(vec3<f32>(0.0, 0.8, 0.0), vec3<f32>(1.0, 1.0, 0.0), clamp(h * 2, 0.0, 1.0)),
-                            mix(vec3<f32>(1.0, 1.0, 0.0), vec3<f32>(0.8, 0.5, 0.4), clamp(h * 2 - 1, 0.0, 1.0)),
-                            step(0.5, h)
-                        ), mix(
-                            mix(vec3<f32>(0.8, 0.5, 0.4), vec3<f32>(0.5, 0.5, 0.5), clamp(h * 2 - 2, 0.0, 1.0)),
-                            mix(vec3<f32>(0.5, 0.5, 0.5), vec3<f32>(1.0, 1.0, 1.0), clamp(h * 2 - 3, 0.0, 1.0)),
-                            step(1.5, h)
-                        ),
-                        step(1.0, h)
-                    );
-                }
-                @fragment fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-                    let bdsr = textureSample(tx00, splr, uv);
-                    // return vec4<f32>(color.yzx,1.0);
-                    let waterColor = mix(
-                        vec3(0,0,1),
-                        vec3(1.0),
-                        bdsr.w * 0.05
-                    );
-                    let height = bdsr.x / 256.0;
-                    return vec4<f32>(height, height, height, 1.0); 
-                    // let color = mix(heightmap(
-                    //         bdsr.x / 256.0
-                    //     ), waterColor,
-                    //     clamp(0.0,1.0,bdsr.y * 2.0)
-                    // );
-                    // return vec4<f32>(mix(
-                    //     color,
-                    //     vec3<f32>(1.0,0.0,0.0),
-                    //     0.0 * 3000.0
-                    // ), 1.0);
-                }
-                `
-            });
-            const showPipeline = device.createRenderPipeline({
-                fragment: {
-                    module: showShader, entryPoint,
-                    targets: [{ format: gpu.preferredFormat }]
-                },
-                vertex: { module: quadShader, entryPoint },
-                layout: 'auto', primitive: { topology: 'triangle-strip' }, label: 'show'
-            });
-            const showBindgroup = gpu.createBindGroup(showPipeline, 0, [
-                nearestTextureSampler,
-                tx00.createView()
-            ], 'show');
-            const canvas = document.querySelector("canvas");
-            const context = gpu.getContext(canvas);
-            function setSize() {
-                const width = window.innerWidth * window.devicePixelRatio;
-                const height = window.innerHeight * window.devicePixelRatio;
-                canvas.width = width;
-                canvas.height = height;
-            }
-            setSize();
-            window.addEventListener("resize", setSize);
-            let init = true;
-            let step = 0;
-            function run() {
-                const showPass = {
-                    colorAttachments: [{
-                        view: context.getCurrentTexture().createView(), clearValue, loadOp, storeOp
-                    }], label: 'show'
-                }
-                const commandEncoder = device.createCommandEncoder();
-                step++;
-
-                if (init) {
-                    const initEncoder = commandEncoder.beginRenderPass(initPass);
-                    initEncoder.setPipeline(initPipeline);
-                    initEncoder.draw(4);
-                    initEncoder.end();
-                }
-                const flowEncoder = commandEncoder.beginRenderPass(flowPass);
-                flowEncoder.setPipeline(flowPipeline);
-                flowEncoder.setBindGroup(0, flowBindgroup);
-                flowEncoder.draw(4);
-                flowEncoder.end();
-                const waterEncoder = commandEncoder.beginRenderPass(waterPass);
-                waterEncoder.setPipeline(waterPipeline);
-                waterEncoder.setBindGroup(0, waterBindgroup);
-                waterEncoder.draw(4);
-                waterEncoder.end();
-                const sedEncoder = commandEncoder.beginRenderPass(sedPass);
-                sedEncoder.setPipeline(sedPipeline);
-                sedEncoder.setBindGroup(0, sedBindgroup);
-                sedEncoder.draw(4);
-                sedEncoder.end();
-                const showEncoder = commandEncoder.beginRenderPass(showPass);
-                showEncoder.setPipeline(showPipeline);
-                showEncoder.setBindGroup(0, showBindgroup);
-                showEncoder.draw(4);
-                showEncoder.end();
-                device.queue.submit([commandEncoder.finish()]);
-                init = false;
-                if (step > 100) return;
-                window.requestAnimationFrame(run);
-            }
-            run();
+            device.queue.writeBuffer(uBlockBuffer, 0, uBlockJsBuffer);
+            init = false;
+            passEncoder.setPipeline(computePipeline1);
+            passEncoder.setBindGroup(0, computeBindgroup1);
+            passEncoder.dispatchWorkgroups(...dispatchSize);
+            passEncoder.setPipeline(computePipeline2);
+            passEncoder.setBindGroup(0, computeBindgroup2);
+            passEncoder.dispatchWorkgroups(...dispatchSize);
+            passEncoder.setPipeline(computePipeline3);
+            passEncoder.setBindGroup(0, computeBindgroup3);
+            passEncoder.dispatchWorkgroups(...dispatchSize);
+            passEncoder.setPipeline(computePipeline4);
+            passEncoder.setBindGroup(0, computeBindgroup4);
+            passEncoder.dispatchWorkgroups(...dispatchSize);
+            passEncoder.end();
+            device.queue.submit([commandEncoder.finish()]);
         }
+        function loop() {
+            ctrlReg.update();
+            dispatch();
+
+            step++;
+            renderer.render(() => {
+                renderer.drawRaytracing(pipeline, [renderBindgroup]);
+            });
+            // if(step > 100) return;
+            window.requestAnimationFrame(loop);
+        }
+        loop();
     }
 }

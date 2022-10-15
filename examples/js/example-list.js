@@ -26,7 +26,8 @@ let examples = [
             { target: "rigid_test", zh: "刚体测试", en: "Rigid Body Test" },
             { target: "st_pile", zh: "球环堆", en: "Spheritorus Pile" },
             { target: "wave_eq", zh: "三维波动方程", en: "Wave Equation" },
-            { target: "erosion", zh: "河流演化", en: "River Evolution" },
+            { target: "river_evolution", zh: "河流演化", en: "River Evolution" },
+            { target: "erosion", zh: "流水侵蚀（试验）", en: "Hydraulic Erosion (Experimental)" },
             {
                 group: "rigid_chain", zh: "刚体链", en: "Rigid Chains",
                 child: [

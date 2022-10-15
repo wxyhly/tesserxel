@@ -267,6 +267,10 @@ var tesserxel;
                 this.rotation.mulsl(r);
                 return this;
             }
+            rotatesconj(r) {
+                this.rotation.mulslconj(r);
+                return this;
+            }
             rotatesb(b) {
                 this.rotation.mulsl(math._r.expset(b));
                 return this;
@@ -4557,6 +4561,8 @@ var tesserxel;
                 for (let i = 0; i < world.rigids.length; i++) {
                     for (let j = i + 1; j < world.rigids.length; j++) {
                         let ri = world.rigids[i], rj = world.rigids[j];
+                        if (!ri.mass && !rj.mass)
+                            continue;
                         if (!this.checkBoundingGlome(ri, rj))
                             continue;
                         let iU = ri.geometry instanceof physics.rigid.Union;
@@ -4598,6 +4604,8 @@ var tesserxel;
                 for (let i = 0; i < world.rigids.length; i++) {
                     for (let j = i + 1; j < world.rigids.length; j++) {
                         let ri = world.rigids[i], rj = world.rigids[j];
+                        if (!ri.mass && !rj.mass)
+                            continue;
                         let iU = ri.geometry instanceof physics.rigid.Union;
                         let jU = rj.geometry instanceof physics.rigid.Union;
                         if (!iU && !jU) {
@@ -7229,6 +7237,7 @@ var tesserxel;
                 }
             }
             rigid_1.Tiger = Tiger;
+            // todo
             class ThickHexahedronGrid extends RigidGeometry {
                 grid1;
                 grid2;
@@ -8061,6 +8070,70 @@ var tesserxel;
             }
         }
         controller.KeepUpController = KeepUpController;
+        class VoxelViewerController {
+            enabled = true;
+            object = new tesserxel.math.Obj4(tesserxel.math.Vec4.w.neg());
+            mouseSpeed = 0.01;
+            wheelSpeed = 0.0001;
+            damp = 0.1;
+            mousePan = 2;
+            mousePanZ = 1;
+            mouseRotate = 0;
+            /** how many update cycles (2^n) to normalise rotor to avoid accuracy problem */
+            normalisePeriodBit;
+            keyConfig = {
+                disable: "AltLeft",
+                enable: "",
+            };
+            _bivec = new tesserxel.math.Bivec();
+            _vec = new tesserxel.math.Vec4();
+            _wy = 0;
+            normalisePeriodMask = 15;
+            constructor(object) {
+                if (object)
+                    this.object = object;
+            }
+            update(state) {
+                let disabled = state.queryDisabled(this.keyConfig);
+                let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
+                if (!disabled) {
+                    let dx = state.moveX * this.mouseSpeed;
+                    let dy = -state.moveY * this.mouseSpeed;
+                    let wy = state.wheelY * this.wheelSpeed;
+                    switch (state.currentBtn) {
+                        case this.mousePan:
+                            this._vec.set(dx * this.object.scale.x, dy * this.object.scale.y).rotates(this.object.rotation);
+                            this._bivec.set();
+                            break;
+                        case this.mousePanZ:
+                            this._vec.set(dx * this.object.scale.x, 0, -dy * this.object.scale.z).rotates(this.object.rotation);
+                            this._bivec.set();
+                            break;
+                        case this.mouseRotate:
+                            this._bivec.set(0, dx, 0, dy);
+                            this._vec.set();
+                            break;
+                        default:
+                            this._bivec.mulfs(dampFactor);
+                            this._vec.mulfs(dampFactor);
+                    }
+                    this.object.position.subs(this._vec);
+                    this._wy = wy ? wy : this._wy * dampFactor;
+                    if (this.object.scale)
+                        this.object.scale.mulfs(1 + this._wy);
+                }
+                else {
+                    this._bivec.mulfs(dampFactor);
+                    this._vec.mulfs(dampFactor);
+                    this._wy *= dampFactor;
+                }
+                this.object.rotation.mulsr(this._bivec.exp());
+                if ((state.updateCount & this.normalisePeriodMask) === 0) {
+                    this.object.rotation.norms();
+                }
+            }
+        }
+        controller.VoxelViewerController = VoxelViewerController;
         let sliceconfig;
         (function (sliceconfig) {
             function singlezslice1eye(screenSize) {

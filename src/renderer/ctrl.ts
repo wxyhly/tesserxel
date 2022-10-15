@@ -422,6 +422,66 @@ namespace tesserxel {
                 }
             }
         }
+        export class VoxelViewerController implements IController {
+            enabled = true;
+            object = new math.Obj4(math.Vec4.w.neg());
+            mouseSpeed = 0.01;
+            wheelSpeed = 0.0001;
+            damp = 0.1;
+            mousePan = 2;
+            mousePanZ = 1;
+            mouseRotate = 0;
+            /** how many update cycles (2^n) to normalise rotor to avoid accuracy problem */
+            normalisePeriodBit: 4;
+            keyConfig = {
+                disable: "AltLeft",
+                enable: "",
+            }
+            private _bivec = new math.Bivec();
+            private _vec = new math.Vec4();
+            private _wy = 0;
+            private normalisePeriodMask = 15;
+            constructor(object?: math.Obj4) {
+                if (object) this.object = object;
+            }
+            update(state: ControllerState) {
+                let disabled = state.queryDisabled(this.keyConfig);
+                let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
+                if (!disabled) {
+                    let dx = state.moveX * this.mouseSpeed;
+                    let dy = -state.moveY * this.mouseSpeed;
+                    let wy = state.wheelY * this.wheelSpeed;
+                    switch (state.currentBtn) {
+                        case this.mousePan:
+                            this._vec.set(dx * this.object.scale.x, dy * this.object.scale.y).rotates(this.object.rotation)
+                            this._bivec.set();
+                            break;
+                        case this.mousePanZ:
+                            this._vec.set(dx * this.object.scale.x, 0, -dy * this.object.scale.z).rotates(this.object.rotation);
+                            this._bivec.set();
+                            break;
+                        case this.mouseRotate:
+                            this._bivec.set(0, dx, 0, dy);
+                            this._vec.set();
+                            break;
+                        default:
+                            this._bivec.mulfs(dampFactor);
+                            this._vec.mulfs(dampFactor);
+                    }
+                    this.object.position.subs(this._vec);
+                    this._wy = wy ? wy : this._wy * dampFactor;
+                    if (this.object.scale) this.object.scale.mulfs(1 + this._wy);
+                } else {
+                    this._bivec.mulfs(dampFactor);
+                    this._vec.mulfs(dampFactor);
+                    this._wy *= dampFactor;
+                }
+                this.object.rotation.mulsr(this._bivec.exp());
+                if ((state.updateCount & this.normalisePeriodMask) === 0) {
+                    this.object.rotation.norms();
+                }
+            }
+        }
         interface SectionPreset {
             retina: boolean,
             eye1: renderer.SectionConfig[],
@@ -884,7 +944,7 @@ namespace tesserxel {
                                 near: Math.max(0.01, this.retinaZDistance - 4),
                                 far: this.retinaZDistance + 4
                             });
-                        }else{
+                        } else {
                             this.retinaZDistance = 4;
                             this.renderer.setRetinaProjectMatrix({
                                 size: this.retinaSize,
