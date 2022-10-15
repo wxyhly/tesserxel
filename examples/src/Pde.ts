@@ -198,222 +198,269 @@ namespace examples {
 
     class ErosionDisplayController implements tesserxel.controller.IController {
         water: number = 1;
-        height: number = 0.5;
         sediment: number = 0;
+
+        terrainQSpeed = 0.04;
+        terrainCSpeed = 0.04;
+        terrainOSpeed = 0.04;
+
+        terrainQ = 1.0;
+        terrainCenter = 0.5;
+        terrainOpacity = 0.05;
+
         enabled: boolean = true;
         buffer: Float32Array;
-        constructor(jsBuffer: Float32Array){
+        constructor(jsBuffer: Float32Array) {
             this.buffer = jsBuffer;
         }
         update(state: tesserxel.controller.ControllerState) {
-            if(state.isKeyHold("KeyO")){
+            if (state.isKeyHold("KeyO")) {
                 this.water = 0;
             }
-            if(state.isKeyHold(".KeyL")){
-                this.water = 1;
+            if (state.isKeyHold("KeyL")) {
+                this.water += 0.5;
             }
-            if(state.isKeyHold("KeyL")){
-                this.water += 1.9;
+            if (state.isKeyHold(".KeyP")) {
+                this.sediment = this.sediment ? 0 : 0.1;
             }
-            if(state.isKeyHold("KeyI")){
-                this.sediment = 0;
+            if (state.isKeyHold("KeyY")) {
+                this.terrainQ *= 1 + this.terrainQSpeed;
             }
-            if(state.isKeyHold("KeyK")){
-                this.sediment = 10000;
+            if (state.isKeyHold("KeyH")) {
+                this.terrainQ /= 1 + this.terrainQSpeed;
+                if (this.terrainQ < 1) this.terrainQ = 1;
             }
-            if(state.isKeyHold("KeyM")){
-                this.sediment = -10000;
+            if (state.isKeyHold("KeyU")) {
+                this.terrainCenter += this.terrainCSpeed;
             }
-            if(state.isKeyHold("KeyU")){
-                this.height = 0.5;
+            if (state.isKeyHold("KeyJ")) {
+                this.terrainCenter -= this.terrainCSpeed;
             }
-            if(state.isKeyHold("KeyJ")){
-                this.height = 1;
+            if (state.isKeyHold("KeyI")) {
+                this.terrainOpacity *= 1 + this.terrainOSpeed;
             }
-            this.buffer[2] = this.water;
-            this.buffer[3] = this.sediment;
-            this.buffer[4] = this.height;
+            if (state.isKeyHold("KeyK")) {
+                this.terrainOpacity /= 1 + this.terrainOSpeed;
+            }
+            this.buffer.set([
+                0, // preserved maybe for seed
+                this.water,
+                this.sediment,
+                this.terrainQ,
+                this.terrainCenter,
+                this.terrainOpacity,
+            ]);
         }
 
     }
-    export namespace erosion {
+    export namespace erosion_soor_evni {
         export async function load() {
             const gpu = await tesserxel.renderer.createGPU();
-            let resolution = [200, 200, 200];
-            // vec4< b | d, fxm | fxp, fym | fyp, fzm | fzp >
-            let bufferA = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);
-            // vec4< b | d, fxm | fxp, fym | fyp, fzm | fzp >
-            let bufferB = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);
-            // vec4< v | s, >
-            let bufferC = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);
-            const packFCoeff = 1;
+            const simres = 202;
+            const heightscale = 10;
+            let resolution = [simres, simres, 202];
+            let tx00 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// bdsr
+            let tx01 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// bdsr
+            let tx02 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// fxy
+            let tx03 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 2);// fz
+            let tx04 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// fxy
+            let tx05 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 2);// fz
+            let tx06 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// dbg
             let computeCode = tesserxel.four.NoiseWGSLHeader + `
             struct Vec4Attachment{
                 size: vec4<u32>,
-                data: array<vec4<u32>> 
+                data: array<vec4<f32>> 
+            }
+            struct Vec2Attachment{
+                size: vec4<u32>,
+                data: array<vec2<f32>> 
             }
             struct UniformBlock{
-                time: f32,
-                dt: f32,
+                seed: f32
             }
-            @group(0) @binding(0) var<storage,read_write> input: Vec4Attachment;
-            @group(0) @binding(1) var<storage,read_write> output: Vec4Attachment;
-            @group(0) @binding(2) var<uniform> uBlock: UniformBlock;
-            @group(0) @binding(3) var<storage,read_write> temp: Vec4Attachment;
-            const l = 1.0 / ${resolution[0]};
-            const flux_coeff = 556.1;
-            const rainRate = 0.001;
+            @group(0) @binding(0) var<storage,read_write> tx00: Vec4Attachment;
+            @group(0) @binding(1) var<storage,read_write> tx01: Vec4Attachment;
+            @group(0) @binding(2) var<storage,read_write> tx02: Vec4Attachment;
+            @group(0) @binding(3) var<storage,read_write> tx03: Vec2Attachment;
+            @group(0) @binding(4) var<storage,read_write> tx04: Vec4Attachment;
+            @group(0) @binding(5) var<storage,read_write> tx05: Vec2Attachment;
+            @group(0) @binding(6) var<storage,read_write> tx06: Vec4Attachment;
+            // @group(0) @binding(6) var<storage,read_write> tx06: Vec4Attachment;
+            // @group(0) @binding(7) var<storage,read_write> tx07: Vec4Attachment;
+            // @group(0) @binding(8) var<storage,read_write> tx08: Vec4Attachment;
+            // @group(0) @binding(9) var<storage,read_write> tx09: Vec4Attachment;
+            // @group(0) @binding(10) var<storage,read_write> tx0a: Vec4Attachment;
+            @group(0) @binding(7) var<uniform> uBlock: UniformBlock;
+            const l = 0.8;
+            const dt = 0.05;
+            const rainRate = 0.01;
             const evaporationRate = 0.1;
-            const kc = 0.02;
-            const ks = 0.0001;
-            const kd = 0.0001;
-            const kav = 10000.0;
-            const kt = 0.0;
-            const kdp = 0.5;
-            const tiltAngle = 5.5 / ${resolution[0]};
-
-            const packFCoeff = ${packFCoeff};
+            const A = 10.0;
+            const g = 9.81;
+            const pipelen = 0.8;
+            const flux_coeff = 2.0 * 9.81 / 0.8 * 0.05;
+            const kc = 0.1;
+            const ks = 2;
+            const kd = 4;
+            const kav = 9.0; // sedimentflow speed
+            const kh = 2.0;
+            const kt = 1.0;
+            const ka = 0.8*5 * ${heightscale};
+            const ki = 0.1*5 * ${heightscale};
+            const kk = 0.01; // corioli
+            const kdp = 0.99; // velocity damping
+            const kdmax = 0.2;
             
             @compute @workgroup_size(8,8,4) 
             fn init(@builtin(global_invocation_id) pos: vec3<u32>){
-                if(pos.x >= input.size.x || pos.y >= input.size.y || pos.z >= input.size.z){
+                
+                let t1 = tx06.size;
+                let t2 = tx03.size;
+                let t3 = tx04.size;
+                let seed = uBlock.seed;
+                if(pos.x >= tx05.size.x || pos.y >= tx01.size.y || pos.z >= tx02.size.z){
                     return;
                 }
-                let offset = pos.x + input.size.x*(pos.y + input.size.y*pos.z);
-                let coord = vec3<f32>(pos) / vec3<f32>(input.size.xyz) - vec3<f32>(0.5);
-                input.data[offset].x = pack2x16float(vec2<f32>(
-                    // snoise(vec3(coord.xy,0.2)) + 0.4 * snoise(vec3(coord.xy * 2.0,0.5)) + 0.15 * snoise(vec3(coord.xy * 4.0,0.2)) + 0.07 * snoise(vec3(coord.xy * 8.0,0.2))+ 0.03 * snoise(vec3(coord.xy * 16.0,0.2)) + 0.5,
-                    snoise(coord*1.0) + 0.4 * snoise(coord * 2.0) + 0.2 * snoise(coord * 4.0) + 0.05 * snoise(coord * 8.0) + 0.02 * snoise(coord * 16.0),
-                    // snoise(coord*2.0) + 0.5 * snoise(coord * 4.0) + 0.25 * snoise(coord * 8.0) + 0.125 * snoise(coord * 16.0),
-                    // min(0.25,dot(coord,coord)),
-                    // dot(coord,coord) - cos(coord.x*15.0)*cos(coord.y*15.0)*cos(coord.z*15.0)*0.08,
-                    // 0.5,
-                    // min(0.25,dot(coord.xy,coord.xy))*4.0,
-                    // (dot(coord.xy,coord.xy) - cos(coord.x*15.0)*cos(coord.y*15.0)*0.08 + 0.1) * 3.0,
-                0.0) * 5.0* packFCoeff);
-                let t = uBlock.time;
-                let s1 = output.size;
-                let s2 = temp.size;
-                temp.data[offset].y = pack2x16float(vec2<f32>(0.0,clamp(0.0, 0.001, cos(coord.x*80.0)*cos(coord.y*80.0)*0.0)));
+                let offset = pos.x + tx03.size.x*(pos.y + tx04.size.y*pos.z);
+                let coord = (vec3<f32>(pos) / vec3<f32>(tx00.size.xyz) - vec3<f32>(0.5)) * 2.0;
+                tx00.data[offset].x = (
+                    // snoise(vec3(coord.xy,0.2)) + 0.4 * snoise(vec3(coord.xy * 2.0,0.5)) + 0.15 * snoise(vec3(coord.xy * 4.0,0.2)) + 0.07 * snoise(vec3(coord.xy * 8.0,0.2))+ 0.03 * snoise(vec3(coord.xy * 16.0,0.2)) + 0.5
+                    snoise(vec3(coord.xy,0.2 + coord.z)) + 0.4 * snoise(vec3(coord.xy * 2.0,0.5 + coord.z * 2.0)) + 0.15 * snoise(vec3(coord.xy * 4.0,0.2 + coord.z * 4.0)) + 0.07 * snoise(vec3(coord.xy * 8.0,0.2 + coord.z * 8.0))+ 0.03 * snoise(vec3(coord.xy * 16.0,0.2 + coord.z * 16.0)) + 0.5
+                    // snoise(coord*1.0) + 0.4 * snoise(coord * 2.0) + 0.2 * snoise(coord * 4.0) + 0.05 * snoise(coord * 8.0) + 0.02 * snoise(coord * 16.0)
+                    // snoise(coord*2.0) + 0.5 * snoise(coord * 4.0) + 0.25 * snoise(coord * 8.0) + 0.125 * snoise(coord * 16.0)
+                    // min(0.25,dot(coord,coord))
+                    // dot(coord,coord) - cos(coord.x*15.0)*cos(coord.y*15.0)*cos(coord.z*15.0)*0.08
+                    // 0.5
+                    // min(0.25,dot(coord.xy,coord.xy))*4.0
+                    // (dot(coord.xy,coord.xy) - cos(coord.x*15.0)*cos(coord.y*15.0)*0.08 + 0.1) * 3.0
+                ) * 20.0 * ${heightscale};
+                tx00.data[offset].y = (
+                    step(length(coord.xy - vec2(0.5,0.5)),0.2)
+                );
+                tx00.data[offset].z = 0.0;//cos(coord.x*80.0)*cos(coord.y*80.0)*0.0003;
+                tx00.data[offset].w = 1.0;
             }
             @compute @workgroup_size(8,8,4)
             fn main1(@builtin(global_invocation_id) pos: vec3<u32>){
-                if(pos.x >= input.size.x || pos.y >= input.size.y || pos.z >= input.size.z){
+                if(pos.x >= tx05.size.x || pos.y >= tx01.size.y || pos.z >= tx06.size.z){
                     return;
                 }
-                let dt = uBlock.dt;
-                let offset = pos.x + input.size.x*(pos.y + input.size.y*pos.z);
-                let sizeXY = i32(input.size.x * input.size.y);
-                let sizeXYZ = sizeXY * i32(input.size.z);
-                var offsetxp: i32 = 1; if(pos.x == input.size.x - 1) { offsetxp -= i32(input.size.x); }
-                var offsetxm: i32 = -1; if(pos.x == 0) { offsetxm +=  i32(input.size.x); }
-                var offsetyp: i32 = i32(input.size.x); if(pos.y == input.size.y - 1) { offsetyp -= sizeXY; }
-                var offsetym: i32 = -i32(input.size.x); if(pos.y == 0) { offsetym += sizeXY; }
-                var offsetzp: i32 = sizeXY; if(pos.z == input.size.z - 1) { offsetzp -= sizeXYZ; }
+                let seed = uBlock.seed;
+                let offset = pos.x + tx04.size.x * (pos.y + tx00.size.y * pos.z);
+                let sizeXY = i32(tx00.size.x * tx00.size.y);
+                let sizeXYZ = sizeXY * i32(tx00.size.z);
+                var offsetxp: i32 = 1; if(pos.x == tx00.size.x - 1) { offsetxp -= i32(tx00.size.x); }
+                var offsetxm: i32 = -1; if(pos.x == 0) { offsetxm +=  i32(tx00.size.x); }
+                var offsetyp: i32 = i32(tx00.size.x); if(pos.y == tx00.size.y - 1) { offsetyp -= sizeXY; }
+                var offsetym: i32 = -i32(tx00.size.x); if(pos.y == 0) { offsetym += sizeXY; }
+                var offsetzp: i32 = sizeXY; if(pos.z == tx00.size.z - 1) { offsetzp -= sizeXYZ; }
                 var offsetzm: i32 = -sizeXY; if(pos.z == 0) { offsetzm += sizeXYZ; }
-                let here = input.data[offset];
 
-                let b_d = unpack2x16float(here.x) / packFCoeff;
-                let b = b_d.x; let d = b_d.y;
+                let bdhere = tx00.data[offset];
+                let b = bdhere.x; let d = bdhere.y;
                 let waterh = b + d;
 
                 let ioffset = i32(offset);
-                let b_dxm = unpack2x16float(input.data[ioffset + offsetxm].x) / packFCoeff;
-                let b_dxp = unpack2x16float(input.data[ioffset + offsetxp].x) / packFCoeff;
-                let b_dym = unpack2x16float(input.data[ioffset + offsetym].x) / packFCoeff;
-                let b_dyp = unpack2x16float(input.data[ioffset + offsetyp].x) / packFCoeff;
-                let b_dzm = unpack2x16float(input.data[ioffset + offsetzm].x) / packFCoeff;
-                let b_dzp = unpack2x16float(input.data[ioffset + offsetzp].x) / packFCoeff;
+                let b_dxm = tx00.data[ioffset + offsetxm];
+                let b_dxp = tx00.data[ioffset + offsetxp];
+                let b_dym = tx00.data[ioffset + offsetym];
+                let b_dyp = tx00.data[ioffset + offsetyp];
+                let b_dzm = tx00.data[ioffset + offsetzm];
+                let b_dzp = tx00.data[ioffset + offsetzp];
 
-                var fxy = vec4<f32>(unpack2x16float(here.y), unpack2x16float(here.z)) / packFCoeff;
-                fxy = max(vec4<f32>(0.0), fxy + flux_coeff *dt * (
+                var fxy = tx02.data[offset];
+                fxy = max(vec4<f32>(0.0), fxy + flux_coeff * (
                     vec4(waterh) - vec4(b_dxm.x, b_dxp.x, b_dym.x, b_dyp.x) - vec4(b_dxm.y, b_dxp.y, b_dym.y, b_dyp.y)
-                ) - kdp * fxy *dt);
+                ));
                 
-                var fz = vec2<f32>(unpack2x16float(here.w)) / packFCoeff;
-                fz = max(vec2<f32>(0.0), fz + flux_coeff *dt  * (
+                var fz = tx03.data[offset];
+                fz = max(vec2<f32>(0.0), fz + flux_coeff  * (
                     vec2(waterh) - vec2(b_dzm.x, b_dzp.x) - vec2(b_dzm.y, b_dzp.y)
-                ) - kdp * fz *dt);
+                ));
 
                 let flux_out = fxy.x + fxy.y + fxy.z + fxy.w + fz.x + fz.y;
-                let fluxK = min(1.0, d / (dt * flux_out + 0.000001));
+                let fluxK = min(1.0, d * l * l / (dt * flux_out));
                 fxy *= fluxK; fz *= fluxK;
-                output.data[offset].x = here.x;
-                output.data[offset].y = pack2x16float(fxy.xy * packFCoeff);
-                output.data[offset].z = pack2x16float(fxy.zw * packFCoeff);
-                output.data[offset].w = pack2x16float(fz * packFCoeff);
+                tx04.data[offset] = fxy;
+                tx05.data[offset] = fz;
             }
             @compute @workgroup_size(8,8,4) 
             fn main2(@builtin(global_invocation_id) pos: vec3<u32>){
-                if(pos.x >= input.size.x || pos.y >= input.size.y || pos.z >= input.size.z){
+                if(pos.x >= tx00.size.x || pos.y >= tx00.size.y || pos.z >= tx00.size.z){
                     return;
                 }
-                let dt = uBlock.dt;
-                let offset = pos.x + input.size.x*(pos.y + input.size.y*pos.z);
-                let sizeX = i32(input.size.x);
-                let sizeY = i32(input.size.y);
-                let sizeZ = i32(input.size.z);
+                let seed = uBlock.seed;
+                let offset = pos.x + tx00.size.x*(pos.y + tx00.size.y*pos.z);
+                let sizeX = i32(tx00.size.x);
+                let sizeY = i32(tx00.size.y);
+                let sizeZ = i32(tx00.size.z);
                 let sizeXY = sizeX * sizeY;
                 let sizeXYZ = sizeXY * sizeZ;
-                var offsetxp: i32 = 1; if(pos.x == input.size.x - 1) { offsetxp -= sizeX; }
+                var offsetxp: i32 = 1; if(pos.x == tx00.size.x - 1) { offsetxp -= sizeX; }
                 var offsetxm: i32 = -1; if(pos.x == 0) { offsetxm +=  sizeX; }
-                var offsetyp: i32 = sizeX; if(pos.y == input.size.y - 1) { offsetyp -= sizeXY; }
+                var offsetyp: i32 = sizeX; if(pos.y == tx00.size.y - 1) { offsetyp -= sizeXY; }
                 var offsetym: i32 = -sizeX; if(pos.y == 0) { offsetym += sizeXY; }
-                var offsetzp: i32 = sizeXY; if(pos.z == input.size.z - 1) { offsetzp -= sizeXYZ; }
+                var offsetzp: i32 = sizeXY; if(pos.z == tx00.size.z - 1) { offsetzp -= sizeXYZ; }
                 var offsetzm: i32 = -sizeXY; if(pos.z == 0) { offsetzm += sizeXYZ; }
-                let here = input.data[offset];
-
-                let b_d = unpack2x16float(here.x) / packFCoeff;
-                let b = b_d.x; let d = b_d.y;
+                let bdhere = tx00.data[offset];
+                let b:f32 = bdhere.x; let d = bdhere.y;
                 let waterh = b + d;
 
                 let ioffset = i32(offset);
-                let data_xm = input.data[ioffset + offsetxm];
-                let data_xp = input.data[ioffset + offsetxp];
-                let data_ym = input.data[ioffset + offsetym];
-                let data_yp = input.data[ioffset + offsetyp];
-                let data_zm = input.data[ioffset + offsetzm];
-                let data_zp = input.data[ioffset + offsetzp];
-
-                let f_xm = unpack2x16float(data_xm.y);
-                let f_xp = unpack2x16float(data_xp.y);
-                let f_ym = unpack2x16float(data_ym.z);
-                let f_yp = unpack2x16float(data_yp.z);
-                let f_zm = unpack2x16float(data_zm.w);
-                let f_zp = unpack2x16float(data_zp.w);
+                let f_xm = tx04.data[ioffset + offsetxm].y;
+                let f_xp = tx04.data[ioffset + offsetxp].x;
+                let f_ym = tx04.data[ioffset + offsetym].w;
+                let f_yp = tx04.data[ioffset + offsetyp].z;
+                let f_zm = tx05.data[ioffset + offsetzm].y;
+                let f_zp = tx05.data[ioffset + offsetzp].x;
                 
-                let b_dxm = unpack2x16float(data_xm.x) / packFCoeff;
-                let b_dxp = unpack2x16float(data_xp.x) / packFCoeff;
-                let b_dym = unpack2x16float(data_ym.x) / packFCoeff;
-                let b_dyp = unpack2x16float(data_yp.x) / packFCoeff;
-                let b_dzm = unpack2x16float(data_zm.x) / packFCoeff;
-                let b_dzp = unpack2x16float(data_zp.x) / packFCoeff;
+                let b_dxm = tx00.data[ioffset + offsetxm];
+                let b_dxp = tx00.data[ioffset + offsetxp];
+                let b_dym = tx00.data[ioffset + offsetym];
+                let b_dyp = tx00.data[ioffset + offsetyp];
+                let b_dzm = tx00.data[ioffset + offsetzm];
+                let b_dzp = tx00.data[ioffset + offsetzp];
 
-                let fxy = vec4<f32>(unpack2x16float(here.y), unpack2x16float(here.z));
-                let fz = vec2<f32>(unpack2x16float(here.w));
+                let fxy = tx04.data[offset];
+                let fz = tx05.data[offset];
                 let flux_out = fxy.x + fxy.y + fxy.z + fxy.w + fz.x + fz.y;
-                let flux_in = f_xm.y + f_xp.x + f_ym.y + f_yp.x + f_zm.y + f_zp.x;
-                var d1 = d + dt * (flux_in - flux_out) / (packFCoeff);
-                d1 += dt * (rainRate - d1 * evaporationRate);
-                let w = vec3(
-                    fxy.y - fxy.x + f_xm.y - f_xp.x,
-                    fxy.w - fxy.z + f_ym.y - f_yp.x,
-                    fz.y - fz.x + f_zm.y - f_zp.x,
-                ) / (packFCoeff);
-                let v = length(w);
-                let N = normalize(vec4(b_dxp.x,b_dyp.x,b_dzp.x,l * 2.0) - vec4(b_dxm.x,b_dym.x,b_dzm.x,0.0));
-                let waterN = normalize(
-                    vec4(b_dxp.x + b_dxp.y, b_dyp.x + b_dyp.y, b_dzp.x + b_dzp.y, l * 0.020) - 
-                    vec4(b_dxm.x + b_dxm.y, b_dym.x + b_dym.y, b_dzm.x + b_dzm.y, 0.0)
+                let flux_in = f_xm + f_xp + f_ym + f_yp + f_zm + f_zp;
+                var d1 = max(0.0, d + dt * ((flux_in - flux_out) / ( l * l) + rainRate - d * evaporationRate));
+                var w = vec3(
+                    fxy.y - fxy.x + f_xm - f_xp,
+                    fxy.w - fxy.z + f_ym - f_yp,
+                    fz.y - fz.x + f_zm - f_zp,
                 );
-                let V = vec4(w,dot(waterN.xyz,w));
-                // let c = max(0.0, kc * v * ( - dot(N, V)));   
-                let c = max(0.0, kc * v * (1.0 - waterN.w));
-                // let c = max(0.0, kc * (b + 0.3) );
+                let dvx = kk * w.y * dt;
+                let dvy = - kk * w.x * dt;
+                let newfxy = vec4(
+                    fxy.x - dvx, fxy.y + dvx,
+                    fxy.z - dvy, fxy.w + dvy
+                );
+                let da = d + d1;
+                if( da <= 0.0001 || d1 < 0.0001 ){ w = vec3(0.0); } else { w /= da * l;}
+                let v = length(w);
+                let N = normalize(vec4(
+                    b_dxp.x - b_dxm.x,
+                    b_dyp.x - b_dym.x,
+                    b_dzp.x - b_dzm.x, 2.0
+                ));
+                let waterN = normalize(vec4(
+                    b_dxp.x + b_dxp.y - b_dxm.x - b_dxm.y,
+                    b_dyp.x + b_dyp.y - b_dym.x - b_dym.y,
+                    b_dzp.x + b_dzp.y - b_dzm.x - b_dzm.y, 2.0
+                ));
+                let slopeSin = 0.5;//-dot(vec4(w,dot(w,-waterN.xyz)),N);
+                let slope = max(0.1, slopeSin);
+                // let V = vec4(w,dot(waterN.xyz,w));
+                let c = max(0.0, kc * v * slope) * clamp(0.0, 1.0, (d1 - kdmax) / kdmax + 1);
+                // let c = max(0.0, kc * v * length(N.xyz)) * clamp(0.0, 1.0, (d1 - kdmax) / kdmax + 1);
+                // let c = max(0.0, kc * v * ( - dot(N, V))) * clamp(0.0, 1.0, (d1 - kdmax) / kdmax + 1);
 
                 // avocation
 
-                let avoc = vec3<f32>(pos) - w * dt * kav / (d + d1);
+                let avoc = vec3<f32>(pos) - w * dt * kav;
+                // let avoc = vec3<f32>(pos) - w * dt * kav / (d + d1);
                 var a1 = vec3<i32>(floor(avoc));
                 if(a1.x < 0){a1.x += sizeX;} if(a1.x >= sizeX){a1.x -= sizeX;}
                 if(a1.y < 0){a1.y += sizeY;} if(a1.y >= sizeY){a1.y -= sizeY;}
@@ -430,157 +477,156 @@ namespace examples {
                 let s = mix(
                     mix(
                         mix(
-                            unpack2x16float(temp.data[ammmoffset].y).y,
-                            unpack2x16float(temp.data[ammmoffset + offsetxp].y).y,
+                            tx00.data[ammmoffset].z,
+                            tx00.data[ammmoffset + offsetxp].z,
                             a3.x
                         ),
                         mix(
-                            unpack2x16float(temp.data[ammmoffset + offsetyp].y).y,
-                            unpack2x16float(temp.data[ammmoffset + offsetyp + offsetxp].y).y,
+                            tx00.data[ammmoffset + offsetyp].z,
+                            tx00.data[ammmoffset + offsetyp + offsetxp].z,
                             a3.x
                         ),
                         a3.y
                     ),
                     mix(
                         mix(
-                            unpack2x16float(temp.data[ammmoffset + offsetzp].y).y,
-                            unpack2x16float(temp.data[ammmoffset + offsetzp + offsetxp].y).y,
+                            tx00.data[ammmoffset + offsetzp].z,
+                            tx00.data[ammmoffset + offsetzp + offsetxp].z,
                             a3.x
                         ),
                         mix(
-                            unpack2x16float(temp.data[ammmoffset + offsetzp + offsetyp].y).y,
-                            unpack2x16float(temp.data[ammmoffset + offsetzp + offsetyp + offsetxp].y).y,
+                            tx00.data[ammmoffset + offsetzp + offsetyp].z,
+                            tx00.data[ammmoffset + offsetzp + offsetyp + offsetxp].z,
                             a3.x
                         ),
                         a3.y
                     ),
                     a3.z
-                ) / packFCoeff;
-                let ds = dt * mix(ks, kd, step(s, c)) * (s - c);
-                
-                output.data[ioffset] = vec4<u32>(
-                    pack2x16float(vec2<f32>(b + ds, d1 - ds) * packFCoeff),
-                    here.yzw
                 );
-
-                temp.data[ioffset].x = pack2x16float(vec2<f32>(v, (s - ds))*packFCoeff);
-                // temp.data[ioffset].x = pack2x16float(vec2<f32>(v,s));
+                // let s = bdhere.z;
+                let rt = bdhere.w;
+                let ds = dt * mix(kd, ks * rt, step(s, c)) * (s - c);
+               
+                tx01.data[offset] = vec4<f32>(
+                    b + ds, d1, s - ds,
+                    max(0.1, rt - dt * kh * ks * max(0.0, s - c))
+                );
+                tx02.data[offset] = newfxy * kdp;
+                tx03.data[offset] = tx05.data[offset] * kdp;
+                tx06.data[offset] = vec4<f32>(
+                    w, c
+                );
             }
             @compute @workgroup_size(8,8,4) 
             fn main3(@builtin(global_invocation_id) pos: vec3<u32>){
-                if(pos.x >= input.size.x || pos.y >= input.size.y || pos.z >= input.size.z){
+                if(pos.x >= tx05.size.x || pos.y >= tx01.size.y || pos.z >= tx06.size.z){
                     return;
                 }
-                let dt = uBlock.dt;
-                let offset = pos.x + input.size.x*(pos.y + input.size.y*pos.z);
-                let sizeX = i32(input.size.x);
-                let sizeY = i32(input.size.y);
-                let sizeZ = i32(input.size.z);
+                let seed = uBlock.seed;
+                let offset = pos.x + tx00.size.x*(pos.y + tx00.size.y*pos.z);
+                let sizeX = i32(tx02.size.x);
+                let sizeY = i32(tx03.size.y);
+                let sizeZ = i32(tx04.size.z);
                 let sizeXY = sizeX * sizeY;
                 let sizeXYZ = sizeXY * sizeZ;
-                var offsetxp: i32 = 1; if(pos.x == input.size.x - 1) { offsetxp -= sizeX; }
+                var offsetxp: i32 = 1; if(pos.x == tx00.size.x - 1) { offsetxp -= sizeX; }
                 var offsetxm: i32 = -1; if(pos.x == 0) { offsetxm +=  sizeX; }
-                var offsetyp: i32 = sizeX; if(pos.y == input.size.y - 1) { offsetyp -= sizeXY; }
+                var offsetyp: i32 = sizeX; if(pos.y == tx00.size.y - 1) { offsetyp -= sizeXY; }
                 var offsetym: i32 = -sizeX; if(pos.y == 0) { offsetym += sizeXY; }
-                var offsetzp: i32 = sizeXY; if(pos.z == input.size.z - 1) { offsetzp -= sizeXYZ; }
+                var offsetzp: i32 = sizeXY; if(pos.z == tx00.size.z - 1) { offsetzp -= sizeXYZ; }
                 var offsetzm: i32 = -sizeXY; if(pos.z == 0) { offsetzm += sizeXYZ; }
-                let here = input.data[offset];
-
-                let b = unpack2x16float(here.x).x / packFCoeff;
+                let bdsr = tx01.data[offset];
+                let b = bdsr.x;
 
                 let ioffset = i32(offset);
-                let data_xm = input.data[ioffset + offsetxm];
-                let data_xp = input.data[ioffset + offsetxp];
-                let data_ym = input.data[ioffset + offsetym];
-                let data_yp = input.data[ioffset + offsetyp];
-                let data_zm = input.data[ioffset + offsetzm];
-                let data_zp = input.data[ioffset + offsetzp];
+                let b_xm = tx01.data[ioffset + offsetxm].x;
+                let b_xp = tx01.data[ioffset + offsetxp].x;
+                let b_ym = tx01.data[ioffset + offsetym].x;
+                let b_yp = tx01.data[ioffset + offsetyp].x;
+                let b_zm = tx01.data[ioffset + offsetzm].x;
+                let b_zp = tx01.data[ioffset + offsetzp].x;
                 
-                var hxm = b - unpack2x16float(data_xm.x).x / packFCoeff;
-                var hxp = b - unpack2x16float(data_xp.x).x / packFCoeff;
-                var hym = b - unpack2x16float(data_ym.x).x / packFCoeff;
-                var hyp = b - unpack2x16float(data_yp.x).x / packFCoeff;
-                var hzm = b - unpack2x16float(data_zm.x).x / packFCoeff;
-                var hzp = b - unpack2x16float(data_zp.x).x / packFCoeff;
+                var hxm = b - b_xm;
+                var hxp = b - b_xp;
+                var hym = b - b_ym;
+                var hyp = b - b_yp;
+                var hzm = b - b_zm;
+                var hzp = b - b_zp;
 
-                hxm *= smoothstep(tiltAngle * 0.5, tiltAngle, hxm);
-                hxp *= smoothstep(tiltAngle * 0.5, tiltAngle, hxp);
-                hym *= smoothstep(tiltAngle * 0.5, tiltAngle, hym);
-                hyp *= smoothstep(tiltAngle * 0.5, tiltAngle, hyp);
-                hzm *= smoothstep(tiltAngle * 0.5, tiltAngle, hzm);
-                hzp *= smoothstep(tiltAngle * 0.5, tiltAngle, hzp);
+                let rt = bdsr.w;
+                let tiltAngle = rt * ka + ki;
+
+                hxm *= step(tiltAngle, hxm);
+                hxp *= step(tiltAngle, hxp);
+                hym *= step(tiltAngle, hym);
+                hyp *= step(tiltAngle, hyp);
+                hzm *= step(tiltAngle, hzm);
+                hzp *= step(tiltAngle, hzp);
 
                 let H = max(max(max(hxm,hxp),max(hym,hyp)),max(hzm,hzp));
-                var sCoeff = H * dt * kt / (hxm + hxp + hym + hyp + hzm + hzp) * packFCoeff;
+                var sCoeff = H * dt * kt * rt * 0.5 / (hxm + hxp + hym + hyp + hzm + hzp);
                 if( H == 0.0) {sCoeff = 0.0;}
-                output.data[ioffset].x = input.data[ioffset].x;
-                temp.data[ioffset].y = temp.data[ioffset].x;
-
-                output.data[ioffset].y = pack2x16float(sCoeff * vec2<f32>(hxm, hxp));
-                output.data[ioffset].z = pack2x16float(sCoeff * vec2<f32>(hym, hyp));
-                output.data[ioffset].w = pack2x16float(sCoeff * vec2<f32>(hzm, hzp));
+                tx04.data[ioffset] = vec4<f32>(hxm, hxp, hym, hyp) * sCoeff;
+                tx05.data[ioffset] = vec2<f32>(hzm, hzp) * sCoeff;
             }
             @compute @workgroup_size(8,8,4) 
             fn main4(@builtin(global_invocation_id) pos: vec3<u32>){
-                if(pos.x >= input.size.x || pos.y >= input.size.y || pos.z >= input.size.z){
+                if(pos.x >= tx01.size.x || pos.y >= tx06.size.y || pos.z >= tx00.size.z){
                     return;
                 }
-                let dt = uBlock.dt;
-                let offset = pos.x + input.size.x*(pos.y + input.size.y*pos.z);
-                let sizeX = i32(input.size.x);
-                let sizeY = i32(input.size.y);
-                let sizeZ = i32(input.size.z);
+                let seed = uBlock.seed;
+                let offset = pos.x + tx05.size.x*(pos.y + tx00.size.y*pos.z);
+                let sizeX = i32(tx02.size.x);
+                let sizeY = i32(tx03.size.y);
+                let sizeZ = i32(tx00.size.z);
                 let sizeXY = sizeX * sizeY;
                 let sizeXYZ = sizeXY * sizeZ;
-                var offsetxp: i32 = 1; if(pos.x == input.size.x - 1) { offsetxp -= sizeX; }
+                var offsetxp: i32 = 1; if(pos.x == tx00.size.x - 1) { offsetxp -= sizeX; }
                 var offsetxm: i32 = -1; if(pos.x == 0) { offsetxm +=  sizeX; }
-                var offsetyp: i32 = sizeX; if(pos.y == input.size.y - 1) { offsetyp -= sizeXY; }
+                var offsetyp: i32 = sizeX; if(pos.y == tx00.size.y - 1) { offsetyp -= sizeXY; }
                 var offsetym: i32 = -sizeX; if(pos.y == 0) { offsetym += sizeXY; }
-                var offsetzp: i32 = sizeXY; if(pos.z == input.size.z - 1) { offsetzp -= sizeXYZ; }
+                var offsetzp: i32 = sizeXY; if(pos.z == tx00.size.z - 1) { offsetzp -= sizeXYZ; }
                 var offsetzm: i32 = -sizeXY; if(pos.z == 0) { offsetzm += sizeXYZ; }
-                let here = input.data[offset];
-
-                let b_d = unpack2x16float(here.x);
-                let b = b_d.x; let d = b_d.y;
+                let bdsr = tx01.data[offset];
+                let hxy = tx04.data[offset];
+                let hz = tx05.data[offset];
+                let b = bdsr.x; let d = bdsr.y;
 
                 let ioffset = i32(offset);
-                let data_xm = input.data[ioffset + offsetxm];
-                let data_xp = input.data[ioffset + offsetxp];
-                let data_ym = input.data[ioffset + offsetym];
-                let data_yp = input.data[ioffset + offsetyp];
-                let data_zm = input.data[ioffset + offsetzm];
-                let data_zp = input.data[ioffset + offsetzp];
-
-                let out_x = unpack2x16float(here.y);
-                let out_y = unpack2x16float(here.z);
-                let out_z = unpack2x16float(here.w);
-
-                let hxm = unpack2x16float(data_xm.y).y;
-                let hxp = unpack2x16float(data_xp.y).x;
-                let hym = unpack2x16float(data_ym.z).y;
-                let hyp = unpack2x16float(data_yp.z).x;
-                let hzm = unpack2x16float(data_zm.w).y;
-                let hzp = unpack2x16float(data_zp.w).x;
-                output.data[ioffset].x = pack2x16float(vec2<f32>(
-                    b + (hxm + hxp + hym + hyp + hzm + hzp) - (out_x.x + out_x.y + out_y.x + out_y.y + out_z.x + out_z.y), d
-                ));
+                let hxm = tx04.data[ioffset + offsetxm].y;
+                let hxp = tx04.data[ioffset + offsetxp].x;
+                let hym = tx04.data[ioffset + offsetym].w;
+                let hyp = tx04.data[ioffset + offsetyp].z;
+                let hzm = tx05.data[ioffset + offsetzm].y;
+                let hzp = tx05.data[ioffset + offsetzp].x;
+                tx00.data[ioffset] = vec4<f32>(b + (
+                        hxm + hxp + hym + hyp + hzm + hzp
+                    ) - (
+                        hxy.z + hxy.w + hxy.x + hxy.y + hz.x + hz.y
+                    ),
+                    bdsr.yzw
+                );
             }
             `;
             const raytracingShaderCode = `
-            const packFCoeff = ${packFCoeff};
             struct Vec4Attachment{
                 size: vec4<u32>,
-                data: array<vec4<u32>>
+                data: array<vec4<f32>> 
             }
             struct UniformBlock{
-                time: f32,
-                dt: f32,
+                seed: f32,
                 water: f32,
                 sediment: f32,
-                height: f32,
+                terrainQ: f32,
+                terrainCenter: f32,
+                terrainOpacity: f32,
+                padding1: f32,
+                padding2: f32,
+                rotMat: mat4x4<f32>,
+                pos: vec4<f32>
             }
-            @group(1) @binding(0) var<storage,read> input: Vec4Attachment;
-            @group(1) @binding(1) var<storage,read> temp: Vec4Attachment;
+            @group(1) @binding(0) var<storage,read> tx00: Vec4Attachment;
+            @group(1) @binding(1) var<storage,read> tx06: Vec4Attachment;
             @group(1) @binding(2) var<uniform> uBlock: UniformBlock;
             struct RayOutput{
                 @location(0) position: vec3<f32>
@@ -589,24 +635,36 @@ namespace examples {
                 return RayOutput(position);
             }
             @fragment fn mainFrag(@location(0) position: vec3<f32>) -> @location(0) vec4<f32>{
-                let pos = vec3<u32>((position * 0.5 + vec3<f32>(0.5)) * vec3<f32>(input.size.xyz));
-                let offset = pos.x + input.size.x*(pos.y + input.size.y*pos.z);
-                let b_d = unpack2x16float(input.data[offset].x) / packFCoeff;
-                let heightmap = (b_d.x *0.3+0.5) * uBlock.height;
-                let watermap = b_d.y * 90.0 * uBlock.water ;
-                let heightColor = mix(
-                    mix(vec3<f32>(0.0, 0.8, 0.0), vec3<f32>(1.0, 1.0, 0.0), clamp(heightmap * 2, 0.0, 1.0)),
-                    mix(vec3<f32>(1.0, 1.0, 0.0), vec3<f32>(0.8, 0.5, 0.4), clamp(heightmap * 2 - 1, 0.0, 1.0)),
-                    step(0.5, heightmap)
+                let screenPos = uBlock.rotMat * vec4<f32>(position,0.0) + uBlock.pos;
+                let pos = vec3<u32>(fract(screenPos.xyz * 0.5 + vec3<f32>(0.5)) * vec3<f32>(tx00.size.xyz));
+                let offset = pos.x + tx00.size.x*(pos.y + tx00.size.y*pos.z);
+                let bdsr = tx00.data[offset];
+                let heightmap = bdsr.x * 0.05 * ${1 / heightscale} + 0.5;
+                let heightColor = mix(mix(
+                        mix(vec3<f32>(0.0, 0.8, 0.0), vec3<f32>(1.0, 1.0, 0.0), clamp(heightmap * 2, 0.0, 1.0)),
+                        mix(vec3<f32>(1.0, 1.0, 0.0), vec3<f32>(0.8, 0.5, 0.4), clamp(heightmap * 2 - 1, 0.0, 1.0)),
+                        step(0.5, heightmap)
+                    ), mix(
+                        mix(vec3<f32>(0.8, 0.5, 0.4), vec3<f32>(0.5, 0.5, 0.5), clamp(heightmap * 2 - 2, 0.0, 1.0)),
+                        mix(vec3<f32>(0.5, 0.5, 0.5), vec3<f32>(1.0, 1.0, 1.0), clamp(heightmap * 2 - 3, 0.0, 1.0)),
+                        step(1.5, heightmap)
+                    ),
+                    step(1.0, heightmap)
                 );
-                let waterColor = mix(vec3<f32>(0.0,0.0,1.0), vec3<f32>(1.0), 0.3*clamp(unpack2x16float(temp.data[offset].x).x,0.0,1.0));
+                let s = bdsr.z;
+                let v = length(tx06.data[offset].xyz) * 0.05;
+                
+                let waterColor = mix(vec3<f32>(0.0,0.0,1.0), vec3<f32>(1.0), v * 2.0);
+                let watermap = bdsr.y * 2.0 * uBlock.water - v * 10.0;
+                let terrainOpacityFactor = (heightmap * 0.5 - uBlock.terrainCenter) * uBlock.terrainQ;
                 return vec4<f32>(
                     mix(
                         mix(heightColor, waterColor,
                             clamp(watermap, 0.0, 1.0)
-                        )
-                    ,vec3<f32>(1.0,0.0,0.0), vec3<f32>(clamp(0.0 * uBlock.sediment * unpack2x16float(temp.data[offset].x).x,0.0,1.0))),
-                    clamp(watermap *4.0 , 0.0, 1.0)
+                        ),
+                    vec3<f32>(1.0,0.0,0.0), vec3<f32>(clamp(uBlock.sediment * tx06.data[offset].w * 30.0,0.0,1.0))),
+                    clamp(watermap - v * 10.0, uBlock.terrainOpacity / (1 + terrainOpacityFactor*terrainOpacityFactor), 1.0)
+                    
                 );
             }
             `;
@@ -624,87 +682,72 @@ namespace examples {
                     module: computeModule,
                     entryPoint: "main1"
                 },
-                layout: "auto"
+                layout: "auto", label: "main1"
             });
             const computePipeline2 = await device.createComputePipelineAsync({
                 compute: {
                     module: computeModule,
                     entryPoint: "main2"
                 },
-                layout: "auto"
+                layout: "auto", label: "main2"
             });
             const computePipeline3 = await device.createComputePipelineAsync({
                 compute: {
                     module: computeModule,
                     entryPoint: "main3"
                 },
-                layout: "auto"
+                layout: "auto", label: "main3"
             });
             const computePipeline4 = await device.createComputePipelineAsync({
                 compute: {
                     module: computeModule,
                     entryPoint: "main4"
                 },
-                layout: "auto"
+                layout: "auto", label: "main4"
             });
-            let uBlockJsBuffer = new Float32Array(5);
+            let uBlockJsBuffer = new Float32Array(28);
             let uBlockBuffer = gpu.createBuffer(GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM, uBlockJsBuffer);
-            const computeBindgroupInit = gpu.createBindGroup(computePipelineInit, 0, [
-                { buffer: bufferA.buffer },
-                { buffer: bufferB.buffer },
+            const bufferlist = [
+                { buffer: tx00.buffer },
+                { buffer: tx01.buffer },
+                { buffer: tx02.buffer },
+                { buffer: tx03.buffer },
+                { buffer: tx04.buffer },
+                { buffer: tx05.buffer },
+                { buffer: tx06.buffer },
                 { buffer: uBlockBuffer },
-                { buffer: bufferC.buffer },
-            ]);
-            const computeBindgroup1 = gpu.createBindGroup(computePipeline1, 0, [
-                { buffer: bufferA.buffer },
-                { buffer: bufferB.buffer },
-                { buffer: uBlockBuffer },
-            ]);
-            const computeBindgroup2 = gpu.createBindGroup(computePipeline2, 0, [
-                { buffer: bufferB.buffer },
-                { buffer: bufferA.buffer },
-                { buffer: uBlockBuffer },
-                { buffer: bufferC.buffer },
-            ]);
-
-
-            const computeBindgroup3 = gpu.createBindGroup(computePipeline3, 0, [
-                { buffer: bufferA.buffer },
-                { buffer: bufferB.buffer },
-                { buffer: uBlockBuffer },
-                { buffer: bufferC.buffer },
-            ]);
-            const computeBindgroup4 = gpu.createBindGroup(computePipeline4, 0, [
-                { buffer: bufferB.buffer },
-                { buffer: bufferA.buffer },
-                { buffer: uBlockBuffer },
-            ]);
-
-
-
-
+            ]
+            const computeBindgroupInit = gpu.createBindGroup(computePipelineInit, 0, bufferlist, "gi");
+            const computeBindgroup1 = gpu.createBindGroup(computePipeline1, 0, bufferlist, "g1");
+            const computeBindgroup2 = gpu.createBindGroup(computePipeline2, 0, bufferlist, "g2");
+            const computeBindgroup3 = gpu.createBindGroup(computePipeline3, 0, bufferlist, "g3");
+            const computeBindgroup4 = gpu.createBindGroup(computePipeline4, 0, bufferlist, "g4");
 
             const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             const context = gpu.getContext(canvas);
             const renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context);
             renderer.setOpacity(20);
-            renderer.setSliceConfig({layers: 96});
+            renderer.setSliceConfig({ layers: 96 });
             const pipeline = await renderer.createRaytracingPipeline({
                 code: raytracingShaderCode,
                 rayEntryPoint: "mainRay",
                 fragmentEntryPoint: "mainFrag"
             });
             const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
-                { buffer: bufferA.buffer },
-                { buffer: bufferC.buffer },
+                { buffer: tx00.buffer },
+                { buffer: tx06.buffer },
                 { buffer: uBlockBuffer },
-            ]);
+            ], "renderBindgroup");
             let retinaCtrl = new tesserxel.controller.RetinaController(renderer);
-            retinaCtrl.keyConfig.enable = "";
+            // retinaCtrl.keyConfig.enable = "";
+            retinaCtrl.toggleSectionConfig("zsection");
+            // retinaCtrl.setStereo(false);
             let displayCtrl = new ErosionDisplayController(uBlockJsBuffer);
+            let viewObj = new tesserxel.math.Obj4(new tesserxel.math.Vec4, new tesserxel.math.Rotor, new tesserxel.math.Vec4(1, 1, 1, 1));
+            let viewCtrl = new tesserxel.controller.VoxelViewerController(viewObj);
             let ctrlReg = new tesserxel.controller.ControllerRegistry(canvas, [
-                retinaCtrl, displayCtrl
-            ]);
+                retinaCtrl, displayCtrl, viewCtrl
+            ],{requsetPointerLock: true});
 
             function setSize() {
                 const width = window.innerWidth * window.devicePixelRatio;
@@ -715,57 +758,417 @@ namespace examples {
             }
             setSize();
             window.addEventListener("resize", setSize);
-            let t = 0;
             let init = true;
+            let step = 0;
+            let viewAffine = new tesserxel.math.AffineMat4;
             function dispatch() {
                 let dispatchSize: [number, number, number] = [
-                    Math.ceil(bufferA.width / 8),
-                    Math.ceil(bufferA.height / 8),
-                    Math.ceil(bufferA.depth / 4)
+                    Math.ceil(tx00.width / 8),
+                    Math.ceil(tx00.height / 8),
+                    Math.ceil(tx00.depth / 4)
                 ];
                 let commandEncoder = device.createCommandEncoder();
                 let passEncoder = commandEncoder.beginComputePass();
-                let step = 1;
-                let dt = 1 / 60 / step / 6;
-                uBlockJsBuffer[1] = dt;
+                // let step = 1;
+                let dt = 0.05;//1 / 60 / step / 6;
+
+                viewAffine.setFromObj4(viewObj).writeBuffer(uBlockJsBuffer, 8);
                 if (init) {
-                    init = false;
                     passEncoder.setPipeline(computePipelineInit);
                     passEncoder.setBindGroup(0, computeBindgroupInit);
                     passEncoder.dispatchWorkgroups(...dispatchSize);
                 }
-                for (let i = 0; i < step; i++) {
-                    t += dt;
-                    uBlockJsBuffer[0] = (Math.sin(t * 4));
-                    device.queue.writeBuffer(uBlockBuffer, 0, uBlockJsBuffer);
-                    if (!init) {
-                        passEncoder.setPipeline(computePipeline3);
-                        passEncoder.setBindGroup(0, computeBindgroup3);
-                        passEncoder.dispatchWorkgroups(...dispatchSize);
-                        passEncoder.setPipeline(computePipeline4);
-                        passEncoder.setBindGroup(0, computeBindgroup4);
-                        passEncoder.dispatchWorkgroups(...dispatchSize);
-                    }
-                    passEncoder.setPipeline(computePipeline1);
-                    passEncoder.setBindGroup(0, computeBindgroup1);
-                    passEncoder.dispatchWorkgroups(...dispatchSize);
-                    passEncoder.setPipeline(computePipeline2);
-                    passEncoder.setBindGroup(0, computeBindgroup2);
-                    passEncoder.dispatchWorkgroups(...dispatchSize);
-                }
+                device.queue.writeBuffer(uBlockBuffer, 0, uBlockJsBuffer);
+                init = false;
+                passEncoder.setPipeline(computePipeline1);
+                passEncoder.setBindGroup(0, computeBindgroup1);
+                passEncoder.dispatchWorkgroups(...dispatchSize);
+                passEncoder.setPipeline(computePipeline2);
+                passEncoder.setBindGroup(0, computeBindgroup2);
+                passEncoder.dispatchWorkgroups(...dispatchSize);
+                passEncoder.setPipeline(computePipeline3);
+                passEncoder.setBindGroup(0, computeBindgroup3);
+                passEncoder.dispatchWorkgroups(...dispatchSize);
+                passEncoder.setPipeline(computePipeline4);
+                passEncoder.setBindGroup(0, computeBindgroup4);
+                passEncoder.dispatchWorkgroups(...dispatchSize);
                 passEncoder.end();
                 device.queue.submit([commandEncoder.finish()]);
             }
             function loop() {
                 ctrlReg.update();
                 dispatch();
+
+                step++;
                 renderer.render(() => {
                     renderer.drawRaytracing(pipeline, [renderBindgroup]);
                 });
+                // if(step > 100) return;
                 window.requestAnimationFrame(loop);
             }
             loop();
 
+        }
+    }
+    export namespace erosion {
+        export async function load() {
+            const config = {
+                resolution: 128,
+                dt: 0.05,
+                A: 0.6,
+                pipeLen: 0.8,
+                rainRate: 0.01,
+                evaporationRate: 0.1
+            }
+            const configConstHeader = `
+                const div = 1.0 / ${config.resolution}.0;
+                const flowCoeff = ${config.dt * 9.81 * config.A / config.pipeLen};
+                const pipeLen = ${config.pipeLen};
+                const rainRate = ${config.rainRate};
+                const dt = ${config.dt};
+                const evaporationRate = ${config.evaporationRate};
+                const kc = 0.6;
+                const ks = 0.0;
+                const kd = 0.0;
+                const kav = 1.0; // sedimentflow speed
+                const kh = 5.0;
+            `;
+            const gpu = await tesserxel.renderer.createGPU();
+            const device = gpu.device;
+            const txtDescriptor: GPUTextureDescriptor = {
+                size: [config.resolution, config.resolution],
+                format: "rgba16float",
+                usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+            };
+            const quadShader = device.createShaderModule({
+                code: `
+                struct output{
+                    @builtin(position) pos: vec4<f32>,
+                    @location(0) uv: vec2<f32>
+                }
+                @vertex fn main(@builtin(vertex_index) vindex : u32) -> output {
+                    const pos = array<vec2<f32>, 4>(
+                        vec2<f32>(-1.0, -1.0),
+                        vec2<f32>(-1.0, 1.0),
+                        vec2<f32>( 1.0, -1.0),
+                        vec2<f32>( 1.0, 1.0),
+                    );
+                    const uv = array<vec2<f32>, 4>(
+                        vec2<f32>(0, 1),
+                        vec2<f32>(0, 0),
+                        vec2<f32>(1, 1),
+                        vec2<f32>(1, 0),
+                    );
+                    return output(
+                        vec4<f32>(pos[vindex],0.0,1.0),
+                        uv[vindex]
+                    );
+                }
+                `
+            });
+            const tx00 = device.createTexture(txtDescriptor);
+            const tx01 = device.createTexture(txtDescriptor);
+            const tx02 = device.createTexture(txtDescriptor);
+            const tx03 = device.createTexture(txtDescriptor);
+            const linearTextureSampler = device.createSampler({
+                magFilter: 'linear',
+                minFilter: 'linear',
+                addressModeU: "repeat",
+                addressModeV: "repeat",
+            });
+            const nearestTextureSampler = device.createSampler({
+                magFilter: 'nearest',
+                minFilter: 'nearest',
+                addressModeU: "repeat",
+                addressModeV: "repeat",
+            });
+            const clearValue = { r: 0, g: 0, b: 0, a: 0 }, loadOp: GPULoadOp = 'clear', storeOp: GPUStoreOp = 'store';
+            const entryPoint = "main";
+
+            const initPass: GPURenderPassDescriptor = {
+                colorAttachments: [
+                    { view: tx00.createView(), clearValue, loadOp, storeOp },
+                    { view: tx01.createView(), clearValue, loadOp, storeOp },
+                ]
+            };
+            const initShader = device.createShaderModule({
+                code: tesserxel.four.NoiseWGSLHeader + `
+                ${configConstHeader}
+                fn fbm(x:vec3<f32>)->f32{
+                    return snoise(x) + 0.5*snoise(x*2.0) + 0.25*snoise(x*4.0) + 0.125*snoise(x*8) + 0.0625*snoise(x*16);
+                }
+                struct output{
+                    @location(0) c0: vec4<f32>,
+                    @location(1) c1: vec4<f32>
+                }
+                @fragment fn main(@location(0) UV: vec2<f32>) -> output {
+                    let uv = vec2(UV.x,1.0-UV.y) - vec2(0.5) - vec2(div) * 0.5;
+                    // let h = length(uv - vec2(0.5) - vec2(0.0,0.5));
+                    let h = snoise(vec3(uv,0.2)) + 0.4 * snoise(vec3(uv * 2.0,0.5)) + 0.15 * snoise(vec3(uv * 4.0,0.2)) + 0.07 * snoise(vec3(uv * 8.0,0.2))+ 0.03 * snoise(vec3(uv * 16.0,0.2)) + 0.5;
+                    return output(
+                        vec4<f32>(h * 200.0 ,
+                        step(length(uv - vec2(0.5,0.5)),0.2)
+                        ,0.0,1.0),
+                        vec4<f32>(0.0)
+                    );
+                }
+                `
+            });
+            const initPipeline = device.createRenderPipeline({
+                fragment: {
+                    module: initShader, entryPoint,
+                    targets: [{ format: txtDescriptor.format }, { format: txtDescriptor.format }]
+                },
+                vertex: { module: quadShader, entryPoint },
+                layout: 'auto', primitive: { topology: 'triangle-strip' }, label: 'init'
+            });
+            const flowShader = device.createShaderModule({
+                code: configConstHeader + `
+                @group(0) @binding(0) var splr: sampler;
+                @group(0) @binding(1) var tx00: texture_2d<f32>;
+                @group(0) @binding(2) var tx01: texture_2d<f32>;
+                @fragment fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+                    let c = textureSample(tx00, splr, uv);
+                    let l = textureSample(tx00, splr, uv + vec2<f32>(-div,0));
+                    let r = textureSample(tx00, splr, uv + vec2<f32>( div,0));
+                    let d = textureSample(tx00, splr, uv + vec2<f32>(0,-div));
+                    let u = textureSample(tx00, splr, uv + vec2<f32>(0, div));
+                    let hc = c.x + c.y;
+                    var fxy = textureSample(tx01, splr, uv);
+                    fxy = max(vec4(0.0), fxy + flowCoeff * (vec4<f32>(hc,hc,hc,hc) - vec4<f32>(l.x,r.x,d.x,u.x) - vec4<f32>(l.y,r.y,d.y,u.y)));
+                    let flux_out = fxy.x + fxy.y + fxy.z + fxy.w;
+                    return fxy * min(1.0, c.y * pipeLen * pipeLen / (dt * flux_out));
+                }
+                `
+            });
+            const flowPipeline = device.createRenderPipeline({
+                fragment: {
+                    module: flowShader, entryPoint,
+                    targets: [{ format: txtDescriptor.format }]
+                },
+                vertex: { module: quadShader, entryPoint },
+                layout: 'auto', primitive: { topology: 'triangle-strip' }, label: 'flow'
+            });
+            const flowBindgroup = gpu.createBindGroup(flowPipeline, 0, [
+                nearestTextureSampler,
+                tx00.createView(),
+                tx01.createView(),
+            ], 'flow');
+            const flowPass: GPURenderPassDescriptor = {
+                colorAttachments: [{
+                    view: tx02.createView(), clearValue, loadOp, storeOp
+                }], label: 'flow'
+            };
+            const waterShader = device.createShaderModule({
+                code: configConstHeader + `
+                @group(0) @binding(0) var splr: sampler;
+                @group(0) @binding(1) var tx00: texture_2d<f32>;
+                @group(0) @binding(2) var tx02: texture_2d<f32>;
+                @fragment fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+                    let c = textureSample(tx00, splr, uv);
+                    let l = textureSample(tx02, splr, uv + vec2<f32>(-div,0));
+                    let r = textureSample(tx02, splr, uv + vec2<f32>( div,0));
+                    let d = textureSample(tx02, splr, uv + vec2<f32>(0,-div));
+                    let u = textureSample(tx02, splr, uv + vec2<f32>(0, div));
+
+                    
+                    let bdl = textureSample(tx00, splr, uv + vec2<f32>(-div,0));
+                    let bdr = textureSample(tx00, splr, uv + vec2<f32>( div,0));
+                    let bdd = textureSample(tx00, splr, uv + vec2<f32>(0,-div));
+                    let bdu = textureSample(tx00, splr, uv + vec2<f32>(0, div));
+
+                    let fxy = textureSample(tx02, splr, uv);
+                    let flux_out = fxy.x + fxy.y + fxy.z + fxy.w;
+                    let flux_in = l.y + r.x + d.w + u.z;
+                    let d1 = max(0.0, c.y + dt * ((flux_in - flux_out) / ( pipeLen * pipeLen) + rainRate - c.y * evaporationRate));
+                    var w = vec2(
+                        fxy.y - fxy.x + l.y - r.x,
+                        fxy.w - fxy.z + d.w - u.z,
+                    );
+                    if(c.y + d1 <= 0.0001 || d1 < 0.0001) {w = vec2(0.0);}else{w /= (c.y + d1) * pipeLen;}
+                    let v = length(w);
+                    let N = normalize(vec3(
+                        bdr.x - bdl.x,
+                        bdu.x - bdd.x, 2.0
+                    ));
+                    let slopeSin = sqrt(1.0 - N.z*N.z);
+                    let slope = max(0.1, slopeSin) ;
+                    let cap = 0.1;//max(0.0, kc * v * slope);
+                    let avoc = uv - w * dt * kav;
+                    let s = textureSample(tx00, splr, avoc).z;
+                    let rt = c.w;
+                    let ds = -0.001;//dt * mix(kd, ks, step(s, cap)) * (s - cap);
+
+                    return vec4<f32>(
+                        c.x - 0.1, d1, s,
+                        v
+                    );
+                }
+                `
+            });
+            const waterPipeline = device.createRenderPipeline({
+                fragment: {
+                    module: waterShader, entryPoint,
+                    targets: [{ format: txtDescriptor.format }]
+                },
+                vertex: { module: quadShader, entryPoint },
+                layout: 'auto', primitive: { topology: 'triangle-strip' },
+                label: 'water'
+            });
+            const waterBindgroup = gpu.createBindGroup(waterPipeline, 0, [
+                nearestTextureSampler,
+                tx00.createView(),
+                tx02.createView(),
+            ], 'water');
+            const waterPass: GPURenderPassDescriptor = {
+                colorAttachments: [{
+                    view: tx03.createView(), clearValue, loadOp, storeOp
+                }],
+                label: 'water'
+            };
+            const sedShader = device.createShaderModule({
+                code: configConstHeader + `
+                @group(0) @binding(0) var splr: sampler;
+                @group(0) @binding(1) var tx02: texture_2d<f32>;
+                @group(0) @binding(2) var tx03: texture_2d<f32>;
+                struct output{
+                    @location(0) c0: vec4<f32>,
+                    @location(1) c1: vec4<f32>
+                }
+                @fragment fn main(@location(0) uv: vec2<f32>) -> output {
+                    let c0 = textureSample(tx03, splr, uv);
+                    let c1 = textureSample(tx02, splr, uv);
+
+                    return output(c0, c1);
+                }
+                `
+            });
+            const sedPipeline = device.createRenderPipeline({
+                fragment: {
+                    module: sedShader, entryPoint,
+                    targets: [{ format: txtDescriptor.format }, { format: txtDescriptor.format }]
+                },
+                vertex: { module: quadShader, entryPoint },
+                layout: 'auto', primitive: { topology: 'triangle-strip' },
+                label: 'sed'
+            });
+            const sedBindgroup = gpu.createBindGroup(sedPipeline, 0, [
+                nearestTextureSampler,
+                tx02.createView(),
+                tx03.createView(),
+            ], 'sed');
+            const sedPass: GPURenderPassDescriptor = {
+                colorAttachments: [
+                    { view: tx00.createView(), clearValue, loadOp, storeOp },
+                    { view: tx01.createView(), clearValue, loadOp, storeOp },
+                ],
+                label: 'sed'
+            };
+            const showShader = device.createShaderModule({
+                code: `
+                @group(0) @binding(0) var splr: sampler;
+                @group(0) @binding(1) var tx00: texture_2d<f32>;
+                fn heightmap(h:f32)->vec3<f32>{
+                    return mix(mix(
+                            mix(vec3<f32>(0.0, 0.8, 0.0), vec3<f32>(1.0, 1.0, 0.0), clamp(h * 2, 0.0, 1.0)),
+                            mix(vec3<f32>(1.0, 1.0, 0.0), vec3<f32>(0.8, 0.5, 0.4), clamp(h * 2 - 1, 0.0, 1.0)),
+                            step(0.5, h)
+                        ), mix(
+                            mix(vec3<f32>(0.8, 0.5, 0.4), vec3<f32>(0.5, 0.5, 0.5), clamp(h * 2 - 2, 0.0, 1.0)),
+                            mix(vec3<f32>(0.5, 0.5, 0.5), vec3<f32>(1.0, 1.0, 1.0), clamp(h * 2 - 3, 0.0, 1.0)),
+                            step(1.5, h)
+                        ),
+                        step(1.0, h)
+                    );
+                }
+                @fragment fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+                    let bdsr = textureSample(tx00, splr, uv);
+                    // return vec4<f32>(color.yzx,1.0);
+                    let waterColor = mix(
+                        vec3(0,0,1),
+                        vec3(1.0),
+                        bdsr.w * 0.05
+                    );
+                    let height = bdsr.x / 256.0;
+                    return vec4<f32>(height, height, height, 1.0); 
+                    // let color = mix(heightmap(
+                    //         bdsr.x / 256.0
+                    //     ), waterColor,
+                    //     clamp(0.0,1.0,bdsr.y * 2.0)
+                    // );
+                    // return vec4<f32>(mix(
+                    //     color,
+                    //     vec3<f32>(1.0,0.0,0.0),
+                    //     0.0 * 3000.0
+                    // ), 1.0);
+                }
+                `
+            });
+            const showPipeline = device.createRenderPipeline({
+                fragment: {
+                    module: showShader, entryPoint,
+                    targets: [{ format: gpu.preferredFormat }]
+                },
+                vertex: { module: quadShader, entryPoint },
+                layout: 'auto', primitive: { topology: 'triangle-strip' }, label: 'show'
+            });
+            const showBindgroup = gpu.createBindGroup(showPipeline, 0, [
+                nearestTextureSampler,
+                tx00.createView()
+            ], 'show');
+            const canvas = document.querySelector("canvas");
+            const context = gpu.getContext(canvas);
+            function setSize() {
+                const width = window.innerWidth * window.devicePixelRatio;
+                const height = window.innerHeight * window.devicePixelRatio;
+                canvas.width = width;
+                canvas.height = height;
+            }
+            setSize();
+            window.addEventListener("resize", setSize);
+            let init = true;
+            let step = 0;
+            function run() {
+                const showPass = {
+                    colorAttachments: [{
+                        view: context.getCurrentTexture().createView(), clearValue, loadOp, storeOp
+                    }], label: 'show'
+                }
+                const commandEncoder = device.createCommandEncoder();
+                step++;
+
+                if (init) {
+                    const initEncoder = commandEncoder.beginRenderPass(initPass);
+                    initEncoder.setPipeline(initPipeline);
+                    initEncoder.draw(4);
+                    initEncoder.end();
+                }
+                const flowEncoder = commandEncoder.beginRenderPass(flowPass);
+                flowEncoder.setPipeline(flowPipeline);
+                flowEncoder.setBindGroup(0, flowBindgroup);
+                flowEncoder.draw(4);
+                flowEncoder.end();
+                const waterEncoder = commandEncoder.beginRenderPass(waterPass);
+                waterEncoder.setPipeline(waterPipeline);
+                waterEncoder.setBindGroup(0, waterBindgroup);
+                waterEncoder.draw(4);
+                waterEncoder.end();
+                const sedEncoder = commandEncoder.beginRenderPass(sedPass);
+                sedEncoder.setPipeline(sedPipeline);
+                sedEncoder.setBindGroup(0, sedBindgroup);
+                sedEncoder.draw(4);
+                sedEncoder.end();
+                const showEncoder = commandEncoder.beginRenderPass(showPass);
+                showEncoder.setPipeline(showPipeline);
+                showEncoder.setBindGroup(0, showBindgroup);
+                showEncoder.draw(4);
+                showEncoder.end();
+                device.queue.submit([commandEncoder.finish()]);
+                init = false;
+                if (step > 100) return;
+                window.requestAnimationFrame(run);
+            }
+            run();
         }
     }
 }
