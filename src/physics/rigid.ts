@@ -314,6 +314,66 @@ namespace tesserxel {
                     rigid.inertia.set(2 * maj1 + min * 5, half, half, half, half, 2 * maj2 + min * 5).mulfs(rigid.mass * 0.5);
                 }
             }
+            // todo
+            export class ThickHexahedronGrid extends RigidGeometry {
+                grid1: math.Vec4[][][];
+                grid2: math.Vec4[][][];
+                convex: Convex[];
+                constructor(
+                    grid1: math.Vec4[][][], grid2: math.Vec4[][][],
+                ) {
+                    super();
+                    this.grid1 = grid1;
+                    this.grid2 = grid2;
+                    this.convex = [];
+                    for (let w = 0, lw = grid1.length - 1; w < lw; w++) {
+                        let grd1w = grid1[w];
+                        let grd2w = grid2[w];
+                        let grd1w1 = grid1[w + 1];
+                        let grd2w1 = grid2[w + 1];
+                        for (let z = 0, lz = grid1[0].length - 1; z < lz; z++) {
+                            let grd1wz = grd1w[z];
+                            let grd2wz = grd2w[z];
+                            let grd1wz1 = grd1w[z + 1];
+                            let grd2wz1 = grd2w[z + 1];
+                            let grd1w1z = grd1w1[z];
+                            let grd2w1z = grd2w1[z];
+                            let grd1w1z1 = grd1w1[z + 1];
+                            let grd2w1z1 = grd2w1[z + 1];
+                            for (let x = 0, lx = grid1[0][0].length - 1; x < lx; x++) {
+                                let c = [
+                                    grd1wz[x],
+                                    grd1wz[x + 1],
+                                    grd1wz1[x],
+                                    grd1wz1[x + 1],
+                                    grd1w1z[x],
+                                    grd1w1z[x + 1],
+                                    grd1w1z1[x],
+                                    grd1w1z1[x + 1],
+                                    grd2wz[x],
+                                    grd2wz[x + 1],
+                                    grd2wz1[x],
+                                    grd2wz1[x + 1],
+                                    grd2w1z[x],
+                                    grd2w1z[x + 1],
+                                    grd2w1z1[x],
+                                    grd2w1z1[x + 1],
+                                ];
+                                let sum = new math.Vec4();
+                                c.reduceRight((a,b)=>{return sum.addset(a, b)}).divfs(16);
+                                this.convex.push(new Convex(c.map(c=>c.sub(sum))));
+                            }
+                        }
+                    }
+                }
+                initializeMassInertia(rigid: Rigid) {
+                    if (rigid.mass) console.warn("HeightField doesnt support a finitive mass.");
+                    rigid.mass = null;
+                    rigid.invMass = 0;
+                    rigid.inertia = null;
+                    rigid.invInertia = null;
+                }
+            }
         }
     }
 }

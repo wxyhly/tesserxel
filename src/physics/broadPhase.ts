@@ -39,6 +39,7 @@ namespace tesserxel {
                 for (let i = 0; i < world.rigids.length; i++) {
                     for (let j = i + 1; j < world.rigids.length; j++) {
                         let ri = world.rigids[i], rj = world.rigids[j];
+                        if(!ri.mass && !rj.mass) continue;
                         if (!this.checkBoundingGlome(ri, rj)) continue;
                         let iU = ri.geometry instanceof rigid.Union;
                         let jU = rj.geometry instanceof rigid.Union;
@@ -73,6 +74,7 @@ namespace tesserxel {
                 for (let i = 0; i < world.rigids.length; i++) {
                     for (let j = i + 1; j < world.rigids.length; j++) {
                         let ri = world.rigids[i], rj = world.rigids[j];
+                        if(!ri.mass && !rj.mass) continue;
                         let iU = ri.geometry instanceof rigid.Union;
                         let jU = rj.geometry instanceof rigid.Union;
                         if (!iU && !jU) {
