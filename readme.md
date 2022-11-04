@@ -5,7 +5,7 @@
 Tesserxel is a project aimed for providing 4D scenes rendering and interacting library on web. This project uses experimental WebGPU API to provide a WebGPU based 4D render engine.
 
 ### Examples
-- [Online example browser](https://wxyhly.github.io/tesserxel/examples/)
+- [Online example browser](https://wxyhly.github.io/tesserxel/docs/)
 
 ![scree snapshots in example browser](https://wxyhly.github.io/img/tsx001.jpg)
 Attention: Examples should be opened by a WebGPU supported browser (e.g. Google Chrome Canary), and experimental WebGPU should be enabled in the browser's settings.

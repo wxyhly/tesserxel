@@ -616,4 +616,4 @@ var rasterizer;
 // }
 
 export { rasterizer, voxel_shadertoy, voxel_test };
-//# sourceMappingURL=voxelTest.js.map
+//# sourceMappingURL=voxeltest.js.map
