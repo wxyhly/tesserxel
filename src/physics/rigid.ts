@@ -1,5 +1,9 @@
-namespace tesserxel {
-    export namespace physics {
+import { Obj4 } from "../math/algebra/affine";
+import { Bivec } from "../math/algebra/bivec";
+import { Vec4 } from "../math/algebra/vec4";
+import { AABB } from "../math/geometry/primitive";
+import { Material } from "./engine";
+
         export type RigidType = "still" | "passive" | "active";
         interface SimpleRigidDescriptor {
             /** mass set to 0 to specify non-active rigid */
@@ -19,31 +23,31 @@ namespace tesserxel {
          *  exceptions are position/rotation and (angular)velocity.
          *  pass RigidDescriptor into constructor instead.
          *  */
-        export class Rigid extends math.Obj4 {
-            // Rigid extends math.Obj4, it has position and rotation, but no scale
-            declare scale: null;
+        export class Rigid extends Obj4 {
+            // Rigid extends Obj4, it has position and rotation, but no scale
+            declare scale: undefined;
             material: Material;
             // Caution: Two Rigids cannot share the same RigidGeometry instance
             geometry: RigidGeometry;
             type: RigidType;
-            mass: number;
+            mass: number|undefined;
             invMass: number;
             // inertia is a 6x6 Matrix for angularVelocity -> angularMomentum
             // this is diagonalbMatrix under principal axes coordinates
-            inertia = new math.Bivec();
-            invInertia = new math.Bivec();
+            inertia:Bivec|undefined = new Bivec();
+            invInertia:Bivec|undefined = new Bivec();
             inertiaIsotroy: boolean; // whether using scalar inertia
             // only apply to active type object
             sleep: boolean = false;
             // for tracing debug
             label?: string;
 
-            velocity: math.Vec4 = new math.Vec4();
-            angularVelocity: math.Bivec = new math.Bivec();
-            force: math.Vec4 = new math.Vec4();
-            torque: math.Bivec = new math.Bivec();
-            acceleration: math.Vec4 = new math.Vec4();
-            angularAcceleration: math.Bivec = new math.Bivec();
+            velocity: Vec4 = new Vec4();
+            angularVelocity: Bivec = new Bivec();
+            force: Vec4 = new Vec4();
+            torque: Bivec = new Bivec();
+            acceleration: Vec4 = new Vec4();
+            angularAcceleration: Bivec = new Bivec();
             constructor(param: SimpleRigidDescriptor | UnionRigidDescriptor) {
                 super();
                 if ((param as UnionRigidDescriptor).length) {
@@ -51,7 +55,7 @@ namespace tesserxel {
                 } else {
                     let option = param as SimpleRigidDescriptor;
                     this.geometry = option.geometry;
-                    this.mass = isFinite(option.mass) ? option.mass : 0;
+                    this.mass = isFinite(option.mass as number) ? option.mass! : 0;
                     this.type = option.type ?? "active";
                     this.invMass = this.mass > 0 && (this.type === "active") ? 1 / this.mass : 0;
                     this.material = option.material;
@@ -60,7 +64,7 @@ namespace tesserxel {
                 this.geometry.initialize(this);
             }
 
-            getlinearVelocity(out: math.Vec4, point: math.Vec4) {
+            getlinearVelocity(out: Vec4, point: Vec4) {
                 if (this.type === "still") return out.set();
                 let relPosition = out.subset(point, this.position);
                 return out.dotbset(relPosition, this.angularVelocity).adds(this.velocity);
@@ -68,32 +72,32 @@ namespace tesserxel {
         }
         /** internal type for union rigid geometry */
         export interface SubRigid extends Rigid {
-            localCoord?: math.Obj4;
+            localCoord?: Obj4;
             parent?: Rigid;
         }
         export abstract class RigidGeometry {
             rigid: Rigid;
-            obb: math.AABB;
-            aabb: math.AABB;
+            obb: AABB;
+            aabb: AABB;
             boundingGlome: number;
             initialize(rigid: Rigid) {
                 this.rigid = rigid;
                 this.initializeMassInertia(rigid);
                 if (!rigid.mass && rigid.type === "active") rigid.type = "still";
                 if (rigid.inertia) {
-                    rigid.invInertia.xy = 1 / rigid.inertia.xy;
+                    rigid.invInertia!.xy = 1 / rigid.inertia.xy;
                     if (!rigid.inertiaIsotroy) {
-                        rigid.invInertia.xz = 1 / rigid.inertia.xz;
-                        rigid.invInertia.yz = 1 / rigid.inertia.yz;
-                        rigid.invInertia.xw = 1 / rigid.inertia.xw;
-                        rigid.invInertia.yw = 1 / rigid.inertia.yw;
-                        rigid.invInertia.zw = 1 / rigid.inertia.zw;
+                        rigid.invInertia!.xz = 1 / rigid.inertia.xz;
+                        rigid.invInertia!.yz = 1 / rigid.inertia.yz;
+                        rigid.invInertia!.xw = 1 / rigid.inertia.xw;
+                        rigid.invInertia!.yw = 1 / rigid.inertia.yw;
+                        rigid.invInertia!.zw = 1 / rigid.inertia.zw;
                     } else {
-                        rigid.invInertia.xz = rigid.invInertia.xy;
-                        rigid.invInertia.yz = rigid.invInertia.xy;
-                        rigid.invInertia.xw = rigid.invInertia.xy;
-                        rigid.invInertia.yw = rigid.invInertia.xy;
-                        rigid.invInertia.zw = rigid.invInertia.xy;
+                        rigid.invInertia!.xz = rigid.invInertia!.xy;
+                        rigid.invInertia!.yz = rigid.invInertia!.xy;
+                        rigid.invInertia!.xw = rigid.invInertia!.xy;
+                        rigid.invInertia!.yw = rigid.invInertia!.xy;
+                        rigid.invInertia!.zw = rigid.invInertia!.xy;
                         rigid.inertia.xz = rigid.inertia.xy;
                         rigid.inertia.yz = rigid.inertia.xy;
                         rigid.inertia.xw = rigid.inertia.xy;
@@ -114,28 +118,28 @@ namespace tesserxel {
                     rigid.position.set();
                     rigid.mass = 0;
                     for (let r of this.components) {
-                        if (r.mass === null) console.error("Union Rigid Geometry cannot contain a still rigid.");
-                        rigid.position.addmulfs(r.position, r.mass);
-                        rigid.mass += r.mass;
+                        if (r.mass === undefined) console.error("Union Rigid Geometry cannot contain a still rigid.");
+                        rigid.position.addmulfs(r.position, r.mass!);
+                        rigid.mass += r.mass!;
                     }
                     rigid.invMass = 1 / rigid.mass;
                     rigid.position.mulfs(rigid.invMass);
                     // update rigids position to relative frame
                     for (let r of this.components) {
-                        r.localCoord = new math.Obj4().copyObj4(r);
+                        r.localCoord = new Obj4().copyObj4(r);
                         r.localCoord.position.subs(rigid.position);
                         r.parent = rigid;
                     }
                     // todo
-                    // let inertia = new math.Matrix(6,6);
-                    rigid.inertia.xy = 1;
+                    // let inertia = new Matrix(6,6);
+                    rigid.inertia!.xy = 1;
                     rigid.inertiaIsotroy = true;
                     rigid.type = "active";
                 };
                 updateCoord() {
                     for (let r of this.components) {
-                        r.position.copy(r.localCoord.position).rotates(this.rigid.rotation).adds(this.rigid.position);
-                        r.rotation.copy(r.localCoord.rotation).mulsl(this.rigid.rotation);
+                        r.position.copy(r.localCoord!.position).rotates(this.rigid.rotation).adds(this.rigid.position);
+                        r.rotation.copy(r.localCoord!.rotation).mulsl(this.rigid.rotation);
                     }
                 }
             }
@@ -150,16 +154,16 @@ namespace tesserxel {
                 }
                 initializeMassInertia(rigid: Rigid) {
                     rigid.inertiaIsotroy = true;
-                    rigid.inertia.xy = rigid.mass * this.radiusSqr * 0.25;
+                    rigid.inertia!.xy = rigid.mass! * this.radiusSqr * 0.25;
                 }
             }
             export class Convex extends RigidGeometry {
-                points: math.Vec4[];
-                _cachePoints: math.Vec4[];
-                constructor(points: math.Vec4[]) {
+                points: Vec4[];
+                _cachePoints: Vec4[];
+                constructor(points: Vec4[]) {
                     super();
                     this.points = points;
-                    this.obb = math.AABB.fromPoints(points);
+                    this.obb = AABB.fromPoints(points);
                     this.boundingGlome = 0;
                     for (let i of points) {
                         this.boundingGlome = Math.max(this.boundingGlome, i.normsqr());
@@ -171,26 +175,26 @@ namespace tesserxel {
                 }
             }
             export class Tesseractoid extends Convex {
-                size: math.Vec4;
-                constructor(size: math.Vec4 | number) {
-                    let s = typeof size === "number" ? new math.Vec4(size, size, size, size) : size;
+                size: Vec4;
+                constructor(size: Vec4 | number) {
+                    let s = typeof size === "number" ? new Vec4(size, size, size, size) : size;
                     super([
-                        new math.Vec4(s.x, s.y, s.z, s.w),
-                        new math.Vec4(-s.x, s.y, s.z, s.w),
-                        new math.Vec4(s.x, -s.y, s.z, s.w),
-                        new math.Vec4(-s.x, -s.y, s.z, s.w),
-                        new math.Vec4(s.x, s.y, -s.z, s.w),
-                        new math.Vec4(-s.x, s.y, -s.z, s.w),
-                        new math.Vec4(s.x, -s.y, -s.z, s.w),
-                        new math.Vec4(-s.x, -s.y, -s.z, s.w),
-                        new math.Vec4(s.x, s.y, s.z, -s.w),
-                        new math.Vec4(-s.x, s.y, s.z, -s.w),
-                        new math.Vec4(s.x, -s.y, s.z, -s.w),
-                        new math.Vec4(-s.x, -s.y, s.z, -s.w),
-                        new math.Vec4(s.x, s.y, -s.z, -s.w),
-                        new math.Vec4(-s.x, s.y, -s.z, -s.w),
-                        new math.Vec4(s.x, -s.y, -s.z, -s.w),
-                        new math.Vec4(-s.x, -s.y, -s.z, -s.w),
+                        new Vec4(s.x, s.y, s.z, s.w),
+                        new Vec4(-s.x, s.y, s.z, s.w),
+                        new Vec4(s.x, -s.y, s.z, s.w),
+                        new Vec4(-s.x, -s.y, s.z, s.w),
+                        new Vec4(s.x, s.y, -s.z, s.w),
+                        new Vec4(-s.x, s.y, -s.z, s.w),
+                        new Vec4(s.x, -s.y, -s.z, s.w),
+                        new Vec4(-s.x, -s.y, -s.z, s.w),
+                        new Vec4(s.x, s.y, s.z, -s.w),
+                        new Vec4(-s.x, s.y, s.z, -s.w),
+                        new Vec4(s.x, -s.y, s.z, -s.w),
+                        new Vec4(-s.x, -s.y, s.z, -s.w),
+                        new Vec4(s.x, s.y, -s.z, -s.w),
+                        new Vec4(-s.x, s.y, -s.z, -s.w),
+                        new Vec4(s.x, -s.y, -s.z, -s.w),
+                        new Vec4(-s.x, -s.y, -s.z, -s.w),
                     ]);
                     this.size = s;
                 }
@@ -200,13 +204,13 @@ namespace tesserxel {
                     let isoratio = mins / maxs;
                     rigid.inertiaIsotroy = isoratio > 0.95;
                     if (rigid.inertiaIsotroy) {
-                        rigid.inertia.xy = rigid.mass * (mins + maxs) * (mins + maxs) * 0.2;
+                        rigid.inertia!.xy = rigid.mass! * (mins + maxs) * (mins + maxs) * 0.2;
                     } else {
                         let x = this.size.x * this.size.x;
                         let y = this.size.y * this.size.y;
                         let z = this.size.z * this.size.z;
                         let w = this.size.w * this.size.w;
-                        rigid.inertia.set(x + y, x + z, x + w, y + z, y + w, z + w).mulfs(rigid.mass * 0.2);
+                        rigid.inertia!.set(x + y, x + z, x + w, y + z, y + w, z + w).mulfs(rigid.mass! * 0.2);
                     }
                 }
             }
@@ -215,19 +219,19 @@ namespace tesserxel {
              *  from origin by distance = offset
              */
             export class Plane extends RigidGeometry {
-                normal: math.Vec4;
+                normal: Vec4;
                 offset: number;
-                constructor(normal?: math.Vec4, offset?: number) {
+                constructor(normal?: Vec4, offset?: number) {
                     super();
-                    this.normal = normal ?? math.Vec4.y.clone();
+                    this.normal = normal ?? Vec4.y.clone();
                     this.offset = offset ?? 0;
                 }
                 initializeMassInertia(rigid: Rigid) {
                     if (rigid.mass) console.warn("Infinitive Plane cannot have a finitive mass.");
-                    rigid.mass = null;
+                    rigid.mass = undefined;
                     rigid.invMass = 0;
-                    rigid.inertia = null;
-                    rigid.invInertia = null;
+                    rigid.inertia = undefined;
+                    rigid.invInertia = undefined;
                 }
             }
             /** default orientation: XW */
@@ -239,11 +243,11 @@ namespace tesserxel {
                     super();
                     this.majorRadius = majorRadius;
                     this.minorRadius = minorRadius;
-                    this.obb = new math.AABB(
-                        new math.Vec4(
+                    this.obb = new AABB(
+                        new Vec4(
                             -majorRadius - minorRadius, -minorRadius, -minorRadius, -majorRadius - minorRadius
                         ),
-                        new math.Vec4(
+                        new Vec4(
                             majorRadius + minorRadius, minorRadius, minorRadius, majorRadius + minorRadius
                         ),
                     );
@@ -256,7 +260,7 @@ namespace tesserxel {
                     let half = maj + 5 * min;
                     let parallel = 2 * maj + 6 * min;
                     let perp = 4 * min;
-                    rigid.inertia.set(half, half, parallel, perp, half, half).mulfs(rigid.mass * 0.1);
+                    rigid.inertia!.set(half, half, parallel, perp, half, half).mulfs(rigid.mass! * 0.1);
                 }
             }
             /** default orientation: XZW */
@@ -268,11 +272,11 @@ namespace tesserxel {
                     super();
                     this.majorRadius = majorRadius;
                     this.minorRadius = minorRadius;
-                    this.obb = new math.AABB(
-                        new math.Vec4(
+                    this.obb = new AABB(
+                        new Vec4(
                             -majorRadius - minorRadius, -minorRadius, -majorRadius - minorRadius, -majorRadius - minorRadius
                         ),
-                        new math.Vec4(
+                        new Vec4(
                             majorRadius + minorRadius, minorRadius, majorRadius + minorRadius, majorRadius + minorRadius
                         ),
                     );
@@ -284,7 +288,7 @@ namespace tesserxel {
                     let min = this.minorRadius * this.minorRadius;
                     let half = 2 * maj + 5 * min;
                     let parallel = 3 * maj + 6 * min;
-                    rigid.inertia.set(half, parallel, parallel, half, half, parallel).mulfs(rigid.mass * 0.1);
+                    rigid.inertia!.set(half, parallel, parallel, half, half, parallel).mulfs(rigid.mass! * 0.1);
                 }
             }
             /** default orientation: 1:XY, 2:ZW */
@@ -298,9 +302,9 @@ namespace tesserxel {
                     this.majorRadius1 = majorRadius1;
                     this.majorRadius2 = majorRadius2;
                     this.minorRadius = minorRadius;
-                    this.obb = new math.AABB(
-                        new math.Vec4(-majorRadius1 - minorRadius, -majorRadius1 - minorRadius, -majorRadius2 - minorRadius, -majorRadius2 - minorRadius),
-                        new math.Vec4(majorRadius1 + minorRadius, majorRadius1 + minorRadius, majorRadius2 + minorRadius, majorRadius2 + minorRadius),
+                    this.obb = new AABB(
+                        new Vec4(-majorRadius1 - minorRadius, -majorRadius1 - minorRadius, -majorRadius2 - minorRadius, -majorRadius2 - minorRadius),
+                        new Vec4(majorRadius1 + minorRadius, majorRadius1 + minorRadius, majorRadius2 + minorRadius, majorRadius2 + minorRadius),
                     );
 
                     this.boundingGlome = Math.max(majorRadius1, majorRadius2) + minorRadius;
@@ -311,16 +315,16 @@ namespace tesserxel {
                     let maj2 = this.majorRadius2 * this.majorRadius2;
                     let min = this.minorRadius * this.minorRadius;
                     let half = maj1 + maj2 + min * 6;
-                    rigid.inertia.set(2 * maj1 + min * 5, half, half, half, half, 2 * maj2 + min * 5).mulfs(rigid.mass * 0.5);
+                    rigid.inertia!.set(2 * maj1 + min * 5, half, half, half, half, 2 * maj2 + min * 5).mulfs(rigid.mass! * 0.5);
                 }
             }
             // todo
             export class ThickHexahedronGrid extends RigidGeometry {
-                grid1: math.Vec4[][][];
-                grid2: math.Vec4[][][];
+                grid1: Vec4[][][];
+                grid2: Vec4[][][];
                 convex: Convex[];
                 constructor(
-                    grid1: math.Vec4[][][], grid2: math.Vec4[][][],
+                    grid1: Vec4[][][], grid2: Vec4[][][],
                 ) {
                     super();
                     this.grid1 = grid1;
@@ -359,7 +363,7 @@ namespace tesserxel {
                                     grd2w1z1[x],
                                     grd2w1z1[x + 1],
                                 ];
-                                let sum = new math.Vec4();
+                                let sum = new Vec4();
                                 c.reduceRight((a,b)=>{return sum.addset(a, b)}).divfs(16);
                                 this.convex.push(new Convex(c.map(c=>c.sub(sum))));
                             }
@@ -368,12 +372,10 @@ namespace tesserxel {
                 }
                 initializeMassInertia(rigid: Rigid) {
                     if (rigid.mass) console.warn("HeightField doesnt support a finitive mass.");
-                    rigid.mass = null;
+                    rigid.mass = undefined;
                     rigid.invMass = 0;
-                    rigid.inertia = null;
-                    rigid.invInertia = null;
+                    rigid.inertia = undefined;
+                    rigid.invInertia = undefined;
                 }
             }
         }
-    }
-}

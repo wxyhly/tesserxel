@@ -1,4 +1,5 @@
-namespace examples {
+import * as tesserxel from "../../build/tesserxel.js"
+// namespace examples {
     const FOUR = tesserxel.four;
     const phy = tesserxel.physics;
     const math = tesserxel.math;
@@ -87,7 +88,7 @@ namespace examples {
             material: new phy.Material(1, 0.8), mass
         });
     }
-    class EmitGlomeController implements tesserxel.controller.IController {
+    class EmitGlomeController implements tesserxel.util.ctrl.IController {
         enabled: boolean = true;
         world: tesserxel.physics.World; scene: tesserxel.four.Scene;
         glomeMaterial = new FOUR.PhongMaterial([1.2, 0.4, 0.2]);
@@ -98,7 +99,7 @@ namespace examples {
         constructor(world: tesserxel.physics.World, scene: tesserxel.four.Scene, camera: tesserxel.math.Obj4) {
             this.world = world; this.scene = scene; this.camera = camera;
         }
-        update(state: tesserxel.controller.ControllerState): void {
+        update(state: tesserxel.util.ctrl.ControllerState): void {
             if (state.queryDisabled({ disable: "AltLeft" })) return;
             if (state.isPointerLocked() && state.mouseDown === 0) {
                 let g = createGlome(this.glomeRadius, 5);
@@ -135,8 +136,8 @@ namespace examples {
             const materialBox = new FOUR.LambertMaterial(new FOUR.CheckerTexture([0, 0, 0, 0.5], [1, 1, 1, 0.5]));
 
             renderer.core.setEyeOffset(0.5);
-            const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
-            const camCtrl = new tesserxel.controller.KeepUpController(camera);
+            const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
+            const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
             camCtrl.keyMoveSpeed = 0.01;
 
             function setSize() {
@@ -187,7 +188,7 @@ namespace examples {
                 torispherearr.push(torisphere);
             }
             world.add(new phy.PointConstrain(torispherearr[0], null, math.Vec4.x, torispherearr[0].position.add(math.Vec4.x)));
-            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+            const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
                 retinaCtrl,
                 camCtrl,
                 new EmitGlomeController(world, scene, camera)
@@ -300,15 +301,15 @@ namespace examples {
 
             // controllers
 
-            const camCtrl = new tesserxel.controller.KeepUpController(camera);
+            const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
             camCtrl.keyMoveSpeed = 0.003;
 
-            const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
+            const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
 
             const emitCtrl = new EmitGlomeController(world, scene, camera);
             emitCtrl.initialSpeed = 5;
 
-            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+            const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
                 retinaCtrl,
                 camCtrl,
                 emitCtrl
@@ -389,15 +390,15 @@ namespace examples {
 
             // controllers
 
-            const camCtrl = new tesserxel.controller.KeepUpController(camera);
+            const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
             camCtrl.keyMoveSpeed = 0.01;
 
-            const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
+            const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
 
             const emitCtrl = new EmitGlomeController(world, scene, camera);
             emitCtrl.initialSpeed = 10;
 
-            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+            const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
                 retinaCtrl,
                 camCtrl,
                 emitCtrl
@@ -509,17 +510,17 @@ namespace examples {
 
             // controllers
 
-            const camCtrl = new tesserxel.controller.KeepUpController(camera);
+            const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
             camCtrl.keyMoveSpeed = 0.01;
 
-            const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
+            const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
 
             const emitCtrl = new EmitGlomeController(world, scene, camera);
             emitCtrl.glomeRadius = 2;
             emitCtrl.maximumBulletDistance = 70;
             emitCtrl.initialSpeed = 10;
 
-            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+            const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
                 retinaCtrl,
                 camCtrl,
                 emitCtrl
@@ -596,38 +597,38 @@ namespace examples {
             //     v(0, 0, 0, -1),
             // ];
             // let p = v(0.02, 0.03, -0.01, 0.04);//[1,2,3,4,5]
-            for (let i = 0; i < 10; i++) {
+            // for (let i = 0; i < 10; i++) {
 
-                // let r = tesserxel.math.Bivec.yw.exp();
-                let convex = new Array(1024).fill(0).map(e => tesserxel.math.Vec4.rand().mulfs(4));
-                let p = tesserxel.math.Vec4.rand().mulfs(2);
+            //     // let r = tesserxel.math.Bivec.yw.exp();
+            //     let convex = new Array(1024).fill(0).map(e => tesserxel.math.Vec4.rand().mulfs(4));
+            //     let p = tesserxel.math.Vec4.rand().mulfs(2);
 
-                let dconvex = convex.map(v => v.sub(p));
-                let newer = (tesserxel.physics.gjkDiffTest([p], convex));
-                let older = (tesserxel.physics.gjkOutDistance(dconvex));
-                if (older.normal) {
-                    console.assert(!newer.normals, "fake inter");
+            //     let dconvex = convex.map(v => v.sub(p));
+            //     let newer = (tesserxel.physics.gjkDiffTest([p], convex));
+            //     let older = (tesserxel.physics.gjkOutDistance(dconvex));
+            //     if (older.normal) {
+            //         console.assert(!newer.normals, "fake inter");
 
-                    // console.log("no inter");
-                } else {
-                    console.assert(!!newer.normals, "fake non inter");
-                    let epa = tesserxel.physics.epa(dconvex, older as {
-                        simplex: tesserxel.math.Vec4[];
-                        reverseOrder: boolean;
-                        normals: tesserxel.math.Vec4[];
-                    });
-                    let epadiff = tesserxel.physics.epaDiff([p], convex, newer as {
-                        simplex1: tesserxel.math.Vec4[];
-                        simplex2: tesserxel.math.Vec4[];
-                        reverseOrder: boolean;
-                        normals: tesserxel.math.Vec4[];
-                    });
+            //         // console.log("no inter");
+            //     } else {
+            //         console.assert(!!newer.normals, "fake non inter");
+            //         let epa = tesserxel.physics.epa(dconvex, older as {
+            //             simplex: tesserxel.math.Vec4[];
+            //             reverseOrder: boolean;
+            //             normals: tesserxel.math.Vec4[];
+            //         });
+            //         let epadiff = tesserxel.physics.epaDiff([p], convex, newer as {
+            //             simplex1: tesserxel.math.Vec4[];
+            //             simplex2: tesserxel.math.Vec4[];
+            //             reverseOrder: boolean;
+            //             normals: tesserxel.math.Vec4[];
+            //         });
 
-                    console.assert(Math.abs(epa.distance - epadiff.distance) < 0.00001);
-                    console.log(epa);
-                    console.log(epadiff);
-                }
-            }
+            //         console.assert(Math.abs(epa.distance - epadiff.distance) < 0.00001);
+            //         console.log(epa);
+            //         console.log(epadiff);
+            //     }
+            // }
         }
     }
 
@@ -698,17 +699,17 @@ namespace examples {
 
             // controllers
 
-            const camCtrl = new tesserxel.controller.KeepUpController(camera);
+            const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
             camCtrl.keyMoveSpeed = 0.01;
 
-            const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
+            const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
 
             const emitCtrl = new EmitGlomeController(world, scene, camera);
             emitCtrl.glomeRadius = 2;
             emitCtrl.maximumBulletDistance = 70;
             emitCtrl.initialSpeed = 10;
 
-            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+            const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
                 retinaCtrl,
                 camCtrl,
                 emitCtrl
@@ -814,10 +815,10 @@ namespace examples {
 
             // controllers
 
-            const camCtrl = new tesserxel.controller.KeepUpController(camera);
+            const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
             camCtrl.keyMoveSpeed = 0.01;
 
-            const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
+            const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
 
             const emitCtrl = new EmitGlomeController(world, scene, camera);
             emitCtrl.glomeRadius = 2;
@@ -825,7 +826,7 @@ namespace examples {
             emitCtrl.initialSpeed = 10;
             await emitCtrl.glomeMaterial.compile(renderer);
 
-            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+            const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
                 retinaCtrl,
                 camCtrl,
                 emitCtrl
@@ -854,7 +855,7 @@ namespace examples {
     }
     async function loadMaxwell(cb: (
         world: tesserxel.physics.World,
-        maxwell: tesserxel.physics.force.MaxWell,
+        maxwell: tesserxel.physics.MaxWell,
         scene: tesserxel.four.Scene,
         renderer: tesserxel.four.Renderer
     ) => Promise<void>) {
@@ -903,7 +904,7 @@ namespace examples {
         roomMesh.position.y += roomSize;
         tesserxel.mesh.tetra.inverseNormal(roomMesh.geometry.jsBuffer);
         scene.add(roomMesh);
-        let maxwell = new phy.force.MaxWell();
+        let maxwell = new phy.MaxWell();
         world.add(maxwell);
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
@@ -928,17 +929,17 @@ namespace examples {
 
         // controllers
 
-        const camCtrl = new tesserxel.controller.KeepUpController(camera);
+        const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
         camCtrl.keyMoveSpeed = 0.01;
 
-        const retinaCtrl = new tesserxel.controller.RetinaController(renderer.core);
+        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
 
         const emitCtrl = new EmitGlomeController(world, scene, camera);
         emitCtrl.glomeRadius = 1;
         emitCtrl.maximumBulletDistance = 70;
         emitCtrl.initialSpeed = 10;
 
-        const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
+        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
             retinaCtrl,
             camCtrl,
             emitCtrl
@@ -1037,7 +1038,7 @@ namespace examples {
                 const chargeNum = 6;
                 const radius = 5;
                 // await renderMatMDipole.compile(renderer);
-                let damp = new phy.force.Damping(0.01, 0.01);
+                let damp = new phy.Damping(0.01, 0.01);
                 world.add(damp);
                 for (let i = 0; i < chargeNum; i++) {
                     let dipole = new phy.Rigid({ geometry: new phy.rigid.Glome(1), mass: 1, material: phyMatCharge });
@@ -1086,7 +1087,7 @@ namespace examples {
                 const radius = 5;
                 // await renderMatMDipoleDual.compile(renderer);
                 // await renderMatMDipoleAntiDual.compile(renderer);
-                let damp = new phy.force.Damping(0.01, 0.01);
+                let damp = new phy.Damping(0.01, 0.01);
                 world.add(damp);
                 
                 let dipoleB = new phy.Rigid({ geometry: new phy.rigid.Glome(1), mass: 1, material: phyMatCharge });
@@ -1112,4 +1113,4 @@ namespace examples {
             });
         }
     }
-}
+// }

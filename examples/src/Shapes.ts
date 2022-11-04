@@ -1,6 +1,7 @@
-namespace examples {
-    class ShapesApp {
-        vertCode = `
+import * as tesserxel from "../../build/tesserxel.js"
+// namespace examples {
+class ShapesApp {
+    vertCode = `
         // vertex attributes, regard four vector4 for vertices of one tetrahedra as matrix4x4 
         struct InputType{
             @location(0) pos: mat4x4<f32>,
@@ -34,7 +35,7 @@ namespace examples {
             );
         }
         `;
-        fragHeaderCode = `
+    fragHeaderCode = `
         // receive data from vertex output, these values are automatically interpolated for every fragment
         struct fInputType{
             @location(0) normal : vec4<f32>,
@@ -54,84 +55,84 @@ namespace examples {
             return c.z * mix(vec3<f32>(1.0), rgb, c.y);
         }
         `;
-        gpu: tesserxel.renderer.GPU;
-        renderer: tesserxel.renderer.SliceRenderer;
-        trackBallController: tesserxel.controller.TrackBallController;
-        retinaController: tesserxel.controller.RetinaController;
-        ctrlRegistry: tesserxel.controller.ControllerRegistry;
-        mesh: tesserxel.mesh.TetraMesh;
-        pipeline: tesserxel.renderer.TetraSlicePipeline;
-        canvas: HTMLCanvasElement;
-        context: GPUCanvasContext;
-        vertBindGroup: GPUBindGroup;
-        camBuffer: GPUBuffer;
-        async init(fragmentShaderCode: string, mesh: tesserxel.mesh.TetraMesh) {
-            this.gpu = await tesserxel.renderer.createGPU();
-            this.canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-            this.context = this.gpu.getContext(this.canvas);
-            this.renderer = await new tesserxel.renderer.SliceRenderer().init(this.gpu, this.context, {
-                // if this is set true, alpha blending will be more accurate but costy
-                enableFloat16Blend: false,
-                // how many slices are drawn together, this value must be 2^n and it can't be to big for resource limitation
-                sliceGroupSize: 8
-            });
-            // set 4d camera
-            this.renderer.setCameraProjectMatrix({
-                fov: 100, near: 0.01, far: 10
-            });
-            // create a tetra slice pipeline
-            this.pipeline = await this.renderer.createTetraSlicePipeline({
-                vertex: { code: this.vertCode, entryPoint: "main" },
-                fragment: {
-                    code: this.fragHeaderCode + fragmentShaderCode,
-                    entryPoint: "main",
-                },
-                cullMode: "none"
-            });
-            // vertex attrbutes buffers on gpu
-            let positionBuffer = this.gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.position);
-            let normalBuffer = this.gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.normal);
-            let uvwBuffer = this.gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.uvw);
-            // camera affinemat buffer on gpu
-            this.camBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
-            // bind these buffers to group(1) in pipeline
-            this.vertBindGroup = this.renderer.createVertexShaderBindGroup(this.pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, this.camBuffer]);
-            // init a trackball controller in order to drag 4d object by mouse and keys
-            this.trackBallController = new tesserxel.controller.TrackBallController();
-            // randomize the initial orientation of the object controlled by trackball controller
-            this.trackBallController.object.rotation.randset();
-            // init a retina controller in order to adjust retina settings interactively like section thumbails and retina render layers
-            this.retinaController = new tesserxel.controller.RetinaController(this.renderer);
-            this.setSize();
-            this.retinaController.mouseButton = null;
-            this.ctrlRegistry = new tesserxel.controller.ControllerRegistry(this.canvas, [
-                this.trackBallController, this.retinaController
-            ], { preventDefault: true, requsetPointerLock: true });
-            this.mesh = mesh;
-            window.addEventListener("resize", this.setSize.bind(this));
-            return this;
-        }
-        setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            this.canvas.width = width;
-            this.canvas.height = height;
-            this.retinaController.setSize({ width, height });
-        }
-        camMatJSBuffer = new Float32Array(20);
-        run() {
-            this.ctrlRegistry.update();
-            this.trackBallController.object.getAffineMat4().writeBuffer(this.camMatJSBuffer);
-            this.gpu.device.queue.writeBuffer(this.camBuffer, 0, this.camMatJSBuffer);
-            this.renderer.render(() => {
-                this.renderer.beginTetras(this.pipeline);
-                this.renderer.sliceTetras(this.vertBindGroup, this.mesh.count);
-                this.renderer.drawTetras();
-            });
-            window.requestAnimationFrame(this.run.bind(this));
-        }
+    gpu: tesserxel.render.GPU;
+    renderer: tesserxel.render.SliceRenderer;
+    trackBallController: tesserxel.util.ctrl.TrackBallController;
+    retinaController: tesserxel.util.ctrl.RetinaController;
+    ctrlRegistry: tesserxel.util.ctrl.ControllerRegistry;
+    mesh: tesserxel.mesh.TetraMesh;
+    pipeline: tesserxel.render.TetraSlicePipeline;
+    canvas: HTMLCanvasElement;
+    context: GPUCanvasContext;
+    vertBindGroup: GPUBindGroup;
+    camBuffer: GPUBuffer;
+    async init(fragmentShaderCode: string, mesh: tesserxel.mesh.TetraMesh) {
+        this.gpu = await new tesserxel.render.GPU().init();
+        this.canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+        this.context = this.gpu.getContext(this.canvas);
+        this.renderer = await new tesserxel.render.SliceRenderer().init(this.gpu, this.context, {
+            // if this is set true, alpha blending will be more accurate but costy
+            enableFloat16Blend: false,
+            // how many slices are drawn together, this value must be 2^n and it can't be to big for resource limitation
+            sliceGroupSize: 8
+        });
+        // set 4d camera
+        this.renderer.setCameraProjectMatrix({
+            fov: 100, near: 0.01, far: 10
+        });
+        // create a tetra slice pipeline
+        this.pipeline = await this.renderer.createTetraSlicePipeline({
+            vertex: { code: this.vertCode, entryPoint: "main" },
+            fragment: {
+                code: this.fragHeaderCode + fragmentShaderCode,
+                entryPoint: "main",
+            },
+            cullMode: "none"
+        });
+        // vertex attrbutes buffers on gpu
+        let positionBuffer = this.gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.position);
+        let normalBuffer = this.gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.normal);
+        let uvwBuffer = this.gpu.createBuffer(GPUBufferUsage.STORAGE, mesh.uvw);
+        // camera affinemat buffer on gpu
+        this.camBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
+        // bind these buffers to group(1) in pipeline
+        this.vertBindGroup = this.renderer.createVertexShaderBindGroup(this.pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, this.camBuffer]);
+        // init a trackball controller in order to drag 4d object by mouse and keys
+        this.trackBallController = new tesserxel.util.ctrl.TrackBallController();
+        // randomize the initial orientation of the object controlled by trackball controller
+        this.trackBallController.object.rotation.randset();
+        // init a retina controller in order to adjust retina settings interactively like section thumbails and retina render layers
+        this.retinaController = new tesserxel.util.ctrl.RetinaController(this.renderer);
+        this.setSize();
+        this.retinaController.mouseButton = null;
+        this.ctrlRegistry = new tesserxel.util.ctrl.ControllerRegistry(this.canvas, [
+            this.trackBallController, this.retinaController
+        ], { preventDefault: true, requsetPointerLock: true });
+        this.mesh = mesh;
+        window.addEventListener("resize", this.setSize.bind(this));
+        return this;
     }
-    let commonFragCode = `
+    setSize() {
+        let width = window.innerWidth * window.devicePixelRatio;
+        let height = window.innerHeight * window.devicePixelRatio;
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.retinaController.setSize({ width, height });
+    }
+    camMatJSBuffer = new Float32Array(20);
+    run() {
+        this.ctrlRegistry.update();
+        this.trackBallController.object.getAffineMat4().writeBuffer(this.camMatJSBuffer);
+        this.gpu.device.queue.writeBuffer(this.camBuffer, 0, this.camMatJSBuffer);
+        this.renderer.render(() => {
+            this.renderer.beginTetras(this.pipeline);
+            this.renderer.sliceTetras(this.vertBindGroup, this.mesh.count);
+            this.renderer.drawTetras();
+        });
+        window.requestAnimationFrame(this.run.bind(this));
+    }
+}
+let commonFragCode = `
     @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
         const ambientLight = vec3<f32>(0.1);
         const frontLightColor = vec3<f32>(5.0,4.6,3.5);
@@ -147,33 +148,33 @@ namespace examples {
         )* (0.4 + 0.8*highLight);
         return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
     }`;
-    export namespace tiger {
-        export async function load() {
-            let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.tiger(0.3 + Math.random() * 0.05, 32, 0.5, 32, 0.14 + Math.random() * 0.03, 16));
-            app.retinaController.toggleSectionConfig("retina+zslices");
-            app.run();
-            app.retinaController.setOpacity(2.0);
-        }
+export namespace tiger {
+    export async function load() {
+        let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.tiger(0.3 + Math.random() * 0.05, 32, 0.5, 32, 0.14 + Math.random() * 0.03, 16));
+        app.retinaController.toggleSectionConfig("retina+zslices");
+        app.run();
+        app.retinaController.setOpacity(2.0);
     }
-    export namespace spheritorus {
-        export async function load() {
-            let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.spheritorus(0.3, 16, 16, 0.6, 24));
-            app.retinaController.toggleSectionConfig("retina+zslices");
-            app.run();
-            app.retinaController.setOpacity(2.0);
-        }
+}
+export namespace spheritorus {
+    export async function load() {
+        let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.spheritorus(0.3, 16, 16, 0.6, 24));
+        app.retinaController.toggleSectionConfig("retina+zslices");
+        app.run();
+        app.retinaController.setOpacity(2.0);
     }
-    export namespace torisphere {
-        export async function load() {
-            let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.torisphere(0.15, 12, 0.6, 24, 24));
-            app.retinaController.toggleSectionConfig("retina+zslices");
-            app.run();
-            app.retinaController.setOpacity(2.0);
-        }
+}
+export namespace torisphere {
+    export async function load() {
+        let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.torisphere(0.15, 12, 0.6, 24, 24));
+        app.retinaController.toggleSectionConfig("retina+zslices");
+        app.run();
+        app.retinaController.setOpacity(2.0);
     }
-    export namespace glome {
-        export async function load() {
-            let fragCode = `
+}
+export namespace glome {
+    export async function load() {
+        let fragCode = `
             @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
                 const ambientLight = vec3<f32>(0.1);
                 const frontLightColor = vec3<f32>(5.0,4.6,3.5);
@@ -187,12 +188,12 @@ namespace examples {
                 );
                 return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, mix(0.2,1.0,factor));
             }`;
-            let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.glome(1.5, 32, 32, 16));
-            app.retinaController.setOpacity(10.0);
-            app.run();
-        }
+        let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.glome(1.5, 32, 32, 16));
+        app.retinaController.setOpacity(10.0);
+        app.run();
     }
-    let HypercubeFragCode = `
+}
+let HypercubeFragCode = `
     @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
         const colors = array<vec3<f32>,8> (
             vec3<f32>(1, 0, 0),
@@ -224,97 +225,99 @@ namespace examples {
         {discard}
         return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 0.2 + f32(count>=2.0));
     }`;
-    export namespace tesseract {
-        export async function load() {
-            let app = await new ShapesApp().init(HypercubeFragCode.replace("{discard}", "").replace("{radius}", "0.8").replace("{count}", "").replaceAll("{edge}", "0.8"), tesserxel.mesh.tetra.tesseract());
-            app.retinaController.setOpacity(10.0);
-            app.renderer.setCameraProjectMatrix({ fov: 110, near: 0.01, far: 10.0 });
-            app.trackBallController.object.rotation.l.set();
-            app.trackBallController.object.rotation.r.set();
-            app.run();
-        }
+export namespace tesseract {
+    export async function load() {
+        let app = await new ShapesApp().init(HypercubeFragCode.replace("{discard}", "").replace("{radius}", "0.8").replace("{count}", "").replaceAll("{edge}", "0.8"), tesserxel.mesh.tetra.tesseract());
+        app.retinaController.setOpacity(10.0);
+        app.renderer.setCameraProjectMatrix({ fov: 110, near: 0.01, far: 10.0 });
+        app.trackBallController.object.rotation.l.set();
+        app.trackBallController.object.rotation.r.set();
+        app.run();
     }
-    export namespace tesseract_ortho {
-        export async function load() {
+}
+export namespace tesseract_ortho {
+    export async function load() {
 
-            let app = await new ShapesApp().init(HypercubeFragCode.replace("{count}", "count = 2.0;").replace("{radius}", "0.3").replace("{discard}", "if(count < 2.0){ discard; }").replaceAll("{edge}", "0.9"), tesserxel.mesh.tetra.tesseract());
-            // retina controller will own the slice config, so we should not call renderer.setSlice() directly
-            app.retinaController.setOpacity(50.0);
-            app.retinaController.setLayers(128);
-            app.renderer.setCameraProjectMatrix({ size: 2, near: -8, far: 8 });
-            app.retinaController.setRetinaFov(0);
-            app.retinaController.setRetinaEyeOffset(0.05);
-            // app.retinaController.setStereo(false);
-            app.trackBallController.object.rotation.setFromLookAt(
-                tesserxel.math.Vec4.x,
-                new tesserxel.math.Vec4(1, Math.SQRT1_2, 0, -Math.SQRT1_2).norms()
-            ).mulsl(tesserxel.math.Rotor.lookAt(
-                tesserxel.math.Vec4.y.rotate(app.trackBallController.object.rotation),
-                new tesserxel.math.Vec4(0, Math.SQRT1_2, 1, Math.SQRT1_2).norms()
-            )).conjs();
-            app.trackBallController.mouseButton3D = 2;
-            app.trackBallController.mouseButton4D = 1;
-            app.trackBallController.mouseButtonRoll = 0;
-            app.run();
-        }
+        let app = await new ShapesApp().init(HypercubeFragCode.replace("{count}", "count = 2.0;").replace("{radius}", "0.3").replace("{discard}", "if(count < 2.0){ discard; }").replaceAll("{edge}", "0.9"), tesserxel.mesh.tetra.tesseract());
+        // retina controller will own the slice config, so we should not call renderer.setSlice() directly
+        app.retinaController.setOpacity(50.0);
+        app.retinaController.setLayers(128);
+        app.renderer.setCameraProjectMatrix({ size: 2, near: -8, far: 8 });
+        app.retinaController.setRetinaFov(0);
+        app.retinaController.setRetinaEyeOffset(0.05);
+        // app.retinaController.setStereo(false);
+        app.trackBallController.object.rotation.setFromLookAt(
+            tesserxel.math.Vec4.x,
+            new tesserxel.math.Vec4(1, Math.SQRT1_2, 0, -Math.SQRT1_2).norms()
+        ).mulsl(tesserxel.math.Rotor.lookAt(
+            tesserxel.math.Vec4.y.rotate(app.trackBallController.object.rotation),
+            new tesserxel.math.Vec4(0, Math.SQRT1_2, 1, Math.SQRT1_2).norms()
+        )).conjs();
+        app.trackBallController.mouseButton3D = 2;
+        app.trackBallController.mouseButton4D = 1;
+        app.trackBallController.mouseButtonRoll = 0;
+        app.run();
     }
-    async function loadFile(src: string) {
-        return new Promise((resolve, reject) => {
-            let xhr = new XMLHttpRequest();
-            xhr.open("GET", src, true);
-            xhr.onload = e => {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                        resolve(xhr.responseText);
-                    } else {
-                        console.error(xhr.statusText);
-                        reject();
-                    }
+}
+async function loadFile(src: string) {
+    return new Promise((resolve, reject) => {
+        let xhr = new XMLHttpRequest();
+        console.log("hqoma: "+src);
+        xhr.open("GET", src, true);
+        xhr.onload = e => {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    console.log("onload: "+xhr.responseText);
+                    resolve(xhr.responseText);
+                } else {
+                    console.error(xhr.statusText);
+                    reject();
                 }
-            };
-            xhr.onerror = function (e) {
-                console.error(xhr.statusText);
-                reject();
-            };
-            xhr.send();
-        });
-    }
-    export namespace suzanne3d {
-        export async function load() {
-            let s = 2;
-            let s2 = 3.2;
-            let spline = new tesserxel.math.Spline([
-                new tesserxel.math.Vec4(-s, 0),
-                new tesserxel.math.Vec4(0, s),
-                new tesserxel.math.Vec4(s, 0),
-                new tesserxel.math.Vec4(0, -s),
-                new tesserxel.math.Vec4(-s, 0),
-            ],
-                [
-                    new tesserxel.math.Vec4(0, s2),
-                    new tesserxel.math.Vec4(s2, 0),
-                    new tesserxel.math.Vec4(0, -s2),
-                    new tesserxel.math.Vec4(-s2, 0),
-                    new tesserxel.math.Vec4(0, s2),
-                ]);
-            let meshFile = new tesserxel.mesh.ObjFile(await loadFile("resource/suzanne.obj") as string);
-            let mesh = tesserxel.mesh.face.toNonIndexMesh(meshFile.parse());
-            let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.loft(spline, mesh, 9));
-            app.retinaController.setOpacity(10.0);
-            app.renderer.setCameraProjectMatrix({ fov: 80, near: 0.01, far: 50.0 });
-            app.trackBallController.object.rotation.l.set(Math.SQRT1_2, 0, Math.SQRT1_2, 0);
-            app.trackBallController.object.rotation.r.set();
-            app.run();
+            }
+        };
+        xhr.onerror = function (e) {
+            console.error(xhr.statusText);
+            reject();
+        };
+        xhr.send();
+    });
+}
+export namespace suzanne3d {
+    export async function load() {
+        let s = 2;
+        let s2 = 3.2;
+        let spline = new tesserxel.math.Spline([
+            new tesserxel.math.Vec4(-s, 0),
+            new tesserxel.math.Vec4(0, s),
+            new tesserxel.math.Vec4(s, 0),
+            new tesserxel.math.Vec4(0, -s),
+            new tesserxel.math.Vec4(-s, 0),
+        ],
+            [
+                new tesserxel.math.Vec4(0, s2),
+                new tesserxel.math.Vec4(s2, 0),
+                new tesserxel.math.Vec4(0, -s2),
+                new tesserxel.math.Vec4(-s2, 0),
+                new tesserxel.math.Vec4(0, s2),
+            ]);
+        let meshFile = new tesserxel.mesh.ObjFile(await loadFile("resource/suzanne.obj") as string);
+        let mesh = tesserxel.mesh.face.toNonIndexMesh(meshFile.parse());
+        let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.loft(spline, mesh, 9));
+        app.retinaController.setOpacity(10.0);
+        app.renderer.setCameraProjectMatrix({ fov: 80, near: 0.01, far: 50.0 });
+        app.trackBallController.object.rotation.l.set(Math.SQRT1_2, 0, Math.SQRT1_2, 0);
+        app.trackBallController.object.rotation.r.set();
+        app.run();
 
-        }
     }
+}
 
-    export namespace directproduct {
-        export async function load() {
-            let meshFile1 = new tesserxel.mesh.ObjFile(await loadFile("resource/text.obj") as string).parse();
-            let meshFile2 = new tesserxel.mesh.ObjFile(await loadFile("resource/text.obj") as string).parse();
-            let mesh = tesserxel.mesh.tetra.directProduct(meshFile1, meshFile2);
-            let app = await new ShapesApp().init(`
+export namespace directproduct {
+    export async function load() {
+        let meshFile1 = new tesserxel.mesh.ObjFile(await loadFile("resource/text.obj") as string).parse();
+        let meshFile2 = new tesserxel.mesh.ObjFile(await loadFile("resource/text.obj") as string).parse();
+        let mesh = tesserxel.mesh.tetra.directProduct(meshFile1, meshFile2);
+        let app = await new ShapesApp().init(`
             @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
                 const ambientLight = vec3<f32>(0.1);
                 const frontLightColor = vec3<f32>(5.0,4.6,3.5);
@@ -328,12 +331,12 @@ namespace examples {
                 )* (0.4 + 0.8*highLight);
                 return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
             }`, mesh);
-            app.retinaController.setOpacity(10.0);
-            app.renderer.setCameraProjectMatrix({ fov: 80, near: 0.01, far: 50.0 });
-            app.trackBallController.object.rotation.l.set(Math.SQRT1_2, 0, Math.SQRT1_2, 0);
-            app.trackBallController.object.rotation.r.set();
-            app.run();
+        app.retinaController.setOpacity(10.0);
+        app.renderer.setCameraProjectMatrix({ fov: 80, near: 0.01, far: 50.0 });
+        app.trackBallController.object.rotation.l.set(Math.SQRT1_2, 0, Math.SQRT1_2, 0);
+        app.trackBallController.object.rotation.r.set();
+        app.run();
 
-        }
     }
 }
+// }

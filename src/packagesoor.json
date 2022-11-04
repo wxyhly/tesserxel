@@ -1,0 +1,6 @@
+{
+    "source":"tesserxel.ts",
+    "main": "../build/tesserxel.js",
+    "module": "../build/tesserxel.module.js",
+    "types":"../build/tesserxel.d.ts"
+}

@@ -1,4 +1,4 @@
-namespace examples {
+import * as tesserxel from "../../build/tesserxel.js"
     export namespace city_highway {
         const vec4 = tesserxel.math.Vec4;
         const vec3 = tesserxel.math.Vec3;
@@ -443,10 +443,10 @@ namespace examples {
         ]);
 
         export async function load() {
-            let gpu = await tesserxel.renderer.createGPU();
+            let gpu = await new tesserxel.render.GPU().init();
             let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             let context = gpu.getContext(canvas);
-            let renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, {
+            let renderer = await new tesserxel.render.SliceRenderer().init(gpu, context, {
                 enableFloat16Blend: true,
                 sliceGroupSize: 8
             });
@@ -502,11 +502,11 @@ namespace examples {
                 fragmentEntryPoint: "mainFragment"
             });
             let rtBindGroup = [renderer.createVertexShaderBindGroup(rtPipeline, 1, [camBuffer])];
-            let camController = new tesserxel.controller.KeepUpController();
+            let camController = new tesserxel.util.ctrl.KeepUpController();
             camController.object.position.set(0.5, 0.5, 0.5, 3);
             camController.keyMoveSpeed *= 5;
-            let retinaController = new tesserxel.controller.RetinaController(renderer);
-            let ctrlreg = new tesserxel.controller.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
+            let retinaController = new tesserxel.util.ctrl.RetinaController(renderer);
+            let ctrlreg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
             renderer.setOpacity(5);
             let camMatJSBuffer = new Float32Array(20);
             renderer.setScreenClearColor({ r: 1.0, g: 1.0, b: 1.0, a: 1.0 });
@@ -540,4 +540,4 @@ namespace examples {
             run();
         }
     }
-}
+// }

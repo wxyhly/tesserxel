@@ -1,0 +1,11 @@
+export const _180 = Math.PI;
+export const _30 = Math.PI / 6;
+export const _60 = Math.PI / 3;
+export const _45 = Math.PI / 4;
+export const _90 = Math.PI / 2;
+export const _360 = Math.PI * 2;
+export const _DEG2RAD = Math.PI / 180;
+export const _RAD2DEG = 180 / Math.PI;
+export const _COS30 = Math.sqrt(3) / 2;
+export const _TAN30 = Math.sqrt(3) / 3;
+export const _GOLDRATIO = (Math.sqrt(5) - 1) / 2;

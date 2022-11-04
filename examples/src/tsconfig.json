@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+        "typeRoots": [
+            "../node_modules/@webgpu/types"
+        ],
+        "lib": [
+            "ES2022",
+            "DOM"
+        ],
+        "target": "ES2022"
+    },
+    "include": ["./*"]
+}

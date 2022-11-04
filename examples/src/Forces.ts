@@ -1,4 +1,5 @@
-namespace examples {
+import * as tesserxel from "../../build/tesserxel.js"
+// namespace examples {
     export namespace spring_rope {
         export async function load() {
             const math = tesserxel.math;
@@ -33,9 +34,9 @@ namespace examples {
             meshGlome0.position.copy(pointA);
             scene.add(new FOUR.DirectionalLight([3.3, 3, 3], new math.Vec4(0, 1, 0, 3).norms()));
             scene.add(new FOUR.DirectionalLight([0.2, 0.3, 0.4], math.Vec4.yNeg));
-            const controllerRegistry = new tesserxel.controller.ControllerRegistry(canvas, [
-                new tesserxel.controller.RetinaController(renderer.core),
-                new tesserxel.controller.KeepUpController(camera)
+            const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+                new tesserxel.util.ctrl.RetinaController(renderer.core),
+                new tesserxel.util.ctrl.KeepUpController(camera)
             ], { requsetPointerLock: true });
             function setSize() {
                 let width = window.innerWidth * window.devicePixelRatio;
@@ -60,12 +61,12 @@ namespace examples {
                 g.position.y = 1;
                 g.position.x = ((i + 1) / (glomeNums + 1) - 0.5) * 2;
                 // g.velocity.randset().mulfs(v);
-                if (i) world.add(new phy.force.Spring(g, physicGlomes[i - 1], new math.Vec4(), new math.Vec4(), k, l));
+                if (i) world.add(new phy.Spring(g, physicGlomes[i - 1], new math.Vec4(), new math.Vec4(), k, l));
                 world.add(g);
                 physicGlomes.push(g);
             }
-            world.add(new phy.force.Spring(physicGlomes[0], null, new math.Vec4(), pointA, k, l));
-            world.add(new phy.force.Spring(physicGlomes[glomeNums - 1], null, new math.Vec4(), pointB, k, l));
+            world.add(new phy.Spring(physicGlomes[0], null, new math.Vec4(), pointA, k, l));
+            world.add(new phy.Spring(physicGlomes[glomeNums - 1], null, new math.Vec4(), pointB, k, l));
 
             // run everything
             function run() {
@@ -87,4 +88,4 @@ namespace examples {
 
         }
     }
-}
+// }

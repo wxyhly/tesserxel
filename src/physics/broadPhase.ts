@@ -1,5 +1,6 @@
-namespace tesserxel {
-    export namespace physics {
+import { World } from "./engine";
+import { Rigid, rigid } from "./rigid";
+
         export interface BroadPhaseConstructor {
             new(): BroadPhase;
         };
@@ -103,5 +104,3 @@ namespace tesserxel {
                 this.clearCheckList();
             }
         }
-    }
-}

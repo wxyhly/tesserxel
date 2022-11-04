@@ -1,7 +1,8 @@
-namespace examples {
+import * as tesserxel from "../../build/tesserxel.js"
+// namespace examples {
     export namespace voxel_test {
         export async function load() {
-            const gpu = await tesserxel.renderer.createGPU();
+            const gpu = await new tesserxel.render.GPU().init();
             const device = gpu.device;
 
             // voxel render pass (compute pass)
@@ -88,7 +89,7 @@ namespace examples {
 
             const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             const context = gpu.getContext(canvas);
-            const renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context);
+            const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
             const RaytracingShaderCode = `
             
             struct Vec4Attachment{
@@ -123,9 +124,9 @@ namespace examples {
             const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
                 { buffer: voxelBuffer.buffer }
             ]);
-            let retinaCtrl = new tesserxel.controller.RetinaController(renderer);
+            let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
             retinaCtrl.keyConfig.enable = "";
-            let ctrlReg = new tesserxel.controller.ControllerRegistry(canvas, [retinaCtrl]);
+            let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
 
             function setSize() {
                 const width = window.innerWidth * window.devicePixelRatio;
@@ -154,10 +155,10 @@ namespace examples {
 
     export namespace voxel_shadertoy {
         export async function load() {
-            const gpu = await tesserxel.renderer.createGPU();
+            const gpu = await new tesserxel.render.GPU().init();
             const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             const context = gpu.getContext(canvas);
-            const renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context);
+            const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
             const RaytracingShaderCode = `
             struct RayOutput{
                 @location(0) position: vec3<f32>
@@ -174,9 +175,9 @@ namespace examples {
                 rayEntryPoint: "mainRay",
                 fragmentEntryPoint: "mainFrag"
             });
-            let retinaCtrl = new tesserxel.controller.RetinaController(renderer);
+            let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
             retinaCtrl.keyConfig.enable = "";
-            let ctrlReg = new tesserxel.controller.ControllerRegistry(canvas, [retinaCtrl]);
+            let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
 
             function setSize() {
                 const width = window.innerWidth * window.devicePixelRatio;
@@ -199,7 +200,7 @@ namespace examples {
     }
     export namespace rasterizer {
         export async function load() {
-            const gpu = await tesserxel.renderer.createGPU();
+            const gpu = await new tesserxel.render.GPU().init();
             const device = gpu.device;
 
             // voxel render pass (compute pass)
@@ -528,7 +529,7 @@ namespace examples {
             let internalTetraBuffer = gpu.createBuffer(GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE, 0x400000, "internalTetra");
             let size = [resolution, resolution, resolution];
             let tileNums = new Uint32Array([Math.ceil(size[0] / tileSize), Math.ceil(size[1] / tileSize), Math.ceil(size[2] / tileSize)]);
-            let voxelBuffer = tesserxel.renderer.createVoxelBuffer(
+            let voxelBuffer = tesserxel.render.createVoxelBuffer(
                 gpu, size, 1, tileNums.buffer
             );
             let uSizeJsBuffer = new Float32Array(1);
@@ -573,7 +574,7 @@ namespace examples {
 
             const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             const context = gpu.getContext(canvas);
-            const renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context);
+            const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
             renderer.setOpacity(2);
             const RaytracingShaderCode = `
             
@@ -611,9 +612,9 @@ namespace examples {
             const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
                 { buffer: voxelBuffer.buffer }
             ]);
-            let retinaCtrl = new tesserxel.controller.RetinaController(renderer);
+            let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
             retinaCtrl.keyConfig.enable = "";
-            let ctrlReg = new tesserxel.controller.ControllerRegistry(canvas, [retinaCtrl]);
+            let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
 
             function setSize() {
                 const width = window.innerWidth * window.devicePixelRatio;
@@ -660,4 +661,4 @@ namespace examples {
             loop();
         }
     }
-}
+// }

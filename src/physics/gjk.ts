@@ -1,12 +1,13 @@
+import { bivecPool } from "../math/algebra/bivec";
+import { Vec4, vec4Pool } from "../math/algebra/vec4";
+
 // Convex Collision Detection algorithms (GJK Distance + EPA)
-namespace tesserxel {
-    export namespace physics {
         const maxEpaStep = 16;
         const maxGjkStep = 32;
-        type Convex = math.Vec4[];
-        function support(c: Convex, dir: math.Vec4) {
+        type Convex = Vec4[];
+        function support(c: Convex, dir: Vec4) {
             let support = -Infinity;
-            let point: math.Vec4;
+            let point: Vec4;
             for (let p of c) {
                 let value = p.dot(dir);
                 if (value > support) {
@@ -14,11 +15,11 @@ namespace tesserxel {
                     point = p;
                 }
             }
-            return point;
+            return point!;
         }
-        function supportNeg(c: Convex, dir: math.Vec4) {
+        function supportNeg(c: Convex, dir: Vec4) {
             let support = -Infinity;
-            let point: math.Vec4;
+            let point: Vec4;
             for (let p of c) {
                 let value = -p.dot(dir);
                 if (value > support) {
@@ -26,15 +27,15 @@ namespace tesserxel {
                     point = p;
                 }
             }
-            return point;
+            return point!;
         }
-        function supportDiff(c1: Convex, c2: Convex, dir: math.Vec4) {
+        function supportDiff(c1: Convex, c2: Convex, dir: Vec4) {
             if (!dir) {
                 console.error("Convex Collision Detector: Undefined support direction");
             }
             let support = -Infinity;
-            let point1: math.Vec4;
-            let point2: math.Vec4;
+            let point1: Vec4;
+            let point2: Vec4;
             for (let p of c1) {
                 let value = p.dot(dir);
                 if (value > support) {
@@ -50,12 +51,12 @@ namespace tesserxel {
                     point2 = p;
                 }
             }
-            return [point1, point2];
+            return [point1!, point2!];
         }
-        function supportDiffTest(c1: Convex, c2: Convex, dir: math.Vec4) {
+        function supportDiffTest(c1: Convex, c2: Convex, dir: Vec4) {
             let support1 = -Infinity;
-            let point1: math.Vec4;
-            let point2: math.Vec4;
+            let point1: Vec4;
+            let point2: Vec4;
             for (let p of c1) {
                 let value = p.dot(dir);
                 if (value > support1) {
@@ -72,26 +73,26 @@ namespace tesserxel {
                 }
             }
             if (support1 + support2 < 0) return [];
-            return [point1, point2];
+            return [point1!, point2!];
         }
         // /** get closest point on line segment ab */
-        // function closestToOrigin2(a: math.Vec4, b: math.Vec4) {
+        // function closestToOrigin2(a: Vec4, b: Vec4) {
         //     let adb = a.dot(b);
         //     let la = b.normsqr() - adb; if (la < 0) return b;
         //     let lb = a.normsqr() - adb; if (lb < 0) return a;
-        //     return math.vec4Pool.pop().set().addmulfs(a, la).addmulfs(b, lb).divfs(la + lb);
+        //     return vec4Pool.pop().set().addmulfs(a, la).addmulfs(b, lb).divfs(la + lb);
         // }
         // /** get line ab's normal pointing to origin, 20 muls */
-        // function normalToOrigin2(out: math.Vec4, a: math.Vec4, b: math.Vec4) {
+        // function normalToOrigin2(out: Vec4, a: Vec4, b: Vec4) {
         //     let adb = a.dot(b);
         //     let la = b.normsqr() - adb;
         //     let lb = a.normsqr() - adb;
         //     return out.set().addmulfs(a, -la).addmulfs(b, -lb);
         // }
         // /** get plane abc's normal point to origin, 36 muls */
-        // function normalToOrigin3(out: math.Vec4, a: math.Vec4, b: math.Vec4, c: math.Vec4) {
-        //     let vec = math.vec4Pool.pop();
-        //     let biv = math.bivecPool.pop().wedgevvset(
+        // function normalToOrigin3(out: Vec4, a: Vec4, b: Vec4, c: Vec4) {
+        //     let vec = vec4Pool.pop();
+        //     let biv = bivecPool.pop().wedgevvset(
         //         out.subset(b, a), vec.subset(c, a)
         //     );
         //     vec.pushPool();
@@ -99,80 +100,80 @@ namespace tesserxel {
         //     biv.pushPool();
         //     return out;
         // }
-        function getClosestPointOrNormal2(a: math.Vec4, b: math.Vec4) {
+        function getClosestPointOrNormal2(a: Vec4, b: Vec4) {
             let adb = a.dot(b);
             let la = b.normsqr() - adb; if (la < 0) return b;
             let lb = a.normsqr() - adb; if (lb < 0) return a;
-            return math.vec4Pool.pop().set().addmulfs(a, -la).addmulfs(b, -lb);
+            return vec4Pool.pop().set().addmulfs(a, -la).addmulfs(b, -lb);
         }
-        function getClosestPointOrNormal3(a: math.Vec4, b: math.Vec4, c: math.Vec4) {
-            let ca = math.vec4Pool.pop().subset(a, c);
-            let cb = math.vec4Pool.pop().subset(b, c);
+        function getClosestPointOrNormal3(a: Vec4, b: Vec4, c: Vec4) {
+            let ca = vec4Pool.pop().subset(a, c);
+            let cb = vec4Pool.pop().subset(b, c);
             if (c.dot(ca) > 0 && c.dot(cb) > 0) {
-                math.vec4Pool.push(ca, cb);
+                vec4Pool.push(ca, cb);
                 return [c];
             }
-            let biv = math.bivecPool.pop().wedgevvset(ca, cb);
+            let biv = bivecPool.pop().wedgevvset(ca, cb);
             if (ca.dotbset(ca, biv).dot(c) > 0) {
-                math.vec4Pool.push(ca, cb);
+                vec4Pool.push(ca, cb);
                 return [a, c];
             }
             // cb's sign is not consisted with ca's because of biv = ca x cb
             if (cb.dotbset(cb, biv).dot(c) < 0) {
-                math.vec4Pool.push(ca, cb);
+                vec4Pool.push(ca, cb);
                 return [b, c];
             }
             let out = ca;
             out.wedgevbset(a, biv).wedgevbset(out, biv);
             biv.pushPool();
-            math.vec4Pool.push(cb);
+            vec4Pool.push(cb);
             return out;
         }
-        function getClosestPointOrNormal4(a: math.Vec4, b: math.Vec4, c: math.Vec4, d: math.Vec4) {
-            let da = math.vec4Pool.pop().subset(a, d);
-            let db = math.vec4Pool.pop().subset(b, d);
-            let dc = math.vec4Pool.pop().subset(c, d);
+        function getClosestPointOrNormal4(a: Vec4, b: Vec4, c: Vec4, d: Vec4) {
+            let da = vec4Pool.pop().subset(a, d);
+            let db = vec4Pool.pop().subset(b, d);
+            let dc = vec4Pool.pop().subset(c, d);
             // vertex
             if (d.dot(da) > 0 && d.dot(db) > 0 && d.dot(dc) > 0) {
-                math.vec4Pool.push(da, db, dc);
+                vec4Pool.push(da, db, dc);
                 return [d];
             }
             // edge
-            let dab = math.bivecPool.pop().wedgevvset(da, db);
-            let dbc = math.bivecPool.pop().wedgevvset(db, dc);
-            let dca = math.bivecPool.pop().wedgevvset(dc, da);
-            let temp = math.vec4Pool.pop();
+            let dab = bivecPool.pop().wedgevvset(da, db);
+            let dbc = bivecPool.pop().wedgevvset(db, dc);
+            let dca = bivecPool.pop().wedgevvset(dc, da);
+            let temp = vec4Pool.pop();
             if (temp.dotbset(da, dab).dot(d) > 0 && temp.dotbset(da, dca).dot(d) < 0) {
-                math.vec4Pool.push(da, db, dc, temp);
-                math.bivecPool.push(dab, dbc, dca);
+                vec4Pool.push(da, db, dc, temp);
+                bivecPool.push(dab, dbc, dca);
                 return [a, d];
             }
             if (temp.dotbset(db, dbc).dot(d) > 0 && temp.dotbset(db, dab).dot(d) < 0) {
-                math.vec4Pool.push(da, db, dc, temp);
-                math.bivecPool.push(dab, dbc, dca);
+                vec4Pool.push(da, db, dc, temp);
+                bivecPool.push(dab, dbc, dca);
                 return [b, d];
             }
             if (temp.dotbset(dc, dca).dot(d) > 0 && temp.dotbset(dc, dbc).dot(d) < 0) {
-                math.vec4Pool.push(da, db, dc, temp);
-                math.bivecPool.push(dab, dbc, dca);
+                vec4Pool.push(da, db, dc, temp);
+                bivecPool.push(dab, dbc, dca);
                 return [c, d];
             }
             // face
             // dabc is normal vector
-            let dabc = math.vec4Pool.pop().wedgevbset(da, dbc);
+            let dabc = vec4Pool.pop().wedgevbset(da, dbc);
             if (temp.wedgevbset(dabc, dab).dot(d) < 0) {
-                math.vec4Pool.push(da, db, dc, dabc, temp);
-                math.bivecPool.push(dab, dbc, dca);
+                vec4Pool.push(da, db, dc, dabc, temp);
+                bivecPool.push(dab, dbc, dca);
                 return [a, b, d];
             }
             if (temp.wedgevbset(dabc, dbc).dot(d) < 0) {
-                math.vec4Pool.push(da, db, dc, dabc, temp);
-                math.bivecPool.push(dab, dbc, dca);
+                vec4Pool.push(da, db, dc, dabc, temp);
+                bivecPool.push(dab, dbc, dca);
                 return [b, c, d];
             }
             if (temp.wedgevbset(dabc, dca).dot(d) < 0) {
-                math.vec4Pool.push(da, db, dc, dabc, temp);
-                math.bivecPool.push(dab, dbc, dca);
+                vec4Pool.push(da, db, dc, dabc, temp);
+                bivecPool.push(dab, dbc, dca);
                 return [a, c, d];
             }
             // new direction is already normal dabc
@@ -181,92 +182,92 @@ namespace tesserxel {
             // we do it outside of this fn
             // because we need this important orientation information
             // to construct corrected ordered 5-simplex
-            math.vec4Pool.push(da, db, dc, temp);
-            math.bivecPool.push(dab, dbc, dca);
+            vec4Pool.push(da, db, dc, temp);
+            bivecPool.push(dab, dbc, dca);
             return dabc;
         }
-        function getClosestPoint5(a: math.Vec4, b: math.Vec4, c: math.Vec4, d: math.Vec4, e: math.Vec4, reverseOrder: boolean) {
+        function getClosestPoint5(a: Vec4, b: Vec4, c: Vec4, d: Vec4, e: Vec4, reverseOrder: boolean) {
             // about reverseOrder:
             // if reverseOrder == false
             // da^db^dc (dabc) is pointing to outside
             // else dabc is pointing to e (inside)
 
-            let ea = math.vec4Pool.pop().subset(a, e);
-            let eb = math.vec4Pool.pop().subset(b, e);
-            let ec = math.vec4Pool.pop().subset(c, e);
-            let ed = math.vec4Pool.pop().subset(d, e);
+            let ea = vec4Pool.pop().subset(a, e);
+            let eb = vec4Pool.pop().subset(b, e);
+            let ec = vec4Pool.pop().subset(c, e);
+            let ed = vec4Pool.pop().subset(d, e);
             // vertex
             if (e.dot(ea) > 0 && e.dot(eb) > 0 && e.dot(ec) > 0 && e.dot(ed) > 0) {
-                math.vec4Pool.push(ea, eb, ec, ed);
+                vec4Pool.push(ea, eb, ec, ed);
                 return [e];
             }
             // edge
-            let eab = math.bivecPool.pop().wedgevvset(ea, eb);
-            let ebc = math.bivecPool.pop().wedgevvset(eb, ec);
-            let eac = math.bivecPool.pop().wedgevvset(ea, ec);
-            let ead = math.bivecPool.pop().wedgevvset(ea, ed);
-            let ebd = math.bivecPool.pop().wedgevvset(eb, ed);
-            let ecd = math.bivecPool.pop().wedgevvset(ec, ed);
-            let temp = math.vec4Pool.pop();
+            let eab = bivecPool.pop().wedgevvset(ea, eb);
+            let ebc = bivecPool.pop().wedgevvset(eb, ec);
+            let eac = bivecPool.pop().wedgevvset(ea, ec);
+            let ead = bivecPool.pop().wedgevvset(ea, ed);
+            let ebd = bivecPool.pop().wedgevvset(eb, ed);
+            let ecd = bivecPool.pop().wedgevvset(ec, ed);
+            let temp = vec4Pool.pop();
             if (temp.dotbset(ea, eab).dot(e) > 0 && temp.dotbset(ea, eac).dot(e) > 0 && temp.dotbset(ea, ead).dot(e) > 0) {
-                math.vec4Pool.push(ea, eb, ec, ed, temp);
-                math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                vec4Pool.push(ea, eb, ec, ed, temp);
+                bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
                 return [a, e];
             }
             if (temp.dotbset(eb, eab).dot(e) < 0 && temp.dotbset(eb, ebc).dot(e) > 0 && temp.dotbset(eb, ebd).dot(e) > 0) {
-                math.vec4Pool.push(ea, eb, ec, ed, temp);
-                math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                vec4Pool.push(ea, eb, ec, ed, temp);
+                bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
                 return [b, e];
             }
             if (temp.dotbset(ec, eac).dot(e) < 0 && temp.dotbset(ec, ebc).dot(e) < 0 && temp.dotbset(ec, ecd).dot(e) > 0) {
-                math.vec4Pool.push(ea, eb, ec, ed, temp);
-                math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                vec4Pool.push(ea, eb, ec, ed, temp);
+                bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
                 return [c, e];
             }
             if (temp.dotbset(ed, ead).dot(e) < 0 && temp.dotbset(ed, ebd).dot(e) < 0 && temp.dotbset(ed, ecd).dot(e) < 0) {
-                math.vec4Pool.push(ea, eb, ec, ed, temp);
-                math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                vec4Pool.push(ea, eb, ec, ed, temp);
+                bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
                 return [d, e];
             }
             // face
             // normal vectors for 4 cells, be careful with directions
             //  dabc
-            let eabc = math.vec4Pool.pop().wedgevbset(ea, ebc); // -
-            let eabd = math.vec4Pool.pop().wedgevbset(ea, ebd); // +
-            let eacd = math.vec4Pool.pop().wedgevbset(ea, ecd); // -
-            let ebcd = math.vec4Pool.pop().wedgevbset(eb, ecd); // +
+            let eabc = vec4Pool.pop().wedgevbset(ea, ebc); // -
+            let eabd = vec4Pool.pop().wedgevbset(ea, ebd); // +
+            let eacd = vec4Pool.pop().wedgevbset(ea, ecd); // -
+            let ebcd = vec4Pool.pop().wedgevbset(eb, ecd); // +
             if (temp.wedgevbset(eabc, eab).dot(e) < 0 && temp.wedgevbset(eabd, eab).dot(e) < 0) {
-                math.vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
-                math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
+                bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
                 return [a, b, e];
             }
             if (temp.wedgevbset(eabc, eac).dot(e) > 0 && temp.wedgevbset(eacd, eac).dot(e) < 0) {
-                math.vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
-                math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
+                bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
                 return [a, c, e];
             }
             if (temp.wedgevbset(eabd, ead).dot(e) > 0 && temp.wedgevbset(eacd, ead).dot(e) > 0) {
-                math.vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
-                math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
+                bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
                 return [a, d, e];
             }
             if (temp.wedgevbset(eabc, ebc).dot(e) < 0 && temp.wedgevbset(ebcd, ebc).dot(e) < 0) {
-                math.vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
-                math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
+                bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
                 return [b, c, e];
             }
             if (temp.wedgevbset(eabd, ebd).dot(e) < 0 && temp.wedgevbset(ebcd, ebd).dot(e) > 0) {
-                math.vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
-                math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
+                bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
                 return [b, d, e];
             }
             if (temp.wedgevbset(eacd, ecd).dot(e) < 0 && temp.wedgevbset(ebcd, ecd).dot(e) < 0) {
-                math.vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
-                math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+                vec4Pool.push(ea, eb, ec, ed, eabc, eabd, eacd, ebcd, temp);
+                bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
                 return [c, d, e];
             }
-            math.vec4Pool.push(ea, eb, ec, ed, temp);
-            math.bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
+            vec4Pool.push(ea, eb, ec, ed, temp);
+            bivecPool.push(eab, ebc, eac, ead, ebd, ecd);
             // cell
             // turn all face normals outside
             if (reverseOrder) {
@@ -275,29 +276,29 @@ namespace tesserxel {
                 eabc.negs(); eacd.negs();
             }
             if (eabc.dot(e) < 0) {
-                math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                vec4Pool.push(eabc, eabd, eacd, ebcd);
                 return [a, b, c, e];
             }
             if (eabd.dot(e) < 0) {
-                math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                vec4Pool.push(eabc, eabd, eacd, ebcd);
                 return [a, b, d, e];
             }
             if (eacd.dot(e) < 0) {
-                math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                vec4Pool.push(eabc, eabd, eacd, ebcd);
                 return [a, c, d, e];
             }
             if (ebcd.dot(e) < 0) {
-                math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                vec4Pool.push(eabc, eabd, eacd, ebcd);
                 return [b, c, d, e];
             }
             // otherwise origin is inside, return data for epa algorithm
             return { reverseOrder, normals: [ebcd, eacd, eabd, eabc] };
         }
-        export function gjkOutDistance(convex: Convex, initSimplex?: math.Vec4[]): {
-            simplex?: math.Vec4[];
+        export function gjkOutDistance(convex: Convex, initSimplex?: Vec4[]): {
+            simplex?: Vec4[];
             reverseOrder?: boolean;
-            normals?: math.Vec4[];
-            normal?: math.Vec4;
+            normals?: Vec4[];
+            normal?: Vec4;
             distance?: number;
         } {
             if (!initSimplex) {
@@ -308,8 +309,8 @@ namespace tesserxel {
             let s = initSimplex;
             let reverseOrder5: boolean; // only used when s.length == 5 (store 5-simplex orientation)
             // temp vars:
-            let p: math.Vec4;
-            let pn: math.Vec4 | math.Vec4[] | { normals: math.Vec4[], reverseOrder: boolean };
+            let p: Vec4;
+            let pn: Vec4 | Vec4[] | { normals: Vec4[], reverseOrder: boolean };
             // let steps = [];
             while (steps++ < maxGjkStep) {
                 // steps.push(s.length);
@@ -320,7 +321,7 @@ namespace tesserxel {
                         if (p === s[0]) {
                             return {
                                 simplex: s,
-                                normal: math.vec4Pool.pop().copy(s[0]).negs(),
+                                normal: vec4Pool.pop().copy(s[0]).negs(),
                                 distance: s[0].norm()
                             };
                         }
@@ -341,36 +342,36 @@ namespace tesserxel {
                         break;
                     case 3:
                         pn = getClosestPointOrNormal3(s[0], s[1], s[2]);
-                        if ((pn as math.Vec4[]).length) {
+                        if ((pn as Vec4[]).length) {
                             // ignore far points and go on with fewer points
-                            s = pn as math.Vec4[]; continue;
+                            s = pn as Vec4[]; continue;
                         }
                         // degenerated case: exact contact simplex
-                        if ((pn as math.Vec4).norm1() === 0) { return {}; }
+                        if ((pn as Vec4).norm1() === 0) { return {}; }
 
-                        // steps.push(-(pn as math.Vec4).clone().norms().dot(s[0]));//dbg
-                        p = support(convex, pn as math.Vec4);
+                        // steps.push(-(pn as Vec4).clone().norms().dot(s[0]));//dbg
+                        p = support(convex, pn as Vec4);
                         // simplex can't move on, terminate
                         if (p === s[0] || p === s[1] || p === s[2]) {
-                            return { simplex: s, normal: (pn as math.Vec4).norms(), distance: -s[0].dot((pn as math.Vec4)) };
+                            return { simplex: s, normal: (pn as Vec4).norms(), distance: -s[0].dot((pn as Vec4)) };
                         }
-                        (pn as math.Vec4).pushPool();
+                        (pn as Vec4).pushPool();
                         s.push(p);
                         break;
                     case 4:
                         pn = getClosestPointOrNormal4(s[0], s[1], s[2], s[3]);
-                        if ((pn as math.Vec4[]).length) {
+                        if ((pn as Vec4[]).length) {
                             // ignore far points and go on with fewer points
-                            s = pn as math.Vec4[]; continue;
+                            s = pn as Vec4[]; continue;
                         }
-                        let normal = pn as math.Vec4;
+                        let normal = pn as Vec4;
                         let dotFactor = -normal.dot(s[0]);
                         reverseOrder5 = dotFactor > 0; // if true, normal obtained by da^db^dc towards origin
                         normal.mulfs(dotFactor); // use mul to detect nomal or dotFactor is zero
                         // degenerated case: exact contact simplex
                         if (normal.norm1() === 0) { return {} }
 
-                        // steps.push(-(pn as math.Vec4).clone().norms().dot(s[0]));//dbg
+                        // steps.push(-(pn as Vec4).clone().norms().dot(s[0]));//dbg
                         p = support(convex, normal);
                         // simplex can't move on, terminate
                         if (p === s[0] || p === s[1] || p === s[2] || p === s[3]) { return { simplex: s, normal: normal.norms(), distance: -normal.dot(s[0]) }; }
@@ -379,15 +380,15 @@ namespace tesserxel {
                         break;
                     case 5:
                         // we won't go to 5th dimension, so no normal to find anymore
-                        pn = getClosestPoint5(s[0], s[1], s[2], s[3], s[4], reverseOrder5);
-                        if ((pn as math.Vec4[]).length) {
+                        pn = getClosestPoint5(s[0], s[1], s[2], s[3], s[4], reverseOrder5!);
+                        if ((pn as Vec4[]).length) {
                             // ignore far points and go on with fewer points
-                            s = pn as math.Vec4[]; continue;
+                            s = pn as Vec4[]; continue;
                         } else {
                             // interior of simplex, stop
                             let info = pn as {
                                 reverseOrder: boolean;
-                                normals: math.Vec4[];
+                                normals: Vec4[];
                             };
                             let out = { simplex: s, reverseOrder: info.reverseOrder, normals: info.normals };
                             return out;
@@ -399,10 +400,10 @@ namespace tesserxel {
             console.warn("Physics engin's GJK algorithm has been interupped by too many steps."); return {};
         }
         /** test convex1 - convex2 to origin */
-        export function gjkDiffTest(convex1: Convex, convex2: Convex, initSimplex1?: math.Vec4[], initSimplex2?: math.Vec4[]): {
-            simplex1?: math.Vec4[];
-            simplex2?: math.Vec4[];
-            normals?: math.Vec4[];
+        export function gjkDiffTest(convex1: Convex, convex2: Convex, initSimplex1?: Vec4[], initSimplex2?: Vec4[]): {
+            simplex1?: Vec4[];
+            simplex2?: Vec4[];
+            normals?: Vec4[];
             reverseOrder?: boolean;
         } {
             if (!initSimplex1) {
@@ -416,10 +417,10 @@ namespace tesserxel {
             let s2 = initSimplex2;
             let reverseOrder5: boolean;
             // temp vars:
-            let p1: math.Vec4;
-            let p2: math.Vec4;
-            let normal: math.Vec4;
-            let _vec4 = math.vec4Pool.pop();
+            let p1: Vec4;
+            let p2: Vec4;
+            let normal: Vec4;
+            let _vec4 = vec4Pool.pop();
             // while (true) {
             // switch (s1.length) {
             // case 1:
@@ -451,7 +452,7 @@ namespace tesserxel {
             //     break;
             // case 4:
             normal = getDiffNormal4(s1[0], s1[1], s1[2], s1[3], s2[0], s2[1], s2[2], s2[3]);
-            let originDir = math.vec4Pool.pop().subset(s1[0], s2[0]);
+            let originDir = vec4Pool.pop().subset(s1[0], s2[0]);
             let dotFactor = -normal.dot(originDir); originDir.pushPool();
             normal.mulfs(dotFactor); // use mul to detect nomal or dotFactor is zero
             if (normal.norm1() === 0) { return {}; }
@@ -482,104 +483,104 @@ namespace tesserxel {
                 s2 = res.simplex2; s2.push(p2);
             }
         }
-        function getDiffNormal2(a1: math.Vec4, b1: math.Vec4, a2: math.Vec4, b2: math.Vec4) {
-            let a = math.vec4Pool.pop().subset(a1, a2);
-            let b = math.vec4Pool.pop().subset(b1, b2);
+        function getDiffNormal2(a1: Vec4, b1: Vec4, a2: Vec4, b2: Vec4) {
+            let a = vec4Pool.pop().subset(a1, a2);
+            let b = vec4Pool.pop().subset(b1, b2);
             let adb = a.dot(b);
             let la = b.normsqr() - adb;
             let lb = a.normsqr() - adb;
-            let out = math.vec4Pool.pop().set().addmulfs(a, -la).addmulfs(b, -lb);
-            math.vec4Pool.push(a, b);
+            let out = vec4Pool.pop().set().addmulfs(a, -la).addmulfs(b, -lb);
+            vec4Pool.push(a, b);
             return out;
         }
         function getDiffNormal3(
-            a1: math.Vec4, b1: math.Vec4, c1: math.Vec4,
-            a2: math.Vec4, b2: math.Vec4, c2: math.Vec4
+            a1: Vec4, b1: Vec4, c1: Vec4,
+            a2: Vec4, b2: Vec4, c2: Vec4
         ) {
-            let a = math.vec4Pool.pop().subset(a1, a2);
-            let b = math.vec4Pool.pop().subset(b1, b2);
-            let c = math.vec4Pool.pop().subset(c1, c2);
-            let ca = math.vec4Pool.pop().subset(a, c);
-            let cb = math.vec4Pool.pop().subset(b, c);
+            let a = vec4Pool.pop().subset(a1, a2);
+            let b = vec4Pool.pop().subset(b1, b2);
+            let c = vec4Pool.pop().subset(c1, c2);
+            let ca = vec4Pool.pop().subset(a, c);
+            let cb = vec4Pool.pop().subset(b, c);
 
-            let biv = math.bivecPool.pop().wedgevvset(ca, cb);
+            let biv = bivecPool.pop().wedgevvset(ca, cb);
             let out = ca;
             out.wedgevbset(a, biv).wedgevbset(out, biv);
-            math.vec4Pool.push(a, b, c, cb); biv.pushPool();
+            vec4Pool.push(a, b, c, cb); biv.pushPool();
             return out;
         }
         function getDiffNormal4(
-            a1: math.Vec4, b1: math.Vec4, c1: math.Vec4, d1: math.Vec4,
-            a2: math.Vec4, b2: math.Vec4, c2: math.Vec4, d2: math.Vec4
+            a1: Vec4, b1: Vec4, c1: Vec4, d1: Vec4,
+            a2: Vec4, b2: Vec4, c2: Vec4, d2: Vec4
         ) {
-            let a = math.vec4Pool.pop().subset(a1, a2);
-            let b = math.vec4Pool.pop().subset(b1, b2);
-            let c = math.vec4Pool.pop().subset(c1, c2);
-            let d = math.vec4Pool.pop().subset(d1, d2);
-            let da = math.vec4Pool.pop().subset(a, d);
-            let db = math.vec4Pool.pop().subset(b, d);
-            let dc = math.vec4Pool.pop().subset(c, d);
+            let a = vec4Pool.pop().subset(a1, a2);
+            let b = vec4Pool.pop().subset(b1, b2);
+            let c = vec4Pool.pop().subset(c1, c2);
+            let d = vec4Pool.pop().subset(d1, d2);
+            let da = vec4Pool.pop().subset(a, d);
+            let db = vec4Pool.pop().subset(b, d);
+            let dc = vec4Pool.pop().subset(c, d);
 
-            let dbc = math.bivecPool.pop().wedgevvset(db, dc);
-            let dabc = math.vec4Pool.pop().wedgevbset(da, dbc);
+            let dbc = bivecPool.pop().wedgevvset(db, dc);
+            let dabc = vec4Pool.pop().wedgevbset(da, dbc);
             dbc.pushPool();
-            math.vec4Pool.push(a, b, c, d, da, db, dc);
+            vec4Pool.push(a, b, c, d, da, db, dc);
             return dabc;
         }
         function getDiffNormal5(
-            a1: math.Vec4, b1: math.Vec4, c1: math.Vec4, d1: math.Vec4, e1: math.Vec4,
-            a2: math.Vec4, b2: math.Vec4, c2: math.Vec4, d2: math.Vec4, e2: math.Vec4,
+            a1: Vec4, b1: Vec4, c1: Vec4, d1: Vec4, e1: Vec4,
+            a2: Vec4, b2: Vec4, c2: Vec4, d2: Vec4, e2: Vec4,
             reverseOrder: boolean
         ) {
-            let a = math.vec4Pool.pop().subset(a1, a2);
-            let b = math.vec4Pool.pop().subset(b1, b2);
-            let c = math.vec4Pool.pop().subset(c1, c2);
-            let d = math.vec4Pool.pop().subset(d1, d2);
-            let e = math.vec4Pool.pop().subset(e1, e2);
-            let ea = math.vec4Pool.pop().subset(a, e);
-            let eb = math.vec4Pool.pop().subset(b, e);
-            let ec = math.vec4Pool.pop().subset(c, e);
-            let ed = math.vec4Pool.pop().subset(d, e);
+            let a = vec4Pool.pop().subset(a1, a2);
+            let b = vec4Pool.pop().subset(b1, b2);
+            let c = vec4Pool.pop().subset(c1, c2);
+            let d = vec4Pool.pop().subset(d1, d2);
+            let e = vec4Pool.pop().subset(e1, e2);
+            let ea = vec4Pool.pop().subset(a, e);
+            let eb = vec4Pool.pop().subset(b, e);
+            let ec = vec4Pool.pop().subset(c, e);
+            let ed = vec4Pool.pop().subset(d, e);
 
-            let ebc = math.bivecPool.pop().wedgevvset(eb, ec);
-            let ebd = math.bivecPool.pop().wedgevvset(eb, ed);
-            let ecd = math.bivecPool.pop().wedgevvset(ec, ed);
+            let ebc = bivecPool.pop().wedgevvset(eb, ec);
+            let ebd = bivecPool.pop().wedgevvset(eb, ed);
+            let ecd = bivecPool.pop().wedgevvset(ec, ed);
 
-            let eabc = math.vec4Pool.pop().wedgevbset(ea, ebc); // -
-            let eabd = math.vec4Pool.pop().wedgevbset(ea, ebd); // +
-            let eacd = math.vec4Pool.pop().wedgevbset(ea, ecd); // -
-            let ebcd = math.vec4Pool.pop().wedgevbset(eb, ecd); // +
+            let eabc = vec4Pool.pop().wedgevbset(ea, ebc); // -
+            let eabd = vec4Pool.pop().wedgevbset(ea, ebd); // +
+            let eacd = vec4Pool.pop().wedgevbset(ea, ecd); // -
+            let ebcd = vec4Pool.pop().wedgevbset(eb, ecd); // +
             if (reverseOrder) {
                 eabd.negs(); ebcd.negs();
             } else {
                 eabc.negs(); eacd.negs();
             }
             if (eabc.dot(e) < 0) {
-                math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                vec4Pool.push(eabc, eabd, eacd, ebcd);
                 return { simplex1: [a1, b1, c1, e1], simplex2: [a2, b2, c2, e2], normal: eabc, reverseOrder: reverseOrder };
             }
             if (eabd.dot(e) < 0) {
-                math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                vec4Pool.push(eabc, eabd, eacd, ebcd);
                 return { simplex1: [a1, b1, d1, e1], simplex2: [a2, b2, d2, e2], normal: eabd, reverseOrder: !reverseOrder };
             }
             if (eacd.dot(e) < 0) {
-                math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                vec4Pool.push(eabc, eabd, eacd, ebcd);
                 return { simplex1: [a1, c1, d1, e1], simplex2: [a2, c2, d2, e2], normal: eacd, reverseOrder: reverseOrder };
             }
             if (ebcd.dot(e) < 0) {
-                math.vec4Pool.push(eabc, eabd, eacd, ebcd);
+                vec4Pool.push(eabc, eabd, eacd, ebcd);
                 return { simplex1: [b1, c1, d1, e1], simplex2: [b2, c2, d2, e2], normal: ebcd, reverseOrder: !reverseOrder };
             }
-            math.bivecPool.push(ebc, ebd, ecd);
-            math.vec4Pool.push(a, b, c, d, e, ea, eb, ec, ed);
+            bivecPool.push(ebc, ebd, ecd);
+            vec4Pool.push(a, b, c, d, e, ea, eb, ec, ed);
             // otherwise origin is inside, return data for epa algorithm
             return { reverseOrder, normals: [ebcd, eacd, eabd, eabc] };
         }
         /** expanding polytope algorithm */
         export function epa(convex: Convex, initCondition: {
-            simplex: math.Vec4[],
+            simplex: Vec4[],
             reverseOrder: boolean,
-            normals: math.Vec4[] // normal must towards outside (away from origin)
+            normals: Vec4[] // normal must towards outside (away from origin)
         }) {
             let simplex = initCondition.simplex;
             let normals = initCondition.normals;
@@ -588,14 +589,14 @@ namespace tesserxel {
                 let temp2 = normals[0]; normals[0] = normals[1]; normals[1] = temp2;
             }
             if (normals.length === 4) {
-                let da = math.vec4Pool.pop().subset(simplex[0], simplex[3]);
-                let db = math.vec4Pool.pop().subset(simplex[1], simplex[3]);
-                let dc = math.vec4Pool.pop().subset(simplex[2], simplex[3]);
+                let da = vec4Pool.pop().subset(simplex[0], simplex[3]);
+                let db = vec4Pool.pop().subset(simplex[1], simplex[3]);
+                let dc = vec4Pool.pop().subset(simplex[2], simplex[3]);
 
-                let dbc = math.bivecPool.pop().wedgevvset(db, dc);
-                normals.push(math.vec4Pool.pop().wedgevbset(da, dbc));
+                let dbc = bivecPool.pop().wedgevvset(db, dc);
+                normals.push(vec4Pool.pop().wedgevbset(da, dbc));
                 dbc.pushPool();
-                math.vec4Pool.push(da, db, dc);
+                vec4Pool.push(da, db, dc);
             }
             // tetrahedral cell list
             let cs = [
@@ -608,7 +609,7 @@ namespace tesserxel {
             // normal list
             let ns = normals;
             // distance list
-            let ds = [];
+            let ds:number[] = [];
             let mind = Infinity;
             let minid: number;
             for (let i = 0; i < 5; i++) {
@@ -621,38 +622,38 @@ namespace tesserxel {
                     mind = val;
                 }
             }
-            let pa = math.vec4Pool.pop();
-            let pb = math.vec4Pool.pop();
-            let pc = math.vec4Pool.pop();
-            let pab = math.bivecPool.pop();
+            let pa = vec4Pool.pop();
+            let pb = vec4Pool.pop();
+            let pc = vec4Pool.pop();
+            let pab = bivecPool.pop();
 
             let steps = 0;
             while (steps++ < maxEpaStep) {
-                let cell = cs[minid];
-                let p = support(convex, ns[minid]);
+                let cell = cs[minid!];
+                let p = support(convex, ns[minid!]);
                 console.log(`Step: ${steps} Distance:${mind}`);
                 if (p === cell[0] || p === cell[1] || p === cell[2] || p === cell[3]) {
                     // can't move on, found
-                    // math.vec4Pool.push(pa, pb, pc, pd);
-                    // math.bivecPool.push(pab, pac, pbc);
+                    // vec4Pool.push(pa, pb, pc, pd);
+                    // bivecPool.push(pab, pac, pbc);
                     for (let n of ns) {
-                        if (n !== ns[minid]) n.pushPool();
+                        if (n !== ns[minid!]) n.pushPool();
                     }
-                    math.vec4Pool.push(pa, pb, pc);
-                    math.bivecPool.push(pab);
-                    return { simplex: cell, distance: -mind, normal: ns[minid] }
+                    vec4Pool.push(pa, pb, pc);
+                    bivecPool.push(pab);
+                    return { simplex: cell, distance: -mind, normal: ns[minid!] }
                 }
 
                 mind = Infinity;
                 // construct new convexhull after adding point p
 
-                let newcs: math.Vec4[][] = [];
-                let newns: math.Vec4[] = [];
+                let newcs: Vec4[][] = [];
+                let newns: Vec4[] = [];
                 let newds: number[] = [];
                 // borderformat [v1,v2,v3], v1,v2,v3's order is for orientation
                 // mark v1 null if duplicate need to remove, 
-                let border: [math.Vec4, math.Vec4, math.Vec4][] = [];
-                function checkBorder(a: math.Vec4, b: math.Vec4, c: math.Vec4) {
+                let border: [Vec4|undefined, Vec4|undefined, Vec4|undefined][] = [];
+                function checkBorder(a: Vec4, b: Vec4, c: Vec4) {
                     for (let i of border) {
                         // if (i[0] === a) {
                         //     if (i[1] === b) {
@@ -670,7 +671,7 @@ namespace tesserxel {
                             (i[0] === b && i[1] === a && i[2] === c) ||
                             (i[0] === c && i[1] === b && i[2] === a)
                         ) {
-                            i[0] = null; return;
+                            i[0] = undefined; return;
                         }
                     }
                     border.push([a, b, c]);
@@ -699,11 +700,11 @@ namespace tesserxel {
                 for (let b of border) {
                     if (!b[0]) continue;
                     pa.subset(p, b[0]);
-                    pb.subset(p, b[1]);
-                    pc.subset(p, b[2]);
+                    pb.subset(p, b[1]!);
+                    pc.subset(p, b[2]!);
                     pab.wedgevvset(pa, pb);
-                    newcs.push([p, b[0], b[1], b[2]]);
-                    let n = math.vec4Pool.pop().wedgevbset(pc, pab).negs().norms();
+                    newcs.push([p, b[0], b[1]!, b[2]!]);
+                    let n = vec4Pool.pop().wedgevbset(pc, pab).negs().norms();
                     let d = n.dot(p);
                     console.assert(d >= 0, "new normal needs negs");
                     if (d < mind) {
@@ -721,10 +722,10 @@ namespace tesserxel {
 
         /** expanding polytope algorithm for minkovsky difference */
         export function epaDiff(convex1: Convex, convex2: Convex, initCondition: {
-            simplex1: math.Vec4[],
-            simplex2: math.Vec4[],
+            simplex1: Vec4[],
+            simplex2: Vec4[],
             reverseOrder: boolean,
-            normals: math.Vec4[] // normal must towards outside (away from origin)
+            normals: Vec4[] // normal must towards outside (away from origin)
         }) {
             let s1 = initCondition.simplex1;
             let s2 = initCondition.simplex2;
@@ -735,14 +736,14 @@ namespace tesserxel {
                 let temp2 = normals[0]; normals[0] = normals[1]; normals[1] = temp2;
             }
             if (normals.length === 4) {
-                let da = math.vec4Pool.pop().subset(s1[0], s1[3]).subs(s2[0]).adds(s2[3]);
-                let db = math.vec4Pool.pop().subset(s1[1], s1[3]).subs(s2[1]).adds(s2[3]);
-                let dc = math.vec4Pool.pop().subset(s1[2], s1[3]).subs(s2[2]).adds(s2[3]);
+                let da = vec4Pool.pop().subset(s1[0], s1[3]).subs(s2[0]).adds(s2[3]);
+                let db = vec4Pool.pop().subset(s1[1], s1[3]).subs(s2[1]).adds(s2[3]);
+                let dc = vec4Pool.pop().subset(s1[2], s1[3]).subs(s2[2]).adds(s2[3]);
 
-                let dbc = math.bivecPool.pop().wedgevvset(db, dc);
-                normals.push(math.vec4Pool.pop().wedgevbset(da, dbc));
+                let dbc = bivecPool.pop().wedgevvset(db, dc);
+                normals.push(vec4Pool.pop().wedgevbset(da, dbc));
                 dbc.pushPool();
-                math.vec4Pool.push(da, db, dc);
+                vec4Pool.push(da, db, dc);
             }
             // tetrahedral cell list
             let cs1 = [
@@ -762,15 +763,15 @@ namespace tesserxel {
             // normal list
             let ns = normals;
             // distance list
-            let ds = [];
+            let ds:number[] = [];
             let mind = Infinity;
             let minid: number;
 
-            let pa = math.vec4Pool.pop();
-            let pb = math.vec4Pool.pop();
-            let pc = math.vec4Pool.pop();
-            let p12 = math.vec4Pool.pop();
-            let pab = math.bivecPool.pop();
+            let pa = vec4Pool.pop();
+            let pb = vec4Pool.pop();
+            let pc = vec4Pool.pop();
+            let p12 = vec4Pool.pop();
+            let pab = bivecPool.pop();
             for (let i = 0; i < 5; i++) {
                 ns[i].norms();
                 let val = ns[i].dot(pa.subset(cs1[i][0], cs2[i][0]));
@@ -784,11 +785,11 @@ namespace tesserxel {
 
             let steps = 0;
             while (steps++ < maxEpaStep) {
-                let cell1 = cs1[minid];
-                let cell2 = cs2[minid];
-                let [p1, p2] = supportDiff(convex1, convex2, ns[minid]);
+                let cell1 = cs1[minid!];
+                let cell2 = cs2[minid!];
+                let [p1, p2] = supportDiff(convex1, convex2, ns[minid!]);
                 p12.subset(p1, p2);
-                if (ns[minid].dot(p12) <= mind ||
+                if (ns[minid!].dot(p12) <= mind ||
                     (p1 === cell1[0] && p2 === cell2[0]) ||
                     (p1 === cell1[1] && p2 === cell2[1]) ||
                     (p1 === cell1[2] && p2 === cell2[2]) ||
@@ -796,29 +797,29 @@ namespace tesserxel {
                 ) {
                     // can't move on, found
                     for (let n of ns) {
-                        if (n !== ns[minid]) n.pushPool();
+                        if (n !== ns[minid!]) n.pushPool();
                     }
-                    math.vec4Pool.push(pa, pb, pc);
-                    math.bivecPool.push(pab);
+                    vec4Pool.push(pa, pb, pc);
+                    bivecPool.push(pab);
 
                     // console.log(`Step: ${steps}`);
-                    return { simplex1: cell1, simplex2: cell2, distance: -mind, normal: ns[minid] }
+                    return { simplex1: cell1, simplex2: cell2, distance: -mind, normal: ns[minid!] }
                 }
 
                 mind = Infinity;
                 // construct new convexhull after adding point p
 
-                let newcs1: math.Vec4[][] = [];
-                let newcs2: math.Vec4[][] = [];
-                let newns: math.Vec4[] = [];
+                let newcs1: Vec4[][] = [];
+                let newcs2: Vec4[][] = [];
+                let newns: Vec4[] = [];
                 let newds: number[] = [];
                 // borderformat [a1,a2,a3, b1,b2,b3], order is for orientation
                 // a, b are convex A's points a - convex B's points b
                 // mark a1 null if duplicate need to remove, 
-                let border: [math.Vec4, math.Vec4, math.Vec4, math.Vec4, math.Vec4, math.Vec4][] = [];
+                let border: [Vec4|undefined, Vec4|undefined, Vec4|undefined, Vec4|undefined, Vec4|undefined, Vec4|undefined][] = [];
                 function checkBorder(
-                    a1: math.Vec4, b1: math.Vec4, c1: math.Vec4,
-                    a2: math.Vec4, b2: math.Vec4, c2: math.Vec4
+                    a1: Vec4, b1: Vec4, c1: Vec4,
+                    a2: Vec4, b2: Vec4, c2: Vec4
                 ) {
                     for (let i of border) {
                         if (
@@ -826,7 +827,7 @@ namespace tesserxel {
                             (i[0] === b1 && i[3] === b2 && i[1] === a1 && i[4] === a2 && i[5] === c2 && i[2] === c1) ||
                             (i[0] === c1 && i[3] === c2 && i[1] === b1 && i[4] === b2 && i[5] === a2 && i[2] === a1)
                         ) {
-                            i[0] = null; return;
+                            i[0] = undefined; return;
                         }
                     }
                     border.push([a1, b1, c1, a2, b2, c2]);
@@ -856,13 +857,13 @@ namespace tesserxel {
                 }
                 for (let b of border) {
                     if (!b[0]) continue;
-                    pa.subset(p12, b[0]).adds(b[3]);
-                    pb.subset(p12, b[1]).adds(b[4]);
-                    pc.subset(p12, b[2]).adds(b[5]);
+                    pa.subset(p12, b[0]).adds(b[3]!);
+                    pb.subset(p12, b[1]!).adds(b[4]!);
+                    pc.subset(p12, b[2]!).adds(b[5]!);
                     pab.wedgevvset(pa, pb);
-                    newcs1.push([p1, b[0], b[1], b[2]]);
-                    newcs2.push([p2, b[3], b[4], b[5]]);
-                    let n = math.vec4Pool.pop().wedgevbset(pc, pab).negs().norms();
+                    newcs1.push([p1, b[0], b[1]!, b[2]!]);
+                    newcs2.push([p2, b[3]!, b[4]!, b[5]!]);
+                    let n = vec4Pool.pop().wedgevbset(pc, pab).negs().norms();
                     let d = n.dot(p12);
                     if (d < 0) return;
                     // console.assert(d >= 0, "new normal needs negs");
@@ -879,5 +880,3 @@ namespace tesserxel {
             }
             // console.warn("Physics engin's GJK-EPA algorithm has been interupped by too many steps."); return {};
         }
-    }
-}

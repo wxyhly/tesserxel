@@ -1,10 +1,11 @@
-namespace examples {
+import * as tesserxel from "../../build/tesserxel.js"
+// namespace examples {
     export namespace hello_tetra1 {
         export async function load() {
-            const gpu = await tesserxel.renderer.createGPU();
+            const gpu = await new tesserxel.render.GPU().init();
             const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             const context = gpu.getContext(canvas);
-            const renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context);
+            const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
             const vertexShaderCode = `
             @tetra fn main() -> @builtin(position) mat4x4<f32> {
                 return mat4x4<f32> (
@@ -44,10 +45,10 @@ namespace examples {
     }
     export namespace hello_tetra2 {
         export async function load() {
-            const gpu = await tesserxel.renderer.createGPU();
+            const gpu = await new tesserxel.render.GPU().init();
             const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             const context = gpu.getContext(canvas);
-            const renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context);
+            const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
             const vertexShaderCode = `
             struct TetraOutput{
                 @builtin(position) position: mat4x4<f32>,
@@ -99,10 +100,10 @@ namespace examples {
     }
     export namespace hello_tetra3 {
         export async function load() {
-            const gpu = await tesserxel.renderer.createGPU();
+            const gpu = await new tesserxel.render.GPU().init();
             const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             const context = gpu.getContext(canvas);
-            const renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context);
+            const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
             const vertexShaderCode = `
             @group(1) @binding(0) var<uniform> viewMat: mat4x4<f32>;
             struct TetraOutput{
@@ -173,4 +174,4 @@ namespace examples {
             loop();
         }
     }
-}
+// }

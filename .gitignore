@@ -1,5 +1,4 @@
 .vscode
 logs
 node_modules
-src/brasoor
-examples/brasoor
+build/dts

@@ -1,10 +1,11 @@
-namespace examples {
+import * as tesserxel from "../../build/tesserxel.js"
+// namespace examples {
     export namespace wave_eq {
         export async function load() {
-            const gpu = await tesserxel.renderer.createGPU();
+            const gpu = await new tesserxel.render.GPU().init();
             let resolution = [300, 300, 300];
-            let bufferA = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 1);
-            let bufferB = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 1);
+            let bufferA = tesserxel.render.createVoxelBuffer(gpu, resolution, 1);
+            let bufferB = tesserxel.render.createVoxelBuffer(gpu, resolution, 1);
             let computeCode = `
             struct Vec4Attachment{
                 size: vec4<u32>,
@@ -132,7 +133,7 @@ namespace examples {
 
             const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             const context = gpu.getContext(canvas);
-            const renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context);
+            const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
             renderer.setOpacity(12);
             const pipeline = await renderer.createRaytracingPipeline({
                 code: raytracingShaderCode,
@@ -142,9 +143,9 @@ namespace examples {
             const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
                 { buffer: bufferA.buffer }
             ]);
-            let retinaCtrl = new tesserxel.controller.RetinaController(renderer);
+            let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
             retinaCtrl.keyConfig.enable = "";
-            let ctrlReg = new tesserxel.controller.ControllerRegistry(canvas, [retinaCtrl]);
+            let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
 
             function setSize() {
                 const width = window.innerWidth * window.devicePixelRatio;
@@ -196,7 +197,7 @@ namespace examples {
         }
     }
 
-    class ErosionDisplayController implements tesserxel.controller.IController {
+    class ErosionDisplayController implements tesserxel.util.ctrl.IController {
         water: number = 1;
         sediment: number = 0;
 
@@ -213,7 +214,7 @@ namespace examples {
         constructor(jsBuffer: Float32Array) {
             this.buffer = jsBuffer;
         }
-        update(state: tesserxel.controller.ControllerState) {
+        update(state: tesserxel.util.ctrl.ControllerState) {
             if (state.isKeyHold("KeyO")) {
                 this.water = 0;
             }
@@ -269,17 +270,17 @@ namespace examples {
         }
     }
     async function simulateTerrain(erosionRate: number, coriolis?: boolean) {
-        const gpu = await tesserxel.renderer.createGPU();
+        const gpu = await new tesserxel.render.GPU().init();
         const simres = 202;
         const heightscale = 10;
         let resolution = [simres, simres, 202];
-        let tx00 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// bdsr
-        let tx01 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// bdsr
-        let tx02 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// fxy
-        let tx03 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 2);// fz
-        let tx04 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// fxy
-        let tx05 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 2);// fz
-        let tx06 = tesserxel.renderer.createVoxelBuffer(gpu, resolution, 4);// dbg
+        let tx00 = tesserxel.render.createVoxelBuffer(gpu, resolution, 4);// bdsr
+        let tx01 = tesserxel.render.createVoxelBuffer(gpu, resolution, 4);// bdsr
+        let tx02 = tesserxel.render.createVoxelBuffer(gpu, resolution, 4);// fxy
+        let tx03 = tesserxel.render.createVoxelBuffer(gpu, resolution, 2);// fz
+        let tx04 = tesserxel.render.createVoxelBuffer(gpu, resolution, 4);// fxy
+        let tx05 = tesserxel.render.createVoxelBuffer(gpu, resolution, 2);// fz
+        let tx06 = tesserxel.render.createVoxelBuffer(gpu, resolution, 4);// dbg
         let computeCode = tesserxel.four.NoiseWGSLHeader + `
             struct Vec4Attachment{
                 size: vec4<u32>,
@@ -743,7 +744,7 @@ namespace examples {
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const context = gpu.getContext(canvas);
-        const renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context);
+        const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
         renderer.setOpacity(20);
         renderer.setSliceConfig({ layers: 96 });
         const pipeline = await renderer.createRaytracingPipeline({
@@ -756,14 +757,14 @@ namespace examples {
             { buffer: tx06.buffer },
             { buffer: uBlockBuffer },
         ], "renderBindgroup");
-        let retinaCtrl = new tesserxel.controller.RetinaController(renderer);
+        let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
         // retinaCtrl.keyConfig.enable = "";
         // retinaCtrl.toggleSectionConfig("zsection");
         // retinaCtrl.setStereo(false);
         let displayCtrl = new ErosionDisplayController(uBlockJsBuffer);
         let viewObj = new tesserxel.math.Obj4(new tesserxel.math.Vec4, new tesserxel.math.Rotor, new tesserxel.math.Vec4(1, 1, 1, 1));
-        let viewCtrl = new tesserxel.controller.VoxelViewerController(viewObj);
-        let ctrlReg = new tesserxel.controller.ControllerRegistry(canvas, [
+        let viewCtrl = new tesserxel.util.ctrl.VoxelViewerController(viewObj);
+        let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
             retinaCtrl, displayCtrl, viewCtrl
         ], { requsetPointerLock: true });
 
@@ -826,4 +827,4 @@ namespace examples {
         }
         loop();
     }
-}
+// }

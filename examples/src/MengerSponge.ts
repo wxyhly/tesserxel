@@ -1,22 +1,23 @@
-namespace examples {
+import {render, util} from "../../build/tesserxel.js";
+// export namespace examples {
     class MengerApp {
 
-        renderer: tesserxel.renderer.SliceRenderer;
-        camController: tesserxel.controller.FreeFlyController;
-        retinaController: tesserxel.controller.RetinaController;
+        renderer: render.SliceRenderer;
+        camController: util.ctrl.FreeFlyController;
+        retinaController: util.ctrl.RetinaController;
         headercode = `
-        struct rayOut{
-            @location(0) o: vec4<f32>,
-            @location(1) d: vec4<f32>
-        }
-        @group(1) @binding(0) var<uniform> camMat: AffineMat;
-        @ray fn mainRay(
-            @builtin(ray_direction) rd: vec4<f32>,
-            @builtin(ray_origin) ro: vec4<f32>
-        ) -> rayOut{
-            
-            return rayOut(camMat.matrix*ro+camMat.vector, camMat.matrix*rd);
-        }
+struct rayOut{
+    @location(0) o: vec4<f32>,
+    @location(1) d: vec4<f32>
+}
+@group(1) @binding(0) var<uniform> camMat: AffineMat;
+@ray fn mainRay(
+    @builtin(ray_direction) rd: vec4<f32>,
+    @builtin(ray_origin) ro: vec4<f32>
+) -> rayOut{
+    
+    return rayOut(camMat.matrix*ro+camMat.vector, camMat.matrix*rd);
+}
 fn maxcomp( p : vec4<f32>)->f32 { return max(p.x,max(p.y, max(p.w,p.z)));}
 fn sdBox( p:vec4<f32>, b:vec4<f32> )->f32
 {
@@ -150,22 +151,22 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
 }
         `
         async load(code: string) {
-            let gpu = await tesserxel.renderer.createGPU();
+            let gpu = await new render.GPU().init();
             let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
             let context = gpu.getContext(canvas);
-            let renderer = await new tesserxel.renderer.SliceRenderer().init(gpu, context, {
+            let renderer = await new render.SliceRenderer().init(gpu, context, {
                 enableFloat16Blend: false,
                 sliceGroupSize: 8
             });
             this.renderer = renderer;
             renderer.setScreenClearColor({ r: 1, g: 1, b: 1, a: 1 });
             let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
-            let camController = new tesserxel.controller.FreeFlyController();
+            let camController = new util.ctrl.FreeFlyController();
             camController.object.position.set(0, 0, 0, 3);
             this.camController = camController;
-            let retinaController = new tesserxel.controller.RetinaController(renderer);
+            let retinaController = new util.ctrl.RetinaController(renderer);
             this.retinaController = retinaController;
-            let ctrlreg = new tesserxel.controller.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
+            let ctrlreg = new util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
             let matModelViewJSBuffer = new Float32Array(20);
             let pipeline = await renderer.createRaytracingPipeline({
                 code: this.headercode.replace(/\{replace\}/g, code),
@@ -238,5 +239,5 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
             app.run();
         }
     }
-}
+// }
 

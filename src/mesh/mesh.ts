@@ -1,0 +1,5 @@
+export * as face from "./face"
+export * as tetra from "./tetra"
+export type { FaceMesh, FaceIndexMesh } from "./face/facemesh"
+export type { TetraMesh, TetraIndexMesh } from "./tetra/tetramesh"
+export * from "./objparser"
