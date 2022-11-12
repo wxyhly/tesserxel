@@ -17,7 +17,7 @@ let examples = [
         child: [
             { target: "instanced_cubes", zh: "实例化多方块", en: "Instanced Hypercubes" },
             { target: "city_highway", zh: "城市高速", en: "City Highway" },
-            { target: "navigation", zh: "四维星球导航", en: "Navigation On 4D Planet" },
+            // { target: "navigation", zh: "四维星球导航", en: "Navigation On 4D Planet" },
         ]
     },
     {

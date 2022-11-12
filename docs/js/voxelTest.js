@@ -1,90 +1,87 @@
 import * as tesserxel from '../../build/tesserxel.js';
 
-// namespace examples {
-var voxel_test;
-(function (voxel_test) {
-    async function load() {
-        const gpu = await new tesserxel.render.GPU().init();
-        const device = gpu.device;
-        // voxel render pass (compute pass)
-        let voxelShaderCode = `
-            struct Vec4Attachment{
-                size: vec3<u32>,
-                data: array<vec4<f32>>
-            }
-            @group(0) @binding(1) var <uniform> size: f32;
-            @group(0) @binding(0) var <storage, read_write> _attachment0: Vec4Attachment;
-            @compute @workgroup_size(8,8,4) fn main(@builtin(global_invocation_id) voxel_coord : vec3<u32>){
-                let _size = _attachment0.size;
-                if(voxel_coord.x >= _size.x || voxel_coord.y >= _size.y ||  voxel_coord.z >= _size.z){
-                    return ;
-                }
-                let storageOffset = voxel_coord.x + _size.x * (voxel_coord.y + _size.y * voxel_coord.z);
-                let position = vec3<f32>(voxel_coord)/vec3<f32>(_size)*2.0 - vec3<f32>(1.0);
-                var color:vec4<f32>;
-                if(dot(position,position) > size){
-                    color=vec4<f32>(position*0.5+0.5,1.0);
-                }else{
-                    color=vec4<f32>(0.0);
-                }
-                _attachment0.data[storageOffset] = color;
-            }
-            `;
-        let voxelShaderModule = device.createShaderModule({ code: voxelShaderCode });
-        const computePipeline = await device.createComputePipelineAsync({
-            compute: {
-                module: voxelShaderModule,
-                entryPoint: "main"
-            },
-            layout: "auto"
+async function load() {
+    const gpu = await new tesserxel.render.GPU().init();
+    const device = gpu.device;
+    // voxel render pass (compute pass)
+    let voxelShaderCode = `
+    struct Vec4Attachment{
+        size: vec3<u32>,
+        data: array<vec4<f32>>
+    }
+    @group(0) @binding(1) var <uniform> size: f32;
+    @group(0) @binding(0) var <storage, read_write> _attachment0: Vec4Attachment;
+    @compute @workgroup_size(8,8,4) fn main(@builtin(global_invocation_id) voxel_coord : vec3<u32>){
+        let _size = _attachment0.size;
+        if(voxel_coord.x >= _size.x || voxel_coord.y >= _size.y ||  voxel_coord.z >= _size.z){
+            return ;
+        }
+        let storageOffset = voxel_coord.x + _size.x * (voxel_coord.y + _size.y * voxel_coord.z);
+        let position = vec3<f32>(voxel_coord)/vec3<f32>(_size)*2.0 - vec3<f32>(1.0);
+        var color:vec4<f32>;
+        if(dot(position,position) > size){
+            color=vec4<f32>(position*0.5+0.5,1.0);
+        }else{
+            color=vec4<f32>(0.0);
+        }
+        _attachment0.data[storageOffset] = color;
+    }
+    `;
+    let voxelShaderModule = device.createShaderModule({ code: voxelShaderCode });
+    const computePipeline = await device.createComputePipelineAsync({
+        compute: {
+            module: voxelShaderModule,
+            entryPoint: "main"
+        },
+        layout: "auto"
+    });
+    function createVoxelBuffer(size) {
+        let width = 0;
+        let height = 0;
+        let depth = 0;
+        if (size.width) {
+            width = size.width;
+            height = size.height;
+            depth = size.depthOrArrayLayers;
+        }
+        else {
+            width = size[0];
+            height = size[1];
+            depth = size[2];
+        }
+        let length = width * height * depth;
+        let buffer = device.createBuffer({
+            size: (4 + length * 4) * 4,
+            usage: GPUBufferUsage.STORAGE,
+            mappedAtCreation: true,
+            label: `VoxelBuffer<${width},${height},${depth},vec4<f32>>`
         });
-        function createVoxelBuffer(size) {
-            let width = 0;
-            let height = 0;
-            let depth = 0;
-            if (size.width) {
-                width = size.width;
-                height = size.height;
-                depth = size.depthOrArrayLayers;
-            }
-            else {
-                width = size[0];
-                height = size[1];
-                depth = size[2];
-            }
-            let length = width * height * depth;
-            let buffer = device.createBuffer({
-                size: (4 + length * 4) * 4,
-                usage: GPUBufferUsage.STORAGE,
-                mappedAtCreation: true,
-                label: `VoxelBuffer<${width},${height},${depth},vec4<f32>>`
-            });
-            let jsBuffer = new Uint32Array(buffer.getMappedRange(0, 12));
-            jsBuffer.set([width, height, depth]);
-            buffer.unmap();
-            return { buffer, width, height, depth, size: length, format: "vec4<f32>" };
-        }
-        let voxelBuffer = createVoxelBuffer([128, 128, 128]);
-        let uSizeJsBuffer = new Float32Array(1);
-        let uSizeBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, uSizeJsBuffer);
-        const computeBindgroup = gpu.createBindGroup(computePipeline, 0, [
-            { buffer: voxelBuffer.buffer },
-            { buffer: uSizeBuffer }
-        ]);
-        function dispatch() {
-            let commandEncoder = device.createCommandEncoder();
-            let passEncoder = commandEncoder.beginComputePass();
-            passEncoder.setPipeline(computePipeline);
-            passEncoder.setBindGroup(0, computeBindgroup);
-            passEncoder.dispatchWorkgroups(Math.ceil(voxelBuffer.width / 8), Math.ceil(voxelBuffer.height / 8), Math.ceil(voxelBuffer.depth / 4));
-            passEncoder.end();
-            device.queue.submit([commandEncoder.finish()]);
-        }
-        // 3d retina render pass (use slice renderer)
-        const canvas = document.getElementById("gpu-canvas");
-        const context = gpu.getContext(canvas);
-        const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
-        const RaytracingShaderCode = `
+        let jsBuffer = new Uint32Array(buffer.getMappedRange(0, 12));
+        jsBuffer.set([width, height, depth]);
+        buffer.unmap();
+        return { buffer, width, height, depth, size: length, format: "vec4<f32>" };
+    }
+    let voxelBuffer = createVoxelBuffer([128, 128, 128]);
+    let uSizeJsBuffer = new Float32Array(1);
+    let uSizeBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, uSizeJsBuffer);
+    const computeBindgroup = gpu.createBindGroup(computePipeline, 0, [
+        { buffer: voxelBuffer.buffer },
+        { buffer: uSizeBuffer }
+    ]);
+    function dispatch() {
+        let commandEncoder = device.createCommandEncoder();
+        let passEncoder = commandEncoder.beginComputePass();
+        passEncoder.setPipeline(computePipeline);
+        passEncoder.setBindGroup(0, computeBindgroup);
+        passEncoder.dispatchWorkgroups(Math.ceil(voxelBuffer.width / 8), Math.ceil(voxelBuffer.height / 8), Math.ceil(voxelBuffer.depth / 4));
+        passEncoder.end();
+        device.queue.submit([commandEncoder.finish()]);
+    }
+    // 3d retina render pass (use slice renderer)
+    const canvas = document.getElementById("gpu-canvas");
+    const context = gpu.getContext(canvas);
+    const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
+    const RaytracingShaderCode = `
             
             struct Vec4Attachment{
                 size: vec3<u32>,
@@ -110,42 +107,40 @@ var voxel_test;
                 return voxelfetch(position*0.5+vec3<f32>(0.5));
             }
             `;
-        const pipeline = await renderer.createRaytracingPipeline({
-            code: RaytracingShaderCode,
-            rayEntryPoint: "mainRay",
-            fragmentEntryPoint: "mainFrag"
-        });
-        const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
-            { buffer: voxelBuffer.buffer }
-        ]);
-        let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
-        retinaCtrl.keyConfig.enable = "";
-        let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
-        function setSize() {
-            const width = window.innerWidth * window.devicePixelRatio;
-            const height = window.innerHeight * window.devicePixelRatio;
-            canvas.width = width;
-            canvas.height = height;
-            renderer.setSize({ width, height });
-        }
-        setSize();
-        window.addEventListener("resize", setSize);
-        let t = 0;
-        function loop() {
-            t += 1 / 60;
-            ctrlReg.update();
-            uSizeJsBuffer[0] = (Math.sin(t) * 0.5 + 0.5);
-            device.queue.writeBuffer(uSizeBuffer, 0, uSizeJsBuffer);
-            dispatch();
-            renderer.render(() => {
-                renderer.drawRaytracing(pipeline, [renderBindgroup]);
-            });
-            window.requestAnimationFrame(loop);
-        }
-        loop();
+    const pipeline = await renderer.createRaytracingPipeline({
+        code: RaytracingShaderCode,
+        rayEntryPoint: "mainRay",
+        fragmentEntryPoint: "mainFrag"
+    });
+    const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
+        { buffer: voxelBuffer.buffer }
+    ]);
+    let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
+    retinaCtrl.keyConfig.enable = "";
+    let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
+    function setSize() {
+        const width = window.innerWidth * window.devicePixelRatio;
+        const height = window.innerHeight * window.devicePixelRatio;
+        canvas.width = width;
+        canvas.height = height;
+        renderer.setSize({ width, height });
     }
-    voxel_test.load = load;
-})(voxel_test || (voxel_test = {}));
+    setSize();
+    window.addEventListener("resize", setSize);
+    let t = 0;
+    function loop() {
+        t += 1 / 60;
+        ctrlReg.update();
+        uSizeJsBuffer[0] = (Math.sin(t) * 0.5 + 0.5);
+        device.queue.writeBuffer(uSizeBuffer, 0, uSizeJsBuffer);
+        dispatch();
+        renderer.render(() => {
+            renderer.drawRaytracing(pipeline, [renderBindgroup]);
+        });
+        window.requestAnimationFrame(loop);
+    }
+    loop();
+}
 var voxel_shadertoy;
 (function (voxel_shadertoy) {
     async function load() {
@@ -613,7 +608,6 @@ var rasterizer;
     }
     rasterizer.load = load;
 })(rasterizer || (rasterizer = {}));
-// }
 
-export { rasterizer, voxel_shadertoy, voxel_test };
+export { load, rasterizer, voxel_shadertoy };
 //# sourceMappingURL=voxeltest.js.map

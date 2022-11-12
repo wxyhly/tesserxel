@@ -1,96 +1,94 @@
 import * as tesserxel from "../../build/tesserxel.js"
-// namespace examples {
-    export namespace voxel_test {
-        export async function load() {
-            const gpu = await new tesserxel.render.GPU().init();
-            const device = gpu.device;
+export async function load() {
+    const gpu = await new tesserxel.render.GPU().init();
+    const device = gpu.device;
 
-            // voxel render pass (compute pass)
+    // voxel render pass (compute pass)
 
-            let voxelShaderCode = `
-            struct Vec4Attachment{
-                size: vec3<u32>,
-                data: array<vec4<f32>>
-            }
-            @group(0) @binding(1) var <uniform> size: f32;
-            @group(0) @binding(0) var <storage, read_write> _attachment0: Vec4Attachment;
-            @compute @workgroup_size(8,8,4) fn main(@builtin(global_invocation_id) voxel_coord : vec3<u32>){
-                let _size = _attachment0.size;
-                if(voxel_coord.x >= _size.x || voxel_coord.y >= _size.y ||  voxel_coord.z >= _size.z){
-                    return ;
-                }
-                let storageOffset = voxel_coord.x + _size.x * (voxel_coord.y + _size.y * voxel_coord.z);
-                let position = vec3<f32>(voxel_coord)/vec3<f32>(_size)*2.0 - vec3<f32>(1.0);
-                var color:vec4<f32>;
-                if(dot(position,position) > size){
-                    color=vec4<f32>(position*0.5+0.5,1.0);
-                }else{
-                    color=vec4<f32>(0.0);
-                }
-                _attachment0.data[storageOffset] = color;
-            }
-            `;
-            let voxelShaderModule = device.createShaderModule({ code: voxelShaderCode });
-            const computePipeline = await device.createComputePipelineAsync({
-                compute: {
-                    module: voxelShaderModule,
-                    entryPoint: "main"
-                },
-                layout: "auto"
-            });
-            function createVoxelBuffer(size: GPUExtent3D) {
-                let width = 0;
-                let height = 0;
-                let depth = 0;
-                if ((size as GPUExtent3DDict).width) {
-                    width = (size as GPUExtent3DDict).width;
-                    height = (size as GPUExtent3DDict).height;
-                    depth = (size as GPUExtent3DDict).depthOrArrayLayers;
-                } else {
-                    width = size[0];
-                    height = size[1];
-                    depth = size[2];
-                }
-                let length = width * height * depth;
-                let buffer = device.createBuffer({
-                    size: (4 + length * 4) * 4,
-                    usage: GPUBufferUsage.STORAGE,
-                    mappedAtCreation: true,
-                    label: `VoxelBuffer<${width},${height},${depth},vec4<f32>>`
-                });
-                let jsBuffer = new Uint32Array(buffer.getMappedRange(0, 12));
-                jsBuffer.set([width, height, depth]);
-                buffer.unmap();
-                return { buffer, width, height, depth, size: length, format: "vec4<f32>" };
-            }
-            let voxelBuffer = createVoxelBuffer([128, 128, 128]);
-            let uSizeJsBuffer = new Float32Array(1);
-            let uSizeBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, uSizeJsBuffer);
-            const computeBindgroup = gpu.createBindGroup(computePipeline, 0, [
-                { buffer: voxelBuffer.buffer },
-                { buffer: uSizeBuffer }
-            ]);
+    let voxelShaderCode = `
+    struct Vec4Attachment{
+        size: vec3<u32>,
+        data: array<vec4<f32>>
+    }
+    @group(0) @binding(1) var <uniform> size: f32;
+    @group(0) @binding(0) var <storage, read_write> _attachment0: Vec4Attachment;
+    @compute @workgroup_size(8,8,4) fn main(@builtin(global_invocation_id) voxel_coord : vec3<u32>){
+        let _size = _attachment0.size;
+        if(voxel_coord.x >= _size.x || voxel_coord.y >= _size.y ||  voxel_coord.z >= _size.z){
+            return ;
+        }
+        let storageOffset = voxel_coord.x + _size.x * (voxel_coord.y + _size.y * voxel_coord.z);
+        let position = vec3<f32>(voxel_coord)/vec3<f32>(_size)*2.0 - vec3<f32>(1.0);
+        var color:vec4<f32>;
+        if(dot(position,position) > size){
+            color=vec4<f32>(position*0.5+0.5,1.0);
+        }else{
+            color=vec4<f32>(0.0);
+        }
+        _attachment0.data[storageOffset] = color;
+    }
+    `;
+    let voxelShaderModule = device.createShaderModule({ code: voxelShaderCode });
+    const computePipeline = await device.createComputePipelineAsync({
+        compute: {
+            module: voxelShaderModule,
+            entryPoint: "main"
+        },
+        layout: "auto"
+    });
+    function createVoxelBuffer(size: GPUExtent3D) {
+        let width = 0;
+        let height = 0;
+        let depth = 0;
+        if ((size as GPUExtent3DDict).width) {
+            width = (size as GPUExtent3DDict).width;
+            height = (size as GPUExtent3DDict).height;
+            depth = (size as GPUExtent3DDict).depthOrArrayLayers;
+        } else {
+            width = size[0];
+            height = size[1];
+            depth = size[2];
+        }
+        let length = width * height * depth;
+        let buffer = device.createBuffer({
+            size: (4 + length * 4) * 4,
+            usage: GPUBufferUsage.STORAGE,
+            mappedAtCreation: true,
+            label: `VoxelBuffer<${width},${height},${depth},vec4<f32>>`
+        });
+        let jsBuffer = new Uint32Array(buffer.getMappedRange(0, 12));
+        jsBuffer.set([width, height, depth]);
+        buffer.unmap();
+        return { buffer, width, height, depth, size: length, format: "vec4<f32>" };
+    }
+    let voxelBuffer = createVoxelBuffer([128, 128, 128]);
+    let uSizeJsBuffer = new Float32Array(1);
+    let uSizeBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, uSizeJsBuffer);
+    const computeBindgroup = gpu.createBindGroup(computePipeline, 0, [
+        { buffer: voxelBuffer.buffer },
+        { buffer: uSizeBuffer }
+    ]);
 
-            function dispatch() {
-                let commandEncoder = device.createCommandEncoder();
-                let passEncoder = commandEncoder.beginComputePass();
-                passEncoder.setPipeline(computePipeline);
-                passEncoder.setBindGroup(0, computeBindgroup);
-                passEncoder.dispatchWorkgroups(
-                    Math.ceil(voxelBuffer.width / 8),
-                    Math.ceil(voxelBuffer.height / 8),
-                    Math.ceil(voxelBuffer.depth / 4)
-                );
-                passEncoder.end();
-                device.queue.submit([commandEncoder.finish()]);
-            }
+    function dispatch() {
+        let commandEncoder = device.createCommandEncoder();
+        let passEncoder = commandEncoder.beginComputePass();
+        passEncoder.setPipeline(computePipeline);
+        passEncoder.setBindGroup(0, computeBindgroup);
+        passEncoder.dispatchWorkgroups(
+            Math.ceil(voxelBuffer.width / 8),
+            Math.ceil(voxelBuffer.height / 8),
+            Math.ceil(voxelBuffer.depth / 4)
+        );
+        passEncoder.end();
+        device.queue.submit([commandEncoder.finish()]);
+    }
 
-            // 3d retina render pass (use slice renderer)
+    // 3d retina render pass (use slice renderer)
 
-            const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-            const context = gpu.getContext(canvas);
-            const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
-            const RaytracingShaderCode = `
+    const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+    const context = gpu.getContext(canvas);
+    const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
+    const RaytracingShaderCode = `
             
             struct Vec4Attachment{
                 size: vec3<u32>,
@@ -116,50 +114,49 @@ import * as tesserxel from "../../build/tesserxel.js"
                 return voxelfetch(position*0.5+vec3<f32>(0.5));
             }
             `;
-            const pipeline = await renderer.createRaytracingPipeline({
-                code: RaytracingShaderCode,
-                rayEntryPoint: "mainRay",
-                fragmentEntryPoint: "mainFrag"
-            });
-            const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
-                { buffer: voxelBuffer.buffer }
-            ]);
-            let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
-            retinaCtrl.keyConfig.enable = "";
-            let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
+    const pipeline = await renderer.createRaytracingPipeline({
+        code: RaytracingShaderCode,
+        rayEntryPoint: "mainRay",
+        fragmentEntryPoint: "mainFrag"
+    });
+    const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
+        { buffer: voxelBuffer.buffer }
+    ]);
+    let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
+    retinaCtrl.keyConfig.enable = "";
+    let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
 
-            function setSize() {
-                const width = window.innerWidth * window.devicePixelRatio;
-                const height = window.innerHeight * window.devicePixelRatio;
-                canvas.width = width;
-                canvas.height = height;
-                renderer.setSize({ width, height });
-            }
-            setSize();
-            window.addEventListener("resize", setSize);
-            let t = 0;
-            function loop() {
-                t += 1 / 60;
-                ctrlReg.update();
-                uSizeJsBuffer[0] = (Math.sin(t) * 0.5 + 0.5);
-                device.queue.writeBuffer(uSizeBuffer, 0, uSizeJsBuffer);
-                dispatch();
-                renderer.render(() => {
-                    renderer.drawRaytracing(pipeline, [renderBindgroup]);
-                });
-                window.requestAnimationFrame(loop);
-            }
-            loop();
-        }
+    function setSize() {
+        const width = window.innerWidth * window.devicePixelRatio;
+        const height = window.innerHeight * window.devicePixelRatio;
+        canvas.width = width;
+        canvas.height = height;
+        renderer.setSize({ width, height });
     }
+    setSize();
+    window.addEventListener("resize", setSize);
+    let t = 0;
+    function loop() {
+        t += 1 / 60;
+        ctrlReg.update();
+        uSizeJsBuffer[0] = (Math.sin(t) * 0.5 + 0.5);
+        device.queue.writeBuffer(uSizeBuffer, 0, uSizeJsBuffer);
+        dispatch();
+        renderer.render(() => {
+            renderer.drawRaytracing(pipeline, [renderBindgroup]);
+        });
+        window.requestAnimationFrame(loop);
+    }
+    loop();
+}
 
-    export namespace voxel_shadertoy {
-        export async function load() {
-            const gpu = await new tesserxel.render.GPU().init();
-            const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-            const context = gpu.getContext(canvas);
-            const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
-            const RaytracingShaderCode = `
+export namespace voxel_shadertoy {
+    export async function load() {
+        const gpu = await new tesserxel.render.GPU().init();
+        const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+        const context = gpu.getContext(canvas);
+        const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
+        const RaytracingShaderCode = `
             struct RayOutput{
                 @location(0) position: vec3<f32>
             }
@@ -170,54 +167,54 @@ import * as tesserxel from "../../build/tesserxel.js"
                 return vec4<f32>(position * 0.5 + vec3<f32>(0.5), 1.0);
             }
             `;
-            const pipeline = await renderer.createRaytracingPipeline({
-                code: RaytracingShaderCode,
-                rayEntryPoint: "mainRay",
-                fragmentEntryPoint: "mainFrag"
-            });
-            let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
-            retinaCtrl.keyConfig.enable = "";
-            let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
+        const pipeline = await renderer.createRaytracingPipeline({
+            code: RaytracingShaderCode,
+            rayEntryPoint: "mainRay",
+            fragmentEntryPoint: "mainFrag"
+        });
+        let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
+        retinaCtrl.keyConfig.enable = "";
+        let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
 
-            function setSize() {
-                const width = window.innerWidth * window.devicePixelRatio;
-                const height = window.innerHeight * window.devicePixelRatio;
-                canvas.width = width;
-                canvas.height = height;
-                renderer.setSize({ width, height });
-            }
-            setSize();
-            window.addEventListener("resize", setSize);
-            function loop() {
-                ctrlReg.update();
-                renderer.render(() => {
-                    renderer.drawRaytracing(pipeline);
-                });
-                window.requestAnimationFrame(loop);
-            }
-            loop();
+        function setSize() {
+            const width = window.innerWidth * window.devicePixelRatio;
+            const height = window.innerHeight * window.devicePixelRatio;
+            canvas.width = width;
+            canvas.height = height;
+            renderer.setSize({ width, height });
         }
+        setSize();
+        window.addEventListener("resize", setSize);
+        function loop() {
+            ctrlReg.update();
+            renderer.render(() => {
+                renderer.drawRaytracing(pipeline);
+            });
+            window.requestAnimationFrame(loop);
+        }
+        loop();
     }
-    export namespace rasterizer {
-        export async function load() {
-            const gpu = await new tesserxel.render.GPU().init();
-            const device = gpu.device;
+}
+export namespace rasterizer {
+    export async function load() {
+        const gpu = await new tesserxel.render.GPU().init();
+        const device = gpu.device;
 
-            // voxel render pass (compute pass)
+        // voxel render pass (compute pass)
 
-            let meshJsBuffer = tesserxel.mesh.tetra.tiger(1, 16, 1, 16, 0.2, 12);
-            tesserxel.mesh.tetra.applyObj4(meshJsBuffer, new tesserxel.math.Obj4(
-                new tesserxel.math.Vec4(0, 0, 0, 2)
-            ));
+        let meshJsBuffer = tesserxel.mesh.tetra.tiger(1, 16, 1, 16, 0.2, 12);
+        tesserxel.mesh.tetra.applyObj4(meshJsBuffer, new tesserxel.math.Obj4(
+            new tesserxel.math.Vec4(0, 0, 0, 2)
+        ));
 
-            const resolution = 256;
-            const tetraCount = meshJsBuffer.count;
+        const resolution = 256;
+        const tetraCount = meshJsBuffer.count;
 
-            const tileSize = 16;
-            const workgroupSizeX = 8;
-            const workgroupSizeY = 4;
-            const workgroupSizeZ = 8;
-            let commonHeaderCode = `
+        const tileSize = 16;
+        const workgroupSizeX = 8;
+        const workgroupSizeY = 4;
+        const workgroupSizeZ = 8;
+        let commonHeaderCode = `
             struct InternalTetra{
                 invPosition: mat4x4<f32>,
                 aabbMin: vec4<f32>,
@@ -227,7 +224,7 @@ import * as tesserxel from "../../build/tesserxel.js"
                 // todo
             }
             `;
-            let declareInverseMat4x4F32 = `
+        let declareInverseMat4x4F32 = `
             fn inverseMat4x4F32(matrix : mat4x4<f32>)->mat4x4<f32>{
                 let invdet = 1.0 / determinant(matrix);
                 let adjoint = transpose(mat4x4<f32>(
@@ -318,7 +315,7 @@ import * as tesserxel from "../../build/tesserxel.js"
                 return adjoint * invdet;
             }
             `;
-            let vertexShaderCode = commonHeaderCode + ` 
+        let vertexShaderCode = commonHeaderCode + ` 
             
             @group(0) @binding(0) var <storage, read> inputTetra: array<mat4x4<f32>>;
             @group(0) @binding(1) var <storage, read_write> interTetra: array<InternalTetra>;
@@ -351,7 +348,7 @@ import * as tesserxel from "../../build/tesserxel.js"
             }
             `;
 
-            let voxelShaderCode = commonHeaderCode + `
+        let voxelShaderCode = commonHeaderCode + `
             struct Vec4Attachment{
                 size: vec3<u32>,
                 tileNum: vec3<u32>,
@@ -510,73 +507,73 @@ import * as tesserxel from "../../build/tesserxel.js"
                 // }
             }
             `;
-            let vertexShaderModule = device.createShaderModule({ code: vertexShaderCode });
-            let voxelShaderModule = device.createShaderModule({ code: voxelShaderCode });
-            const computePipeline = await device.createComputePipelineAsync({
-                compute: {
-                    module: voxelShaderModule,
-                    entryPoint: "main"
-                },
-                layout: "auto"
-            });
-            const vertexPipeline = await device.createComputePipelineAsync({
-                compute: {
-                    module: vertexShaderModule,
-                    entryPoint: "main"
-                },
-                layout: "auto"
-            });
-            let internalTetraBuffer = gpu.createBuffer(GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE, 0x400000, "internalTetra");
-            let size = [resolution, resolution, resolution];
-            let tileNums = new Uint32Array([Math.ceil(size[0] / tileSize), Math.ceil(size[1] / tileSize), Math.ceil(size[2] / tileSize)]);
-            let voxelBuffer = tesserxel.render.createVoxelBuffer(
-                gpu, size, 1, tileNums.buffer
+        let vertexShaderModule = device.createShaderModule({ code: vertexShaderCode });
+        let voxelShaderModule = device.createShaderModule({ code: voxelShaderCode });
+        const computePipeline = await device.createComputePipelineAsync({
+            compute: {
+                module: voxelShaderModule,
+                entryPoint: "main"
+            },
+            layout: "auto"
+        });
+        const vertexPipeline = await device.createComputePipelineAsync({
+            compute: {
+                module: vertexShaderModule,
+                entryPoint: "main"
+            },
+            layout: "auto"
+        });
+        let internalTetraBuffer = gpu.createBuffer(GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE, 0x400000, "internalTetra");
+        let size = [resolution, resolution, resolution];
+        let tileNums = new Uint32Array([Math.ceil(size[0] / tileSize), Math.ceil(size[1] / tileSize), Math.ceil(size[2] / tileSize)]);
+        let voxelBuffer = tesserxel.render.createVoxelBuffer(
+            gpu, size, 1, tileNums.buffer
+        );
+        let uSizeJsBuffer = new Float32Array(1);
+        let uSizeBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, uSizeJsBuffer);
+        let meshBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, meshJsBuffer.position);
+        const vertexBindgroup = gpu.createBindGroup(vertexPipeline, 0, [
+            { buffer: meshBuffer },
+            { buffer: internalTetraBuffer },
+        ], "vertexBindgroup");
+        const computeBindgroup = gpu.createBindGroup(computePipeline, 0, [
+            { buffer: internalTetraBuffer },
+            // { buffer: meshBuffer },
+            { buffer: voxelBuffer.buffer },
+        ], "computeBindgroup");
+
+        function dispatch() {
+            let commandEncoder = device.createCommandEncoder();
+            commandEncoder.clearBuffer(internalTetraBuffer);
+            commandEncoder.clearBuffer(voxelBuffer.buffer, 32);
+            let passEncoder = commandEncoder.beginComputePass();
+            passEncoder.setPipeline(vertexPipeline);
+            passEncoder.setBindGroup(0, vertexBindgroup);
+            passEncoder.dispatchWorkgroups(
+                Math.ceil(tetraCount / 256),
             );
-            let uSizeJsBuffer = new Float32Array(1);
-            let uSizeBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, uSizeJsBuffer);
-            let meshBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, meshJsBuffer.position);
-            const vertexBindgroup = gpu.createBindGroup(vertexPipeline, 0, [
-                { buffer: meshBuffer },
-                { buffer: internalTetraBuffer },
-            ], "vertexBindgroup");
-            const computeBindgroup = gpu.createBindGroup(computePipeline, 0, [
-                { buffer: internalTetraBuffer },
-                // { buffer: meshBuffer },
-                { buffer: voxelBuffer.buffer },
-            ], "computeBindgroup");
-
-            function dispatch() {
-                let commandEncoder = device.createCommandEncoder();
-                commandEncoder.clearBuffer(internalTetraBuffer);
-                commandEncoder.clearBuffer(voxelBuffer.buffer, 32);
-                let passEncoder = commandEncoder.beginComputePass();
-                passEncoder.setPipeline(vertexPipeline);
-                passEncoder.setBindGroup(0, vertexBindgroup);
-                passEncoder.dispatchWorkgroups(
-                    Math.ceil(tetraCount / 256),
-                );
-                passEncoder.setPipeline(computePipeline);
-                passEncoder.setBindGroup(0, computeBindgroup);
-                passEncoder.dispatchWorkgroups(
-                    Math.ceil(tetraCount / workgroupSizeX),
-                    Math.ceil(tileNums[0] / workgroupSizeY),
-                    Math.ceil(tileNums[1] * tileNums[2] / workgroupSizeZ),
-                );
-                passEncoder.end();
-                device.queue.submit([commandEncoder.finish()]);
-            }
+            passEncoder.setPipeline(computePipeline);
+            passEncoder.setBindGroup(0, computeBindgroup);
+            passEncoder.dispatchWorkgroups(
+                Math.ceil(tetraCount / workgroupSizeX),
+                Math.ceil(tileNums[0] / workgroupSizeY),
+                Math.ceil(tileNums[1] * tileNums[2] / workgroupSizeZ),
+            );
+            passEncoder.end();
+            device.queue.submit([commandEncoder.finish()]);
+        }
 
 
 
-            // 3d retina render pass (use slice renderer)
+        // 3d retina render pass (use slice renderer)
 
 
 
-            const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-            const context = gpu.getContext(canvas);
-            const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
-            renderer.setOpacity(2);
-            const RaytracingShaderCode = `
+        const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+        const context = gpu.getContext(canvas);
+        const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
+        renderer.setOpacity(2);
+        const RaytracingShaderCode = `
             
             struct Vec4Attachment{
                 size: vec3<u32>,
@@ -604,61 +601,60 @@ import * as tesserxel from "../../build/tesserxel.js"
                 return vec4<f32>(depth,depth,depth,step(0.000001,depth));
             }
             `;
-            const pipeline = await renderer.createRaytracingPipeline({
-                code: RaytracingShaderCode,
-                rayEntryPoint: "mainRay",
-                fragmentEntryPoint: "mainFrag"
-            });
-            const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
-                { buffer: voxelBuffer.buffer }
-            ]);
-            let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
-            retinaCtrl.keyConfig.enable = "";
-            let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
+        const pipeline = await renderer.createRaytracingPipeline({
+            code: RaytracingShaderCode,
+            rayEntryPoint: "mainRay",
+            fragmentEntryPoint: "mainFrag"
+        });
+        const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
+            { buffer: voxelBuffer.buffer }
+        ]);
+        let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
+        retinaCtrl.keyConfig.enable = "";
+        let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
 
-            function setSize() {
-                const width = window.innerWidth * window.devicePixelRatio;
-                const height = window.innerHeight * window.devicePixelRatio;
-                canvas.width = width;
-                canvas.height = height;
-                renderer.setSize({ width, height });
-            }
-            setSize();
-            window.addEventListener("resize", setSize);
-            let t = 0;
-            function loop() {
-                t += 1 / 60;
-                ctrlReg.update();
-                uSizeJsBuffer[0] = (Math.sin(t));
-                device.queue.writeBuffer(uSizeBuffer, 0, uSizeJsBuffer);
-
-                function dispatch2() {
-                    let commandEncoder = device.createCommandEncoder();
-                    commandEncoder.clearBuffer(internalTetraBuffer);
-                    commandEncoder.clearBuffer(voxelBuffer.buffer, 32);
-                    let passEncoder = commandEncoder.beginComputePass();
-                    passEncoder.setPipeline(vertexPipeline);
-                    passEncoder.setBindGroup(0, vertexBindgroup);
-                    passEncoder.dispatchWorkgroups(
-                        Math.ceil(tetraCount / 256),
-                    );
-                    passEncoder.setPipeline(computePipeline);
-                    passEncoder.setBindGroup(0, computeBindgroup);
-                    passEncoder.dispatchWorkgroups(
-                        Math.ceil(tetraCount / workgroupSizeX),
-                        Math.ceil(tileNums[0] / workgroupSizeY),
-                        Math.ceil(tileNums[1] * tileNums[2] / workgroupSizeZ),
-                    );
-                    passEncoder.end();
-                    device.queue.submit([commandEncoder.finish()]);
-                }
-                renderer.render(() => {
-                    renderer.drawRaytracing(pipeline, [renderBindgroup]);
-                });
-                window.requestAnimationFrame(loop);
-            }
-            dispatch();
-            loop();
+        function setSize() {
+            const width = window.innerWidth * window.devicePixelRatio;
+            const height = window.innerHeight * window.devicePixelRatio;
+            canvas.width = width;
+            canvas.height = height;
+            renderer.setSize({ width, height });
         }
+        setSize();
+        window.addEventListener("resize", setSize);
+        let t = 0;
+        function loop() {
+            t += 1 / 60;
+            ctrlReg.update();
+            uSizeJsBuffer[0] = (Math.sin(t));
+            device.queue.writeBuffer(uSizeBuffer, 0, uSizeJsBuffer);
+
+            function dispatch2() {
+                let commandEncoder = device.createCommandEncoder();
+                commandEncoder.clearBuffer(internalTetraBuffer);
+                commandEncoder.clearBuffer(voxelBuffer.buffer, 32);
+                let passEncoder = commandEncoder.beginComputePass();
+                passEncoder.setPipeline(vertexPipeline);
+                passEncoder.setBindGroup(0, vertexBindgroup);
+                passEncoder.dispatchWorkgroups(
+                    Math.ceil(tetraCount / 256),
+                );
+                passEncoder.setPipeline(computePipeline);
+                passEncoder.setBindGroup(0, computeBindgroup);
+                passEncoder.dispatchWorkgroups(
+                    Math.ceil(tetraCount / workgroupSizeX),
+                    Math.ceil(tileNums[0] / workgroupSizeY),
+                    Math.ceil(tileNums[1] * tileNums[2] / workgroupSizeZ),
+                );
+                passEncoder.end();
+                device.queue.submit([commandEncoder.finish()]);
+            }
+            renderer.render(() => {
+                renderer.drawRaytracing(pipeline, [renderBindgroup]);
+            });
+            window.requestAnimationFrame(loop);
+        }
+        dispatch();
+        loop();
     }
-// }
+}

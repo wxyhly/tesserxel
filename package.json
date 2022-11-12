@@ -3,9 +3,8 @@
   "version": "1.0.0",
   "description": "WebGPU based 3D screen Renderer for 4D Objects",
   "scripts": {
-    "build2": "npx parcel build src",
     "build": "npx rollup -c rollup.config.js",
-    "run": "cd examples & npx parcel ./ --dist-dir ../docs"
+    "start": "node static_server"
   },
   "staticFiles": {
     "staticPath": "resource",
@@ -14,6 +13,13 @@
   "author": "Hqak",
   "license": "ISC",
   "type": "module",
+  "main": "./build/tesserxel.js",
+  "module": "./build/tesserxel.js",
+  "exports": {
+    ".": {
+      "import": "./build/tesserxel.js"
+    }
+  },
   "devDependencies": {
     "@webgpu/types": "^0.1.21",
     "rollup": "^3.2.1",
