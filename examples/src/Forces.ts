@@ -37,7 +37,7 @@ import * as tesserxel from "../../build/tesserxel.js"
             const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
                 new tesserxel.util.ctrl.RetinaController(renderer.core),
                 new tesserxel.util.ctrl.KeepUpController(camera)
-            ], { requsetPointerLock: true });
+            ], { requestPointerLock: true });
             function setSize() {
                 let width = window.innerWidth * window.devicePixelRatio;
                 let height = window.innerHeight * window.devicePixelRatio;

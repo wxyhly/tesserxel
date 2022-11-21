@@ -203,7 +203,7 @@ var st_pile;
             retinaCtrl,
             camCtrl,
             new EmitGlomeController(world, scene, camera)
-        ], { requsetPointerLock: true });
+        ], { requestPointerLock: true });
         let t = -2;
         new math.Srand(Math.random());
         function run() {
@@ -290,7 +290,7 @@ var st_pile;
             retinaCtrl,
             camCtrl,
             emitCtrl
-        ], { requsetPointerLock: true });
+        ], { requestPointerLock: true });
         function setSize() {
             let width = window.innerWidth * window.devicePixelRatio;
             let height = window.innerHeight * window.devicePixelRatio;
@@ -366,7 +366,7 @@ var rigid_test;
             retinaCtrl,
             camCtrl,
             emitCtrl
-        ], { requsetPointerLock: true });
+        ], { requestPointerLock: true });
         function setSize() {
             let width = window.innerWidth * window.devicePixelRatio;
             let height = window.innerHeight * window.devicePixelRatio;
@@ -473,7 +473,7 @@ var st_ts_chain;
             retinaCtrl,
             camCtrl,
             emitCtrl
-        ], { requsetPointerLock: true });
+        ], { requestPointerLock: true });
         function setSize() {
             let width = window.innerWidth * window.devicePixelRatio;
             let height = window.innerHeight * window.devicePixelRatio;
@@ -640,7 +640,7 @@ var tg_tg_chain;
             retinaCtrl,
             camCtrl,
             emitCtrl
-        ], { requsetPointerLock: true });
+        ], { requestPointerLock: true });
         function setSize() {
             let width = window.innerWidth * window.devicePixelRatio;
             let height = window.innerHeight * window.devicePixelRatio;
@@ -740,7 +740,7 @@ var mix_chain;
             retinaCtrl,
             camCtrl,
             emitCtrl
-        ], { requsetPointerLock: true });
+        ], { requestPointerLock: true });
         function setSize() {
             let width = window.innerWidth * window.devicePixelRatio;
             let height = window.innerHeight * window.devicePixelRatio;
@@ -838,7 +838,7 @@ async function loadMaxwell(cb) {
         retinaCtrl,
         camCtrl,
         emitCtrl
-    ], { requsetPointerLock: true });
+    ], { requestPointerLock: true });
     function setSize() {
         let width = window.innerWidth * window.devicePixelRatio;
         let height = window.innerHeight * window.devicePixelRatio;

@@ -192,7 +192,7 @@ import * as tesserxel from "../../build/tesserxel.js"
                 retinaCtrl,
                 camCtrl,
                 new EmitGlomeController(world, scene, camera)
-            ], { requsetPointerLock: true });
+            ], { requestPointerLock: true });
             let t = -2;
             let emitType = 0;
             let srand = new math.Srand(Math.random());
@@ -313,7 +313,7 @@ import * as tesserxel from "../../build/tesserxel.js"
                 retinaCtrl,
                 camCtrl,
                 emitCtrl
-            ], { requsetPointerLock: true });
+            ], { requestPointerLock: true });
 
             function setSize() {
                 let width = window.innerWidth * window.devicePixelRatio;
@@ -402,7 +402,7 @@ import * as tesserxel from "../../build/tesserxel.js"
                 retinaCtrl,
                 camCtrl,
                 emitCtrl
-            ], { requsetPointerLock: true });
+            ], { requestPointerLock: true });
 
             function setSize() {
                 let width = window.innerWidth * window.devicePixelRatio;
@@ -524,7 +524,7 @@ import * as tesserxel from "../../build/tesserxel.js"
                 retinaCtrl,
                 camCtrl,
                 emitCtrl
-            ], { requsetPointerLock: true });
+            ], { requestPointerLock: true });
 
             function setSize() {
                 let width = window.innerWidth * window.devicePixelRatio;
@@ -713,7 +713,7 @@ import * as tesserxel from "../../build/tesserxel.js"
                 retinaCtrl,
                 camCtrl,
                 emitCtrl
-            ], { requsetPointerLock: true });
+            ], { requestPointerLock: true });
 
             function setSize() {
                 let width = window.innerWidth * window.devicePixelRatio;
@@ -830,7 +830,7 @@ import * as tesserxel from "../../build/tesserxel.js"
                 retinaCtrl,
                 camCtrl,
                 emitCtrl
-            ], { requsetPointerLock: true });
+            ], { requestPointerLock: true });
 
             function setSize() {
                 let width = window.innerWidth * window.devicePixelRatio;
@@ -943,7 +943,7 @@ import * as tesserxel from "../../build/tesserxel.js"
             retinaCtrl,
             camCtrl,
             emitCtrl
-        ], { requsetPointerLock: true });
+        ], { requestPointerLock: true });
 
         function setSize() {
             let width = window.innerWidth * window.devicePixelRatio;

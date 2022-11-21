@@ -117,7 +117,7 @@ class MandelApp {
         this.camController = camController;
         let retinaController = new tesserxel.util.ctrl.RetinaController(renderer);
         this.retinaController = retinaController;
-        let ctrlreg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
+        let ctrlreg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requestPointerLock: true });
         let matModelViewJSBuffer = new Float32Array(20);
         let pipeline = await renderer.createRaytracingPipeline({
             code: this.headercode.replace(/\{replace\}/g, code),

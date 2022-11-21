@@ -766,7 +766,7 @@ import * as tesserxel from "../../build/tesserxel.js"
         let viewCtrl = new tesserxel.util.ctrl.VoxelViewerController(viewObj);
         let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
             retinaCtrl, displayCtrl, viewCtrl
-        ], { requsetPointerLock: true });
+        ], { requestPointerLock: true });
 
         function setSize() {
             const width = window.innerWidth * window.devicePixelRatio;

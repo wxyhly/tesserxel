@@ -98,7 +98,7 @@ struct fInputType{
         retinaController.mouseButton = null;
         let trackBallController = new tesserxel.util.ctrl.TrackBallController();
         trackBallController.object.position.set(0, 0, 0, -3);
-        let ctrlreg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [trackBallController, retinaController], { preventDefault: true, requsetPointerLock: true });
+        let ctrlreg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [trackBallController, retinaController], { preventDefault: true, requestPointerLock: true });
         let camMatJSBuffer = new Float32Array(40);
         const factor1 = 0.4;
         const factor2 = factor1 * Math.SQRT2;

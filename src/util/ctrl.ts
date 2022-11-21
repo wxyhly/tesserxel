@@ -15,7 +15,7 @@ export interface IController {
 }
 interface ControllerConfig {
     preventDefault?: boolean;
-    requsetPointerLock?: boolean;
+    requestPointerLock?: boolean;
 }
 interface KeyConfig {
     enable?: string;
@@ -23,8 +23,11 @@ interface KeyConfig {
 }
 export interface ControllerState {
     currentKeys: Map<String, KeyState>;
+    /** holded mouse button */
     currentBtn: number;
+    /** pressed mouse button */
     mouseDown: number;
+    /** released mouse button */
     mouseUp: number;
     updateCount: number;
     moveX: number;
@@ -33,9 +36,17 @@ export interface ControllerState {
     wheelY: number;
     lastUpdateTime?: number;
     mspf: number;
-    requsetPointerLock?: boolean;
+    requestPointerLock?: boolean;
+    /** PointerLock has been triggered by the mouse */
     isPointerLockedMouseDown?: boolean;
+    /** PointerLock has been canceled by key escape */
+    isPointerLockEscaped?: boolean;
+    /** code:
+     *  'KeyA' for holding Key A
+     *  '.KeyA' for pressing Key A 
+     *  'ControlLeft+.KeyA' for press A while holding CtrlLeft*/
     isKeyHold: (code: string) => boolean;
+    /** query whether controller disabled by config, disable / enable keys */
     queryDisabled: (config: KeyConfig) => boolean;
     isPointerLocked: () => boolean;
     exitPointerLock: () => void;
@@ -49,10 +60,11 @@ export enum KeyState {
 export class ControllerRegistry {
     dom: HTMLElement;
     ctrls: Iterable<IController>;
-    requsetPointerLock: boolean;
+    requestPointerLock: boolean;
     readonly states: ControllerState = {
         currentKeys: new Map(),
         isPointerLockedMouseDown: false,
+        isPointerLockEscaped: false,
         currentBtn: -1,
         mouseDown: -1,
         mouseUp: -1,
@@ -62,16 +74,18 @@ export class ControllerRegistry {
         wheelX: 0,
         wheelY: 0,
         mspf: -1,
+
         isKeyHold: (_) => false,
         queryDisabled: (_) => false,
         isPointerLocked: () => false,
         exitPointerLock: () => { }
     }
+    private prevIsPointerLocked = false;
     constructor(dom: HTMLElement, ctrls: Iterable<IController>, config?: ControllerConfig) {
         this.dom = dom;
         dom.tabIndex = 1;
         this.ctrls = ctrls;
-        this.requsetPointerLock = config?.requsetPointerLock ?? false;
+        this.requestPointerLock = config?.requestPointerLock ?? false;
         this.states.isKeyHold = (code) => {
             for (let key of code.split("+")) {
                 if (key[0] === '.') {
@@ -91,10 +105,14 @@ export class ControllerRegistry {
             return ((!this.states.isPointerLockedMouseDown) && document.pointerLockElement === this.dom);
         }
         this.states.exitPointerLock = () => {
-            if (document.pointerLockElement === this.dom) document.exitPointerLock();
+            if (document.pointerLockElement === this.dom) {
+                document.exitPointerLock();
+                // if we exit positively, then don't trigger isPointerLockEscaped in the next update
+                this.prevIsPointerLocked = false;
+            }
         }
         dom.addEventListener("mousedown", (ev) => {
-            if (this.requsetPointerLock && document.pointerLockElement !== dom) {
+            if (this.requestPointerLock && document.pointerLockElement !== dom) {
                 dom.requestPointerLock();
                 this.states.isPointerLockedMouseDown = true;
             } else {
@@ -149,7 +167,8 @@ export class ControllerRegistry {
         }
     }
     update() {
-        this.states.requsetPointerLock = this.requsetPointerLock;
+        this.states.requestPointerLock = this.requestPointerLock;
+        this.states.isPointerLockEscaped = this.prevIsPointerLocked && !this.states.isPointerLocked();
         if (!this.states.lastUpdateTime) {
             this.states.mspf = 16.667;
             let now = new Date().getTime();
@@ -170,6 +189,7 @@ export class ControllerRegistry {
         this.states.wheelY = 0;
         this.states.updateCount++;
         this.states.isPointerLockedMouseDown = false;
+        this.prevIsPointerLocked = this.states.isPointerLocked();
         for (let [key, prevState] of this.states.currentKeys) {
             let newState = prevState;
             if (prevState === KeyState.DOWN) {
@@ -295,13 +315,13 @@ export class FreeFlyController implements IController {
         this._bivec.copy(this._bivecKey);
         this._bivecKey.mulfs(dampFactor);
         if (!disabled) {
-            if ((state.requsetPointerLock && state.isPointerLocked()) || (state.currentBtn = 0 && !state.requsetPointerLock)) {
+            if ((state.requestPointerLock && state.isPointerLocked()) || (state.currentBtn = 0 && !state.requestPointerLock)) {
                 let dx = state.moveX * this.mouseSpeed;
                 let dy = -state.moveY * this.mouseSpeed;
                 this._bivec.xw += dx;
                 this._bivec.yw += dy;
             }
-            if ((state.requsetPointerLock && state.isPointerLocked()) || (!state.requsetPointerLock)) {
+            if ((state.requestPointerLock && state.isPointerLocked()) || (!state.requestPointerLock)) {
                 let wx = state.wheelX * this.wheelSpeed;
                 let wy = state.wheelY * this.wheelSpeed;
                 this._bivec.xy += wx;
@@ -399,13 +419,13 @@ export class KeepUpController implements IController {
         this._bivec.xw = this._bivecKey.xw;
         this._bivec.zw = this._bivecKey.zw;
         if (!disabled) {
-            if ((state.requsetPointerLock && state.isPointerLocked()) || (state.currentBtn === 0 && !state.requsetPointerLock)) {
+            if ((state.requestPointerLock && state.isPointerLocked()) || (state.currentBtn === 0 && !state.requestPointerLock)) {
                 let dx = state.moveX * this.mouseSpeed;
                 let dy = state.moveY * this.mouseSpeed;
                 this._bivec.xw += dx;
                 this._bivec.zw += dy;
             }
-            if ((state.requsetPointerLock && state.isPointerLocked()) || (!state.requsetPointerLock)) {
+            if ((state.requestPointerLock && state.isPointerLocked()) || (!state.requestPointerLock)) {
                 let wy = -state.wheelY * this.wheelSpeed;
                 this._bivecKey.yw += wy;
             }

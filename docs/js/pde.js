@@ -751,7 +751,7 @@ async function simulateTerrain(erosionRate, coriolis) {
     let viewCtrl = new tesserxel.util.ctrl.VoxelViewerController(viewObj);
     let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
         retinaCtrl, displayCtrl, viewCtrl
-    ], { requsetPointerLock: true });
+    ], { requestPointerLock: true });
     function setSize() {
         const width = window.innerWidth * window.devicePixelRatio;
         const height = window.innerHeight * window.devicePixelRatio;

@@ -2222,7 +2222,7 @@ interface IController {
 }
 interface ControllerConfig {
     preventDefault?: boolean;
-    requsetPointerLock?: boolean;
+    requestPointerLock?: boolean;
 }
 interface KeyConfig {
     enable?: string;
@@ -2230,8 +2230,11 @@ interface KeyConfig {
 }
 interface ControllerState {
     currentKeys: Map<String, KeyState>;
+    /** holded mouse button */
     currentBtn: number;
+    /** pressed mouse button */
     mouseDown: number;
+    /** released mouse button */
     mouseUp: number;
     updateCount: number;
     moveX: number;
@@ -2240,9 +2243,17 @@ interface ControllerState {
     wheelY: number;
     lastUpdateTime?: number;
     mspf: number;
-    requsetPointerLock?: boolean;
+    requestPointerLock?: boolean;
+    /** PointerLock has been triggered by the mouse */
     isPointerLockedMouseDown?: boolean;
+    /** PointerLock has been canceled by key escape */
+    isPointerLockEscaped?: boolean;
+    /** code:
+     *  'KeyA' for holding Key A
+     *  '.KeyA' for pressing Key A
+     *  'ControlLeft+.KeyA' for press A while holding CtrlLeft*/
     isKeyHold: (code: string) => boolean;
+    /** query whether controller disabled by config, disable / enable keys */
     queryDisabled: (config: KeyConfig) => boolean;
     isPointerLocked: () => boolean;
     exitPointerLock: () => void;
@@ -2256,8 +2267,9 @@ declare enum KeyState {
 declare class ControllerRegistry {
     dom: HTMLElement;
     ctrls: Iterable<IController>;
-    requsetPointerLock: boolean;
+    requestPointerLock: boolean;
     readonly states: ControllerState;
+    private prevIsPointerLocked;
     constructor(dom: HTMLElement, ctrls: Iterable<IController>, config?: ControllerConfig);
     update(): void;
 }

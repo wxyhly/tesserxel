@@ -487,7 +487,7 @@ var city_highway;
         camController.object.position.set(0.5, 0.5, 0.5, 3);
         camController.keyMoveSpeed *= 5;
         let retinaController = new tesserxel.util.ctrl.RetinaController(renderer);
-        let ctrlreg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requsetPointerLock: true });
+        let ctrlreg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requestPointerLock: true });
         renderer.setOpacity(5);
         let camMatJSBuffer = new Float32Array(20);
         renderer.setScreenClearColor({ r: 1.0, g: 1.0, b: 1.0, a: 1.0 });

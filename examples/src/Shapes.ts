@@ -107,7 +107,7 @@ class ShapesApp {
         this.retinaController.mouseButton = null;
         this.ctrlRegistry = new tesserxel.util.ctrl.ControllerRegistry(this.canvas, [
             this.trackBallController, this.retinaController
-        ], { preventDefault: true, requsetPointerLock: true });
+        ], { preventDefault: true, requestPointerLock: true });
         this.mesh = mesh;
         window.addEventListener("resize", this.setSize.bind(this));
         return this;
@@ -262,12 +262,11 @@ export namespace tesseract_ortho {
 async function loadFile(src: string) {
     return new Promise((resolve, reject) => {
         let xhr = new XMLHttpRequest();
-        console.log("hqoma: "+src);
+        console.log("loading: "+src);
         xhr.open("GET", src, true);
         xhr.onload = e => {
             if (xhr.readyState === 4) {
                 if (xhr.status === 200) {
-                    console.log("onload: "+xhr.responseText);
                     resolve(xhr.responseText);
                 } else {
                     console.error(xhr.statusText);
