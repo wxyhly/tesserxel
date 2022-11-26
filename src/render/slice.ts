@@ -906,12 +906,12 @@ ${parsedCode}
 const _emitIndexStride : u32 = ${this.outputBufferStride >> 4};
 @compute @workgroup_size(${vertexState.workgroupSize ?? DefaultWorkGroupSize})
 fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
-    let tetrahedralNum : u32 = ${input.has("location(0)") ? `arrayLength(&_attribute0)` : vertexState.workgroupSize ?? DefaultWorkGroupSize}; // todo: check performance?
     let tetraIndex = GlobalInvocationID.x;
     let instanceIndex = GlobalInvocationID.y;
-    if(tetraIndex >= tetrahedralNum ){
+    ${input.has("location(0)") ? `
+    if(tetraIndex >= arrayLength(&_attribute0)){ // todo: check performance?
         return;
-    }
+    }` : ``} 
     // calculate camera space coordinate : builtin(position) and other output need to be interpolated : location(x)
     // call user defined code 
     ${call}

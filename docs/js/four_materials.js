@@ -55,7 +55,7 @@ var four_materials;
         let controller = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
             new tesserxel.util.ctrl.KeepUpController(camera),
             new tesserxel.util.ctrl.RetinaController(renderer.core)
-        ], { requestPointerLock: true });
+        ], { enablePointerLock: true });
         function setSize() {
             let width = window.innerWidth * window.devicePixelRatio;
             let height = window.innerHeight * window.devicePixelRatio;

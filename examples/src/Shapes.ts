@@ -107,7 +107,7 @@ class ShapesApp {
         this.retinaController.mouseButton = null;
         this.ctrlRegistry = new tesserxel.util.ctrl.ControllerRegistry(this.canvas, [
             this.trackBallController, this.retinaController
-        ], { preventDefault: true, requestPointerLock: true });
+        ], { preventDefault: true, enablePointerLock: true });
         this.mesh = mesh;
         window.addEventListener("resize", this.setSize.bind(this));
         return this;

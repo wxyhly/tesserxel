@@ -37,7 +37,7 @@ var spring_rope;
         const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
             new tesserxel.util.ctrl.RetinaController(renderer.core),
             new tesserxel.util.ctrl.KeepUpController(camera)
-        ], { requestPointerLock: true });
+        ], { enablePointerLock: true });
         function setSize() {
             let width = window.innerWidth * window.devicePixelRatio;
             let height = window.innerHeight * window.devicePixelRatio;

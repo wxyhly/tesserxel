@@ -240,6 +240,9 @@ export class Vec3 {
     reflects(normal: Vec3): Vec3 {
         return this.subs(normal.mulf(this.dot(normal) * 2));
     }
+    equal(v: Vec3) {
+        return this.x === v.x && this.y === v.y && this.z === v.z;
+    }
 
     pushPool(pool: Vec3Pool = vec3Pool) {
         pool.push(this);

@@ -126,6 +126,7 @@ declare class Vec2 {
     static srand(seed: Srand): Vec2;
     distanceTo(p: Vec2): number;
     distanceSqrTo(p: Vec2): number;
+    equal(v: Vec2): boolean;
     pushPool(pool?: Vec2Pool): void;
 }
 
@@ -533,6 +534,7 @@ declare class Vec4 {
     projbs(b: Bivec): Vec4;
     static rand(): Vec4;
     static srand(seed: Srand): Vec4;
+    equal(v: Vec4): boolean;
     pushPool(pool?: Vec4Pool): void;
 }
 
@@ -610,6 +612,7 @@ declare class Vec3 {
     distanceSqrTo(p: Vec3): number;
     reflect(normal: Vec3): Vec3;
     reflects(normal: Vec3): Vec3;
+    equal(v: Vec3): boolean;
     pushPool(pool?: Vec3Pool): void;
 }
 
@@ -2222,7 +2225,7 @@ interface IController {
 }
 interface ControllerConfig {
     preventDefault?: boolean;
-    requestPointerLock?: boolean;
+    enablePointerLock?: boolean;
 }
 interface KeyConfig {
     enable?: string;
@@ -2243,7 +2246,8 @@ interface ControllerState {
     wheelY: number;
     lastUpdateTime?: number;
     mspf: number;
-    requestPointerLock?: boolean;
+    requestPointerLock: () => void;
+    enablePointerLock?: boolean;
     /** PointerLock has been triggered by the mouse */
     isPointerLockedMouseDown?: boolean;
     /** PointerLock has been canceled by key escape */
@@ -2267,10 +2271,20 @@ declare enum KeyState {
 declare class ControllerRegistry {
     dom: HTMLElement;
     ctrls: Iterable<IController>;
-    requestPointerLock: boolean;
+    enablePointerLock: boolean;
     readonly states: ControllerState;
+    /** if this is true, prevent default will not work  */
+    disableDefaultEvent: boolean;
     private prevIsPointerLocked;
+    private evMouseDown;
+    private evMouseUp;
+    private evMouseMove;
+    private evWheel;
+    private evKeyUp;
+    private evKeyDown;
+    private evContextMenu;
     constructor(dom: HTMLElement, ctrls: Iterable<IController>, config?: ControllerConfig);
+    unregist(): void;
     update(): void;
 }
 declare class TrackBallController implements IController {

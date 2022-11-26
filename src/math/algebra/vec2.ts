@@ -156,6 +156,9 @@ export class Vec2 {
         let x = p.x - this.x, y = p.y - this.y;
         return x * x + y * y;
     }
+    equal(v: Vec2) {
+        return this.x === v.x && this.y === v.y;
+    }
     pushPool(pool: Vec2Pool = vec2Pool) {
         pool.push(this);
     }

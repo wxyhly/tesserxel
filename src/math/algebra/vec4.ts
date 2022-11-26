@@ -319,6 +319,9 @@ export class Vec4 {
         let cc = Math.sqrt(1 - c);
         return new Vec4(sc * Math.cos(a), sc * Math.sin(a), cc * Math.cos(b), cc * Math.sin(b));
     }
+    equal(v: Vec4) {
+        return this.x === v.x && this.y === v.y && this.z === v.z && this.w === v.w;
+    }
     pushPool(pool: Vec4Pool = vec4Pool) {
         pool.push(this);
     }

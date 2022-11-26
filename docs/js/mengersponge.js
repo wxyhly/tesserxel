@@ -166,7 +166,7 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
         this.camController = camController;
         let retinaController = new util.ctrl.RetinaController(renderer);
         this.retinaController = retinaController;
-        let ctrlreg = new util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, requestPointerLock: true });
+        let ctrlreg = new util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
         let matModelViewJSBuffer = new Float32Array(20);
         let pipeline = await renderer.createRaytracingPipeline({
             code: this.headercode.replace(/\{replace\}/g, code),

@@ -15,7 +15,7 @@ export interface IController {
 }
 interface ControllerConfig {
     preventDefault?: boolean;
-    requestPointerLock?: boolean;
+    enablePointerLock?: boolean;
 }
 interface KeyConfig {
     enable?: string;
@@ -36,7 +36,8 @@ export interface ControllerState {
     wheelY: number;
     lastUpdateTime?: number;
     mspf: number;
-    requestPointerLock?: boolean;
+    requestPointerLock: () => void;
+    enablePointerLock?: boolean;
     /** PointerLock has been triggered by the mouse */
     isPointerLockedMouseDown?: boolean;
     /** PointerLock has been canceled by key escape */
@@ -60,7 +61,7 @@ export enum KeyState {
 export class ControllerRegistry {
     dom: HTMLElement;
     ctrls: Iterable<IController>;
-    requestPointerLock: boolean;
+    enablePointerLock: boolean;
     readonly states: ControllerState = {
         currentKeys: new Map(),
         isPointerLockedMouseDown: false,
@@ -77,15 +78,25 @@ export class ControllerRegistry {
 
         isKeyHold: (_) => false,
         queryDisabled: (_) => false,
+        requestPointerLock: () => false,
         isPointerLocked: () => false,
         exitPointerLock: () => { }
     }
+    /** if this is true, prevent default will not work  */
+    disableDefaultEvent = false;
     private prevIsPointerLocked = false;
+    private evMouseDown: (ev: MouseEvent) => any;
+    private evMouseUp: (ev: MouseEvent) => any;
+    private evMouseMove: (ev: MouseEvent) => any;
+    private evWheel: (ev: WheelEvent) => any;
+    private evKeyUp: (ev: KeyboardEvent) => any;
+    private evKeyDown: (ev: KeyboardEvent) => any;
+    private evContextMenu: (ev: MouseEvent) => any;
     constructor(dom: HTMLElement, ctrls: Iterable<IController>, config?: ControllerConfig) {
         this.dom = dom;
         dom.tabIndex = 1;
         this.ctrls = ctrls;
-        this.requestPointerLock = config?.requestPointerLock ?? false;
+        this.enablePointerLock = config?.enablePointerLock ?? false;
         this.states.isKeyHold = (code) => {
             for (let key of code.split("+")) {
                 if (key[0] === '.') {
@@ -111,8 +122,16 @@ export class ControllerRegistry {
                 this.prevIsPointerLocked = false;
             }
         }
-        dom.addEventListener("mousedown", (ev) => {
-            if (this.requestPointerLock && document.pointerLockElement !== dom) {
+        this.states.requestPointerLock = () => {
+            if (document.pointerLockElement !== dom) {
+                dom.requestPointerLock();
+            }
+        }
+
+        // regist events
+
+        this.evMouseDown = (ev) => {
+            if (this.enablePointerLock && document.pointerLockElement !== dom) {
                 dom.requestPointerLock();
                 this.states.isPointerLockedMouseDown = true;
             } else {
@@ -131,43 +150,65 @@ export class ControllerRegistry {
                 ev.preventDefault();
                 ev.stopPropagation();
             }
-        });
-        dom.addEventListener("mousemove", (ev) => {
+        };
+        this.evMouseMove = (ev) => {
             this.states.moveX += ev.movementX;
             this.states.moveY += ev.movementY;
-        });
-        dom.addEventListener("mouseup", (ev) => {
+        };
+        this.evMouseUp = (ev) => {
             this.states.currentBtn = -1;
             this.states.mouseUp = ev.button;
-        });
-        dom.addEventListener("keydown", (ev) => {
+        };
+        this.evKeyDown = (ev) => {
             let prevState = this.states.currentKeys.get(ev.code);
             this.states.currentKeys.set(ev.code, prevState === KeyState.HOLD ? KeyState.HOLD : KeyState.DOWN);
             if (ev.altKey === false) {
                 this.states.currentKeys.set("AltLeft", KeyState.NONE);
                 this.states.currentKeys.set("AltRight", KeyState.NONE);
             }
-            ev.preventDefault();
-            ev.stopPropagation();
-        });
-        dom.addEventListener("keyup", (ev) => {
-            this.states.currentKeys.set(ev.code, KeyState.UP);
-            ev.preventDefault();
-            ev.stopPropagation();
-        });
-        dom.addEventListener("wheel", (ev) => {
-            this.states.wheelX = ev.deltaX;
-            this.states.wheelY = ev.deltaY;
-        });
-        if (config?.preventDefault === true) {
-            dom.addEventListener("contextmenu", (ev) => {
+            if (!this.disableDefaultEvent) {
                 ev.preventDefault();
                 ev.stopPropagation();
-            });
+            }
+        };
+        this.evKeyUp = (ev) => {
+            this.states.currentKeys.set(ev.code, KeyState.UP);
+            if (!this.disableDefaultEvent) {
+                ev.preventDefault();
+                ev.stopPropagation();
+            }
+        };
+        this.evWheel = (ev) => {
+            this.states.wheelX = ev.deltaX;
+            this.states.wheelY = ev.deltaY;
+        };
+        dom.addEventListener("mousedown", this.evMouseDown);
+        dom.addEventListener("mousemove", this.evMouseMove);
+        dom.addEventListener("mouseup", this.evMouseUp);
+        dom.addEventListener("keydown", this.evKeyDown);
+        dom.addEventListener("keyup", this.evKeyUp);
+        dom.addEventListener("wheel", this.evWheel);
+        if (config?.preventDefault === true) {
+            this.evContextMenu = (ev) => {
+                if (!this.disableDefaultEvent) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                }
+            };
+            dom.addEventListener("contextmenu", this.evContextMenu);
         }
     }
+    unregist() {
+        this.dom.removeEventListener("mousedown", this.evMouseDown);
+        this.dom.removeEventListener("mousemove", this.evMouseMove);
+        this.dom.removeEventListener("mouseup", this.evMouseUp);
+        this.dom.removeEventListener("keydown", this.evKeyDown);
+        this.dom.removeEventListener("keyup", this.evKeyUp);
+        this.dom.removeEventListener("wheel", this.evWheel);
+        if (this.evContextMenu) this.dom.removeEventListener("contextmenu", this.evContextMenu);
+    }
     update() {
-        this.states.requestPointerLock = this.requestPointerLock;
+        this.states.enablePointerLock = this.enablePointerLock;
         this.states.isPointerLockEscaped = this.prevIsPointerLocked && !this.states.isPointerLocked();
         if (!this.states.lastUpdateTime) {
             this.states.mspf = 16.667;
@@ -315,13 +356,13 @@ export class FreeFlyController implements IController {
         this._bivec.copy(this._bivecKey);
         this._bivecKey.mulfs(dampFactor);
         if (!disabled) {
-            if ((state.requestPointerLock && state.isPointerLocked()) || (state.currentBtn = 0 && !state.requestPointerLock)) {
+            if ((state.enablePointerLock && state.isPointerLocked()) || (state.currentBtn = 0 && !state.enablePointerLock)) {
                 let dx = state.moveX * this.mouseSpeed;
                 let dy = -state.moveY * this.mouseSpeed;
                 this._bivec.xw += dx;
                 this._bivec.yw += dy;
             }
-            if ((state.requestPointerLock && state.isPointerLocked()) || (!state.requestPointerLock)) {
+            if ((state.enablePointerLock && state.isPointerLocked()) || (!state.enablePointerLock)) {
                 let wx = state.wheelX * this.wheelSpeed;
                 let wy = state.wheelY * this.wheelSpeed;
                 this._bivec.xy += wx;
@@ -419,13 +460,13 @@ export class KeepUpController implements IController {
         this._bivec.xw = this._bivecKey.xw;
         this._bivec.zw = this._bivecKey.zw;
         if (!disabled) {
-            if ((state.requestPointerLock && state.isPointerLocked()) || (state.currentBtn === 0 && !state.requestPointerLock)) {
+            if ((state.enablePointerLock && state.isPointerLocked()) || (state.currentBtn === 0 && !state.enablePointerLock)) {
                 let dx = state.moveX * this.mouseSpeed;
                 let dy = state.moveY * this.mouseSpeed;
                 this._bivec.xw += dx;
                 this._bivec.zw += dy;
             }
-            if ((state.requestPointerLock && state.isPointerLocked()) || (!state.requestPointerLock)) {
+            if ((state.enablePointerLock && state.isPointerLocked()) || (!state.enablePointerLock)) {
                 let wy = -state.wheelY * this.wheelSpeed;
                 this._bivecKey.yw += wy;
             }
