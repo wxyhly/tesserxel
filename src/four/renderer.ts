@@ -221,32 +221,11 @@ export class Renderer {
         }
         this.activeCamera = camera;
     }
-    computeFrustumRange(range: number[]) {
-        return range ? [
-            new Vec4(-1, 0, 0, -range[0]).mulmatls(this.activeCamera.worldCoord.mat),
-            new Vec4(1, 0, 0, range[1]).mulmatls(this.activeCamera.worldCoord.mat),
-            new Vec4(0, -1, 0, -range[2]).mulmatls(this.activeCamera.worldCoord.mat),
-            new Vec4(0, 1, 0, range[3]).mulmatls(this.activeCamera.worldCoord.mat),
-            new Vec4(0, 0, -1, -range[4]).mulmatls(this.activeCamera.worldCoord.mat),
-            new Vec4(0, 0, 1, range[5]).mulmatls(this.activeCamera.worldCoord.mat),
-        ] : null;
-    }
-    private _testWithFrustumData(m: Mesh, data: Vec4[]): boolean {
-        if (!data) return true;
-        let relP = this.activeCamera.worldCoord.vec.sub(m.worldCoord.vec);
-        let obb = m.geometry.obb;
-        let matModel = m.worldCoord.mat.t();
-        for (let f of data) {
-            if (obb.testPlane(new Plane(matModel.mulv(f), f.dot(relP))) === 1) return false;
-        }
-        return true;
-    }
     render(scene: Scene, camera: Camera) {
         this.clearState();
         this.setCamera(camera);
         this.updateScene(scene);
         this.core.render(() => {
-            let frustumData = this.computeFrustumRange(this.core.getFrustumRange());
             for (let { pipeline, meshes, bindGroup } of globalThis.Object.values(this.drawList)) {
                 if (!meshes.length) continue; // skip empty (may caused by safe tetranum check)
                 let tetraState = false;
@@ -256,7 +235,7 @@ export class Renderer {
                     bindGroup
                 ];
                 for (let mesh of meshes) {
-                    if (!this._testWithFrustumData(mesh, frustumData)) continue;
+                    if (!this.core.testWithFrustumData(mesh.geometry.obb, this.activeCamera.worldCoord, mesh.worldCoord)) continue;
                     if (tetraState === false) {
                         this.core.beginTetras(pipeline);
                         tetraCount = 0;

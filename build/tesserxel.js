@@ -2752,6 +2752,53 @@ class Spline {
     }
 }
 
+class Perlin3 {
+    _p = new Uint8Array(512);
+    constructor(srand) {
+        const p = this._p;
+        for (let i = 0; i < 256; i++) {
+            p[i] = i;
+        }
+        let i = 255;
+        while (i--) {
+            let j = srand.nexti(i);
+            let x = p[i];
+            p[i] = p[j];
+            p[j] = x;
+        }
+        for (i = 0; i < 256; i++) {
+            p[i + 256] = p[i];
+        }
+    }
+    value(x, y, z) {
+        const p = this._p;
+        let X = Math.floor(x) & 255;
+        let Y = Math.floor(y) & 255;
+        let Z = Math.floor(z) & 255;
+        x -= Math.floor(x);
+        y -= Math.floor(y);
+        z -= Math.floor(z);
+        function _fade(t) {
+            return t * t * t * (t * (t * 6 - 15) + 10);
+        }
+        let u = _fade(x);
+        let v = _fade(y);
+        let w = _fade(z);
+        function _lerp(t, a, b) {
+            return a + t * (b - a);
+        }
+        function _grad(hash, x, y, z) {
+            let h = hash & 15;
+            let u = h < 8 ? x : y;
+            let v = h < 4 ? y : (h == 12 || h == 14) ? x : z;
+            return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
+        }
+        let A = p[X] + Y, AA = p[A] + Z, AB = p[A + 1] + Z;
+        let B = p[X + 1] + Y, BA = p[B] + Z, BB = p[B + 1] + Z;
+        return _lerp(w, _lerp(v, _lerp(u, _grad(p[AA], x, y, z), _grad(p[BA], x - 1, y, z)), _lerp(u, _grad(p[AB], x, y - 1, z), _grad(p[BB], x - 1, y - 1, z))), _lerp(v, _lerp(u, _grad(p[AA + 1], x, y, z - 1), _grad(p[BA + 1], x - 1, y, z - 1)), _lerp(u, _grad(p[AB + 1], x, y - 1, z - 1), _grad(p[BB + 1], x - 1, y - 1, z - 1))));
+    }
+}
+
 var math = /*#__PURE__*/Object.freeze({
     __proto__: null,
     Vec2: Vec2,
@@ -2788,6 +2835,7 @@ var math = /*#__PURE__*/Object.freeze({
     Plane: Plane,
     Ray: Ray,
     Spline: Spline,
+    Perlin3: Perlin3,
     _180: _180,
     _30: _30,
     _60: _60,
@@ -6084,6 +6132,7 @@ struct vOutputType{
                 commandEncoder,
                 sliceIndex,
                 needClear: true,
+                frustumRange: undefined
             };
             // set new slicegroup offset
             commandEncoder.copyBufferToBuffer(this.sliceGroupOffsetBuffer, sliceIndex << 2, this.sliceOffsetBuffer, 0, 4);
@@ -6147,7 +6196,38 @@ struct vOutputType{
         this.renderState.computePassEncoder = computePassEncoder;
         this.renderState.pipeline = pipeline;
     }
-    getFrustumRange() {
+    _vec4 = new Vec4;
+    _vec42 = new Vec4;
+    testWithFrustumData(obb, camMat, modelMat) {
+        if (!this.renderState)
+            console.error("getFrustum should be called in a closure passed to render function");
+        this.renderState.frustumRange ??= this.getFrustumRange(camMat);
+        if (!this.renderState.frustumRange)
+            return true;
+        let relP = this._vec4.copy(camMat.vec ?? camMat.position);
+        if (modelMat)
+            relP.subs((modelMat.vec ?? modelMat.position));
+        if (!modelMat) {
+            for (let f of this.renderState.frustumRange) {
+                if (obb.testPlane(new Plane(f, f.dot(relP))) === 1)
+                    return false;
+            }
+        }
+        else if (modelMat.mat) {
+            for (let f of this.renderState.frustumRange) { // todo: .t() to optimise
+                if (obb.testPlane(new Plane(this._vec42.mulmatvset(modelMat.mat.t(), f), f.dot(relP))) === 1)
+                    return false;
+            }
+        }
+        else {
+            for (let f of this.renderState.frustumRange) {
+                if (obb.testPlane(new Plane(this._vec42.rotatesconj(modelMat.rotation), f.dot(relP))) === 1)
+                    return false;
+            }
+        }
+        return true;
+    }
+    getFrustumRange(camMat) {
         if (!this.renderState)
             console.error("getFrustum should be called in a closure passed to render function");
         let minslice = this.renderState.sliceIndex << this.sliceGroupSizeBit;
@@ -6179,10 +6259,28 @@ struct vOutputType{
                     frustum = [-camProj, camProj, -maxslice, -minslice, -camProj, camProj];
                     break;
             }
-            // frustum = frustum.join(",");
             // refacing = SliceFacing[this.currentRetinaFacing];
         }
-        return frustum;
+        if (camMat.mat) {
+            return frustum ? [
+                new Vec4(-1, 0, 0, -frustum[0]).mulmatls(camMat.mat),
+                new Vec4(1, 0, 0, frustum[1]).mulmatls(camMat.mat),
+                new Vec4(0, -1, 0, -frustum[2]).mulmatls(camMat.mat),
+                new Vec4(0, 1, 0, frustum[3]).mulmatls(camMat.mat),
+                new Vec4(0, 0, -1, -frustum[4]).mulmatls(camMat.mat),
+                new Vec4(0, 0, 1, frustum[5]).mulmatls(camMat.mat),
+            ] : undefined;
+        }
+        else {
+            return frustum ? [
+                new Vec4(-1, 0, 0, -frustum[0]).rotates(camMat.rotation),
+                new Vec4(1, 0, 0, frustum[1]).rotates(camMat.rotation),
+                new Vec4(0, -1, 0, -frustum[2]).rotates(camMat.rotation),
+                new Vec4(0, 1, 0, frustum[3]).rotates(camMat.rotation),
+                new Vec4(0, 0, -1, -frustum[4]).rotates(camMat.rotation),
+                new Vec4(0, 0, 1, frustum[5]).rotates(camMat.rotation),
+            ] : undefined;
+        }
         // console.log({ isRetinaGroup, frustum,  refacing});
     }
     setBindGroup(index, bindGroup) {
@@ -8597,34 +8695,32 @@ class Renderer {
         }
         this.activeCamera = camera;
     }
-    computeFrustumRange(range) {
-        return range ? [
-            new Vec4(-1, 0, 0, -range[0]).mulmatls(this.activeCamera.worldCoord.mat),
-            new Vec4(1, 0, 0, range[1]).mulmatls(this.activeCamera.worldCoord.mat),
-            new Vec4(0, -1, 0, -range[2]).mulmatls(this.activeCamera.worldCoord.mat),
-            new Vec4(0, 1, 0, range[3]).mulmatls(this.activeCamera.worldCoord.mat),
-            new Vec4(0, 0, -1, -range[4]).mulmatls(this.activeCamera.worldCoord.mat),
-            new Vec4(0, 0, 1, range[5]).mulmatls(this.activeCamera.worldCoord.mat),
-        ] : null;
-    }
-    _testWithFrustumData(m, data) {
-        if (!data)
-            return true;
-        let relP = this.activeCamera.worldCoord.vec.sub(m.worldCoord.vec);
-        let obb = m.geometry.obb;
-        let matModel = m.worldCoord.mat.t();
-        for (let f of data) {
-            if (obb.testPlane(new Plane(matModel.mulv(f), f.dot(relP))) === 1)
-                return false;
-        }
-        return true;
-    }
+    // computeFrustumRange(range: number[]) {
+    //     return range ? [
+    //         new Vec4(-1, 0, 0, -range[0]).mulmatls(this.activeCamera.worldCoord.mat),
+    //         new Vec4(1, 0, 0, range[1]).mulmatls(this.activeCamera.worldCoord.mat),
+    //         new Vec4(0, -1, 0, -range[2]).mulmatls(this.activeCamera.worldCoord.mat),
+    //         new Vec4(0, 1, 0, range[3]).mulmatls(this.activeCamera.worldCoord.mat),
+    //         new Vec4(0, 0, -1, -range[4]).mulmatls(this.activeCamera.worldCoord.mat),
+    //         new Vec4(0, 0, 1, range[5]).mulmatls(this.activeCamera.worldCoord.mat),
+    //     ] : null;
+    // }
+    // private _testWithFrustumData(m: Mesh, data: Vec4[]): boolean {
+    //     if (!data) return true;
+    //     let relP = this.activeCamera.worldCoord.vec.sub(m.worldCoord.vec);
+    //     let obb = m.geometry.obb;
+    //     let matModel = m.worldCoord.mat.t();
+    //     for (let f of data) {
+    //         if (obb.testPlane(new Plane(matModel.mulv(f), f.dot(relP))) === 1) return false;
+    //     }
+    //     return true;
+    // }
     render(scene, camera) {
         this.clearState();
         this.setCamera(camera);
         this.updateScene(scene);
         this.core.render(() => {
-            let frustumData = this.computeFrustumRange(this.core.getFrustumRange());
+            // let frustumData = this.computeFrustumRange(this.core.getFrustumRange());
             for (let { pipeline, meshes, bindGroup } of globalThis.Object.values(this.drawList)) {
                 if (!meshes.length)
                     continue; // skip empty (may caused by safe tetranum check)
@@ -8635,8 +8731,9 @@ class Renderer {
                     bindGroup
                 ];
                 for (let mesh of meshes) {
-                    if (!this._testWithFrustumData(mesh, frustumData))
+                    if (!this.core.testWithFrustumData(mesh.geometry.obb, this.activeCamera.worldCoord, mesh.worldCoord))
                         continue;
+                    // if (!this._testWithFrustumData(mesh, frustumData)) continue;
                     if (tetraState === false) {
                         this.core.beginTetras(pipeline);
                         tetraCount = 0;

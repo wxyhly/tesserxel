@@ -1,6 +1,7 @@
 import { Mat4 } from "../math/algebra/mat4";
 import { _DEG2RAD, _RAD2DEG } from "../math/const";
 import { getOrthographicProjectionMatrix, getPerspectiveProjectionMatrix, OrthographicCamera, PerspectiveCamera } from "../math/geometry/camera";
+import { AABB, AffineMat4, Obj4, Plane, Vec4 } from "../math/math";
 import { GPU } from "./gpu";
 import { wgslreflect } from "./wgslparser";
 
@@ -35,6 +36,7 @@ export interface TetraSlicePipelineDescriptor {
     vertex: TetraVertexState;
     fragment: GeneralShaderState;
     cullMode?: GPUCullMode;
+    layout?: GPUPipelineLayoutDescriptor;
 }
 export interface RaytracingPipelineDescriptor {
     code: string;
@@ -91,6 +93,7 @@ interface RenderState {
     sliceIndex: number;
     pipeline?: TetraSlicePipeline;
     needClear: boolean;
+    frustumRange: Vec4[];
 }
 const DefaultWorkGroupSize = 256;
 const DefaultRetinaResolution = 512;
@@ -1415,6 +1418,7 @@ struct vOutputType{
                 commandEncoder,
                 sliceIndex,
                 needClear: true,
+                frustumRange: undefined
             };
             // set new slicegroup offset
             commandEncoder.copyBufferToBuffer(this.sliceGroupOffsetBuffer, sliceIndex << 2, this.sliceOffsetBuffer, 0, 4);
@@ -1479,7 +1483,30 @@ struct vOutputType{
         this.renderState.computePassEncoder = computePassEncoder;
         this.renderState.pipeline = pipeline;
     }
-    getFrustumRange() {
+    private _vec4 = new Vec4;
+    private _vec42 = new Vec4;
+    testWithFrustumData(obb: AABB, camMat: AffineMat4 | Obj4, modelMat?: AffineMat4 | Obj4): boolean {
+        if (!this.renderState) console.error("getFrustum should be called in a closure passed to render function");
+        this.renderState.frustumRange ??= this.getFrustumRange(camMat);
+        if(!this.renderState.frustumRange) return true;
+        let relP = this._vec4.copy((camMat as AffineMat4).vec ?? (camMat as Obj4).position);
+        if (modelMat) relP.subs(((modelMat as AffineMat4).vec ?? (modelMat as Obj4).position));
+        if (!modelMat) {
+            for (let f of this.renderState.frustumRange) {
+                if (obb.testPlane(new Plane(f, f.dot(relP))) === 1) return false;
+            }
+        } else if ((modelMat as AffineMat4).mat) {
+            for (let f of this.renderState.frustumRange) { // todo: .t() to optimise
+                if (obb.testPlane(new Plane(this._vec42.mulmatvset((modelMat as AffineMat4).mat.t(), f), f.dot(relP))) === 1) return false;
+            }
+        }else{
+            for (let f of this.renderState.frustumRange) {
+                if (obb.testPlane(new Plane(this._vec42.rotatesconj((modelMat as Obj4).rotation), f.dot(relP))) === 1) return false;
+            }
+        }
+        return true;
+    }
+    getFrustumRange(camMat: AffineMat4 | Obj4) {
         if (!this.renderState) console.error("getFrustum should be called in a closure passed to render function");
         let minslice = this.renderState.sliceIndex << this.sliceGroupSizeBit;
         let maxslice = minslice + this.sliceGroupSize - 1;
@@ -1510,13 +1537,30 @@ struct vOutputType{
                     frustum = [-camProj, camProj, -maxslice, -minslice, -camProj, camProj];
                     break;
             }
-            // frustum = frustum.join(",");
             // refacing = SliceFacing[this.currentRetinaFacing];
         } else {
             // isRetinaGroup = new Uint32Array(new Float32Array([isRetinaGroup]).buffer)[0];
             // todo
         }
-        return frustum;
+        if ((camMat as AffineMat4).mat) {
+            return frustum ? [
+                new Vec4(-1, 0, 0, -frustum[0]).mulmatls((camMat as AffineMat4).mat),
+                new Vec4(1, 0, 0, frustum[1]).mulmatls((camMat as AffineMat4).mat),
+                new Vec4(0, -1, 0, -frustum[2]).mulmatls((camMat as AffineMat4).mat),
+                new Vec4(0, 1, 0, frustum[3]).mulmatls((camMat as AffineMat4).mat),
+                new Vec4(0, 0, -1, -frustum[4]).mulmatls((camMat as AffineMat4).mat),
+                new Vec4(0, 0, 1, frustum[5]).mulmatls((camMat as AffineMat4).mat),
+            ] : undefined;
+        } else {
+            return frustum ? [
+                new Vec4(-1, 0, 0, -frustum[0]).rotates((camMat as Obj4).rotation),
+                new Vec4(1, 0, 0, frustum[1]).rotates((camMat as Obj4).rotation),
+                new Vec4(0, -1, 0, -frustum[2]).rotates((camMat as Obj4).rotation),
+                new Vec4(0, 1, 0, frustum[3]).rotates((camMat as Obj4).rotation),
+                new Vec4(0, 0, -1, -frustum[4]).rotates((camMat as Obj4).rotation),
+                new Vec4(0, 0, 1, frustum[5]).rotates((camMat as Obj4).rotation),
+            ] : undefined;
+        }
         // console.log({ isRetinaGroup, frustum,  refacing});
     }
     setBindGroup(index: number, bindGroup: GPUBindGroup) {

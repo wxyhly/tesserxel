@@ -756,6 +756,12 @@ declare class Spline {
     getValue(t: number): Vec4;
 }
 
+declare class Perlin3 {
+    private _p;
+    constructor(srand: Srand);
+    value(x: number, y: number, z: number): number;
+}
+
 type math_d_PerspectiveCamera = PerspectiveCamera;
 type math_d_OrthographicCamera = OrthographicCamera;
 type math_d_Vec2 = Vec2;
@@ -816,6 +822,8 @@ type math_d_Ray = Ray;
 declare const math_d_Ray: typeof Ray;
 type math_d_Spline = Spline;
 declare const math_d_Spline: typeof Spline;
+type math_d_Perlin3 = Perlin3;
+declare const math_d_Perlin3: typeof Perlin3;
 declare const math_d__180: typeof _180;
 declare const math_d__30: typeof _30;
 declare const math_d__60: typeof _60;
@@ -865,6 +873,7 @@ declare namespace math_d {
     math_d_Plane as Plane,
     math_d_Ray as Ray,
     math_d_Spline as Spline,
+    math_d_Perlin3 as Perlin3,
     math_d__180 as _180,
     math_d__30 as _30,
     math_d__60 as _60,
@@ -1061,7 +1070,10 @@ declare class SliceRenderer {
      *  Next calls should be function sliceTetras or setBindGroup.
      */
     beginTetras(pipeline: TetraSlicePipeline): void;
-    getFrustumRange(): number[];
+    private _vec4;
+    private _vec42;
+    testWithFrustumData(obb: AABB, camMat: AffineMat4 | Obj4, modelMat?: AffineMat4 | Obj4): boolean;
+    getFrustumRange(camMat: AffineMat4 | Obj4): Vec4[];
     setBindGroup(index: number, bindGroup: GPUBindGroup): void;
     /** Compute slice of given bindgroup attribute data.
      *  beginTetras should be called at first to specify a tetraSlicePipeline
@@ -1588,8 +1600,6 @@ declare class Renderer {
     drawList: DrawList;
     activeCamera: Camera;
     setCamera(camera: Camera): void;
-    computeFrustumRange(range: number[]): Vec4[];
-    private _testWithFrustumData;
     render(scene: Scene, camera: Camera): void;
     setSize(size: GPUExtent3DStrict): void;
     private clearState;
