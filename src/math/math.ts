@@ -16,3 +16,4 @@ import type { PerspectiveCamera, OrthographicCamera } from "./geometry/camera";
 export type { PerspectiveCamera, OrthographicCamera };
 export { AABB, Plane, Ray } from "./geometry/primitive";
 export { Spline } from "./geometry/spline";
+export { Perlin3 } from "./noise";
