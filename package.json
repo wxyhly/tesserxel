@@ -21,7 +21,7 @@
     }
   },
   "devDependencies": {
-    "@webgpu/types": "^0.1.21",
+    "@webgpu/types": "^0.1.30",
     "rollup": "^3.2.1",
     "rollup-plugin-copy": "^3.4.0",
     "rollup-plugin-dts": "^5.0.0",

@@ -147,7 +147,8 @@
     titleLink.addEventListener('click', () => {
         window.location.hash = "";
         iframe.src = iframeUrl + "?lang=" + lang;
-        document.querySelector('.examples .active')?.classList?.remove('active');
+        const active = document.querySelector('.examples .active');
+        if (active) active.classList.remove('active');
     });
 
     let target = "";
@@ -173,7 +174,8 @@
             } else {
                 link.addEventListener('click', () => {
                     window.location.hash = c.target;
-                    document.querySelector('.examples .active')?.classList?.remove('active');
+                    const active = document.querySelector('.examples .active');
+                    if (active) active.classList.remove('active');
                     toggle(link, c.target, lang);
                 });
             }

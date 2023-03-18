@@ -663,6 +663,164 @@ var tg_tg_chain;
     }
     tg_tg_chain.load = load;
 })(tg_tg_chain || (tg_tg_chain = {}));
+var thermo_stats;
+(function (thermo_stats) {
+    async function load() {
+        const engine = new phy.Engine({ substep: 5, broadPhase: phy.BoundingGlomeTreeBroadPhase });
+        const world = new phy.World();
+        const scene = new FOUR.Scene();
+        const roomSize = 3.51;
+        world.gravity.set();
+        // define physical materials: frictions and restitutions
+        const phyMat = new phy.Material(1, 1);
+        const borderMat = new phy.Material(0, 1);
+        // define render materials
+        const balls = [];
+        const renderMat = new FOUR.LambertMaterial(new FOUR.CheckerTexture([1, 1, 1], [0.2, 0.2, 0.2]));
+        for (let i = 0; i < 500; i++) {
+            const g = new phy.Rigid({
+                geometry: new phy.rigid.Glome(0.3),
+                mass: 1, material: phyMat
+            });
+            g.position.randset().mulfs(3);
+            addRigidToScene(world, scene, renderMat, g);
+            // if (!i) {
+            g.velocity.set(g.position.y, -g.position.x, g.position.w, -g.position.z).mulfs(4);
+            // }
+            balls.push(g);
+        }
+        // let g = new phy.Rigid({
+        //     geometry: new phy.rigid.Glome(0.3),
+        //     mass: 1, material: phyMat
+        // });
+        // g.position.set(-1, 0, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
+        // g = new phy.Rigid({
+        //     geometry: new phy.rigid.Glome(0.3),
+        //     mass: 1, material: phyMat
+        // });
+        // g.position.set(1, 0, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
+        // g.velocity.x = -1;
+        // g = new phy.Rigid({
+        //     geometry: new phy.rigid.Glome(0.3),
+        //     mass: 1, material: phyMat
+        // });
+        // g.position.set(2, 0, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
+        // g.velocity.x = -1;
+        // g = new phy.Rigid({
+        //     geometry: new phy.rigid.Glome(0.3),
+        //     mass: 1, material: phyMat
+        // });
+        // g.position.set(-1, 1, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
+        // g = new phy.Rigid({
+        //     geometry: new phy.rigid.Glome(0.3),
+        //     mass: 1, material: phyMat
+        // });
+        // g.position.set(1, 1, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
+        // g.velocity.x = 1;
+        // g = new phy.Rigid({
+        //     geometry: new phy.rigid.Glome(0.3),
+        //     mass: 1, material: phyMat
+        // });
+        // g.position.set(2, 1, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
+        // g.velocity.x = -1;
+        // floor
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, 1), -roomSize), material: borderMat, mass: 0
+        }));
+        // ceil
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, -1), -roomSize), material: borderMat, mass: 0
+        }));
+        // left wall
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(1), -roomSize), material: borderMat, mass: 0
+        }));
+        // right wall
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(-1), -roomSize), material: borderMat, mass: 0
+        }));
+        // ana wall
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 1), -roomSize), material: borderMat, mass: 0
+        }));
+        //kata wall
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, 0, -1), -roomSize), material: borderMat, mass: 0
+        }));
+        // front wall
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 0, 1), -roomSize), material: borderMat, mass: 0
+        }));
+        //back wall
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 0, -1), -roomSize), material: borderMat, mass: 0
+        }));
+        // set up lights, camera and renderer
+        let camera = new FOUR.Camera();
+        camera.position.w = -5;
+        // camera.lookAt(math.Vec4.w, math.Vec4.origin);
+        scene.add(camera);
+        scene.add(new FOUR.AmbientLight(0.3));
+        scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
+        scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+        const canvas = document.getElementById("gpu-canvas");
+        const renderer = await new FOUR.Renderer(canvas).init();
+        renderer.core.setScreenClearColor([1, 1, 1, 1]);
+        renderer.core.setEyeOffset(0.5);
+        renderer.core.setOpacity(20);
+        // controllers
+        const camCtrl = new tesserxel.util.ctrl.TrackBallController(camera);
+        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
+        // const emitCtrl = new EmitGlomeController(world, scene, camera);
+        // emitCtrl.glomeRadius = 2;
+        // emitCtrl.maximumBulletDistance = 70;
+        // emitCtrl.initialSpeed = 10;
+        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+            retinaCtrl,
+            camCtrl,
+            // emitCtrl
+        ], { enablePointerLock: true });
+        function setSize() {
+            let width = window.innerWidth * window.devicePixelRatio;
+            let height = window.innerHeight * window.devicePixelRatio;
+            renderer.setSize({ width, height });
+        }
+        let time = 0;
+        let factor = 1;
+        function run() {
+            time++;
+            // syncronise physics world and render scene
+            updateRidigsInScene();
+            // update controller states
+            controllerRegistry.update();
+            // rendering
+            camera.position.negs();
+            renderer.render(scene, camera);
+            camera.position.negs();
+            // simulating physics
+            engine.update(world, factor / 100);
+            window.requestAnimationFrame(run);
+            if (time % 32 === 0) {
+                let jeg = [];
+                let sum = new math.Bivec();
+                for (const g of balls) {
+                    let degree = Math.atan2(g.angularVelocity.dual().add(g.angularVelocity).norm(), g.angularVelocity.dual().sub(g.angularVelocity).norm());
+                    degree = degree * 4 / Math.PI - 1;
+                    jeg.push(degree.toFixed(4));
+                    sum.adds(g.angularVelocity);
+                }
+                let degree = Math.atan2(sum.dual().add(sum).norm(), sum.dual().sub(sum).norm());
+                degree = degree * 4 / Math.PI - 1;
+                console.log(jeg.join(","));
+                console.log(degree.toFixed(4));
+            }
+        }
+        window.addEventListener("resize", setSize);
+        setSize();
+        run();
+    }
+    thermo_stats.load = load;
+})(thermo_stats || (thermo_stats = {}));
 var mix_chain;
 (function (mix_chain) {
     async function load() {
@@ -971,5 +1129,5 @@ var m_dipole_dual;
 })(m_dipole_dual || (m_dipole_dual = {}));
 // }
 
-export { e_charge, e_dipole, m_dipole, m_dipole_dual, mix_chain, rigid_test, st_pile, st_ts_chain, tg_tg_chain };
+export { e_charge, e_dipole, m_dipole, m_dipole_dual, mix_chain, rigid_test, st_pile, st_ts_chain, tg_tg_chain, thermo_stats };
 //# sourceMappingURL=rigids.js.map

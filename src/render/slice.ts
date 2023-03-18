@@ -36,7 +36,7 @@ export interface TetraSlicePipelineDescriptor {
     vertex: TetraVertexState;
     fragment: GeneralShaderState;
     cullMode?: GPUCullMode;
-    layout?: GPUPipelineLayoutDescriptor;
+    layout?: SlicePipelineLayout;
 }
 export interface RaytracingPipelineDescriptor {
     code: string;
@@ -223,6 +223,7 @@ export class SliceRenderer {
         let screenAspectBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
         let layerOpacityBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
         let camProjBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 16);
+        let SmallUniformsBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 16);
 
         function _genSlicesOffsetJsBuffer() {
             let maxSliceGroupNum = Math.ceil(maxSlicesNumber / sliceGroupSize);
@@ -494,6 +495,8 @@ struct _SliceInfo{
             },
             depthStencil: {
                 format: 'depth24plus',
+                depthCompare: 'less',
+                depthWriteEnabled: true
             }
         });
         this.retinaRenderPipeline = await gpu.device.createRenderPipelineAsync({
@@ -709,9 +712,84 @@ struct fInputType{
             "builtin(position)"
         ];
         let { input, output, call } = wgslreflect.getFnInputAndOutput(reflect, mainFn, expectInput, expectOutput);
-
-        // compute pipeline
         const bindGroup0declareIndex = 6;
+        let computeBindGroupLayouts: GPUBindGroupLayout[] = [];
+        let renderBindGroupLayouts: GPUBindGroupLayout[] = [];
+        let layout = getBindGroupLayout(this, desc.layout);
+        function getBindGroupLayout(self: SliceRenderer, layout: SlicePipelineLayout) {
+            if (!layout || layout === 'auto') return {
+                computeLayout: 'auto' as GPUAutoLayoutMode,
+                renderLayout: 'auto' as GPUAutoLayoutMode
+            }
+            let computeLayout = layout?.computeLayout;
+            let renderLayout = layout?.renderLayout;
+            if ((computeLayout !== 'auto' && computeLayout as GPUBindGroupLayoutDescriptor[])?.length) {
+                const bindGroupLayoutsDesc = (computeLayout as GPUBindGroupLayoutDescriptor[]);
+                let bindgroupLayouts = reflect.getBindGroups();
+                for (let groupIdx = 0, l = bindgroupLayouts.length; groupIdx < l; groupIdx++) {
+                    let groupLayoutDesc: Array<GPUBindGroupLayoutEntry> = [];
+                    if (groupIdx === 0) {
+                        // here Object.keys(output).length - 1 because it has "return" key
+                        for (let i = 0, l = Object.keys(output).length - 1 + bindGroup0declareIndex; i < l; i++) {
+                            const type: GPUBufferBindingType = i && i < bindGroup0declareIndex ? 'uniform' : 'storage';
+                            groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.COMPUTE, buffer: { type } });
+                        }
+                    } else {
+                        const bindings = bindgroupLayouts[groupIdx];
+                        for (let i = 0, l = bindings.length; i < l; i++) {
+                            const entry = (bindGroupLayoutsDesc[groupIdx]?.entries as Array<GPUBindGroupLayoutEntry>)?.filter(
+                                e => e.binding === i
+                            )[0];
+                            const desc = bindings[i];
+                            if (entry) {
+                                groupLayoutDesc.push(entry);
+                            } else if (!desc) {
+                                groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } });
+                            } else if (desc.type === "buffer") {
+                                groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.COMPUTE, buffer: { type: desc.resource.type } });
+                            }
+                        }
+                    }
+                    const bindGroupLayout = self.gpu.device.createBindGroupLayout({ entries: groupLayoutDesc });
+                    computeBindGroupLayouts.push(bindGroupLayout);
+                }
+                computeLayout = self.gpu.device.createPipelineLayout({ bindGroupLayouts: computeBindGroupLayouts, label: "computeBindGroupLayoutDesc" });
+            }
+
+            if ((renderLayout !== 'auto' && renderLayout as GPUBindGroupLayoutDescriptor[])?.length) {
+                const bindGroupLayoutsDesc = (renderLayout as GPUBindGroupLayoutDescriptor[]);
+                const renderReflect = new wgslreflect.WgslReflect(desc.fragment.code);
+                let bindgroupLayouts = renderReflect.getBindGroups();
+                for (let groupIdx = 0, l = bindgroupLayouts.length; groupIdx < l; groupIdx++) {
+                    let groupLayoutDesc: Array<GPUBindGroupLayoutEntry> = [];
+
+                    const bindings = bindgroupLayouts[groupIdx];
+                    for (let i = 0, l = bindings.length; i < l; i++) {
+                        const entry = (bindGroupLayoutsDesc[groupIdx]?.entries as Array<GPUBindGroupLayoutEntry>)?.filter(
+                            e => e.binding === i
+                        )[0];
+                        if (entry) {
+                            groupLayoutDesc.push(entry);
+                        } else if (!bindings[i] || bindings[i].type === "buffer") {
+                            groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.FRAGMENT, buffer: {} });
+                        } else if (bindings[i].type === "buffer") {
+                            groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.FRAGMENT, buffer: {} });
+                        } else if (bindings[i].type === "sampler") {
+                            groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.FRAGMENT, sampler: {} });
+                        } else if (bindings[i].type === "texture") {
+                            groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.FRAGMENT, texture: {} });
+                        }
+                    }
+                    const bindGroupLayout = self.gpu.device.createBindGroupLayout({ entries: groupLayoutDesc });
+                    renderBindGroupLayouts.push(bindGroupLayout);
+                }
+                renderLayout = self.gpu.device.createPipelineLayout({ bindGroupLayouts: renderBindGroupLayouts, label: "renderBindGroupLayoutDesc" });
+            }
+            return {
+                computeLayout, renderLayout
+            }
+        }
+        // compute pipeline
         let bindGroup0declare = '';
         let varInterpolate = "";
         let emitOutput1 = "";
@@ -1052,7 +1130,7 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
 }
 `;
         let computePipeline = await this.gpu.device.createComputePipelineAsync({
-            layout: 'auto',
+            layout: layout.computeLayout as GPUPipelineLayout | GPUAutoLayoutMode,
             compute: {
                 module: this.gpu.device.createShaderModule({
                     code: crossComputeCode
@@ -1089,7 +1167,7 @@ struct vOutputType{
 `});
 
         let renderPipeline = await this.gpu.device.createRenderPipelineAsync({
-            layout: 'auto',
+            layout: layout.renderLayout as GPUPipelineLayout | GPUAutoLayoutMode,
             vertex: {
                 module: this.crossRenderVertexShaderModule,
                 entryPoint: 'main',
@@ -1109,7 +1187,6 @@ struct vOutputType{
                 format: 'depth24plus',
             }
         });
-
         return {
             computePipeline,
             computeBindGroup0: this.gpu.createBindGroup(computePipeline, 0, buffers, "TetraComputePipeline"),
@@ -1488,7 +1565,7 @@ struct vOutputType{
     testWithFrustumData(obb: AABB, camMat: AffineMat4 | Obj4, modelMat?: AffineMat4 | Obj4): boolean {
         if (!this.renderState) console.error("getFrustum should be called in a closure passed to render function");
         this.renderState.frustumRange ??= this.getFrustumRange(camMat);
-        if(!this.renderState.frustumRange) return true;
+        if (!this.renderState.frustumRange) return true;
         let relP = this._vec4.copy((camMat as AffineMat4).vec ?? (camMat as Obj4).position);
         if (modelMat) relP.subs(((modelMat as AffineMat4).vec ?? (modelMat as Obj4).position));
         if (!modelMat) {
@@ -1499,7 +1576,7 @@ struct vOutputType{
             for (let f of this.renderState.frustumRange) { // todo: .t() to optimise
                 if (obb.testPlane(new Plane(this._vec42.mulmatvset((modelMat as AffineMat4).mat.t(), f), f.dot(relP))) === 1) return false;
             }
-        }else{
+        } else {
             for (let f of this.renderState.frustumRange) {
                 if (obb.testPlane(new Plane(this._vec42.rotatesconj((modelMat as Obj4).rotation), f.dot(relP))) === 1) return false;
             }
@@ -1806,4 +1883,9 @@ function f32_to_u32(f32: number) {
 }
 function u32_to_f32(u32: number) {
     return new Float32Array(new Uint32Array([u32]).buffer)[0];
+}
+type SinglePipelineLayout = GPUPipelineLayout | GPUAutoLayoutMode | GPUBindGroupLayoutDescriptor[];
+export type SlicePipelineLayout = GPUAutoLayoutMode | {
+    computeLayout: SinglePipelineLayout;
+    renderLayout: SinglePipelineLayout;
 }

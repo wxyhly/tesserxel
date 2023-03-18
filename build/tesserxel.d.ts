@@ -935,6 +935,7 @@ interface TetraSlicePipelineDescriptor {
     vertex: TetraVertexState;
     fragment: GeneralShaderState;
     cullMode?: GPUCullMode;
+    layout?: SlicePipelineLayout;
 }
 interface RaytracingPipelineDescriptor {
     code: string;
@@ -1095,6 +1096,11 @@ declare class SliceRenderer {
     }>;
     drawRaytracing(pipeline: RaytracingPipeline, bindGroups?: GPUBindGroup[]): void;
 }
+declare type SinglePipelineLayout = GPUPipelineLayout | GPUAutoLayoutMode | GPUBindGroupLayoutDescriptor[];
+declare type SlicePipelineLayout = GPUAutoLayoutMode | {
+    computeLayout: SinglePipelineLayout;
+    renderLayout: SinglePipelineLayout;
+};
 
 /** Tetramesh store 4D mesh as tetrahedral list
  *  Each tetrahedral uses four vertices in the position list
@@ -1854,6 +1860,22 @@ declare class BoundingGlomeBroadPhase extends BroadPhase {
     checkBoundingGlome(ri: Rigid, rj: Rigid): boolean;
     run(world: World): void;
 }
+declare type BoundingGlomeTreeNode = {
+    position: Vec4;
+    radius: number;
+    surcell: number;
+    child1: BoundingGlomeTreeNode | Rigid;
+    child2?: BoundingGlomeTreeNode | Rigid;
+    parent?: BoundingGlomeTreeNode;
+    rigidIndex?: number;
+};
+declare class BoundingGlomeTreeBroadPhase extends BroadPhase {
+    tree: BoundingGlomeTreeNode;
+    exclude: Rigid[];
+    include: Rigid[];
+    buildTree(world: World): void;
+    run(world: World): void;
+}
 declare class IgnoreAllBroadPhase extends BroadPhase {
     run(world: World): void;
 }
@@ -1971,8 +1993,8 @@ declare class MaxWell extends Force {
     addElectricCharge(s: ElectricCharge): void;
     addElectricDipole(s: ElectricDipole): void;
     addMagneticDipole(s: MagneticDipole): void;
-    private getEAt;
-    private getBAt;
+    getEAt(p: Vec4, dE: boolean, ignore: Rigid | Vec4 | undefined): Vec4;
+    getBAt(p: Vec4, dB: boolean, ignore: Rigid | Vec4 | undefined): Bivec;
     apply(time: number): void;
     private addEOfElectricCharge;
     private addBOfMagneticDipole;
@@ -2077,6 +2099,8 @@ type physics_d_World = World;
 declare const physics_d_World: typeof World;
 type physics_d_Engine = Engine;
 declare const physics_d_Engine: typeof Engine;
+type physics_d_BoundingGlomeTreeBroadPhase = BoundingGlomeTreeBroadPhase;
+declare const physics_d_BoundingGlomeTreeBroadPhase: typeof BoundingGlomeTreeBroadPhase;
 type physics_d_BoundingGlomeBroadPhase = BoundingGlomeBroadPhase;
 declare const physics_d_BoundingGlomeBroadPhase: typeof BoundingGlomeBroadPhase;
 type physics_d_BroadPhase = BroadPhase;
@@ -2112,6 +2136,7 @@ declare namespace physics_d {
     physics_d_Material as Material,
     physics_d_World as World,
     physics_d_Engine as Engine,
+    physics_d_BoundingGlomeTreeBroadPhase as BoundingGlomeTreeBroadPhase,
     physics_d_BoundingGlomeBroadPhase as BoundingGlomeBroadPhase,
     physics_d_BroadPhase as BroadPhase,
     physics_d_IgnoreAllBroadPhase as IgnoreAllBroadPhase,
@@ -2174,6 +2199,7 @@ type render_d_SectionConfig = SectionConfig;
 type render_d_SliceConfig = SliceConfig;
 type render_d_SliceRenderer = SliceRenderer;
 declare const render_d_SliceRenderer: typeof SliceRenderer;
+type render_d_SlicePipelineLayout = SlicePipelineLayout;
 type render_d_Size3DDict = Size3DDict;
 type render_d_VoxelBuffer = VoxelBuffer;
 declare const render_d_createVoxelBuffer: typeof createVoxelBuffer;
@@ -2192,6 +2218,7 @@ declare namespace render_d {
     render_d_SectionConfig as SectionConfig,
     render_d_SliceConfig as SliceConfig,
     render_d_SliceRenderer as SliceRenderer,
+    render_d_SlicePipelineLayout as SlicePipelineLayout,
     render_d_Size3DDict as Size3DDict,
     render_d_VoxelBuffer as VoxelBuffer,
     render_d_createVoxelBuffer as createVoxelBuffer,

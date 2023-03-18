@@ -345,7 +345,7 @@ export class MaxWell extends Force {
     addMagneticDipole(s: MagneticDipole) {
         this.magneticDipole.push(s);
     }
-    private getEAt(p: Vec4, dE: boolean, ignore: Rigid | Vec4 | undefined) {
+    getEAt(p: Vec4, dE: boolean, ignore: Rigid | Vec4 | undefined) {
         let electricField = this._vecE.copy(this.constantElectricField);
         this._vecdE.set();
         for (let s of this.electricCharge) {
@@ -356,8 +356,9 @@ export class MaxWell extends Force {
             if (ignore === s.position || ignore === s?.rigid) continue;
             this.addEOfElectricDipole(electricField, dE ? this._vecdE : undefined, p, s);
         }
+        return this._vecE;
     }
-    private getBAt(p: Vec4, dB: boolean, ignore: Rigid | Vec4 | undefined) {
+    getBAt(p: Vec4, dB: boolean, ignore: Rigid | Vec4 | undefined) {
         let magneticField = this._vecB.copy(this.constantMagneticField);
         this._vecdB.elem.fill(0);
         for (let s of this.magneticDipole) {

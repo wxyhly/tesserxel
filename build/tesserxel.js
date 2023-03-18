@@ -4950,6 +4950,7 @@ class SliceRenderer {
         let screenAspectBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
         let layerOpacityBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
         let camProjBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 16);
+        gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 16);
         function _genSlicesOffsetJsBuffer() {
             let maxSliceGroupNum = Math.ceil(maxSlicesNumber / sliceGroupSize);
             let sliceGroupOffsets = new Uint32Array(maxSliceGroupNum);
@@ -5212,6 +5213,8 @@ struct _SliceInfo{
             },
             depthStencil: {
                 format: 'depth24plus',
+                depthCompare: 'less',
+                depthWriteEnabled: true
             }
         });
         this.retinaRenderPipeline = await gpu.device.createRenderPipelineAsync({
@@ -5422,8 +5425,86 @@ struct fInputType{
             "builtin(position)"
         ];
         let { input, output, call } = wgslreflect.getFnInputAndOutput(reflect, mainFn, expectInput, expectOutput);
-        // compute pipeline
         const bindGroup0declareIndex = 6;
+        let computeBindGroupLayouts = [];
+        let renderBindGroupLayouts = [];
+        let layout = getBindGroupLayout(this, desc.layout);
+        function getBindGroupLayout(self, layout) {
+            if (!layout || layout === 'auto')
+                return {
+                    computeLayout: 'auto',
+                    renderLayout: 'auto'
+                };
+            let computeLayout = layout?.computeLayout;
+            let renderLayout = layout?.renderLayout;
+            if ((computeLayout !== 'auto' && computeLayout)?.length) {
+                const bindGroupLayoutsDesc = computeLayout;
+                let bindgroupLayouts = reflect.getBindGroups();
+                for (let groupIdx = 0, l = bindgroupLayouts.length; groupIdx < l; groupIdx++) {
+                    let groupLayoutDesc = [];
+                    if (groupIdx === 0) {
+                        // here Object.keys(output).length - 1 because it has "return" key
+                        for (let i = 0, l = Object.keys(output).length - 1 + bindGroup0declareIndex; i < l; i++) {
+                            const type = i && i < bindGroup0declareIndex ? 'uniform' : 'storage';
+                            groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.COMPUTE, buffer: { type } });
+                        }
+                    }
+                    else {
+                        const bindings = bindgroupLayouts[groupIdx];
+                        for (let i = 0, l = bindings.length; i < l; i++) {
+                            const entry = bindGroupLayoutsDesc[groupIdx]?.entries?.filter(e => e.binding === i)[0];
+                            const desc = bindings[i];
+                            if (entry) {
+                                groupLayoutDesc.push(entry);
+                            }
+                            else if (!desc) {
+                                groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } });
+                            }
+                            else if (desc.type === "buffer") {
+                                groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.COMPUTE, buffer: { type: desc.resource.type } });
+                            }
+                        }
+                    }
+                    const bindGroupLayout = self.gpu.device.createBindGroupLayout({ entries: groupLayoutDesc });
+                    computeBindGroupLayouts.push(bindGroupLayout);
+                }
+                computeLayout = self.gpu.device.createPipelineLayout({ bindGroupLayouts: computeBindGroupLayouts, label: "computeBindGroupLayoutDesc" });
+            }
+            if ((renderLayout !== 'auto' && renderLayout)?.length) {
+                const bindGroupLayoutsDesc = renderLayout;
+                const renderReflect = new wgslreflect.WgslReflect(desc.fragment.code);
+                let bindgroupLayouts = renderReflect.getBindGroups();
+                for (let groupIdx = 0, l = bindgroupLayouts.length; groupIdx < l; groupIdx++) {
+                    let groupLayoutDesc = [];
+                    const bindings = bindgroupLayouts[groupIdx];
+                    for (let i = 0, l = bindings.length; i < l; i++) {
+                        const entry = bindGroupLayoutsDesc[groupIdx]?.entries?.filter(e => e.binding === i)[0];
+                        if (entry) {
+                            groupLayoutDesc.push(entry);
+                        }
+                        else if (!bindings[i] || bindings[i].type === "buffer") {
+                            groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.FRAGMENT, buffer: {} });
+                        }
+                        else if (bindings[i].type === "buffer") {
+                            groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.FRAGMENT, buffer: {} });
+                        }
+                        else if (bindings[i].type === "sampler") {
+                            groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.FRAGMENT, sampler: {} });
+                        }
+                        else if (bindings[i].type === "texture") {
+                            groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.FRAGMENT, texture: {} });
+                        }
+                    }
+                    const bindGroupLayout = self.gpu.device.createBindGroupLayout({ entries: groupLayoutDesc });
+                    renderBindGroupLayouts.push(bindGroupLayout);
+                }
+                renderLayout = self.gpu.device.createPipelineLayout({ bindGroupLayouts: renderBindGroupLayouts, label: "renderBindGroupLayoutDesc" });
+            }
+            return {
+                computeLayout, renderLayout
+            };
+        }
+        // compute pipeline
         let bindGroup0declare = '';
         let varInterpolate = "";
         let emitOutput1 = "";
@@ -5767,7 +5848,7 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
 }
 `;
         let computePipeline = await this.gpu.device.createComputePipelineAsync({
-            layout: 'auto',
+            layout: layout.computeLayout,
             compute: {
                 module: this.gpu.device.createShaderModule({
                     code: crossComputeCode
@@ -5802,7 +5883,7 @@ struct vOutputType{
 `
         });
         let renderPipeline = await this.gpu.device.createRenderPipelineAsync({
-            layout: 'auto',
+            layout: layout.renderLayout,
             vertex: {
                 module: this.crossRenderVertexShaderModule,
                 entryPoint: 'main',
@@ -8695,32 +8776,11 @@ class Renderer {
         }
         this.activeCamera = camera;
     }
-    // computeFrustumRange(range: number[]) {
-    //     return range ? [
-    //         new Vec4(-1, 0, 0, -range[0]).mulmatls(this.activeCamera.worldCoord.mat),
-    //         new Vec4(1, 0, 0, range[1]).mulmatls(this.activeCamera.worldCoord.mat),
-    //         new Vec4(0, -1, 0, -range[2]).mulmatls(this.activeCamera.worldCoord.mat),
-    //         new Vec4(0, 1, 0, range[3]).mulmatls(this.activeCamera.worldCoord.mat),
-    //         new Vec4(0, 0, -1, -range[4]).mulmatls(this.activeCamera.worldCoord.mat),
-    //         new Vec4(0, 0, 1, range[5]).mulmatls(this.activeCamera.worldCoord.mat),
-    //     ] : null;
-    // }
-    // private _testWithFrustumData(m: Mesh, data: Vec4[]): boolean {
-    //     if (!data) return true;
-    //     let relP = this.activeCamera.worldCoord.vec.sub(m.worldCoord.vec);
-    //     let obb = m.geometry.obb;
-    //     let matModel = m.worldCoord.mat.t();
-    //     for (let f of data) {
-    //         if (obb.testPlane(new Plane(matModel.mulv(f), f.dot(relP))) === 1) return false;
-    //     }
-    //     return true;
-    // }
     render(scene, camera) {
         this.clearState();
         this.setCamera(camera);
         this.updateScene(scene);
         this.core.render(() => {
-            // let frustumData = this.computeFrustumRange(this.core.getFrustumRange());
             for (let { pipeline, meshes, bindGroup } of globalThis.Object.values(this.drawList)) {
                 if (!meshes.length)
                     continue; // skip empty (may caused by safe tetranum check)
@@ -8733,7 +8793,6 @@ class Renderer {
                 for (let mesh of meshes) {
                     if (!this.core.testWithFrustumData(mesh.geometry.obb, this.activeCamera.worldCoord, mesh.worldCoord))
                         continue;
-                    // if (!this._testWithFrustumData(mesh, frustumData)) continue;
                     if (tetraState === false) {
                         this.core.beginTetras(pipeline);
                         tetraCount = 0;
@@ -9850,6 +9909,127 @@ class BoundingGlomeBroadPhase extends BroadPhase {
         }
     }
 }
+class BoundingGlomeTreeBroadPhase extends BroadPhase {
+    tree;
+    exclude;
+    include;
+    buildTree(world) {
+        this.tree = undefined;
+        this.exclude = [];
+        this.include = [];
+        let rigidIndex = -1;
+        for (let i = 0; i < world.rigids.length; i++) {
+            let ri = world.rigids[i];
+            if (ri.geometry instanceof rigid.Plane) {
+                this.exclude.push(ri);
+            }
+            else {
+                this.include.push(ri);
+                rigidIndex++;
+                let riRadius = ri.geometry.boundingGlome;
+                let newRigidNode = {
+                    radius: riRadius, position: ri.position.clone(),
+                    surcell: riRadius * riRadius,
+                    child1: ri, rigidIndex
+                };
+                if (!this.tree) {
+                    // create initial tree: node->rigid[0]
+                    this.tree = newRigidNode;
+                }
+                else {
+                    let node = this.tree;
+                    let nodeNeedUpdate = true;
+                    let done = false;
+                    while (!done) {
+                        if (node.child1 instanceof Rigid) {
+                            // insert a new leaf node for rigid
+                            let radius = node.child1.geometry.boundingGlome;
+                            let surcell = nodeNeedUpdate ? node.surcell : radius * radius;
+                            let wrapNode = {
+                                radius, position: node.child1.position.clone(), surcell,
+                                child1: node.child1, parent: node, rigidIndex: node.rigidIndex
+                            };
+                            node.child1 = wrapNode;
+                            node.child2 = newRigidNode;
+                            newRigidNode.parent = node;
+                            node.rigidIndex = undefined;
+                            done = true;
+                        }
+                        if (nodeNeedUpdate) {
+                            // update node's bounding glome
+                            let distance = node.position.distanceTo(newRigidNode.position);
+                            let newRadius = (distance + riRadius + node.radius) * 0.5;
+                            if (newRadius <= Math.min(riRadius, node.radius)) {
+                                if (newRadius <= riRadius) {
+                                    node.position.copy(ri.position);
+                                    node.radius = riRadius;
+                                    node.surcell = newRigidNode.surcell;
+                                }
+                            }
+                            else {
+                                node.position.subs(ri.position).mulfs((newRadius - riRadius) / distance).adds(ri.position);
+                                node.radius = newRadius;
+                                node.surcell = node.radius * node.radius;
+                            }
+                        }
+                        if (!done && node.child2) {
+                            let distance1 = ri.position.distanceTo(node.child1.position);
+                            let d1 = distance1 + riRadius + node.child1.radius;
+                            let surcell1 = d1 * d1 * 0.25;
+                            let distance2 = ri.position.distanceTo(node.child2.position);
+                            let d2 = distance2 + riRadius + node.child2.radius;
+                            let surcell2 = d2 * d2 * 0.25;
+                            let surcell = Math.min(surcell1, surcell2);
+                            let radius, distance;
+                            if (surcell1 - node.child1.surcell < surcell2 - node.child2.surcell) {
+                                node = node.child1;
+                                radius = d1 * 0.5;
+                                distance = distance1;
+                            }
+                            else {
+                                node = node.child2;
+                                radius = d2 * 0.5;
+                                distance = distance2;
+                            }
+                            node.position.subs(ri.position).mulfs((radius - riRadius) / distance).adds(ri.position);
+                            node.radius = radius;
+                            node.surcell = surcell;
+                            nodeNeedUpdate = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    run(world) {
+        this.clearCheckList();
+        this.buildTree(world);
+        for (let includeIdx = 0; includeIdx < this.include.length; includeIdx++) {
+            const stack = [this.tree];
+            const i = this.include[includeIdx];
+            while (stack.length) {
+                const node = stack.pop();
+                if (node.child1 instanceof Rigid) {
+                    if (node.rigidIndex <= includeIdx) {
+                        continue;
+                    }
+                }
+                let r = i.geometry.boundingGlome + node.radius;
+                if (i.position.distanceSqrTo(node.position) < r * r) {
+                    if (node.child2) {
+                        stack.push(node.child1, node.child2);
+                    }
+                    else {
+                        this.checkList.push([i, node.child1]);
+                    }
+                }
+            }
+            for (let e of this.exclude) {
+                this.checkList.push([i, e]);
+            }
+        }
+    }
+}
 class IgnoreAllBroadPhase extends BroadPhase {
     run(world) {
         this.clearCheckList();
@@ -10256,6 +10436,7 @@ class MaxWell extends Force {
                 continue;
             this.addEOfElectricDipole(electricField, dE ? this._vecdE : undefined, p, s);
         }
+        return this._vecE;
     }
     getBAt(p, dB, ignore) {
         let magneticField = this._vecB.copy(this.constantMagneticField);
@@ -12393,6 +12574,7 @@ var physics = /*#__PURE__*/Object.freeze({
     Material: Material,
     World: World,
     Engine: Engine,
+    BoundingGlomeTreeBroadPhase: BoundingGlomeTreeBroadPhase,
     BoundingGlomeBroadPhase: BoundingGlomeBroadPhase,
     BroadPhase: BroadPhase,
     IgnoreAllBroadPhase: IgnoreAllBroadPhase,
@@ -12568,14 +12750,14 @@ class ControllerRegistry {
                 this.states.currentKeys.set("AltLeft", KeyState.NONE);
                 this.states.currentKeys.set("AltRight", KeyState.NONE);
             }
-            if (!this.disableDefaultEvent) {
+            if (this.disableDefaultEvent) {
                 ev.preventDefault();
                 ev.stopPropagation();
             }
         };
         this.evKeyUp = (ev) => {
             this.states.currentKeys.set(ev.code, KeyState.UP);
-            if (!this.disableDefaultEvent) {
+            if (this.disableDefaultEvent) {
                 ev.preventDefault();
                 ev.stopPropagation();
             }
@@ -12645,7 +12827,6 @@ class ControllerRegistry {
                 newState = KeyState.NONE;
             }
             this.states.currentKeys.set(key, newState);
-            // console.log(key, this.states.currentKeys.get(key));
         }
     }
 }

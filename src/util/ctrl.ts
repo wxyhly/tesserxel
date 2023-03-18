@@ -166,14 +166,14 @@ export class ControllerRegistry {
                 this.states.currentKeys.set("AltLeft", KeyState.NONE);
                 this.states.currentKeys.set("AltRight", KeyState.NONE);
             }
-            if (!this.disableDefaultEvent) {
+            if (this.disableDefaultEvent) {
                 ev.preventDefault();
                 ev.stopPropagation();
             }
         };
         this.evKeyUp = (ev) => {
             this.states.currentKeys.set(ev.code, KeyState.UP);
-            if (!this.disableDefaultEvent) {
+            if (this.disableDefaultEvent) {
                 ev.preventDefault();
                 ev.stopPropagation();
             }
@@ -239,7 +239,6 @@ export class ControllerRegistry {
                 newState = KeyState.NONE;
             }
             this.states.currentKeys.set(key, newState);
-            // console.log(key, this.states.currentKeys.get(key));
         }
     }
 }

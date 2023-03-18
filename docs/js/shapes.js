@@ -1,6 +1,5 @@
 import * as tesserxel from '../../build/tesserxel.js';
 
-// namespace examples {
 class ShapesApp {
     vertCode = `
         // vertex attributes, regard four vector4 for vertices of one tetrahedra as matrix4x4 
@@ -87,6 +86,10 @@ class ShapesApp {
             fragment: {
                 code: this.fragHeaderCode + fragmentShaderCode,
                 entryPoint: "main",
+            },
+            layout: {
+                computeLayout: [undefined, { entries: [{ binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: {} }] }],
+                renderLayout: 'auto'
             },
             cullMode: "none"
         });
@@ -219,7 +222,7 @@ let HypercubeFragCode = `
         const frontLightColor = vec3<f32>(5.0,4.6,3.5);
         const backLightColor = vec3<f32>(1.9,2.4,2.8);
         const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
-        var color:vec3<f32> = vec3(1.0,1.0,1.0);
+        var color:vec3<f32> = vec3<f32>(1.0,1.0,1.0);
         var count:f32 = 0;
         count += step({edge},abs(vary.uvw.x));
         count += step({edge},abs(vary.uvw.y));
@@ -345,7 +348,6 @@ var directproduct;
     }
     directproduct.load = load;
 })(directproduct || (directproduct = {}));
-// }
 
 export { directproduct, glome, spheritorus, suzanne3d, tesseract, tesseract_ortho, tiger, torisphere };
 //# sourceMappingURL=shapes.js.map

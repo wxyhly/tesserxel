@@ -28,6 +28,7 @@ let examples = [
             { target: "rigids::st_pile", zh: "球环堆", en: "Spheritorus Pile" },
             { target: "pde::wave_eq", zh: "三维波动方程", en: "Wave Equation" },
             { target: "pde::river_evolution", zh: "河流演化", en: "River Evolution" },
+            // { target: "rigids::thermo_stats", zh: "热力学旋转分布律", en: "Thermotic Rotation Distribution" },
             { target: "pde::erosion", zh: "流水侵蚀（试验）", en: "Hydraulic Erosion (Experimental)" },
             {
                 group: "rigid_chain", zh: "刚体链", en: "Rigid Chains",
