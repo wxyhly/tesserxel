@@ -297,6 +297,7 @@ export class TrackBallController implements IController {
 }
 export class FreeFlyController implements IController {
     enabled = true;
+    swapMouseYWithScrollY = false;
     object = new Obj4();
     mouseSpeed = 0.01;
     wheelSpeed = 0.0005;
@@ -359,13 +360,21 @@ export class FreeFlyController implements IController {
                 let dx = state.moveX * this.mouseSpeed;
                 let dy = -state.moveY * this.mouseSpeed;
                 this._bivec.xw += dx;
-                this._bivec.yw += dy;
+                if (this.swapMouseYWithScrollY) {
+                    this._bivec.yw += dy;
+                } else {
+                    this._bivec.zw -= dy;
+                }
             }
             if ((state.enablePointerLock && state.isPointerLocked()) || (!state.enablePointerLock)) {
                 let wx = state.wheelX * this.wheelSpeed;
                 let wy = state.wheelY * this.wheelSpeed;
                 this._bivec.xy += wx;
-                this._bivec.zw += wy;
+                if (this.swapMouseYWithScrollY) {
+                    this._bivec.zw += wy;
+                } else {
+                    this._bivec.yw -= wy;
+                }
             }
             let keyMoveSpeed = this.keyMoveSpeed * state.mspf;
             delta = (on(key.left) ? -1 : 0) + (on(key.right) ? 1 : 0);

@@ -17,7 +17,7 @@ let examples = [
         child: [
             { target: "instanced_cubes", zh: "实例化多方块", en: "Instanced Hypercubes" },
             { target: "city_highway", zh: "城市高速", en: "City Highway" },
-            // { target: "navigation", zh: "四维星球导航", en: "Navigation On 4D Planet" },
+            { target: "navigation", zh: "四维星球导航", en: "Navigation On 4D Planet" },
         ]
     },
     {
@@ -28,7 +28,7 @@ let examples = [
             { target: "rigids::st_pile", zh: "球环堆", en: "Spheritorus Pile" },
             { target: "pde::wave_eq", zh: "三维波动方程", en: "Wave Equation" },
             { target: "pde::river_evolution", zh: "河流演化", en: "River Evolution" },
-            { target: "rigids::thermo_stats", zh: "热力学旋转分布律", en: "Thermotic Rotation Distribution" },
+            // { target: "rigids::thermo_stats", zh: "热力学旋转分布律", en: "Thermotic Rotation Distribution" },
             { target: "pde::erosion", zh: "流水侵蚀（试验）", en: "Hydraulic Erosion (Experimental)" },
             {
                 group: "rigid_chain", zh: "刚体链", en: "Rigid Chains",
@@ -72,7 +72,7 @@ let examples = [
             },
             { target: "four_basic_scene", zh: "创建简单Four场景", en: "Basic Four Scene Creation" },
             { target: "four_materials", zh: "Four材质与灯光", en: "Four Materials & Lights" },
-            { target: "voxeltest::rasterizer", zh: "四面体体素光栅化器演示", en: "Tetrahedra Voxel Rasterizer Demo" },
+            { target: "voxeltest::rasterizer", zh: "四面体素软光栅化器演示", en: "Tetrahedra Voxel Rasterizer Demo" },
         ]
     },
 
@@ -197,7 +197,7 @@ let info = {
     },
     "rigids::m_dipole_dual": {
         "zh": "对偶磁偶极子为两个绝对垂直的等大环形电流的磁场叠加。对偶磁偶极子按手性可分为互为镜像的自对偶与反自对偶磁偶极子。同种对偶磁偶极子之间因两个线圈受力抵消，进而无相互作用力。",
-        "en": "Dual magnetic dipole is constructed by two perpendicular current loop with same amount. It can be categorized into two different chiral class: self-dual and anti-self-dual dipole. dipoles with the same chirality have no interactions since force applyed by perpendicular current loops actually cancel each other."
+        "en": "Dual magnetic dipole is constructed by two perpendicular current loop with same amount. It can be categorized into two different chiral class: self-dual and anti-self-dual dipole. dipoles with the same chirality have no interactions since force applied by perpendicular current loops actually cancel each other."
     },
 
 };

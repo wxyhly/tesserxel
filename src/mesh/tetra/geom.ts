@@ -392,19 +392,26 @@ export function torisphere(
         );
     }, longitudeSegment, latitudeSegment, circleSegment);
 }
-export function spherinderSide(radius: number, longitudeSegment: number, latitudeSegment: number, height: number, heightSegment: number = 1) {
+export function spherinderSide(radius1: number, radius2: number, longitudeSegment: number, latitudeSegment: number, height: number, heightSegment: number = 1) {
     if (longitudeSegment < 3) longitudeSegment = 3;
     if (latitudeSegment < 3) latitudeSegment = 3;
     if (heightSegment < 1) heightSegment = 1;
+    const avgRadius = (radius1 + radius2) * 0.5;
+    const len = 1 / Math.hypot(radius2 - radius1, height);
+    // const slope = (radius2 - radius1) / height;
+    const sinS = (radius2 - radius1) * len;
+    const cosS = height * len;
     return parametricSurface((uvw, pos, norm) => {
-
-        let u = uvw.x * _360;
-        let v = uvw.y * _180;
+        let u = uvw.x * _180;
+        let v = uvw.y * _360;
         let w = uvw.z - 0.5;
+        let radius = avgRadius + (radius2 - radius1) * w;
         let su = Math.sin(u);
         let cu = Math.cos(u);
-        pos.set(Math.sin(v) * cu * radius, Math.cos(v) * cu * radius, su * radius, w * height);
-        norm.set(Math.sin(v) * cu, Math.cos(v) * cu, su);
+        pos.set(Math.sin(v) * su * radius, Math.cos(v) * su * radius, -cu * radius, w * height);
+        su *= cosS;
+        // norm.set(Math.sin(v) * cu, Math.cos(v) * cu, su, 0);
+        norm.set(Math.sin(v) * su, Math.cos(v) * su, -cosS * cu, -sinS);
     }, longitudeSegment, latitudeSegment, heightSegment);
 }
 export function tiger(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number, secondaryRadius: number, secondarySegment: number) {

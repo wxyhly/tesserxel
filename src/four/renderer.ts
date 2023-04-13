@@ -206,6 +206,21 @@ export class Renderer {
         }
         if (this.cameraInScene === false) console.error("Target camera is not in the scene. Forget to add it?");
         _updateWorldLight(this);
+        this.updateSkyBox(scene);
+    }
+    updateSkyBox(scene: Scene){
+        const skyBox = scene.skyBox;
+        if(!skyBox) return ;
+        if(!skyBox.compiled){
+            if(!skyBox.compiling){
+                skyBox.compile(this);
+            }
+            return;
+        }
+        if(!skyBox.bindGroups){
+            skyBox.getBindgroups(this);
+        }
+        skyBox.update(this);
     }
     ambientLightDensity = new Vec3;
     directionalLights: DirectionalLight[];
@@ -252,6 +267,9 @@ export class Renderer {
                 if (tetraState === true) {
                     this.core.drawTetras(binding);
                 }
+            }
+            if(scene.skyBox?.bindGroups){
+                this.core.drawRaytracing(scene.skyBox.pipeline,scene.skyBox.bindGroups);
             }
         });
     }

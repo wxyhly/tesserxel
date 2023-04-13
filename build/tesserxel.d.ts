@@ -1205,7 +1205,7 @@ declare let hexadecachoron: TetraMesh;
 declare function glome(radius: number, xySegment: number, zwSegment: number, latitudeSegment: number): TetraMesh;
 declare function spheritorus(sphereRadius: number, longitudeSegment: number, latitudeSegment: number, circleRadius: number, circleSegment: number): TetraMesh;
 declare function torisphere(circleRadius: number, circleSegment: number, sphereRadius: number, longitudeSegment: number, latitudeSegment: number): TetraMesh;
-declare function spherinderSide(radius: number, longitudeSegment: number, latitudeSegment: number, height: number, heightSegment?: number): TetraMesh;
+declare function spherinderSide(radius1: number, radius2: number, longitudeSegment: number, latitudeSegment: number, height: number, heightSegment?: number): TetraMesh;
 declare function tiger(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number, secondaryRadius: number, secondarySegment: number): TetraMesh;
 declare function parametricSurface(fn: (inputUVW: Vec3, outputPosition: Vec4, outputNormal: Vec4) => void, uSegment: number, vSegment: number, wSegment: number): TetraMesh;
 declare function convexhull(points: Vec4[]): {
@@ -1471,6 +1471,7 @@ declare class NoiseTexture extends MaterialNode {
 declare class Scene {
     child: Object$1[];
     backGroundColor: GPUColor;
+    skyBox?: SkyBox;
     add(...obj: Object$1[]): void;
     removeChild(obj: Object$1): void;
     setBackgroudColor(color: GPUColor): void;
@@ -1518,22 +1519,46 @@ declare class CubeGeometry extends Geometry {
     constructor(size?: number | Vec3);
 }
 declare class GlomeGeometry extends Geometry {
-    constructor(size?: number);
+    constructor(size?: number, detail?: number);
 }
 declare class SpheritorusGeometry extends Geometry {
-    constructor(sphereRadius?: number, circleRadius?: number);
+    constructor(sphereRadius?: number, circleRadius?: number, detail?: number);
 }
 declare class TorisphereGeometry extends Geometry {
-    constructor(circleRadius?: number, sphereRadius?: number);
+    constructor(circleRadius?: number, sphereRadius?: number, detail?: number);
 }
 declare class SpherinderSideGeometry extends Geometry {
-    constructor(sphereRadius?: number, height?: number);
+    constructor(sphereRadius1?: number, sphereRadius2?: number, height?: number, detail?: number);
 }
 declare class TigerGeometry extends Geometry {
-    constructor(circleRadius?: number, radius1?: number, radius2?: number);
+    constructor(circleRadius?: number, radius1?: number, radius2?: number, detail?: number);
 }
 declare class ConvexHullGeometry extends Geometry {
     constructor(points: Vec4[]);
+}
+declare abstract class SkyBox {
+    pipeline: RaytracingPipeline;
+    uBuffer: GPUBuffer;
+    jsBuffer: Float32Array;
+    compiling: boolean;
+    compiled: boolean;
+    needsUpdate: boolean;
+    bindGroups: GPUBindGroup[];
+    readonly bufferSize: number;
+    uuid: string;
+    static readonly commonCode: string;
+    compile(r: Renderer): Promise<void>;
+    abstract getShaderCode(): RaytracingPipelineDescriptor;
+    constructor();
+    getBindgroups(r: Renderer): void;
+    update(r: Renderer): void;
+}
+declare class SimpleSkyBox extends SkyBox {
+    readonly bufferSize = 4;
+    constructor();
+    setSunPosition(pos: Vec4): void;
+    getSunPosition(): Vec4;
+    getShaderCode(): RaytracingPipelineDescriptor;
 }
 
 declare type LightDensity = {
@@ -1599,6 +1624,7 @@ declare class Renderer {
     compileMaterials(mats: Iterable<Material$1> | Scene): Promise<void>;
     updateMesh(m: Mesh): void;
     updateScene(scene: Scene): void;
+    updateSkyBox(scene: Scene): void;
     ambientLightDensity: Vec3;
     directionalLights: DirectionalLight[];
     spotLights: SpotLight[];
@@ -1659,6 +1685,10 @@ type four_d_TigerGeometry = TigerGeometry;
 declare const four_d_TigerGeometry: typeof TigerGeometry;
 type four_d_ConvexHullGeometry = ConvexHullGeometry;
 declare const four_d_ConvexHullGeometry: typeof ConvexHullGeometry;
+type four_d_SkyBox = SkyBox;
+declare const four_d_SkyBox: typeof SkyBox;
+type four_d_SimpleSkyBox = SimpleSkyBox;
+declare const four_d_SimpleSkyBox: typeof SimpleSkyBox;
 type four_d_ColorUniformValue = ColorUniformValue;
 declare const four_d_ColorUniformValue: typeof ColorUniformValue;
 type four_d_Vec4UniformValue = Vec4UniformValue;
@@ -1707,6 +1737,8 @@ declare namespace four_d {
     four_d_SpherinderSideGeometry as SpherinderSideGeometry,
     four_d_TigerGeometry as TigerGeometry,
     four_d_ConvexHullGeometry as ConvexHullGeometry,
+    four_d_SkyBox as SkyBox,
+    four_d_SimpleSkyBox as SimpleSkyBox,
     Material$1 as Material,
     four_d_ColorUniformValue as ColorUniformValue,
     four_d_Vec4UniformValue as Vec4UniformValue,
@@ -2347,6 +2379,7 @@ declare class TrackBallController implements IController {
 }
 declare class FreeFlyController implements IController {
     enabled: boolean;
+    swapMouseYWithScrollY: boolean;
     object: Obj4;
     mouseSpeed: number;
     wheelSpeed: number;

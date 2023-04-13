@@ -88,6 +88,15 @@ function createGlome(radius: number = 1, mass: number = 1) {
         material: new phy.Material(1, 0.8), mass
     });
 }
+function initScene(scene: tesserxel.four.Scene) {
+    scene.add(new FOUR.AmbientLight(0.3));
+    scene.skyBox = new FOUR.SimpleSkyBox();
+    scene.add(new FOUR.DirectionalLight(
+        [2.2, 2.0, 1.9],
+        (scene.skyBox as tesserxel.four.SimpleSkyBox).getSunPosition()
+    ));
+    scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+}
 class EmitGlomeController implements tesserxel.util.ctrl.IController {
     enabled: boolean = true;
     world: tesserxel.physics.World; scene: tesserxel.four.Scene;
@@ -375,12 +384,7 @@ export namespace rigid_test {
         camera.position.w = 4;
         camera.position.y = 4;
         scene.add(camera);
-        scene.add(new FOUR.AmbientLight(0.3));
-        scene.add(new FOUR.DirectionalLight(
-            [2.2, 2.0, 1.9],
-            new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()
-        ));
-        scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+        initScene(scene);
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const renderer = await new FOUR.Renderer(canvas).init();
@@ -495,12 +499,7 @@ export namespace st_ts_chain {
         camera.position.w = 9;
         camera.position.y = 8;
         scene.add(camera);
-        scene.add(new FOUR.AmbientLight(0.3));
-        scene.add(new FOUR.DirectionalLight(
-            [2.2, 2.0, 1.9],
-            new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()
-        ));
-        scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+        initScene(scene);
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const renderer = await new FOUR.Renderer(canvas).init();
@@ -684,12 +683,7 @@ export namespace tg_tg_chain {
         camera.position.w = 9;
         camera.position.y = 8;
         scene.add(camera);
-        scene.add(new FOUR.AmbientLight(0.3));
-        scene.add(new FOUR.DirectionalLight(
-            [2.2, 2.0, 1.9],
-            new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()
-        ));
-        scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+        initScene(scene);
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const renderer = await new FOUR.Renderer(canvas).init();
@@ -751,7 +745,7 @@ export namespace thermo_stats {
         // define render materials
         const balls: tesserxel.physics.Rigid[] = [];
         const renderMat = new FOUR.LambertMaterial(new FOUR.CheckerTexture([1, 1, 1], [0.2, 0.2, 0.2]));
-        
+
         for (let i = 0; i < 500; i++) {
             const g = new phy.Rigid({
                 geometry: new phy.rigid.Glome(0.3),
@@ -760,7 +754,7 @@ export namespace thermo_stats {
             g.position.randset().mulfs(3);
             addRigidToScene(world, scene, renderMat, g);
             // if (!i) {
-                g.velocity.set(g.position.y, -g.position.x, g.position.w, -g.position.z).mulfs(4);
+            g.velocity.set(g.position.y, -g.position.x, g.position.w, -g.position.z).mulfs(4);
             // }
             balls.push(g);
         }
@@ -769,7 +763,7 @@ export namespace thermo_stats {
         //     mass: 1, material: phyMat
         // });
         // g.position.set(-1, 0, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
-        
+
         // g = new phy.Rigid({
         //     geometry: new phy.rigid.Glome(0.3),
         //     mass: 1, material: phyMat
@@ -777,7 +771,7 @@ export namespace thermo_stats {
         // g.position.set(1, 0, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
         // g.velocity.x = -1;
 
-        
+
         // g = new phy.Rigid({
         //     geometry: new phy.rigid.Glome(0.3),
         //     mass: 1, material: phyMat
@@ -791,7 +785,7 @@ export namespace thermo_stats {
         //     mass: 1, material: phyMat
         // });
         // g.position.set(-1, 1, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
-        
+
         // g = new phy.Rigid({
         //     geometry: new phy.rigid.Glome(0.3),
         //     mass: 1, material: phyMat
@@ -799,7 +793,7 @@ export namespace thermo_stats {
         // g.position.set(1, 1, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
         // g.velocity.x = 1;
 
-        
+
         // g = new phy.Rigid({
         //     geometry: new phy.rigid.Glome(0.3),
         //     mass: 1, material: phyMat
@@ -979,12 +973,7 @@ export namespace mix_chain {
         camera.position.w = 9;
         camera.position.y = 8;
         scene.add(camera);
-        scene.add(new FOUR.AmbientLight(0.3));
-        scene.add(new FOUR.DirectionalLight(
-            [2.2, 2.0, 1.9],
-            new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()
-        ));
-        scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+        initScene(scene);
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const renderer = await new FOUR.Renderer(canvas).init();
@@ -1095,12 +1084,8 @@ async function loadMaxwell(cb: (
     camera.position.w = 9;
     camera.position.y = 8;
     scene.add(camera);
-    scene.add(new FOUR.AmbientLight(0.3));
-    scene.add(new FOUR.DirectionalLight(
-        [2.2, 2.0, 1.9],
-        new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()
-    ));
-    scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+    initScene(scene);
+    scene.skyBox = null; // delete skyBox in initScene() to save resources, because sky can't be seen
     await renderer.compileMaterials(scene);
     renderer.core.setScreenClearColor([1, 1, 1, 1]);
     renderer.core.setEyeOffset(0.5);

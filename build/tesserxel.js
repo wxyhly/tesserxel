@@ -7402,21 +7402,29 @@ function torisphere(circleRadius, circleSegment, sphereRadius, longitudeSegment,
         norm.set(sv * Math.cos(u) * cw, Math.sin(w), sv * Math.sin(u) * cw, Math.cos(v) * cw);
     }, longitudeSegment, latitudeSegment, circleSegment);
 }
-function spherinderSide(radius, longitudeSegment, latitudeSegment, height, heightSegment = 1) {
+function spherinderSide(radius1, radius2, longitudeSegment, latitudeSegment, height, heightSegment = 1) {
     if (longitudeSegment < 3)
         longitudeSegment = 3;
     if (latitudeSegment < 3)
         latitudeSegment = 3;
     if (heightSegment < 1)
         heightSegment = 1;
+    const avgRadius = (radius1 + radius2) * 0.5;
+    const len = 1 / Math.hypot(radius2 - radius1, height);
+    // const slope = (radius2 - radius1) / height;
+    const sinS = (radius2 - radius1) * len;
+    const cosS = height * len;
     return parametricSurface((uvw, pos, norm) => {
-        let u = uvw.x * _360;
-        let v = uvw.y * _180;
+        let u = uvw.x * _180;
+        let v = uvw.y * _360;
         let w = uvw.z - 0.5;
+        let radius = avgRadius + (radius2 - radius1) * w;
         let su = Math.sin(u);
         let cu = Math.cos(u);
-        pos.set(Math.sin(v) * cu * radius, Math.cos(v) * cu * radius, su * radius, w * height);
-        norm.set(Math.sin(v) * cu, Math.cos(v) * cu, su);
+        pos.set(Math.sin(v) * su * radius, Math.cos(v) * su * radius, -cu * radius, w * height);
+        su *= cosS;
+        // norm.set(Math.sin(v) * cu, Math.cos(v) * cu, su, 0);
+        norm.set(Math.sin(v) * su, Math.cos(v) * su, -cosS * cu, -sinS);
     }, longitudeSegment, latitudeSegment, heightSegment);
 }
 function tiger(xyRadius, xySegment, zwRadius, zwSegment, secondaryRadius, secondarySegment) {
@@ -8287,6 +8295,7 @@ var mesh = /*#__PURE__*/Object.freeze({
 class Scene {
     child = [];
     backGroundColor;
+    skyBox;
     add(...obj) {
         this.child.push(...obj);
     }
@@ -8389,34 +8398,165 @@ class CubeGeometry extends Geometry {
     }
 }
 class GlomeGeometry extends Geometry {
-    constructor(size) {
-        super(glome(size ?? 1, 16, 16, 12));
+    constructor(size = 1, detail = 2) {
+        super(glome(size, detail * 8, detail * 8, detail * 6));
     }
 }
 class SpheritorusGeometry extends Geometry {
-    constructor(sphereRadius = 0.4, circleRadius = 1) {
-        super(spheritorus(sphereRadius, 16, 12, circleRadius, 16));
+    constructor(sphereRadius = 0.4, circleRadius = 1, detail = 2) {
+        super(spheritorus(sphereRadius, detail * 8, detail * 6, circleRadius, detail * 8));
     }
 }
 class TorisphereGeometry extends Geometry {
-    constructor(circleRadius = 0.2, sphereRadius = 0.8) {
-        super(torisphere(circleRadius, 12, sphereRadius, 16, 12));
+    constructor(circleRadius = 0.2, sphereRadius = 0.8, detail = 2) {
+        super(torisphere(circleRadius, detail * 6, sphereRadius, detail * 8, detail * 6));
     }
 }
 class SpherinderSideGeometry extends Geometry {
-    constructor(sphereRadius = 0.4, height = 1) {
-        super(spherinderSide(sphereRadius, 16, 12, height));
+    constructor(sphereRadius1 = 0.4, sphereRadius2 = sphereRadius1, height = 1, detail = 2) {
+        super(spherinderSide(sphereRadius1, sphereRadius2, detail * 8, detail * 6, height, detail * 2));
     }
 }
 class TigerGeometry extends Geometry {
-    constructor(circleRadius = 0.2, radius1 = 0.8, radius2 = 0.8) {
-        super(tiger(radius1, 16, radius2, 16, circleRadius, 12));
+    constructor(circleRadius = 0.2, radius1 = 0.8, radius2 = 0.8, detail = 2) {
+        super(tiger(radius1, detail * 8, radius2, detail * 8, circleRadius, detail * 6));
     }
 }
 class ConvexHullGeometry extends Geometry {
     constructor(points) {
         super(convexhull(points));
         console.assert(false, "todo: need to generate normal");
+    }
+}
+class SkyBox {
+    pipeline;
+    uBuffer;
+    jsBuffer;
+    compiling = false;
+    compiled = false;
+    needsUpdate = true;
+    bindGroups;
+    bufferSize;
+    uuid;
+    static commonCode = `
+    struct rayOut{
+        @location(0) outO: vec4<f32>,
+        @location(1) outR: vec4<f32>,
+        @location(2) coord: vec3<f32>
+    }
+    @ray fn mainRay(
+        @builtin(ray_origin) ro: vec4<f32>,
+        @builtin(ray_direction) rd: vec4<f32>,
+        @builtin(voxel_coord) coord: vec3<f32>,
+        @builtin(aspect_matrix) aspect: mat3x3<f32>
+    ) -> rayOut {
+        return rayOut(
+            transpose(camMat.matrix)*(ro-camMat.vector),
+            transpose(camMat.matrix)*rd,
+            aspect * coord
+        );
+    }
+    struct fOut{
+        @location(0) color: vec4<f32>,
+        @builtin(frag_depth) depth: f32
+    }
+    
+    // converted to 4D from shadertoy 3D: https://www.shadertoy.com/view/WtBXWw
+    fn ACESFilm(x: vec3<f32>)->vec3<f32>
+    {
+        let tA = 2.51;
+        let tB = vec3<f32>(0.03);
+        let tC = 2.43;
+        let tD = vec3<f32>(0.59);
+        let tE = vec3<f32>(0.14);
+        return clamp((x*(tA*x+tB))/(x*(tC*x+tD)+tE),vec3<f32>(0.0),vec3<f32>(1.0));
+    }
+    `;
+    async compile(r) {
+        if (this.compiling || this.compiled)
+            return;
+        this.compiling = true;
+        this.pipeline = await r.core.createRaytracingPipeline(this.getShaderCode());
+        this.compiling = false;
+        this.compiled = true;
+    }
+    constructor() {
+    }
+    getBindgroups(r) {
+        this.uBuffer = r.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, this.bufferSize << 2, "uSimpleSky");
+        this.bindGroups = [
+            r.core.createVertexShaderBindGroup(this.pipeline, 1, [
+                r.uCamMatBuffer,
+                this.uBuffer
+            ], "SimpleSkyBindgroup")
+        ];
+    }
+    update(r) {
+        this.needsUpdate = false;
+        r.gpu.device.queue.writeBuffer(this.uBuffer, 0, this.jsBuffer);
+    }
+}
+class SimpleSkyBox extends SkyBox {
+    bufferSize = 4;
+    constructor() {
+        super();
+        this.jsBuffer = new Float32Array(this.bufferSize);
+        this.setSunPosition(new Vec4(0.2, 0.9, 0.1, 0.3).norms());
+    }
+    setSunPosition(pos) {
+        this.needsUpdate = true;
+        pos.writeBuffer(this.jsBuffer);
+    }
+    getSunPosition() {
+        return new Vec4(this.jsBuffer[0], this.jsBuffer[1], this.jsBuffer[2], this.jsBuffer[3]);
+    }
+    getShaderCode() {
+        return {
+            code: `
+        @group(1) @binding(0) var<uniform> camMat: AffineMat;
+        @group(1) @binding(1) var<uniform> sunDir: vec4<f32>;
+        ${SkyBox.commonCode}
+        const betaR = vec3<f32>(1.95e-2, 1.1e-1, 2.94e-1); 
+        const betaM = vec3<f32>(4e-2, 4e-2, 4e-2);
+        const Rayleigh = 1.0;
+        const Mie = 1.0;
+        const RayleighAtt = 1.0;
+        const MieAtt = 1.2;
+        const g = -0.9;
+        fn sky (rd: vec4<f32>)->vec3<f32>{
+            let D = normalize(rd);
+            let t = max(0.001, D.y)*0.92+0.08;
+
+            // optical depth -> zenithAngle
+            let sR = RayleighAtt / t ;
+            let sM = MieAtt / t ;
+            let cosine = clamp(dot(D,normalize(sunDir)),0.0,1.0);
+            let cosine2 =dot(D,normalize(sunDir))+1.0;
+            let extinction = exp(-(betaR * sR + betaM * sM));
+
+            // scattering phase
+            let g2 = g * g;
+            let fcos2 = cosine * cosine;
+            let miePhase = Mie * pow(1.0 + g2 + 2.0 * g * cosine, -1.5) * (1.0 - g2) / (2.0 + g2);
+            
+            let rayleighPhase = Rayleigh;
+
+            let inScatter = (1.0 + fcos2) * vec3<f32>(rayleighPhase + betaM / betaR * miePhase);
+
+            var color = inScatter*(1.0-extinction) * 1.4;
+            // sun
+            color += 0.47*vec3<f32>(1.8,1.4,0.3)*pow( cosine, 350.0 ) * extinction;
+            // sun haze
+            color += 0.4*vec3<f32>(0.8,0.9,0.1)*pow( cosine2 *0.5, 2.0 )* extinction;
+            color *= vec3<f32>(1.4,1.7,1.2);
+            return ACESFilm(color);
+        }
+        @fragment fn mainFragment(@location(0) ro: vec4<f32>, @location(1) rd: vec4<f32>, @location(2) coord: vec3<f32>)->fOut{            
+            return fOut(vec4<f32>(sky(rd),0.1),0.999999);
+        }`,
+            rayEntryPoint: "mainRay",
+            fragmentEntryPoint: "mainFragment"
+        };
     }
 }
 
@@ -8762,6 +8902,22 @@ class Renderer {
         if (this.cameraInScene === false)
             console.error("Target camera is not in the scene. Forget to add it?");
         _updateWorldLight(this);
+        this.updateSkyBox(scene);
+    }
+    updateSkyBox(scene) {
+        const skyBox = scene.skyBox;
+        if (!skyBox)
+            return;
+        if (!skyBox.compiled) {
+            if (!skyBox.compiling) {
+                skyBox.compile(this);
+            }
+            return;
+        }
+        if (!skyBox.bindGroups) {
+            skyBox.getBindgroups(this);
+        }
+        skyBox.update(this);
     }
     ambientLightDensity = new Vec3;
     directionalLights;
@@ -8809,6 +8965,9 @@ class Renderer {
                 if (tetraState === true) {
                     this.core.drawTetras(binding);
                 }
+            }
+            if (scene.skyBox?.bindGroups) {
+                this.core.drawRaytracing(scene.skyBox.pipeline, scene.skyBox.bindGroups);
             }
         });
     }
@@ -9468,6 +9627,8 @@ var four = /*#__PURE__*/Object.freeze({
     SpherinderSideGeometry: SpherinderSideGeometry,
     TigerGeometry: TigerGeometry,
     ConvexHullGeometry: ConvexHullGeometry,
+    SkyBox: SkyBox,
+    SimpleSkyBox: SimpleSkyBox,
     Material: Material$1,
     ColorUniformValue: ColorUniformValue,
     Vec4UniformValue: Vec4UniformValue,
@@ -12887,6 +13048,7 @@ class TrackBallController {
 }
 class FreeFlyController {
     enabled = true;
+    swapMouseYWithScrollY = false;
     object = new Obj4();
     mouseSpeed = 0.01;
     wheelSpeed = 0.0005;
@@ -12952,13 +13114,23 @@ class FreeFlyController {
                 let dx = state.moveX * this.mouseSpeed;
                 let dy = -state.moveY * this.mouseSpeed;
                 this._bivec.xw += dx;
-                this._bivec.yw += dy;
+                if (this.swapMouseYWithScrollY) {
+                    this._bivec.yw += dy;
+                }
+                else {
+                    this._bivec.zw -= dy;
+                }
             }
             if ((state.enablePointerLock && state.isPointerLocked()) || (!state.enablePointerLock)) {
                 let wx = state.wheelX * this.wheelSpeed;
                 let wy = state.wheelY * this.wheelSpeed;
                 this._bivec.xy += wx;
-                this._bivec.zw += wy;
+                if (this.swapMouseYWithScrollY) {
+                    this._bivec.zw += wy;
+                }
+                else {
+                    this._bivec.yw -= wy;
+                }
             }
             let keyMoveSpeed = this.keyMoveSpeed * state.mspf;
             delta = (on(key.left) ? -1 : 0) + (on(key.right) ? 1 : 0);

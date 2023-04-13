@@ -100,6 +100,12 @@ function createGlome(radius = 1, mass = 1) {
         material: new phy.Material(1, 0.8), mass
     });
 }
+function initScene(scene) {
+    scene.add(new FOUR.AmbientLight(0.3));
+    scene.skyBox = new FOUR.SimpleSkyBox();
+    scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], scene.skyBox.getSunPosition()));
+    scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+}
 class EmitGlomeController {
     enabled = true;
     world;
@@ -348,9 +354,7 @@ var rigid_test;
         camera.position.w = 4;
         camera.position.y = 4;
         scene.add(camera);
-        scene.add(new FOUR.AmbientLight(0.3));
-        scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
-        scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+        initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
         const renderer = await new FOUR.Renderer(canvas).init();
         renderer.core.setScreenClearColor([1, 1, 1, 1]);
@@ -453,9 +457,7 @@ var st_ts_chain;
         camera.position.w = 9;
         camera.position.y = 8;
         scene.add(camera);
-        scene.add(new FOUR.AmbientLight(0.3));
-        scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
-        scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+        initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
         const renderer = await new FOUR.Renderer(canvas).init();
         renderer.core.setScreenClearColor([1, 1, 1, 1]);
@@ -620,9 +622,7 @@ var tg_tg_chain;
         camera.position.w = 9;
         camera.position.y = 8;
         scene.add(camera);
-        scene.add(new FOUR.AmbientLight(0.3));
-        scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
-        scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+        initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
         const renderer = await new FOUR.Renderer(canvas).init();
         renderer.core.setScreenClearColor([1, 1, 1, 1]);
@@ -877,9 +877,7 @@ var mix_chain;
         camera.position.w = 9;
         camera.position.y = 8;
         scene.add(camera);
-        scene.add(new FOUR.AmbientLight(0.3));
-        scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
-        scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+        initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
         const renderer = await new FOUR.Renderer(canvas).init();
         renderer.core.setScreenClearColor([1, 1, 1, 1]);
@@ -977,9 +975,8 @@ async function loadMaxwell(cb) {
     camera.position.w = 9;
     camera.position.y = 8;
     scene.add(camera);
-    scene.add(new FOUR.AmbientLight(0.3));
-    scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
-    scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+    initScene(scene);
+    scene.skyBox = null; // delete skyBox in initScene() to save resources, because sky can't be seen
     await renderer.compileMaterials(scene);
     renderer.core.setScreenClearColor([1, 1, 1, 1]);
     renderer.core.setEyeOffset(0.5);
