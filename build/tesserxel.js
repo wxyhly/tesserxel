@@ -7140,6 +7140,52 @@ function tesseract() {
     return m;
 }
 function inverseNormal(mesh) {
+    let count = mesh.count ?? mesh.position.length >> 4;
+    let temp;
+    for (let i = 0; i < count; i++) {
+        let offset = i << 4;
+        temp = mesh.position[offset + 0];
+        mesh.position[offset + 0] = mesh.position[offset + 4];
+        mesh.position[offset + 4] = temp;
+        temp = mesh.position[offset + 1];
+        mesh.position[offset + 1] = mesh.position[offset + 5];
+        mesh.position[offset + 5] = temp;
+        temp = mesh.position[offset + 2];
+        mesh.position[offset + 2] = mesh.position[offset + 6];
+        mesh.position[offset + 6] = temp;
+        temp = mesh.position[offset + 3];
+        mesh.position[offset + 3] = mesh.position[offset + 7];
+        mesh.position[offset + 7] = temp;
+        if (mesh.uvw) {
+            temp = mesh.uvw[offset + 0];
+            mesh.uvw[offset + 0] = mesh.uvw[offset + 4];
+            mesh.uvw[offset + 4] = temp;
+            temp = mesh.uvw[offset + 1];
+            mesh.uvw[offset + 1] = mesh.uvw[offset + 5];
+            mesh.uvw[offset + 5] = temp;
+            temp = mesh.uvw[offset + 2];
+            mesh.uvw[offset + 2] = mesh.uvw[offset + 6];
+            mesh.uvw[offset + 6] = temp;
+            temp = mesh.uvw[offset + 3];
+            mesh.uvw[offset + 3] = mesh.uvw[offset + 7];
+            mesh.uvw[offset + 7] = temp;
+        }
+        if (mesh.normal) {
+            temp = mesh.normal[offset + 0];
+            mesh.normal[offset + 0] = mesh.normal[offset + 4];
+            mesh.normal[offset + 4] = temp;
+            temp = mesh.normal[offset + 1];
+            mesh.normal[offset + 1] = mesh.normal[offset + 5];
+            mesh.normal[offset + 5] = temp;
+            temp = mesh.normal[offset + 2];
+            mesh.normal[offset + 2] = mesh.normal[offset + 6];
+            mesh.normal[offset + 6] = temp;
+            temp = mesh.normal[offset + 3];
+            mesh.normal[offset + 3] = mesh.normal[offset + 7];
+            mesh.normal[offset + 7] = temp;
+        }
+    }
+    mesh.position;
     if (mesh.normal) {
         for (let i = 0, l = mesh.normal.length; i < l; i++) {
             mesh.normal[i] = -mesh.normal[i];
@@ -8616,11 +8662,14 @@ class PointLight extends Light {
 const ambientLightSize = 4 * 4;
 const structPosDirLightSize = 8 * 4;
 const structSpotLightLightSize = 16 * 4;
-const posdirLightsNumber = 8;
-const spotLightsNumber = 4;
-const spotLightOffset = ambientLightSize + posdirLightsNumber * structPosDirLightSize;
-const uWorldLightBufferSize = spotLightOffset + spotLightsNumber * structSpotLightLightSize;
-const lightCode = `
+let spotLightOffset;
+let uWorldLightBufferSize;
+function _initLightShader(config) {
+    const posdirLightsNumber = config?.posdirLightsNumber ?? 8;
+    const spotLightsNumber = config?.spotLightsNumber ?? 4;
+    spotLightOffset = ambientLightSize + posdirLightsNumber * structPosDirLightSize;
+    uWorldLightBufferSize = spotLightOffset + spotLightsNumber * structSpotLightLightSize;
+    const lightCode = `
 struct PosDirLight{
     density: vec4<f32>,
     pos_dir: vec4<f32>,
@@ -8647,7 +8696,6 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
 }
 @group(1) @binding(0) var<uniform> uWorldLight: WorldLight;
 `;
-function _initLightShader() {
     return { posdirLightsNumber, spotLightsNumber, lightCode, uWorldLightBufferSize };
 }
 function _updateWorldLight(r) {
@@ -8709,13 +8757,14 @@ class Renderer {
     setBackgroudColor(color) {
         this.core.setScreenClearColor(color);
     }
-    async init() {
+    async init(config) {
         this.gpu = await new GPU().init();
         if (!this.gpu) {
             console.error("No availiable GPU device found. Please check whether WebGPU is enabled on your browser.");
             return null;
         }
         await this.core.init(this.gpu, this.gpu.getContext(this.canvas));
+        this.lightShaderInfomation = _initLightShader(config);
         this.uCamMatBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, (4 * 5 * 2) * 4, "uCamMat");
         this.uWorldLightBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, this.lightShaderInfomation.uWorldLightBufferSize, "uWorldLight");
         this.core.setSize({ width: this.canvas.width * devicePixelRatio, height: this.canvas.height * devicePixelRatio });
@@ -9483,6 +9532,16 @@ class UVWVec4Input extends MaterialNode {
         super("vary.uvw");
     }
 }
+class WorldCoordVec4Input extends MaterialNode {
+    getCode(r, root, outputToken) {
+        root.addVary("pos");
+        return `
+                let ${outputToken} = vary.pos;`;
+    }
+    constructor() {
+        super("vary.pos");
+    }
+}
 class Vec4TransformNode extends MaterialNode {
     getCode(r, root, outputToken) {
         let input = this.getInputCode(r, root, outputToken);
@@ -9629,6 +9688,7 @@ var four = /*#__PURE__*/Object.freeze({
     ConvexHullGeometry: ConvexHullGeometry,
     SkyBox: SkyBox,
     SimpleSkyBox: SimpleSkyBox,
+    MaterialNode: MaterialNode,
     Material: Material$1,
     ColorUniformValue: ColorUniformValue,
     Vec4UniformValue: Vec4UniformValue,
@@ -9640,6 +9700,7 @@ var four = /*#__PURE__*/Object.freeze({
     CheckerTexture: CheckerTexture,
     GridTexture: GridTexture,
     UVWVec4Input: UVWVec4Input,
+    WorldCoordVec4Input: WorldCoordVec4Input,
     Vec4TransformNode: Vec4TransformNode,
     NoiseWGSLHeader: NoiseWGSLHeader,
     NoiseTexture: NoiseTexture

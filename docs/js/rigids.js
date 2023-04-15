@@ -238,7 +238,7 @@ var st_pile;
             [0.9, 0.1, 0.1, 1], [0.7, 0.0, 1.0, 1], [0.5, 0.5, 0.5, 1], [0, 0.9, 0, 1],
         ].map(color => new FOUR.PhongMaterial(new FOUR.CheckerTexture(color, [1, 1, 1, 1], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new math.Obj4(null, null, new math.Vec4(0, 0, 10, 0))))));
         const renderMatRoom = new FOUR.LambertMaterial([0.8, 0.6, 0.3, 0.08]);
-        renderMatRoom.cullMode = "back";
+        // renderMatRoom.cullMode = "back";
         const roomSize = 2.5;
         // floor
         world.add(new phy.Rigid({
@@ -927,7 +927,7 @@ async function loadMaxwell(cb) {
     const phyMatGround = new phy.Material(1, 0.8);
     // define render materials
     const renderMatGround = new FOUR.LambertMaterial([0.2, 1, 0.2, 0.03]);
-    renderMatGround.cullMode = "back";
+    // renderMatGround.cullMode = "back";
     const roomSize = 6;
     // floor
     world.add(new phy.Rigid({

@@ -1448,6 +1448,11 @@ declare class UVWVec4Input extends MaterialNode {
     getCode(r: Renderer, root: Material$1, outputToken: string): string;
     constructor();
 }
+declare class WorldCoordVec4Input extends MaterialNode {
+    output: "vec4";
+    getCode(r: Renderer, root: Material$1, outputToken: string): string;
+    constructor();
+}
 declare class Vec4TransformNode extends MaterialNode {
     output: "vec4";
     input: {
@@ -1592,6 +1597,10 @@ declare class PointLight extends Light {
     constructor(density: LightDensity);
 }
 
+interface RendererConfig {
+    posdirLightsNumber?: number;
+    spotLightsNumber?: number;
+}
 /** threejs like 4D lib */
 declare class Renderer {
     core: SliceRenderer;
@@ -1615,7 +1624,7 @@ declare class Renderer {
     private maxTetraNumInOnePass;
     constructor(canvas: HTMLCanvasElement);
     setBackgroudColor(color: GPUColor): void;
-    init(): Promise<this>;
+    init(config?: RendererConfig): Promise<this>;
     fetchPipelineName(identifier: string): string;
     fetchPipeline(identifier: string): TetraSlicePipeline | "compiling";
     pullPipeline(identifier: string, pipeline: TetraSlicePipeline | "compiling"): void;
@@ -1659,6 +1668,7 @@ type four_d_Light = Light;
 declare const four_d_Light: typeof Light;
 type four_d_AmbientLight = AmbientLight;
 declare const four_d_AmbientLight: typeof AmbientLight;
+type four_d_RendererConfig = RendererConfig;
 type four_d_Renderer = Renderer;
 declare const four_d_Renderer: typeof Renderer;
 type four_d_Scene = Scene;
@@ -1689,6 +1699,12 @@ type four_d_SkyBox = SkyBox;
 declare const four_d_SkyBox: typeof SkyBox;
 type four_d_SimpleSkyBox = SimpleSkyBox;
 declare const four_d_SimpleSkyBox: typeof SimpleSkyBox;
+type four_d_ColorOutputNode = ColorOutputNode;
+type four_d_Vec4OutputNode = Vec4OutputNode;
+type four_d_FloatOutputNode = FloatOutputNode;
+type four_d_TransformOutputNode = TransformOutputNode;
+type four_d_MaterialNode = MaterialNode;
+declare const four_d_MaterialNode: typeof MaterialNode;
 type four_d_ColorUniformValue = ColorUniformValue;
 declare const four_d_ColorUniformValue: typeof ColorUniformValue;
 type four_d_Vec4UniformValue = Vec4UniformValue;
@@ -1711,6 +1727,8 @@ type four_d_GridTexture = GridTexture;
 declare const four_d_GridTexture: typeof GridTexture;
 type four_d_UVWVec4Input = UVWVec4Input;
 declare const four_d_UVWVec4Input: typeof UVWVec4Input;
+type four_d_WorldCoordVec4Input = WorldCoordVec4Input;
+declare const four_d_WorldCoordVec4Input: typeof WorldCoordVec4Input;
 type four_d_Vec4TransformNode = Vec4TransformNode;
 declare const four_d_Vec4TransformNode: typeof Vec4TransformNode;
 declare const four_d_NoiseWGSLHeader: typeof NoiseWGSLHeader;
@@ -1723,6 +1741,7 @@ declare namespace four_d {
     four_d_SpotLight as SpotLight,
     four_d_Light as Light,
     four_d_AmbientLight as AmbientLight,
+    four_d_RendererConfig as RendererConfig,
     four_d_Renderer as Renderer,
     four_d_Scene as Scene,
     Object$1 as Object,
@@ -1739,6 +1758,11 @@ declare namespace four_d {
     four_d_ConvexHullGeometry as ConvexHullGeometry,
     four_d_SkyBox as SkyBox,
     four_d_SimpleSkyBox as SimpleSkyBox,
+    four_d_ColorOutputNode as ColorOutputNode,
+    four_d_Vec4OutputNode as Vec4OutputNode,
+    four_d_FloatOutputNode as FloatOutputNode,
+    four_d_TransformOutputNode as TransformOutputNode,
+    four_d_MaterialNode as MaterialNode,
     Material$1 as Material,
     four_d_ColorUniformValue as ColorUniformValue,
     four_d_Vec4UniformValue as Vec4UniformValue,
@@ -1752,6 +1776,7 @@ declare namespace four_d {
     four_d_CheckerTexture as CheckerTexture,
     four_d_GridTexture as GridTexture,
     four_d_UVWVec4Input as UVWVec4Input,
+    four_d_WorldCoordVec4Input as WorldCoordVec4Input,
     four_d_Vec4TransformNode as Vec4TransformNode,
     four_d_NoiseWGSLHeader as NoiseWGSLHeader,
     four_d_NoiseTexture as NoiseTexture,

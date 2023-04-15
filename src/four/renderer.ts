@@ -6,6 +6,10 @@ import { Material } from "./material";
 import { Vec3 } from "../math/algebra/vec3";
 import { Vec4 } from "../math/algebra/vec4";
 import { Plane } from "../math/geometry/primitive";
+export interface RendererConfig{
+    posdirLightsNumber?:number;
+    spotLightsNumber?:number;
+}
 /** threejs like 4D lib */
 export class Renderer {
     core: SliceRenderer;
@@ -27,13 +31,14 @@ export class Renderer {
     setBackgroudColor(color: GPUColor) {
         this.core.setScreenClearColor(color);
     }
-    async init() {
+    async init(config?:RendererConfig) {
         this.gpu = await new GPU().init();
         if (!this.gpu) {
             console.error("No availiable GPU device found. Please check whether WebGPU is enabled on your browser.");
             return null;
         }
         await this.core.init(this.gpu, this.gpu.getContext(this.canvas));
+        this.lightShaderInfomation = _initLightShader(config);
         this.uCamMatBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, (4 * 5 * 2) * 4, "uCamMat");
         this.uWorldLightBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, this.lightShaderInfomation.uWorldLightBufferSize, "uWorldLight");
         this.core.setSize({ width: this.canvas.width * devicePixelRatio, height: this.canvas.height * devicePixelRatio });

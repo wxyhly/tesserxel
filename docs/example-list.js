@@ -18,6 +18,7 @@ let examples = [
             { target: "instanced_cubes", zh: "实例化多方块", en: "Instanced Hypercubes" },
             { target: "city_highway", zh: "城市高速", en: "City Highway" },
             { target: "navigation", zh: "四维星球导航", en: "Navigation On 4D Planet" },
+            { target: "backrooms", zh: "后室", en: "Backrooms" },
         ]
     },
     {
@@ -60,7 +61,7 @@ let examples = [
         ]
     },
     {
-        group: "dev", zh: "开发示例", en: "Develop Examples",
+        group: "dev", zh: "开发示例", en: "Coding Examples",
         child: [
             {
                 group: "dev", zh: "你好四面体", en: "Hello Tetrahedron",
@@ -130,6 +131,10 @@ let info = {
     "city_highway": {
         "zh": "四维世界的地面是三维的，人们可以在三维地面上修建城市与空间曲线道路。这是一条单边4x3车道的双向道路。",
         "en": "The ground of 4D world is three dimensional, where inhabitants could build city and road by spatial curve. This is a two-way road of 4x3 lanes on each side."
+    },
+    "navigation": {
+        "zh": "将尺寸比例缩小、时间快进的四维星球。该星球为双旋转，视野中的指南针为一个被水平固定的磁偶极子，它将在与赤道平行的简单地磁偶极场中受力偏转来帮助您找到方向。下方标注了当地的太阳高度角余弦年度曲线，双旋转导致北极与南极的昼夜更替速度不同。按P键可以暂停时间流逝。",
+        "en": "Not translated yet."
     },
     "four_basic_scene": {
         "zh": "使用FOUR绘制一个红色双旋转超立方体。类似于3D渲染中的ThreeJs库与WebGl，tesserxel中的子库Four能够帮您隐藏底层渲染逻辑，快速构建四维场景。详见源码FourBasicScene.ts。",

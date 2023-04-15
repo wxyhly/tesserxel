@@ -1,7 +1,7 @@
 import { Vec3 } from "../math/algebra/vec3";
 import { Vec4 } from "../math/algebra/vec4";
 import { _DEG2RAD } from "../math/const";
-import { Renderer } from "./renderer";
+import { Renderer, RendererConfig } from "./renderer";
 import { Object } from "./scene";
 
 type LightDensity = { r: number, g: number, b: number } | Vec3 | number[] | number;
@@ -66,11 +66,14 @@ export class PointLight extends Light {
 const ambientLightSize = 4 * 4;
 const structPosDirLightSize = 8 * 4;
 const structSpotLightLightSize = 16 * 4;
-const posdirLightsNumber = 8;
-const spotLightsNumber = 4;
-const spotLightOffset = ambientLightSize + posdirLightsNumber * structPosDirLightSize;
-const uWorldLightBufferSize = spotLightOffset + spotLightsNumber * structSpotLightLightSize;
-const lightCode = `
+let spotLightOffset: number;
+let uWorldLightBufferSize: number;
+export function _initLightShader(config?: RendererConfig) {
+    const posdirLightsNumber = config?.posdirLightsNumber ?? 8;
+    const spotLightsNumber = config?.spotLightsNumber ?? 4;
+    spotLightOffset = ambientLightSize + posdirLightsNumber * structPosDirLightSize;
+    uWorldLightBufferSize = spotLightOffset + spotLightsNumber * structSpotLightLightSize;
+    const lightCode = `
 struct PosDirLight{
     density: vec4<f32>,
     pos_dir: vec4<f32>,
@@ -97,7 +100,6 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
 }
 @group(1) @binding(0) var<uniform> uWorldLight: WorldLight;
 `;
-export function _initLightShader() {
     return { posdirLightsNumber, spotLightsNumber, lightCode, uWorldLightBufferSize };
 }
 export function _updateWorldLight(r: Renderer) {

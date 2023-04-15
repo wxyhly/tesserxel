@@ -6,13 +6,13 @@ import { Renderer } from "./renderer";
 import { Geometry } from "./scene";
 import { _generateVertShader } from "./vertexshader";
 
-type ColorOutputNode = MaterialNode & { output: "color" };
-type Vec4OutputNode = MaterialNode & { output: "vec4" };
-type FloatOutputNode = MaterialNode & { output: "f32" };
-type TransformOutputNode = MaterialNode & { output: "affineMat4" };
+export type ColorOutputNode = MaterialNode & { output: "color" };
+export type Vec4OutputNode = MaterialNode & { output: "vec4" };
+export type FloatOutputNode = MaterialNode & { output: "f32" };
+export type TransformOutputNode = MaterialNode & { output: "affineMat4" };
 
 /** An iterative structure for Material */
-class MaterialNode {
+export class MaterialNode {
     identifier: string;
     input: { [name: string]: MaterialNode } = {};
     output: string;
@@ -464,6 +464,17 @@ export class UVWVec4Input extends MaterialNode {
     }
     constructor() {
         super("vary.uvw");
+    }
+}
+export class WorldCoordVec4Input extends MaterialNode {
+    declare output: "vec4";
+    getCode(r: Renderer, root: Material, outputToken: string) {
+        root.addVary("pos");
+        return `
+                let ${outputToken} = vary.pos;`;
+    }
+    constructor() {
+        super("vary.pos");
     }
 }
 export class Vec4TransformNode extends MaterialNode {

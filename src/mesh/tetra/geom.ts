@@ -106,6 +106,28 @@ export function tesseract(): TetraMesh {
     return m;
 }
 export function inverseNormal(mesh: TetraMesh): TetraMesh {
+    let count = mesh.count ?? mesh.position.length >> 4;
+    let temp: number;
+    for (let i = 0; i < count; i++) {
+        let offset = i << 4;
+        temp = mesh.position[offset + 0]; mesh.position[offset + 0] = mesh.position[offset + 4]; mesh.position[offset + 4] = temp;
+        temp = mesh.position[offset + 1]; mesh.position[offset + 1] = mesh.position[offset + 5]; mesh.position[offset + 5] = temp;
+        temp = mesh.position[offset + 2]; mesh.position[offset + 2] = mesh.position[offset + 6]; mesh.position[offset + 6] = temp;
+        temp = mesh.position[offset + 3]; mesh.position[offset + 3] = mesh.position[offset + 7]; mesh.position[offset + 7] = temp;
+        if (mesh.uvw) {
+            temp = mesh.uvw[offset + 0]; mesh.uvw[offset + 0] = mesh.uvw[offset + 4]; mesh.uvw[offset + 4] = temp;
+            temp = mesh.uvw[offset + 1]; mesh.uvw[offset + 1] = mesh.uvw[offset + 5]; mesh.uvw[offset + 5] = temp;
+            temp = mesh.uvw[offset + 2]; mesh.uvw[offset + 2] = mesh.uvw[offset + 6]; mesh.uvw[offset + 6] = temp;
+            temp = mesh.uvw[offset + 3]; mesh.uvw[offset + 3] = mesh.uvw[offset + 7]; mesh.uvw[offset + 7] = temp;
+        }
+        if (mesh.normal) {
+            temp = mesh.normal[offset + 0]; mesh.normal[offset + 0] = mesh.normal[offset + 4]; mesh.normal[offset + 4] = temp;
+            temp = mesh.normal[offset + 1]; mesh.normal[offset + 1] = mesh.normal[offset + 5]; mesh.normal[offset + 5] = temp;
+            temp = mesh.normal[offset + 2]; mesh.normal[offset + 2] = mesh.normal[offset + 6]; mesh.normal[offset + 6] = temp;
+            temp = mesh.normal[offset + 3]; mesh.normal[offset + 3] = mesh.normal[offset + 7]; mesh.normal[offset + 7] = temp;
+        }
+    }
+    mesh.position
     if (mesh.normal) {
         for (let i = 0, l = mesh.normal.length; i < l; i++) {
             mesh.normal[i] = -mesh.normal[i];

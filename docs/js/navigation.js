@@ -57,12 +57,15 @@ var navigation;
         terrainGen(planet.child);
         const compassLongueur = 0.09;
         const compassThickness = 0.01;
-        const compassMeshMG = new four.Mesh(new four.TesseractGeometry(new math.Vec4(compassLongueur, compassThickness, compassThickness, compassThickness)), new four.LambertMaterial([1, 0, 1, 1]));
+        const compassMeshMG = new four.Mesh(new four.TesseractGeometry(new math.Vec4(compassLongueur, compassThickness, compassThickness, compassThickness)), new four.LambertMaterial([1, 1, 0, 1]));
         const compassMeshWE = new four.Mesh(new four.TesseractGeometry(new math.Vec4(compassThickness, compassThickness, compassLongueur, compassThickness)), new four.LambertMaterial([0, 1, 1, 1]));
-        const compassMeshNS = new four.Mesh(new four.TesseractGeometry(new math.Vec4(compassThickness, compassThickness, compassThickness, compassLongueur)), new four.LambertMaterial([1, 1, 0, 1]));
+        const compassMeshN = new four.Mesh(new four.TesseractGeometry(new math.Vec4(compassThickness, compassThickness, compassThickness, compassLongueur / 2)), new four.LambertMaterial([1, 0, 0, 1]));
+        compassMeshN.position.w += compassLongueur / 2;
+        const compassMeshS = new four.Mesh(new four.TesseractGeometry(new math.Vec4(compassThickness, compassThickness, compassThickness, compassLongueur / 2)), new four.LambertMaterial([0, 0, 1, 1]));
+        compassMeshS.position.w -= compassLongueur / 2;
         const compassMeshCenter = new four.Mesh(new four.TesseractGeometry(compassThickness * 1.3), new four.LambertMaterial([1, 1, 1, 1]));
         const compassMesh = new four.Object();
-        compassMesh.add(compassMeshNS, compassMeshWE, compassMeshMG, compassMeshCenter);
+        compassMesh.add(compassMeshN, compassMeshS, compassMeshWE, compassMeshMG, compassMeshCenter);
         const camera = new four.Camera();
         scene.add(camera);
         scene.add(compassMesh);
@@ -72,7 +75,7 @@ var navigation;
         compassMesh.alwaysUpdateCoord = true;
         scene.add(sunLight);
         scene.add(new four.AmbientLight([0.2, 0.2, 0.24]));
-        camera.position.y = planetRadius + 1.0;
+        camera.position.y = planetRadius + 0.3;
         const canvas = document.getElementById("gpu-canvas");
         const renderer = await new four.Renderer(canvas).init();
         renderer.core.setOpacity(20);
@@ -81,7 +84,8 @@ var navigation;
         renderer.setBackgroudColor([1, 1, 1, 1]);
         const retinaController = new util.ctrl.RetinaController(renderer.core);
         const camController = new util.ctrl.FreeFlyController(camera);
-        const controllerRegistry = new util.ctrl.ControllerRegistry(canvas, [retinaController, camController], { preventDefault: true, enablePointerLock: true });
+        const timeCtrl = new TimeCtrl();
+        const controllerRegistry = new util.ctrl.ControllerRegistry(canvas, [retinaController, camController, timeCtrl], { preventDefault: true, enablePointerLock: true });
         const gui = new GUI();
         function setSize() {
             const width = window.innerWidth * window.devicePixelRatio;
@@ -96,7 +100,8 @@ var navigation;
         let time = 0;
         function run() {
             controllerRegistry.update();
-            time += controllerRegistry.states.mspf / 6000;
+            if (!timeCtrl.timePaused)
+                time += controllerRegistry.states.mspf / 6000;
             sunLight.direction = solar_sys.getRelSunPos(time);
             skyBox.setSunPosition(sunLight.direction);
             // calculate camera's and world's y-w planes, whether they are aligned
@@ -106,6 +111,11 @@ var navigation;
             const B = cw.wedge(camera.position).norms();
             // use AxB to align it
             camera.rotation.mulsl(A.cross(B).mulfs(-0.5).exp());
+            // if camera try to enter the earth, push it out
+            let height = camera.position.norm();
+            if (height < planetRadius * 1.025) {
+                camera.position.mulfs(1 + (planetRadius * 1.025 - height) * 0.05);
+            }
             gui.update(time, camera, solar_sys);
             compass_sys.tick(camera, compassMesh);
             renderer.render(scene, camera);
@@ -123,6 +133,15 @@ var navigation;
             const biv = this.objectAxis.rotate(this.object.rotation).wedge(this.alignAxis);
             this.object.torque.addmulfs(biv, this.stiffness);
         }
+    }
+    class TimeCtrl {
+        update(state) {
+            if (state.isKeyHold(".KeyP")) {
+                this.timePaused = !this.timePaused;
+            }
+        }
+        timePaused = false;
+        enabled = true;
     }
     class CompassSystem {
         world;
@@ -285,11 +304,11 @@ var navigation;
             return vec2<f32>(-b - test,-b + test);
         }
         
-        fn computeIncidentLight(orig: vec4<f32>, dir: vec4<f32>,  tmin:f32, tmax:f32, sunDirection:vec4<f32>) ->vec3<f32>{
+        fn computeIncidentLight(orig: vec4<f32>, dir: vec4<f32>,  tmin:f32, tmax:f32, sunDirection:vec4<f32>) ->vec4<f32>{
             var vtmin = tmin;
             var vtmax = tmax;
             let intres = raySphereIntersect(orig, dir, Ra);
-            if (intres.y < 0.0) {return vec3<f32>(0.0);}
+            if (intres.y < 0.0) {return vec4<f32>(0.0);}
             if (intres.x > vtmin && intres.x > 0.0){ vtmin = intres.x;}
             if (intres.y < vtmax) {vtmax = intres.y;}
             let segmentLength = (vtmax - vtmin) / ${SAMPLES}.0;
@@ -334,18 +353,18 @@ var navigation;
                 }
                 tCurrent += segmentLength;
             }
-            return ((sumR * betaR + phaseSun * vec3<f32>(1.0,0.9,0.6))* phaseR + sumM * betaM * phaseM) *${SUN_INTENSITY};
+            return vec4<f32>(((sumR * betaR + phaseSun * vec3<f32>(1.0,0.9,0.6))* phaseR + sumM * betaM * phaseM) *${SUN_INTENSITY},0.09+phaseSun);
         }
         
         @fragment fn mainFragment(@location(0) pos: vec4<f32>, @location(1) dir: vec4<f32>, @location(2) coord: vec3<f32>)->fOut{          
-            let ro = pos * (Re / ${planetRadius * 0.99});// vec4<f32>(0.0, Re+30.0, 0.0,0.0);
+            let ro = pos * (Re / ${planetRadius * 0.99});
             let rd = normalize(dir);
             let intres = raySphereIntersect(ro, rd, Re);
             var tMax:f32 = 1000000.0;
             if (intres.x > 0.0) {
                 tMax = intres.x;
             }
-            return fOut(vec4<f32>(computeIncidentLight(ro, rd, 0.0, tMax, sunDir),0.09),0.999999);
+            return fOut(computeIncidentLight(ro, rd, 0.0, tMax, sunDir),0.999999);
         }`,
                 rayEntryPoint: "mainRay",
                 fragmentEntryPoint: "mainFragment"
