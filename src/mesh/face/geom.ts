@@ -1,8 +1,47 @@
 import { Vec2 } from "../../math/algebra/vec2";
 import { Vec4 } from "../../math/algebra/vec4";
+import { _360 } from "../../math/const";
 import { FaceIndexMesh } from "./facemesh";
 export function sphere(u, v) {
 
+}
+export function polygon(points: Vec4[]) {
+    //todo: concave polygon
+    const len = points.length;
+    if (len < 3) console.error(`Polygon must have at least 3 points, ${len} points found`);
+    const ret = {
+        position: new Float32Array(len << 2),
+        uvw: new Float32Array(len << 2),
+        triangle: {
+            position: new Uint32Array(len * 3 - 6),
+            uvw: new Uint32Array(len * 3 - 6),
+            count: len - 2
+        }
+    };
+    let offset = 0;
+    for (let i = 0; i < len; i++) {
+        points[i].writeBuffer(ret.position, i << 2);
+        points[i].writeBuffer(ret.uvw, i << 2);
+        if (i > 1) {
+            ret.triangle.position[offset++] = 0;
+            ret.triangle.position[offset++] = i;
+            ret.triangle.position[offset++] = i - 1;
+            offset -= 3;
+            ret.triangle.uvw[offset++] = 0;
+            ret.triangle.uvw[offset++] = i;
+            ret.triangle.uvw[offset++] = i - 1;
+        }
+    }
+    ret.position
+    return ret;
+}
+export function circle(radius: number, segment: number) {
+    return polygon(new Array(segment).fill(0).map((_, i) =>
+        new Vec4(
+            Math.cos(i / segment * _360) * radius,
+            Math.sin(i / segment * _360) * radius,
+        )
+    ));
 }
 export function parametricSurface(
     fn: (inputuvw: Vec2, outputPosition: Vec4, outputNormal: Vec4) => void,

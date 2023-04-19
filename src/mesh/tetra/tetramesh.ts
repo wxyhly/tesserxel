@@ -153,7 +153,7 @@ export function concatarr(meshes: TetraMesh[]): TetraMesh {
         hasNormal = hasNormal && (meshes[i].normal ? true : false);
     }
     let position = new Float32Array(length);
-    let ret: TetraMesh = { position, count: length << 4 };
+    let ret: TetraMesh = { position, count: length >> 4 };
     let normal: Float32Array, uvw: Float32Array;
     if (hasNormal) {
         normal = new Float32Array(length);
@@ -185,4 +185,24 @@ export function clone(mesh: TetraMesh): TetraMesh {
     if (mesh.normal) ret.normal = mesh.normal.slice(0);
     return ret;
 }
-
+export function deleteTetras(mesh: TetraMesh, tetras: number[]): TetraMesh {
+    let count = mesh.count ?? (mesh.position?.length >> 4);
+    let newCount = (count - tetras.length) << 4;
+    let p = new Float32Array(newCount);
+    let n: Float32Array;
+    let u: Float32Array;
+    if (mesh.normal) n = new Float32Array(newCount);
+    if (mesh.uvw) u = new Float32Array(newCount);
+    let offset = 0;
+    for (let i = 0; i < mesh.count; i++) {
+        if (!tetras.includes(i)) {
+            p.set(mesh.position.subarray(i << 4, (i + 1) << 4), offset);
+            if (n) n.set(mesh.normal.subarray(i << 4, (i + 1) << 4), offset);
+            if (u) u.set(mesh.uvw.subarray(i << 4, (i + 1) << 4), offset);
+            offset += 16;
+        }
+    }
+    return {
+        position: p, normal: n, uvw: u, count: newCount >> 4
+    }
+}

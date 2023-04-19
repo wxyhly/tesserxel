@@ -33,6 +33,7 @@ export class Object extends Obj4 {
     worldCoord: AffineMat4;
     needsUpdateCoord = true;
     alwaysUpdateCoord = false;
+    visible = true;
     constructor() {
         super();
         this.worldCoord = new AffineMat4();
@@ -65,7 +66,6 @@ export class Mesh extends Object {
     material: Material;
     uObjMatBuffer: GPUBuffer;
     bindGroup: GPUBindGroup;
-    visible = true;
     constructor(geometry: Geometry, material: Material) {
         super();
         this.geometry = geometry;
@@ -214,15 +214,23 @@ export abstract class SkyBox {
     }
 }
 export class SimpleSkyBox extends SkyBox {
-    readonly bufferSize = 4;
+    readonly bufferSize = 8;
     constructor() {
         super();
         this.jsBuffer = new Float32Array(this.bufferSize);
         this.setSunPosition(new Vec4(0.2, 0.9, 0.1, 0.3).norms());
+        this.setOpacity(0.2);
     }
     setSunPosition(pos: Vec4) {
         this.needsUpdate = true;
         pos.writeBuffer(this.jsBuffer);
+    }
+    setOpacity(o: number) {
+        this.needsUpdate = true;
+        this.jsBuffer[4] = o;
+    }
+    getOpacity(){
+        return this.jsBuffer[4];
     }
     getSunPosition() {
         return new Vec4(this.jsBuffer[0], this.jsBuffer[1], this.jsBuffer[2], this.jsBuffer[3]);
@@ -230,8 +238,12 @@ export class SimpleSkyBox extends SkyBox {
     getShaderCode(): RaytracingPipelineDescriptor {
         return {
             code: `
+        struct UIn{
+            sunDir: vec4<f32>,
+            opacity: f32
+        }
         @group(1) @binding(0) var<uniform> camMat: AffineMat;
-        @group(1) @binding(1) var<uniform> sunDir: vec4<f32>;
+        @group(1) @binding(1) var<uniform> uIn: UIn;
         ${SkyBox.commonCode}
         const betaR = vec3<f32>(1.95e-2, 1.1e-1, 2.94e-1); 
         const betaM = vec3<f32>(4e-2, 4e-2, 4e-2);
@@ -247,8 +259,8 @@ export class SimpleSkyBox extends SkyBox {
             // optical depth -> zenithAngle
             let sR = RayleighAtt / t ;
             let sM = MieAtt / t ;
-            let cosine = clamp(dot(D,normalize(sunDir)),0.0,1.0);
-            let cosine2 =dot(D,normalize(sunDir))+1.0;
+            let cosine = clamp(dot(D,normalize(uIn.sunDir)),0.0,1.0);
+            let cosine2 =dot(D,normalize(uIn.sunDir))+1.0;
             let extinction = exp(-(betaR * sR + betaM * sM));
 
             // scattering phase
@@ -269,7 +281,7 @@ export class SimpleSkyBox extends SkyBox {
             return ACESFilm(color);
         }
         @fragment fn mainFragment(@location(0) ro: vec4<f32>, @location(1) rd: vec4<f32>, @location(2) coord: vec3<f32>)->fOut{            
-            return fOut(vec4<f32>(sky(rd),0.1),0.999999);
+            return fOut(vec4<f32>(sky(rd),uIn.opacity),0.999999);
         }`,
             rayEntryPoint: "mainRay",
             fragmentEntryPoint: "mainFragment"

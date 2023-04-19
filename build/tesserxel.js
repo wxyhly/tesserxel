@@ -2443,7 +2443,7 @@ class Obj4 {
     position;
     rotation;
     scale;
-    constructor(position = new Vec4(), rotation = new Rotor(), scale) {
+    constructor(position, rotation, scale) {
         this.position = position ?? new Vec4();
         this.rotation = rotation ?? new Rotor();
         this.scale = scale;
@@ -2749,6 +2749,30 @@ class Spline {
         let z = p0.z + t * (d0.z + t * (B.z + t * A.z));
         let w = p0.w + t * (d0.w + t * (B.w + t * A.w));
         return new Vec4(x, y, z, w);
+    }
+    getPositionAtLength(s, data) {
+        let i = 0;
+        for (; i < data.curveLength.length; i++) {
+            if (data.curveLength[i] > s) {
+                break;
+            }
+        }
+        let a = data.curveLength[i - 1];
+        let b = data.curveLength[i];
+        let ratio = (s - a) / (b - a);
+        return data.points[i - 1].mulf(1 - ratio).addmulfs(data.points[i], ratio);
+    }
+    getObj4AtLength(s, data) {
+        let i = 0;
+        for (; i < data.curveLength.length; i++) {
+            if (data.curveLength[i] > s) {
+                break;
+            }
+        }
+        let a = data.curveLength[i - 1];
+        let b = data.curveLength[i];
+        let ratio = (s - a) / (b - a);
+        return new Obj4(data.points[i - 1].mulf(1 - ratio).addmulfs(data.points[i], ratio), Rotor.slerp(data.rotors[i - 1], data.rotors[i], ratio));
     }
 }
 
@@ -6785,8 +6809,375 @@ function toNonIndexMesh$1(m) {
     }
     return out;
 }
+function clone$1(mesh) {
+    let ret = {};
+    if (mesh.quad) {
+        ret.quad = {
+            position: mesh.quad.position.slice(0)
+        };
+        if (mesh.quad.count)
+            ret.quad.count = mesh.quad.count;
+        if (mesh.quad.normal)
+            ret.quad.normal = mesh.quad.normal.slice(0);
+        if (mesh.quad.uvw)
+            ret.quad.uvw = mesh.quad.uvw.slice(0);
+    }
+    if (mesh.triangle) {
+        ret.triangle = {
+            position: mesh.triangle.position.slice(0)
+        };
+        if (mesh.triangle.count)
+            ret.triangle.count = mesh.triangle.count;
+        if (mesh.triangle.normal)
+            ret.triangle.normal = mesh.triangle.normal.slice(0);
+        if (mesh.triangle.uvw)
+            ret.triangle.uvw = mesh.triangle.uvw.slice(0);
+    }
+    if (mesh.position) {
+        let m = mesh;
+        let ret1 = ret;
+        ret1.position = m.position.slice(0);
+        if (m.uvw)
+            ret1.uvw = m.uvw.slice(0);
+        if (m.normal)
+            ret1.normal = m.normal.slice(0);
+    }
+    return ret;
+}
+function applyAffineMat4$1(m, am) {
+    let vp = new Vec4();
+    if (m.position) {
+        const mesh = m;
+        for (let i = 0; i < mesh.position.length; i += 4) {
+            vp.set(mesh.position[i], mesh.position[i + 1], mesh.position[i + 2], mesh.position[i + 3]).mulmatls(am.mat).adds(am.vec).writeBuffer(mesh.position, i);
+            if (mesh.normal) {
+                vp.set(mesh.normal[i], mesh.normal[i + 1], mesh.normal[i + 2], mesh.normal[i + 3]).mulmatls(am.mat).writeBuffer(mesh.position, i);
+            }
+        }
+        return mesh;
+    }
+    else {
+        const mesh = m;
+        let position = mesh.triangle?.position;
+        for (let i = 0; i < position?.length; i += 4) {
+            vp.set(position[i], position[i + 1], position[i + 2], position[i + 3]).mulmatls(am.mat).adds(am.vec).writeBuffer(position, i);
+            let normal = mesh.triangle?.normal;
+            if (normal) {
+                vp.set(normal[i], normal[i + 1], normal[i + 2], normal[i + 3]).mulmatls(am.mat).writeBuffer(normal, i);
+            }
+        }
+        position = mesh.quad?.position;
+        for (let i = 0; i < position?.length; i += 4) {
+            vp.set(position[i], position[i + 1], position[i + 2], position[i + 3]).mulmatls(am.mat).adds(am.vec).writeBuffer(position, i);
+            let normal = mesh.quad?.normal;
+            if (normal) {
+                vp.set(normal[i], normal[i + 1], normal[i + 2], normal[i + 3]).mulmatls(am.mat).writeBuffer(normal, i);
+            }
+        }
+        return mesh;
+    }
+}
+function applyObj4$1(mesh, obj) {
+    let vp = new Vec4();
+    let scaleinv;
+    if (obj.scale && (mesh.normal || mesh.quad?.normal || mesh.triangle?.normal)) {
+        scaleinv = new Vec4(1 / obj.scale.x, 1 / obj.scale.y, 1 / obj.scale.z, 1 / obj.scale.w);
+    }
+    if (mesh.position) {
+        const m = mesh;
+        for (let i = 0; i < m.position.length; i += 4) {
+            if (obj.scale) {
+                vp.set(m.position[i] * obj.scale.x, m.position[i + 1] * obj.scale.y, m.position[i + 2] * obj.scale.z, m.position[i + 3] * obj.scale.w).rotates(obj.rotation).adds(obj.position).writeBuffer(m.position, i);
+                if (m.normal) {
+                    vp.set(m.normal[i] * scaleinv.x, m.normal[i + 1] * scaleinv.y, m.normal[i + 2] * scaleinv.z, m.normal[i + 3] * scaleinv.w).rotates(obj.rotation).norms().writeBuffer(m.normal, i);
+                }
+            }
+            else {
+                vp.set(m.position[i], m.position[i + 1], m.position[i + 2], m.position[i + 3]).rotates(obj.rotation).adds(obj.position).writeBuffer(m.position, i);
+                if (m.normal) {
+                    vp.set(m.normal[i], m.normal[i + 1], m.normal[i + 2], m.normal[i + 3]).rotates(obj.rotation).writeBuffer(m.normal, i);
+                }
+            }
+        }
+    }
+    else {
+        for (let i = 0; i < mesh.quad.position.length; i += 4) {
+            if (obj.scale) {
+                vp.set(mesh.quad.position[i] * obj.scale.x, mesh.quad.position[i + 1] * obj.scale.y, mesh.quad.position[i + 2] * obj.scale.z, mesh.quad.position[i + 3] * obj.scale.w).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.quad.position, i);
+                if (mesh.quad.normal) {
+                    vp.set(mesh.quad.normal[i] * scaleinv.x, mesh.quad.normal[i + 1] * scaleinv.y, mesh.quad.normal[i + 2] * scaleinv.z, mesh.quad.normal[i + 3] * scaleinv.w).rotates(obj.rotation).norms().writeBuffer(mesh.quad.normal, i);
+                }
+            }
+            else {
+                vp.set(mesh.quad.position[i], mesh.quad.position[i + 1], mesh.quad.position[i + 2], mesh.quad.position[i + 3]).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.quad.position, i);
+                if (mesh.quad.normal) {
+                    vp.set(mesh.quad.normal[i], mesh.quad.normal[i + 1], mesh.quad.normal[i + 2], mesh.quad.normal[i + 3]).rotates(obj.rotation).writeBuffer(mesh.quad.normal, i);
+                }
+            }
+        }
+        for (let i = 0; i < mesh.triangle.position.length; i += 4) {
+            if (obj.scale) {
+                vp.set(mesh.triangle.position[i] * obj.scale.x, mesh.triangle.position[i + 1] * obj.scale.y, mesh.triangle.position[i + 2] * obj.scale.z, mesh.triangle.position[i + 3] * obj.scale.w).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.triangle.position, i);
+                if (mesh.triangle.normal) {
+                    vp.set(mesh.triangle.normal[i] * scaleinv.x, mesh.triangle.normal[i + 1] * scaleinv.y, mesh.triangle.normal[i + 2] * scaleinv.z, mesh.triangle.normal[i + 3] * scaleinv.w).rotates(obj.rotation).norms().writeBuffer(mesh.triangle.normal, i);
+                }
+            }
+            else {
+                vp.set(mesh.triangle.position[i], mesh.triangle.position[i + 1], mesh.triangle.position[i + 2], mesh.triangle.position[i + 3]).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.triangle.position, i);
+                if (mesh.triangle.normal) {
+                    vp.set(mesh.triangle.normal[i], mesh.triangle.normal[i + 1], mesh.triangle.normal[i + 2], mesh.triangle.normal[i + 3]).rotates(obj.rotation).writeBuffer(mesh.triangle.normal, i);
+                }
+            }
+        }
+    }
+    return mesh;
+}
+function concat$1(mesh1, mesh2) {
+    if (mesh1.position && !mesh2.position) {
+        console.error("cannot concat FaceIndexMesh with FaceMesh");
+    }
+    if (mesh2.position && !mesh1.position) {
+        console.error("cannot concat FaceMesh with FaceIndexMesh");
+    }
+    if (mesh1.position) {
+        // both are indexed
+        let m1 = mesh1;
+        let m2 = mesh2;
+        // f32 data concat
+        let position = new Float32Array(m1.position.length + m2.position.length);
+        position.set(m1.position);
+        position.set(m2.position, m1.position.length);
+        let ret = { position };
+        if (m1.normal && m2.normal) {
+            let normal = new Float32Array(m1.normal.length + m2.normal.length);
+            normal.set(m1.normal);
+            normal.set(m2.normal, m1.normal.length);
+            ret.normal = normal;
+        }
+        if (m1.uvw && m2.uvw) {
+            let uvw = new Float32Array(m1.uvw.length + m2.uvw.length);
+            uvw.set(m1.uvw);
+            uvw.set(m2.uvw, m1.uvw.length);
+            ret.uvw = uvw;
+        }
+        // index array concat
+        if (m1.quad || m2.quad) {
+            let quadCount1 = (m1.quad?.count << 2) || (m1.quad?.position?.length ?? 0);
+            let quadCount2 = (m1.quad?.count << 2) || (m1.quad?.position?.length ?? 0);
+            let quadCount = quadCount1 + quadCount2;
+            let qp = new Uint32Array(quadCount);
+            let hasN = !((m1.quad && !m1.quad.normal) || (m2.quad && !m2.quad.normal));
+            let hasU = !((m1.quad && !m1.quad.uvw) || (m2.quad && !m2.quad.uvw));
+            let qn = hasN ? new Uint32Array(quadCount) : null;
+            let qu = hasU ? new Uint32Array(quadCount) : null;
+            ret.quad = { position: qp, count: quadCount >> 2 };
+            if (m1.quad?.position) {
+                qp.set(m1.quad.position.subarray(0, quadCount1));
+                if (hasN) {
+                    qn.set(m1.quad.normal.subarray(0, quadCount1));
+                    ret.quad.normal = qn;
+                }
+                if (hasU) {
+                    qu.set(m1.quad.uvw.subarray(0, quadCount1));
+                    ret.quad.uvw = qu;
+                }
+            }
+            if (m2.quad?.position) {
+                qp.set(m2.quad.position.subarray(0, quadCount2), quadCount1);
+                if (hasN)
+                    qn.set(m2.quad.normal.subarray(0, quadCount2), quadCount1);
+                if (hasU)
+                    qu.set(m2.quad.uvw.subarray(0, quadCount2), quadCount1);
+                if (quadCount1) {
+                    for (let i = quadCount1; i < quadCount; i++) {
+                        qp[i] += m1.position.length >> 2;
+                        if (hasN)
+                            qn[i] += m1.normal.length >> 2;
+                        if (hasU)
+                            qu[i] += m1.uvw.length >> 2;
+                    }
+                }
+            }
+        }
+        if (m1.triangle || m2.triangle) {
+            let triangleCount1 = (m1.triangle?.count * 3) || (m1.triangle?.position?.length ?? 0);
+            let triangleCount2 = (m1.triangle?.count * 3) || (m1.triangle?.position?.length ?? 0);
+            let triangleCount = triangleCount1 + triangleCount2;
+            let qp = new Uint32Array(triangleCount);
+            let hasN = !((m1.triangle && !m1.triangle.normal) || (m2.triangle && !m2.triangle.normal));
+            let hasU = !((m1.triangle && !m1.triangle.uvw) || (m2.triangle && !m2.triangle.uvw));
+            let qn = hasN ? new Uint32Array(triangleCount) : null;
+            let qu = hasU ? new Uint32Array(triangleCount) : null;
+            ret.triangle = { position: qp, count: Math.round(triangleCount / 3) };
+            if (m1.triangle?.position) {
+                qp.set(m1.triangle.position.subarray(0, triangleCount1));
+                if (hasN) {
+                    qn.set(m1.triangle.normal.subarray(0, triangleCount1));
+                    ret.triangle.normal = qn;
+                }
+                if (hasU) {
+                    qu.set(m1.triangle.uvw.subarray(0, triangleCount1));
+                    ret.triangle.uvw = qu;
+                }
+            }
+            if (m2.triangle?.position) {
+                qp.set(m2.triangle.position.subarray(0, triangleCount2), triangleCount1);
+                if (hasN)
+                    qn.set(m2.triangle.normal.subarray(0, triangleCount2), triangleCount1);
+                if (hasU)
+                    qu.set(m2.triangle.uvw.subarray(0, triangleCount2), triangleCount1);
+                if (triangleCount1) {
+                    for (let i = triangleCount1; i < triangleCount; i++) {
+                        qp[i] += m1.position.length >> 2;
+                        if (hasN)
+                            qn[i] += m1.normal.length >> 2;
+                        if (hasU)
+                            qu[i] += m1.uvw.length >> 2;
+                    }
+                }
+            }
+        }
+        return ret;
+    }
+    else {
+        // both are not indexed
+        let m1 = mesh1;
+        let m2 = mesh2;
+        let quad_position = new Float32Array((m1.quad?.position?.length ?? 0) + (m2.quad?.position?.length ?? 0));
+        if (m1.quad?.position)
+            quad_position.set(m1.quad.position);
+        if (m2.quad?.position)
+            quad_position.set(m2.quad.position, m1.quad.position?.length ?? 0);
+        let tri_position = new Float32Array((m1.triangle?.position?.length ?? 0) + (m2.triangle?.position?.length ?? 0));
+        if (m1.triangle?.position)
+            tri_position.set(m1.triangle.position);
+        if (m2.triangle?.position)
+            tri_position.set(m2.triangle.position, m1.triangle.position?.length ?? 0);
+        let ret = {};
+        if (quad_position.length)
+            ret.quad = { position: quad_position };
+        if (tri_position.length)
+            ret.triangle = { position: tri_position };
+        if (m1.quad?.normal && m2.quad?.normal) {
+            let normal = new Float32Array((m1.quad?.normal?.length ?? 0) + (m2.quad?.normal?.length ?? 0));
+            if (m1.quad?.normal)
+                normal.set(m1.quad.normal);
+            if (m2.quad?.normal)
+                normal.set(m2.quad.normal, m1.quad?.normal?.length ?? 0);
+            ret.quad.normal = normal;
+        }
+        if (m1.triangle?.normal && m2.triangle?.normal) {
+            let normal = new Float32Array((m1.triangle?.normal?.length ?? 0) + (m2.triangle?.normal?.length ?? 0));
+            if (m1.triangle?.normal)
+                normal.set(m1.triangle.normal);
+            if (m2.triangle?.normal)
+                normal.set(m2.triangle.normal, m1.triangle?.normal?.length ?? 0);
+            ret.triangle.normal = normal;
+        }
+        if (m1.quad?.uvw && m2.quad?.uvw) {
+            let uvw = new Float32Array((m1.quad?.uvw?.length ?? 0) + (m2.quad?.uvw?.length ?? 0));
+            if (m1.quad?.uvw)
+                uvw.set(m1.quad.uvw);
+            if (m2.quad?.uvw)
+                uvw.set(m2.quad.uvw, m1.quad?.uvw?.length ?? 0);
+            ret.quad.uvw = uvw;
+        }
+        if (m1.triangle?.uvw && m2.triangle?.uvw) {
+            let uvw = new Float32Array((m1.triangle?.uvw?.length ?? 0) + (m2.triangle?.uvw?.length ?? 0));
+            if (m1.triangle?.uvw)
+                uvw.set(m1.triangle.uvw);
+            if (m2.triangle?.uvw)
+                uvw.set(m2.triangle.uvw, m1.triangle?.uvw?.length ?? 0);
+            ret.triangle.uvw = uvw;
+        }
+        return ret;
+    }
+}
+// todo
+// export function concatarr(meshes: (FaceMesh | FaceIndexMesh)[]): FaceMesh | FaceIndexMesh {
+//     let hasPosition = false;
+//     for (let i = 0; i < meshes.length; i++) {
+//         let cur = typeof (meshes[i] as FaceIndexMesh).position !== "undefined";
+//         if (i) {
+//             if (hasPosition !== cur) {
+//                 console.error("Meshes must all be indexed or non-indexed.");
+//                 return {};
+//             }
+//         }
+//         hasPosition = cur;
+//     }
+//     if (!meshes.length) return {};
+//     if ((meshes[0] as FaceIndexMesh).position) {
+//         let length = 0;
+//         let hasNormal = true;
+//         let hasUvw = true;
+//         const ms = meshes as FaceIndexMesh[];
+//         for (let i = 0; i < ms.length; i++) {
+//             length += ms[i].position.length;
+//             hasUvw = hasUvw && (ms[i].uvw ? true : false);
+//             hasNormal = hasNormal && (ms[i].normal ? true : false);
+//         }
+//         let position = new Float32Array(length);
+//         let ret: FaceIndexMesh = { position };
+//         let normal: Float32Array, uvw: Float32Array;
+//         if (hasNormal) {
+//             normal = new Float32Array(length);
+//             ret.normal = normal;
+//         }
+//         if (hasUvw) {
+//             uvw = new Float32Array(length);
+//             ret.uvw = uvw;
+//         }
+//         length = 0;
+//         for (let i = 0; i < meshes.length; i++) {
+//             position.set(meshes[i].position, length);
+//             if (hasNormal) {
+//                 normal.set(meshes[i].normal, length);
+//             }
+//             if (hasUvw) {
+//                 uvw.set(meshes[i].uvw, length);
+//             }
+//             length += meshes[i].position.length;
+//         }
+//         return ret;
+//     }
+// }
 
 function sphere(u, v) {
+}
+function polygon(points) {
+    //todo: concave polygon
+    const len = points.length;
+    if (len < 3)
+        console.error(`Polygon must have at least 3 points, ${len} points found`);
+    const ret = {
+        position: new Float32Array(len << 2),
+        uvw: new Float32Array(len << 2),
+        triangle: {
+            position: new Uint32Array(len * 3 - 6),
+            uvw: new Uint32Array(len * 3 - 6),
+            count: len - 2
+        }
+    };
+    let offset = 0;
+    for (let i = 0; i < len; i++) {
+        points[i].writeBuffer(ret.position, i << 2);
+        points[i].writeBuffer(ret.uvw, i << 2);
+        if (i > 1) {
+            ret.triangle.position[offset++] = 0;
+            ret.triangle.position[offset++] = i;
+            ret.triangle.position[offset++] = i - 1;
+            offset -= 3;
+            ret.triangle.uvw[offset++] = 0;
+            ret.triangle.uvw[offset++] = i;
+            ret.triangle.uvw[offset++] = i - 1;
+        }
+    }
+    ret.position;
+    return ret;
+}
+function circle(radius, segment) {
+    return polygon(new Array(segment).fill(0).map((_, i) => new Vec4(Math.cos(i / segment * _360) * radius, Math.sin(i / segment * _360) * radius)));
 }
 function parametricSurface$1(fn, uSegment, vSegment) {
     if (uSegment < 1)
@@ -6904,7 +7295,13 @@ var face = /*#__PURE__*/Object.freeze({
     __proto__: null,
     toIndexMesh: toIndexMesh$1,
     toNonIndexMesh: toNonIndexMesh$1,
+    clone: clone$1,
+    applyAffineMat4: applyAffineMat4$1,
+    applyObj4: applyObj4$1,
+    concat: concat$1,
     sphere: sphere,
+    polygon: polygon,
+    circle: circle,
     parametricSurface: parametricSurface$1,
     findBorder: findBorder
 });
@@ -7013,7 +7410,7 @@ function concatarr(meshes) {
         hasNormal = hasNormal && (meshes[i].normal ? true : false);
     }
     let position = new Float32Array(length);
-    let ret = { position, count: length << 4 };
+    let ret = { position, count: length >> 4 };
     let normal, uvw;
     if (hasNormal) {
         normal = new Float32Array(length);
@@ -7046,6 +7443,31 @@ function clone(mesh) {
     if (mesh.normal)
         ret.normal = mesh.normal.slice(0);
     return ret;
+}
+function deleteTetras(mesh, tetras) {
+    let count = mesh.count ?? (mesh.position?.length >> 4);
+    let newCount = (count - tetras.length) << 4;
+    let p = new Float32Array(newCount);
+    let n;
+    let u;
+    if (mesh.normal)
+        n = new Float32Array(newCount);
+    if (mesh.uvw)
+        u = new Float32Array(newCount);
+    let offset = 0;
+    for (let i = 0; i < mesh.count; i++) {
+        if (!tetras.includes(i)) {
+            p.set(mesh.position.subarray(i << 4, (i + 1) << 4), offset);
+            if (n)
+                n.set(mesh.normal.subarray(i << 4, (i + 1) << 4), offset);
+            if (u)
+                u.set(mesh.uvw.subarray(i << 4, (i + 1) << 4), offset);
+            offset += 16;
+        }
+    }
+    return {
+        position: p, normal: n, uvw: u, count: newCount >> 4
+    };
 }
 
 let cube = {
@@ -7190,6 +7612,14 @@ function inverseNormal(mesh) {
         for (let i = 0, l = mesh.normal.length; i < l; i++) {
             mesh.normal[i] = -mesh.normal[i];
         }
+    }
+    return mesh;
+}
+function setUVWAsPosition(mesh) {
+    if (!mesh.uvw)
+        mesh.uvw = mesh.position.slice(0);
+    else {
+        mesh.uvw.set(mesh.position);
     }
     return mesh;
 }
@@ -7839,7 +8269,7 @@ function loft(sp, section, step) {
                     let doffset = offset - 24;
                     pushTetra(doffset, 0, 1, 2, 3);
                     pushTetra(doffset, 1, 2, 3, 5);
-                    pushTetra(doffset, 3, 4, 5, 1);
+                    pushTetra(doffset, 3, 4, 1, 5);
                 }
             }
         }
@@ -7995,7 +8425,7 @@ function directProduct(shape1, shape2) {
                 let doffset = offset - 24;
                 pushTetra(doffset, 0, 1, 2, 3);
                 pushTetra(doffset, 1, 2, 3, 5);
-                pushTetra(doffset, 3, 4, 5, 1);
+                pushTetra(doffset, 3, 4, 1, 5);
             }
         }
     }
@@ -8093,7 +8523,7 @@ function directProduct(shape1, shape2) {
                 let doffset = offset - 24;
                 pushTetra(doffset, 0, 1, 2, 3);
                 pushTetra(doffset, 1, 2, 3, 5);
-                pushTetra(doffset, 3, 4, 5, 1);
+                pushTetra(doffset, 3, 4, 1, 5);
             }
         }
     }
@@ -8135,9 +8565,11 @@ var tetra = /*#__PURE__*/Object.freeze({
     concat: concat,
     concatarr: concatarr,
     clone: clone,
+    deleteTetras: deleteTetras,
     cube: cube,
     tesseract: tesseract,
     inverseNormal: inverseNormal,
+    setUVWAsPosition: setUVWAsPosition,
     hexadecachoron: hexadecachoron,
     glome: glome,
     spheritorus: spheritorus,
@@ -8363,6 +8795,7 @@ let Object$1 = class Object extends Obj4 {
     worldCoord;
     needsUpdateCoord = true;
     alwaysUpdateCoord = false;
+    visible = true;
     constructor() {
         super();
         this.worldCoord = new AffineMat4();
@@ -8396,7 +8829,6 @@ class Mesh extends Object$1 {
     material;
     uObjMatBuffer;
     bindGroup;
-    visible = true;
     constructor(geometry, material) {
         super();
         this.geometry = geometry;
@@ -8543,15 +8975,23 @@ class SkyBox {
     }
 }
 class SimpleSkyBox extends SkyBox {
-    bufferSize = 4;
+    bufferSize = 8;
     constructor() {
         super();
         this.jsBuffer = new Float32Array(this.bufferSize);
         this.setSunPosition(new Vec4(0.2, 0.9, 0.1, 0.3).norms());
+        this.setOpacity(0.2);
     }
     setSunPosition(pos) {
         this.needsUpdate = true;
         pos.writeBuffer(this.jsBuffer);
+    }
+    setOpacity(o) {
+        this.needsUpdate = true;
+        this.jsBuffer[4] = o;
+    }
+    getOpacity() {
+        return this.jsBuffer[4];
     }
     getSunPosition() {
         return new Vec4(this.jsBuffer[0], this.jsBuffer[1], this.jsBuffer[2], this.jsBuffer[3]);
@@ -8559,8 +8999,12 @@ class SimpleSkyBox extends SkyBox {
     getShaderCode() {
         return {
             code: `
+        struct UIn{
+            sunDir: vec4<f32>,
+            opacity: f32
+        }
         @group(1) @binding(0) var<uniform> camMat: AffineMat;
-        @group(1) @binding(1) var<uniform> sunDir: vec4<f32>;
+        @group(1) @binding(1) var<uniform> uIn: UIn;
         ${SkyBox.commonCode}
         const betaR = vec3<f32>(1.95e-2, 1.1e-1, 2.94e-1); 
         const betaM = vec3<f32>(4e-2, 4e-2, 4e-2);
@@ -8576,8 +9020,8 @@ class SimpleSkyBox extends SkyBox {
             // optical depth -> zenithAngle
             let sR = RayleighAtt / t ;
             let sM = MieAtt / t ;
-            let cosine = clamp(dot(D,normalize(sunDir)),0.0,1.0);
-            let cosine2 =dot(D,normalize(sunDir))+1.0;
+            let cosine = clamp(dot(D,normalize(uIn.sunDir)),0.0,1.0);
+            let cosine2 =dot(D,normalize(uIn.sunDir))+1.0;
             let extinction = exp(-(betaR * sR + betaM * sM));
 
             // scattering phase
@@ -8598,7 +9042,7 @@ class SimpleSkyBox extends SkyBox {
             return ACESFilm(color);
         }
         @fragment fn mainFragment(@location(0) ro: vec4<f32>, @location(1) rd: vec4<f32>, @location(2) coord: vec3<f32>)->fOut{            
-            return fOut(vec4<f32>(sky(rd),0.1),0.999999);
+            return fOut(vec4<f32>(sky(rd),uIn.opacity),0.999999);
         }`,
             rayEntryPoint: "mainRay",
             fragmentEntryPoint: "mainFragment"
@@ -8792,25 +9236,27 @@ class Renderer {
                 c.worldCoord.setFromObj4(c).mulsl(o.worldCoord);
                 c.needsUpdateCoord = true;
             }
-            this.updateObject(c);
-            c.needsUpdateCoord = false;
+            if (c.visible) {
+                this.updateObject(c);
+                c.needsUpdateCoord = false;
+            }
         }
         if (o instanceof Mesh) {
             this.updateMesh(o);
         }
-        else if (o instanceof AmbientLight) {
+        else if (o instanceof AmbientLight && o.visible) {
             this.ambientLightDensity.adds(o.density);
         }
-        else if (o instanceof PointLight) {
+        else if (o instanceof PointLight && o.visible) {
             this.pointLights.push(o);
         }
-        else if (o instanceof SpotLight) {
+        else if (o instanceof SpotLight && o.visible) {
             if (o.needsUpdateCoord) {
                 o.worldDirection.mulmatvset(o.worldCoord.mat, o.direction);
             }
             this.spotLights.push(o);
         }
-        else if (o instanceof DirectionalLight) {
+        else if (o instanceof DirectionalLight && o.visible) {
             if (o.needsUpdateCoord) {
                 o.worldDirection.mulmatvset(o.worldCoord.mat, o.direction);
             }
@@ -8942,11 +9388,13 @@ class Renderer {
             if (c.alwaysUpdateCoord) {
                 c.needsUpdateCoord = true;
             }
-            if (c.needsUpdateCoord) {
-                c.worldCoord.setFromObj4(c);
+            if (c.visible) {
+                if (c.needsUpdateCoord) {
+                    c.worldCoord.setFromObj4(c);
+                }
+                this.updateObject(c);
+                c.needsUpdateCoord = false;
             }
-            this.updateObject(c);
-            c.needsUpdateCoord = false;
         }
         if (this.cameraInScene === false)
             console.error("Target camera is not in the scene. Forget to add it?");
@@ -9450,8 +9898,7 @@ class PhongMaterial extends Material$1 {
                     if(uWorldLight.posdirLights[i].density.w<-0.5){
                         D = 1.0;
                         N = uWorldLight.posdirLights[i].pos_dir;
-                    }else
-                     if(uWorldLight.posdirLights[i].density.w>0.5){
+                    }else if(uWorldLight.posdirLights[i].density.w>0.5){
                         N = uWorldLight.posdirLights[i].pos_dir - vary.pos;
                         let len = length(N);
                         D = pow(len,1.0 - uWorldLight.posdirLights[i].density.w); // decay by distance

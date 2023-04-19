@@ -1,15 +1,16 @@
+import { Obj4 } from "../algebra/affine";
 import { Rotor } from "../algebra/rotor";
 import { Vec4 } from "../algebra/vec4";
-
+interface SplineData { points: Vec4[], rotors: Rotor[], curveLength: number[] }
 export class Spline {
     points: Vec4[];
     derives: Vec4[];
     constructor(points: Vec4[], derives: Vec4[]) {
-        if (points.length !== derives.length) console.error("Spline: points and derives lengths don't agree")
+        if (points.length !== derives.length) console.error("Spline: points and derives lengths don't agree");
         this.points = points;
         this.derives = derives;
     }
-    generate(seg: number): { points: Vec4[], rotors: Rotor[], curveLength: number[] } {
+    generate(seg: number): SplineData {
         let points: Vec4[] = [];
         let prevPoint: Vec4 | undefined;
         let prevDir = Vec4.w;
@@ -81,5 +82,28 @@ export class Spline {
         let z = p0.z + t * (d0.z + t * (B.z + t * A.z));
         let w = p0.w + t * (d0.w + t * (B.w + t * A.w));
         return new Vec4(x, y, z, w);
+    }
+    getPositionAtLength(s: number, data: SplineData) {
+        let i = 0;
+        for (; i < data.curveLength.length; i++) {
+            if (data.curveLength[i] > s) { break; }
+        }
+        let a = data.curveLength[i - 1];
+        let b = data.curveLength[i];
+        let ratio = (s - a) / (b - a);
+        return data.points[i - 1].mulf(1 - ratio).addmulfs(data.points[i], ratio);
+    }
+    getObj4AtLength(s: number, data: SplineData) {
+        let i = 0;
+        for (; i < data.curveLength.length; i++) {
+            if (data.curveLength[i] > s) { break; }
+        }
+        let a = data.curveLength[i - 1];
+        let b = data.curveLength[i];
+        let ratio = (s - a) / (b - a);
+        return new Obj4(
+            data.points[i - 1].mulf(1 - ratio).addmulfs(data.points[i], ratio),
+            Rotor.slerp(data.rotors[i - 1], data.rotors[i], ratio)
+        );
     }
 }

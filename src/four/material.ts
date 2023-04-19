@@ -368,8 +368,7 @@ export class PhongMaterial extends Material {
                     if(uWorldLight.posdirLights[i].density.w<-0.5){
                         D = 1.0;
                         N = uWorldLight.posdirLights[i].pos_dir;
-                    }else
-                     if(uWorldLight.posdirLights[i].density.w>0.5){
+                    }else if(uWorldLight.posdirLights[i].density.w>0.5){
                         N = uWorldLight.posdirLights[i].pos_dir - vary.pos;
                         let len = length(N);
                         D = pow(len,1.0 - uWorldLight.posdirLights[i].density.w); // decay by distance

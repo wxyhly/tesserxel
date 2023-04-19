@@ -135,6 +135,13 @@ export function inverseNormal(mesh: TetraMesh): TetraMesh {
     }
     return mesh;
 }
+export function setUVWAsPosition(mesh: TetraMesh) {
+    if (!mesh.uvw) mesh.uvw = mesh.position.slice(0);
+    else {
+        mesh.uvw.set(mesh.position);
+    }
+    return mesh;
+}
 export let hexadecachoron: TetraMesh = {
     position: new Float32Array([
         1, 0, 0, 0,
@@ -775,7 +782,7 @@ export function loft(sp: Spline, section: face.FaceMesh, step: number): TetraMes
                     let doffset = offset - 24;
                     pushTetra(doffset, 0, 1, 2, 3);
                     pushTetra(doffset, 1, 2, 3, 5);
-                    pushTetra(doffset, 3, 4, 5, 1);
+                    pushTetra(doffset, 3, 4, 1, 5);
                 }
             }
         }
@@ -942,7 +949,7 @@ export function directProduct(shape1: face.FaceIndexMesh, shape2: face.FaceIndex
                 let doffset = offset - 24;
                 pushTetra(doffset, 0, 1, 2, 3);
                 pushTetra(doffset, 1, 2, 3, 5);
-                pushTetra(doffset, 3, 4, 5, 1);
+                pushTetra(doffset, 3, 4, 1, 5);
             }
         }
     }
@@ -1052,7 +1059,7 @@ export function directProduct(shape1: face.FaceIndexMesh, shape2: face.FaceIndex
                 let doffset = offset - 24;
                 pushTetra(doffset, 0, 1, 2, 3);
                 pushTetra(doffset, 1, 2, 3, 5);
-                pushTetra(doffset, 3, 4, 5, 1);
+                pushTetra(doffset, 3, 4, 1, 5);
             }
         }
     }

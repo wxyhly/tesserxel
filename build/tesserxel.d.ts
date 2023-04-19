@@ -744,16 +744,19 @@ declare class AABB {
     static fromPoints(points: Vec4[]): AABB;
 }
 
+interface SplineData {
+    points: Vec4[];
+    rotors: Rotor[];
+    curveLength: number[];
+}
 declare class Spline {
     points: Vec4[];
     derives: Vec4[];
     constructor(points: Vec4[], derives: Vec4[]);
-    generate(seg: number): {
-        points: Vec4[];
-        rotors: Rotor[];
-        curveLength: number[];
-    };
+    generate(seg: number): SplineData;
     getValue(t: number): Vec4;
+    getPositionAtLength(s: number, data: SplineData): Vec4;
+    getObj4AtLength(s: number, data: SplineData): Obj4;
 }
 
 declare class Perlin3 {
@@ -1125,11 +1128,12 @@ interface TetraIndexMesh {
 }
 declare function toIndexMesh$1(m: TetraMesh): TetraIndexMesh;
 declare function toNonIndexMesh$1(m: TetraIndexMesh): TetraMesh;
-declare function applyAffineMat4(mesh: TetraMesh, am: AffineMat4): TetraMesh;
-declare function applyObj4(mesh: TetraMesh, obj: Obj4): TetraMesh;
-declare function concat(mesh1: TetraMesh, mesh2: TetraMesh): TetraMesh;
+declare function applyAffineMat4$1(mesh: TetraMesh, am: AffineMat4): TetraMesh;
+declare function applyObj4$1(mesh: TetraMesh, obj: Obj4): TetraMesh;
+declare function concat$1(mesh1: TetraMesh, mesh2: TetraMesh): TetraMesh;
 declare function concatarr(meshes: TetraMesh[]): TetraMesh;
-declare function clone(mesh: TetraMesh): TetraMesh;
+declare function clone$1(mesh: TetraMesh): TetraMesh;
+declare function deleteTetras(mesh: TetraMesh, tetras: number[]): TetraMesh;
 
 /** FaceMesh store traditional 2-face mesh as triangle or quad list
  *  This mesh is for constructing complex tetrameshes
@@ -1168,8 +1172,30 @@ interface FaceIndexMesh {
 }
 declare function toIndexMesh(m: FaceMesh): FaceIndexMesh;
 declare function toNonIndexMesh(m: FaceIndexMesh): FaceMesh;
+declare function clone(mesh: FaceMesh | FaceIndexMesh): FaceMesh | FaceIndexMesh;
+declare function applyAffineMat4(m: FaceIndexMesh | FaceMesh, am: AffineMat4): FaceMesh | FaceIndexMesh;
+declare function applyObj4(mesh: FaceIndexMesh | FaceMesh, obj: Obj4): FaceMesh | FaceIndexMesh;
+declare function concat(mesh1: FaceIndexMesh | FaceMesh, mesh2: FaceIndexMesh | FaceMesh): FaceIndexMesh | FaceMesh;
 
 declare function sphere(u: any, v: any): void;
+declare function polygon(points: Vec4[]): {
+    position: Float32Array;
+    uvw: Float32Array;
+    triangle: {
+        position: Uint32Array;
+        uvw: Uint32Array;
+        count: number;
+    };
+};
+declare function circle(radius: number, segment: number): {
+    position: Float32Array;
+    uvw: Float32Array;
+    triangle: {
+        position: Uint32Array;
+        uvw: Uint32Array;
+        count: number;
+    };
+};
 declare function parametricSurface$1(fn: (inputuvw: Vec2, outputPosition: Vec4, outputNormal: Vec4) => void, uSegment: number, vSegment: number): {
     quad: {
         position: Float32Array;
@@ -1184,7 +1210,13 @@ type face_d_FaceMesh = FaceMesh;
 type face_d_FaceIndexMesh = FaceIndexMesh;
 declare const face_d_toIndexMesh: typeof toIndexMesh;
 declare const face_d_toNonIndexMesh: typeof toNonIndexMesh;
+declare const face_d_clone: typeof clone;
+declare const face_d_applyAffineMat4: typeof applyAffineMat4;
+declare const face_d_applyObj4: typeof applyObj4;
+declare const face_d_concat: typeof concat;
 declare const face_d_sphere: typeof sphere;
+declare const face_d_polygon: typeof polygon;
+declare const face_d_circle: typeof circle;
 declare const face_d_findBorder: typeof findBorder;
 declare namespace face_d {
   export {
@@ -1192,7 +1224,13 @@ declare namespace face_d {
     face_d_FaceIndexMesh as FaceIndexMesh,
     face_d_toIndexMesh as toIndexMesh,
     face_d_toNonIndexMesh as toNonIndexMesh,
+    face_d_clone as clone,
+    face_d_applyAffineMat4 as applyAffineMat4,
+    face_d_applyObj4 as applyObj4,
+    face_d_concat as concat,
     face_d_sphere as sphere,
+    face_d_polygon as polygon,
+    face_d_circle as circle,
     parametricSurface$1 as parametricSurface,
     face_d_findBorder as findBorder,
   };
@@ -1201,6 +1239,7 @@ declare namespace face_d {
 declare let cube: TetraMesh;
 declare function tesseract(): TetraMesh;
 declare function inverseNormal(mesh: TetraMesh): TetraMesh;
+declare function setUVWAsPosition(mesh: TetraMesh): TetraMesh;
 declare let hexadecachoron: TetraMesh;
 declare function glome(radius: number, xySegment: number, zwSegment: number, latitudeSegment: number): TetraMesh;
 declare function spheritorus(sphereRadius: number, longitudeSegment: number, latitudeSegment: number, circleRadius: number, circleSegment: number): TetraMesh;
@@ -1230,14 +1269,12 @@ declare function directProduct(shape1: FaceIndexMesh, shape2: FaceIndexMesh): {
 
 type tetra_d_TetraMesh = TetraMesh;
 type tetra_d_TetraIndexMesh = TetraIndexMesh;
-declare const tetra_d_applyAffineMat4: typeof applyAffineMat4;
-declare const tetra_d_applyObj4: typeof applyObj4;
-declare const tetra_d_concat: typeof concat;
 declare const tetra_d_concatarr: typeof concatarr;
-declare const tetra_d_clone: typeof clone;
+declare const tetra_d_deleteTetras: typeof deleteTetras;
 declare const tetra_d_cube: typeof cube;
 declare const tetra_d_tesseract: typeof tesseract;
 declare const tetra_d_inverseNormal: typeof inverseNormal;
+declare const tetra_d_setUVWAsPosition: typeof setUVWAsPosition;
 declare const tetra_d_hexadecachoron: typeof hexadecachoron;
 declare const tetra_d_glome: typeof glome;
 declare const tetra_d_spheritorus: typeof spheritorus;
@@ -1256,14 +1293,16 @@ declare namespace tetra_d {
     tetra_d_TetraIndexMesh as TetraIndexMesh,
     toIndexMesh$1 as toIndexMesh,
     toNonIndexMesh$1 as toNonIndexMesh,
-    tetra_d_applyAffineMat4 as applyAffineMat4,
-    tetra_d_applyObj4 as applyObj4,
-    tetra_d_concat as concat,
+    applyAffineMat4$1 as applyAffineMat4,
+    applyObj4$1 as applyObj4,
+    concat$1 as concat,
     tetra_d_concatarr as concatarr,
-    tetra_d_clone as clone,
+    clone$1 as clone,
+    tetra_d_deleteTetras as deleteTetras,
     tetra_d_cube as cube,
     tetra_d_tesseract as tesseract,
     tetra_d_inverseNormal as inverseNormal,
+    tetra_d_setUVWAsPosition as setUVWAsPosition,
     tetra_d_hexadecachoron as hexadecachoron,
     tetra_d_glome as glome,
     tetra_d_spheritorus as spheritorus,
@@ -1486,6 +1525,7 @@ declare class Object$1 extends Obj4 {
     worldCoord: AffineMat4;
     needsUpdateCoord: boolean;
     alwaysUpdateCoord: boolean;
+    visible: boolean;
     constructor();
     updateCoord(): this;
     add(...obj: Object$1[]): void;
@@ -1503,7 +1543,6 @@ declare class Mesh extends Object$1 {
     material: Material$1;
     uObjMatBuffer: GPUBuffer;
     bindGroup: GPUBindGroup;
-    visible: boolean;
     constructor(geometry: Geometry, material: Material$1);
 }
 declare class Geometry {
@@ -1559,9 +1598,11 @@ declare abstract class SkyBox {
     update(r: Renderer): void;
 }
 declare class SimpleSkyBox extends SkyBox {
-    readonly bufferSize = 4;
+    readonly bufferSize = 8;
     constructor();
     setSunPosition(pos: Vec4): void;
+    setOpacity(o: number): void;
+    getOpacity(): number;
     getSunPosition(): Vec4;
     getShaderCode(): RaytracingPipelineDescriptor;
 }

@@ -6,9 +6,9 @@ import { Material } from "./material";
 import { Vec3 } from "../math/algebra/vec3";
 import { Vec4 } from "../math/algebra/vec4";
 import { Plane } from "../math/geometry/primitive";
-export interface RendererConfig{
-    posdirLightsNumber?:number;
-    spotLightsNumber?:number;
+export interface RendererConfig {
+    posdirLightsNumber?: number;
+    spotLightsNumber?: number;
 }
 /** threejs like 4D lib */
 export class Renderer {
@@ -31,7 +31,7 @@ export class Renderer {
     setBackgroudColor(color: GPUColor) {
         this.core.setScreenClearColor(color);
     }
-    async init(config?:RendererConfig) {
+    async init(config?: RendererConfig) {
         this.gpu = await new GPU().init();
         if (!this.gpu) {
             console.error("No availiable GPU device found. Please check whether WebGPU is enabled on your browser.");
@@ -67,21 +67,23 @@ export class Renderer {
 
                 c.needsUpdateCoord = true;
             }
-            this.updateObject(c);
-            c.needsUpdateCoord = false;
+            if (c.visible) {
+                this.updateObject(c);
+                c.needsUpdateCoord = false;
+            }
         }
         if (o instanceof Mesh) {
             this.updateMesh(o);
-        } else if (o instanceof AmbientLight) {
+        } else if (o instanceof AmbientLight && o.visible) {
             this.ambientLightDensity.adds(o.density);
-        } else if (o instanceof PointLight) {
+        } else if (o instanceof PointLight && o.visible) {
             this.pointLights.push(o);
-        } else if (o instanceof SpotLight) {
+        } else if (o instanceof SpotLight && o.visible) {
             if (o.needsUpdateCoord) {
                 o.worldDirection.mulmatvset(o.worldCoord.mat, o.direction);
             }
             this.spotLights.push(o);
-        } else if (o instanceof DirectionalLight) {
+        } else if (o instanceof DirectionalLight && o.visible) {
             if (o.needsUpdateCoord) {
                 o.worldDirection.mulmatvset(o.worldCoord.mat, o.direction);
             }
@@ -203,26 +205,28 @@ export class Renderer {
             if (c.alwaysUpdateCoord) {
                 c.needsUpdateCoord = true;
             }
-            if (c.needsUpdateCoord) {
-                c.worldCoord.setFromObj4(c);
+            if (c.visible) {
+                if (c.needsUpdateCoord) {
+                    c.worldCoord.setFromObj4(c);
+                }
+                this.updateObject(c);
+                c.needsUpdateCoord = false;
             }
-            this.updateObject(c);
-            c.needsUpdateCoord = false;
         }
         if (this.cameraInScene === false) console.error("Target camera is not in the scene. Forget to add it?");
         _updateWorldLight(this);
         this.updateSkyBox(scene);
     }
-    updateSkyBox(scene: Scene){
+    updateSkyBox(scene: Scene) {
         const skyBox = scene.skyBox;
-        if(!skyBox) return ;
-        if(!skyBox.compiled){
-            if(!skyBox.compiling){
+        if (!skyBox) return;
+        if (!skyBox.compiled) {
+            if (!skyBox.compiling) {
                 skyBox.compile(this);
             }
             return;
         }
-        if(!skyBox.bindGroups){
+        if (!skyBox.bindGroups) {
             skyBox.getBindgroups(this);
         }
         skyBox.update(this);
@@ -273,8 +277,8 @@ export class Renderer {
                     this.core.drawTetras(binding);
                 }
             }
-            if(scene.skyBox?.bindGroups){
-                this.core.drawRaytracing(scene.skyBox.pipeline,scene.skyBox.bindGroups);
+            if (scene.skyBox?.bindGroups) {
+                this.core.drawRaytracing(scene.skyBox.pipeline, scene.skyBox.bindGroups);
             }
         });
     }

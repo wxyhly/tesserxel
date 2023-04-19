@@ -71,7 +71,7 @@ export class Obj4 {
     rotation: Rotor;
     scale: Vec4 | undefined;
     constructor(
-        position: Vec4 = new Vec4(), rotation: Rotor = new Rotor(),
+        position?: Vec4, rotation?: Rotor,
         scale?: Vec4
     ) {
         this.position = position ?? new Vec4();
