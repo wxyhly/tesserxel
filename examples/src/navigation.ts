@@ -392,8 +392,8 @@ export namespace navigation {
         earthYearPeriod: number = 100;
         earthYearPeriodPhase: number = 0.83;
         /// eclipticObliquity is mesured by angles between equator of earthSpinPeriod1 and ecliptic plane
-        eclipticObliquityAngle1: number = 12;
-        eclipticObliquityAngle2: number = 43;
+        eclipticObliquityAngle1: number = 12 * math._DEG2RAD;
+        eclipticObliquityAngle2: number = 43 * math._DEG2RAD;
 
         private earthSpinW1: number;
         private earthSpinW2: number;

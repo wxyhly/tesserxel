@@ -102,8 +102,10 @@ function createGlome(radius = 1, mass = 1) {
 }
 function initScene(scene) {
     scene.add(new FOUR.AmbientLight(0.3));
-    scene.skyBox = new FOUR.SimpleSkyBox();
-    scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], scene.skyBox.getSunPosition()));
+    let skybox = new FOUR.SimpleSkyBox();
+    skybox.setOpacity(0.03);
+    scene.skyBox = skybox;
+    scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], skybox.getSunPosition()));
     scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
 }
 class EmitGlomeController {

@@ -379,8 +379,8 @@ var navigation;
         earthYearPeriod = 100;
         earthYearPeriodPhase = 0.83;
         /// eclipticObliquity is mesured by angles between equator of earthSpinPeriod1 and ecliptic plane
-        eclipticObliquityAngle1 = 12;
-        eclipticObliquityAngle2 = 43;
+        eclipticObliquityAngle1 = 12 * math._DEG2RAD;
+        eclipticObliquityAngle2 = 43 * math._DEG2RAD;
         earthSpinW1;
         earthSpinW2;
         earthYearW;

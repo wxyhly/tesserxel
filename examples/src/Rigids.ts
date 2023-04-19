@@ -90,10 +90,12 @@ function createGlome(radius: number = 1, mass: number = 1) {
 }
 function initScene(scene: tesserxel.four.Scene) {
     scene.add(new FOUR.AmbientLight(0.3));
-    scene.skyBox = new FOUR.SimpleSkyBox();
+    let skybox = new FOUR.SimpleSkyBox();
+    skybox.setOpacity(0.03);
+    scene.skyBox = skybox;
     scene.add(new FOUR.DirectionalLight(
         [2.2, 2.0, 1.9],
-        (scene.skyBox as tesserxel.four.SimpleSkyBox).getSunPosition()
+        skybox.getSunPosition()
     ));
     scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
 }
