@@ -3,6 +3,7 @@ export const _30 = Math.PI / 6;
 export const _60 = Math.PI / 3;
 export const _45 = Math.PI / 4;
 export const _90 = Math.PI / 2;
+export const _120 = Math.PI * 2 / 3;
 export const _360 = Math.PI * 2;
 export const _DEG2RAD = Math.PI / 180;
 export const _RAD2DEG = 180 / Math.PI;
