@@ -19,7 +19,8 @@ let examples = [
             { target: "city_highway", zh: "城市高速", en: "City Highway" },
             { target: "navigation", zh: "四维星球导航", en: "Navigation On 4D Planet" },
             { target: "backrooms", zh: "后室", en: "Backrooms" },
-            { target: "rail1d", zh: "一维轨导火车", en: "Linear Track Train" },
+            { target: "rails::rail1d", zh: "一维轨道火车", en: "Linear Track Train" },
+            { target: "rails::rail2d", zh: "二维轨道火车", en: "Planar Track Train" },
             { target: "rubic", zh: "四维魔方", en: "Magic Cube 4D" },
         ]
     },
@@ -142,9 +143,17 @@ let info = {
         "zh": "“后室”是一种网友创作的虚构域限空间，该场景为Kane版后室离前厅最近的部分的四维类比。",
         "en": "\"The Backrooms\" is a liminal space created on the Internet. This scene is an analogue of the first area in Kane Pixels version."
     },
-    "rail1d": {
-        "zh": "铁路的自然四维类比，该场景有一段空间曲线铁轨加三车厢的平板火车组成，每个火车包括两个转向架，每个转向架有8个轮子。使用键盘T/G控制火车。",
-        "en": "The natural 4D analogy of the railway. This scene contains a spatial-curved rail and a three-carriage flat train. Each car includes two bogies, and each bogie has 8 wheels. Use the keyboard T/G to control the train."
+    "rails::rail1d": {
+        "zh": "铁路的自然四维类比，该场景有一段空间曲线铁轨加三车厢的平板火车组成，每个火车包括两个转向架，每个转向架有8个轮子。使用键盘T/G控制火车前进后退。",
+        "en": "The natural 4D analogy of the railway. This scene contains a spatial-curved rail and a three-carriage flat train. Each car includes two bogies, and each bogie has 8 wheels. Use the keyboard T/G to move forward / backward."
+    },
+    "rails::rail2d": {
+        "zh": "平面轨道火车，火车在一个方向上被轨道卡住使用转向架引导转向，另一个方向则可使用方向盘人工驾驶控制方向。使用键盘T/G控制火车前进后退，键盘R/Y转向，键盘B锁定/解锁相机跟随。小心别让火车脱轨！",
+        "en": "Planar rail train. the bogie is used to guide the train in one direction, and the steering wheel is used by driver manually in another direction. Use the keyboard T/G to move forward / backward, the keyboard R/Y to turn, and the keyboard B to lock/unlock the camera following. Be careful not to derail the train!"
+    },
+    "rubic":{
+        "zh": "四维三阶魔方演示",
+        "en": "Demo of 4D rubic;s cube of order 3.",
     },
     "four_basic_scene": {
         "zh": "使用FOUR绘制一个红色双旋转超立方体。类似于3D渲染中的ThreeJs库与WebGl，tesserxel中的子库Four能够帮您隐藏底层渲染逻辑，快速构建四维场景。详见源码FourBasicScene.ts。",

@@ -96,73 +96,225 @@ class RubicCtrl {
     constructor(rubicMgr: RubicMgr) {
         this.rubicMgr = rubicMgr
     }
+    cycle() {
+        this.rubicMgr.move([
+            new math.Vec4(2, 0, 0, 0),
+            new math.Vec4(2, 0, 0, 1),
+            new math.Vec4(2, 0, 0, 2),
+            new math.Vec4(2, 0, 1, 0),
+            new math.Vec4(2, 0, 1, 1),
+            new math.Vec4(2, 0, 1, 2),
+            new math.Vec4(2, 0, 2, 0),
+            new math.Vec4(2, 0, 2, 1),
+            new math.Vec4(2, 0, 2, 2),
+            new math.Vec4(2, 1, 0, 0),
+            new math.Vec4(2, 1, 0, 1),
+            new math.Vec4(2, 1, 0, 2),
+            new math.Vec4(2, 1, 1, 0),
+            new math.Vec4(2, 1, 1, 1),
+            new math.Vec4(2, 1, 1, 2),
+            new math.Vec4(2, 1, 2, 0),
+            new math.Vec4(2, 1, 2, 1),
+            new math.Vec4(2, 1, 2, 2),
+            new math.Vec4(2, 2, 0, 0),
+            new math.Vec4(2, 2, 0, 1),
+            new math.Vec4(2, 2, 0, 2),
+            new math.Vec4(2, 2, 1, 0),
+            new math.Vec4(2, 2, 1, 1),
+            new math.Vec4(2, 2, 1, 2),
+            new math.Vec4(2, 2, 2, 0),
+            new math.Vec4(2, 2, 2, 1),
+            new math.Vec4(2, 2, 2, 2),
+        ], new math.Bivec(0, 0, 0, 0, math._90));
+
+        this.rubicMgr.move([
+            new math.Vec4(0, 2, 0, 0),
+            new math.Vec4(0, 2, 0, 1),
+            new math.Vec4(0, 2, 0, 2),
+            new math.Vec4(0, 2, 1, 0),
+            new math.Vec4(0, 2, 1, 1),
+            new math.Vec4(0, 2, 1, 2),
+            new math.Vec4(0, 2, 2, 0),
+            new math.Vec4(0, 2, 2, 1),
+            new math.Vec4(0, 2, 2, 2),
+            new math.Vec4(1, 2, 0, 0),
+            new math.Vec4(1, 2, 0, 1),
+            new math.Vec4(1, 2, 0, 2),
+            new math.Vec4(1, 2, 1, 0),
+            new math.Vec4(1, 2, 1, 1),
+            new math.Vec4(1, 2, 1, 2),
+            new math.Vec4(1, 2, 2, 0),
+            new math.Vec4(1, 2, 2, 1),
+            new math.Vec4(1, 2, 2, 2),
+            new math.Vec4(2, 2, 0, 0),
+            new math.Vec4(2, 2, 0, 1),
+            new math.Vec4(2, 2, 0, 2),
+            new math.Vec4(2, 2, 1, 0),
+            new math.Vec4(2, 2, 1, 1),
+            new math.Vec4(2, 2, 1, 2),
+            new math.Vec4(2, 2, 2, 0),
+            new math.Vec4(2, 2, 2, 1),
+            new math.Vec4(2, 2, 2, 2),
+        ], new math.Bivec(0, 0, 0, 0, 0, math._90));
+
+        this.rubicMgr.move([
+            new math.Vec4(0, 0, 2, 0),
+            new math.Vec4(0, 0, 2, 1),
+            new math.Vec4(0, 0, 2, 2),
+            new math.Vec4(0, 1, 2, 0),
+            new math.Vec4(0, 1, 2, 1),
+            new math.Vec4(0, 1, 2, 2),
+            new math.Vec4(0, 2, 2, 0),
+            new math.Vec4(0, 2, 2, 1),
+            new math.Vec4(0, 2, 2, 2),
+            new math.Vec4(1, 0, 2, 0),
+            new math.Vec4(1, 0, 2, 1),
+            new math.Vec4(1, 0, 2, 2),
+            new math.Vec4(1, 1, 2, 0),
+            new math.Vec4(1, 1, 2, 1),
+            new math.Vec4(1, 1, 2, 2),
+            new math.Vec4(1, 2, 2, 0),
+            new math.Vec4(1, 2, 2, 1),
+            new math.Vec4(1, 2, 2, 2),
+            new math.Vec4(2, 0, 2, 0),
+            new math.Vec4(2, 0, 2, 1),
+            new math.Vec4(2, 0, 2, 2),
+            new math.Vec4(2, 1, 2, 0),
+            new math.Vec4(2, 1, 2, 1),
+            new math.Vec4(2, 1, 2, 2),
+            new math.Vec4(2, 2, 2, 0),
+            new math.Vec4(2, 2, 2, 1),
+            new math.Vec4(2, 2, 2, 2),
+        ], new math.Vec4(1, 1, 0, 1).wedge(math.Vec4.z).duals().norms().mulfs(math._120));
+
+        this.rubicMgr.move([
+            new math.Vec4(0, 0, 0, 2),
+            new math.Vec4(0, 0, 1, 2),
+            new math.Vec4(0, 0, 2, 2),
+            new math.Vec4(0, 1, 0, 2),
+            new math.Vec4(0, 1, 1, 2),
+            new math.Vec4(0, 1, 2, 2),
+            new math.Vec4(0, 2, 0, 2),
+            new math.Vec4(0, 2, 1, 2),
+            new math.Vec4(0, 2, 2, 2),
+            new math.Vec4(1, 0, 0, 2),
+            new math.Vec4(1, 0, 1, 2),
+            new math.Vec4(1, 0, 2, 2),
+            new math.Vec4(1, 1, 0, 2),
+            new math.Vec4(1, 1, 1, 2),
+            new math.Vec4(1, 1, 2, 2),
+            new math.Vec4(1, 2, 0, 2),
+            new math.Vec4(1, 2, 1, 2),
+            new math.Vec4(1, 2, 2, 2),
+            new math.Vec4(2, 0, 0, 2),
+            new math.Vec4(2, 0, 1, 2),
+            new math.Vec4(2, 0, 2, 2),
+            new math.Vec4(2, 1, 0, 2),
+            new math.Vec4(2, 1, 1, 2),
+            new math.Vec4(2, 1, 2, 2),
+            new math.Vec4(2, 2, 0, 2),
+            new math.Vec4(2, 2, 1, 2),
+            new math.Vec4(2, 2, 2, 2),
+        ], new math.Vec4(1, 0, 1, 0).wedge(math.Vec4.w).duals().norms().mulfs(math._180));
+    }
     update(state: util.ctrl.ControllerState): void {
         if (!state.isKeyHold("AltLeft") && !state.isKeyHold("AltRight")) {
             if (state.isKeyHold(".KeyH")) {
                 this.hollowModel = !this.hollowModel;
             }
-            if (state.isKeyHold(".KeyR")) {
-                this.rubicMgr.move([
-                    new math.Vec4(2, 0, 0, 0),
-                    new math.Vec4(2, 0, 0, 1),
-                    new math.Vec4(2, 0, 0, 2),
-                    new math.Vec4(2, 0, 1, 0),
-                    new math.Vec4(2, 0, 1, 1),
-                    new math.Vec4(2, 0, 1, 2),
-                    new math.Vec4(2, 0, 2, 0),
-                    new math.Vec4(2, 0, 2, 1),
-                    new math.Vec4(2, 0, 2, 2),
-                    new math.Vec4(2, 1, 0, 0),
-                    new math.Vec4(2, 1, 0, 1),
-                    new math.Vec4(2, 1, 0, 2),
-                    new math.Vec4(2, 1, 1, 0),
-                    new math.Vec4(2, 1, 1, 1),
-                    new math.Vec4(2, 1, 1, 2),
-                    new math.Vec4(2, 1, 2, 0),
-                    new math.Vec4(2, 1, 2, 1),
-                    new math.Vec4(2, 1, 2, 2),
-                    new math.Vec4(2, 2, 0, 0),
-                    new math.Vec4(2, 2, 0, 1),
-                    new math.Vec4(2, 2, 0, 2),
-                    new math.Vec4(2, 2, 1, 0),
-                    new math.Vec4(2, 2, 1, 1),
-                    new math.Vec4(2, 2, 1, 2),
-                    new math.Vec4(2, 2, 2, 0),
-                    new math.Vec4(2, 2, 2, 1),
-                    new math.Vec4(2, 2, 2, 2),
-                ], new math.Bivec(0, 0, 0, 0, math._90));
-            }
-            if (state.isKeyHold(".KeyU")) {
-                this.rubicMgr.move([
-                    new math.Vec4(0, 2, 0, 0),
-                    new math.Vec4(0, 2, 0, 1),
-                    new math.Vec4(0, 2, 0, 2),
-                    new math.Vec4(0, 2, 1, 0),
-                    new math.Vec4(0, 2, 1, 1),
-                    new math.Vec4(0, 2, 1, 2),
-                    new math.Vec4(0, 2, 2, 0),
-                    new math.Vec4(0, 2, 2, 1),
-                    new math.Vec4(0, 2, 2, 2),
-                    new math.Vec4(1, 2, 0, 0),
-                    new math.Vec4(1, 2, 0, 1),
-                    new math.Vec4(1, 2, 0, 2),
-                    new math.Vec4(1, 2, 1, 0),
-                    new math.Vec4(1, 2, 1, 1),
-                    new math.Vec4(1, 2, 1, 2),
-                    new math.Vec4(1, 2, 2, 0),
-                    new math.Vec4(1, 2, 2, 1),
-                    new math.Vec4(1, 2, 2, 2),
-                    new math.Vec4(2, 2, 0, 0),
-                    new math.Vec4(2, 2, 0, 1),
-                    new math.Vec4(2, 2, 0, 2),
-                    new math.Vec4(2, 2, 1, 0),
-                    new math.Vec4(2, 2, 1, 1),
-                    new math.Vec4(2, 2, 1, 2),
-                    new math.Vec4(2, 2, 2, 0),
-                    new math.Vec4(2, 2, 2, 1),
-                    new math.Vec4(2, 2, 2, 2),
-                ], new math.Bivec(0, 0, 0, 0, 0, math._90));
-            }
+            // if (state.isKeyHold(".KeyR")) {
+            //     this.rubicMgr.move([
+            //         new math.Vec4(2, 0, 0, 0),
+            //         new math.Vec4(2, 0, 0, 1),
+            //         new math.Vec4(2, 0, 0, 2),
+            //         new math.Vec4(2, 0, 1, 0),
+            //         new math.Vec4(2, 0, 1, 1),
+            //         new math.Vec4(2, 0, 1, 2),
+            //         new math.Vec4(2, 0, 2, 0),
+            //         new math.Vec4(2, 0, 2, 1),
+            //         new math.Vec4(2, 0, 2, 2),
+            //         new math.Vec4(2, 1, 0, 0),
+            //         new math.Vec4(2, 1, 0, 1),
+            //         new math.Vec4(2, 1, 0, 2),
+            //         new math.Vec4(2, 1, 1, 0),
+            //         new math.Vec4(2, 1, 1, 1),
+            //         new math.Vec4(2, 1, 1, 2),
+            //         new math.Vec4(2, 1, 2, 0),
+            //         new math.Vec4(2, 1, 2, 1),
+            //         new math.Vec4(2, 1, 2, 2),
+            //         new math.Vec4(2, 2, 0, 0),
+            //         new math.Vec4(2, 2, 0, 1),
+            //         new math.Vec4(2, 2, 0, 2),
+            //         new math.Vec4(2, 2, 1, 0),
+            //         new math.Vec4(2, 2, 1, 1),
+            //         new math.Vec4(2, 2, 1, 2),
+            //         new math.Vec4(2, 2, 2, 0),
+            //         new math.Vec4(2, 2, 2, 1),
+            //         new math.Vec4(2, 2, 2, 2),
+            //     ], new math.Bivec(0, 0, 0, 0, math._90));
+            // }
+            // if (state.isKeyHold(".KeyU")) {
+            //     this.rubicMgr.move([
+            //         new math.Vec4(0, 2, 0, 0),
+            //         new math.Vec4(0, 2, 0, 1),
+            //         new math.Vec4(0, 2, 0, 2),
+            //         new math.Vec4(0, 2, 1, 0),
+            //         new math.Vec4(0, 2, 1, 1),
+            //         new math.Vec4(0, 2, 1, 2),
+            //         new math.Vec4(0, 2, 2, 0),
+            //         new math.Vec4(0, 2, 2, 1),
+            //         new math.Vec4(0, 2, 2, 2),
+            //         new math.Vec4(1, 2, 0, 0),
+            //         new math.Vec4(1, 2, 0, 1),
+            //         new math.Vec4(1, 2, 0, 2),
+            //         new math.Vec4(1, 2, 1, 0),
+            //         new math.Vec4(1, 2, 1, 1),
+            //         new math.Vec4(1, 2, 1, 2),
+            //         new math.Vec4(1, 2, 2, 0),
+            //         new math.Vec4(1, 2, 2, 1),
+            //         new math.Vec4(1, 2, 2, 2),
+            //         new math.Vec4(2, 2, 0, 0),
+            //         new math.Vec4(2, 2, 0, 1),
+            //         new math.Vec4(2, 2, 0, 2),
+            //         new math.Vec4(2, 2, 1, 0),
+            //         new math.Vec4(2, 2, 1, 1),
+            //         new math.Vec4(2, 2, 1, 2),
+            //         new math.Vec4(2, 2, 2, 0),
+            //         new math.Vec4(2, 2, 2, 1),
+            //         new math.Vec4(2, 2, 2, 2),
+            //     ], new math.Bivec(0, 0, 0, 0, 0, math._90));
+            // }
+            // if (state.isKeyHold(".KeyY")) {
+            //     this.rubicMgr.move([
+            //         new math.Vec4(0, 0, 2, 0),
+            //         new math.Vec4(0, 0, 2, 1),
+            //         new math.Vec4(0, 0, 2, 2),
+            //         new math.Vec4(0, 1, 2, 0),
+            //         new math.Vec4(0, 1, 2, 1),
+            //         new math.Vec4(0, 1, 2, 2),
+            //         new math.Vec4(0, 2, 2, 0),
+            //         new math.Vec4(0, 2, 2, 1),
+            //         new math.Vec4(0, 2, 2, 2),
+            //         new math.Vec4(1, 0, 2, 0),
+            //         new math.Vec4(1, 0, 2, 1),
+            //         new math.Vec4(1, 0, 2, 2),
+            //         new math.Vec4(1, 1, 2, 0),
+            //         new math.Vec4(1, 1, 2, 1),
+            //         new math.Vec4(1, 1, 2, 2),
+            //         new math.Vec4(1, 2, 2, 0),
+            //         new math.Vec4(1, 2, 2, 1),
+            //         new math.Vec4(1, 2, 2, 2),
+            //         new math.Vec4(2, 0, 2, 0),
+            //         new math.Vec4(2, 0, 2, 1),
+            //         new math.Vec4(2, 0, 2, 2),
+            //         new math.Vec4(2, 1, 2, 0),
+            //         new math.Vec4(2, 1, 2, 1),
+            //         new math.Vec4(2, 1, 2, 2),
+            //         new math.Vec4(2, 2, 2, 0),
+            //         new math.Vec4(2, 2, 2, 1),
+            //         new math.Vec4(2, 2, 2, 2),
+            //     ], new math.Vec4(1,1,0,1).wedge(math.Vec4.z).duals().norms().mulfs(math._120));
+            // }
         }
         this.rubicMgr.update();
     }
@@ -170,7 +322,7 @@ class RubicCtrl {
     enabled = true;
 }
 class RubicMgr {
-    moveTicks = 20;
+    moveTicks = 3;
     posHash: rubicBlcMesh[][][][];
     ticks: number = 0;
     tasks: Set<MovingBlcTask> = new Set();
@@ -184,13 +336,32 @@ class RubicMgr {
             this, blcs, generator
         ));
     }
+    steps = 0;
     update() {
         if (!this.currentTask) {
             this.currentTask = this.todoQueue.pop();
+            this.steps++;
         } else {
             this.currentTask.tick();
         }
+        if(this.check()){
+            console.log(this.steps);
+        }
         this.ticks++;
+    }
+    check() {
+        for (let x = 0; x < order; x++) {
+            for (let y = 0; y < order; y++) {
+                for (let z = 0; z < order; z++) {
+                    for (let w = 0; w < order; w++) {
+                        const m = this.posHash[x][y][z][w];
+                        let isId = m.initPosition.rotate(m.rotation).distanceSqrTo(m.initPosition);
+                        if (isId > 0.1) return false;
+                    }
+                }
+            }
+        }
+        return true;
     }
 }
 class MovingBlcTask {
@@ -343,6 +514,7 @@ export namespace rubic {
         const camController = new util.ctrl.TrackBallController(cubeGroup);
         const rubicMgr = new RubicMgr(posHash);
         const rubicCtrl = new RubicCtrl(rubicMgr);
+        for (let i = 0; i < 1000; i++) rubicCtrl.cycle();
         camController.mouseButton3D = 0;
         camController.mouseButton4D = 2;
         const controllerRegistry = new util.ctrl.ControllerRegistry(canvas, [retinaController, camController, rubicCtrl], { preventDefault: true });

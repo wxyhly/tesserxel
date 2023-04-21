@@ -3,6 +3,7 @@ const _30 = Math.PI / 6;
 const _60 = Math.PI / 3;
 const _45 = Math.PI / 4;
 const _90 = Math.PI / 2;
+const _120 = Math.PI * 2 / 3;
 const _360 = Math.PI * 2;
 const _DEG2RAD = Math.PI / 180;
 const _RAD2DEG = 180 / Math.PI;
@@ -2865,6 +2866,7 @@ var math = /*#__PURE__*/Object.freeze({
     _60: _60,
     _45: _45,
     _90: _90,
+    _120: _120,
     _360: _360,
     _DEG2RAD: _DEG2RAD,
     _RAD2DEG: _RAD2DEG,

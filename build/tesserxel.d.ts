@@ -4,6 +4,7 @@ declare const _30: number;
 declare const _60: number;
 declare const _45: number;
 declare const _90: number;
+declare const _120: number;
 declare const _360: number;
 declare const _DEG2RAD: number;
 declare const _RAD2DEG: number;
@@ -832,6 +833,7 @@ declare const math_d__30: typeof _30;
 declare const math_d__60: typeof _60;
 declare const math_d__45: typeof _45;
 declare const math_d__90: typeof _90;
+declare const math_d__120: typeof _120;
 declare const math_d__360: typeof _360;
 declare const math_d__DEG2RAD: typeof _DEG2RAD;
 declare const math_d__RAD2DEG: typeof _RAD2DEG;
@@ -882,6 +884,7 @@ declare namespace math_d {
     math_d__60 as _60,
     math_d__45 as _45,
     math_d__90 as _90,
+    math_d__120 as _120,
     math_d__360 as _360,
     math_d__DEG2RAD as _DEG2RAD,
     math_d__RAD2DEG as _RAD2DEG,
