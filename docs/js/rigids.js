@@ -986,6 +986,16 @@ async function loadMaxwell(cb) {
     // controllers
     const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
     camCtrl.keyMoveSpeed = 0.01;
+    const gravityCtrl = {
+        update: function (state) {
+            if (state.isKeyHold(".KeyG")) {
+                gravityCtrl.gravity = !gravityCtrl.gravity;
+                world.gravity.y = gravityCtrl.gravity ? -9.8 : 0;
+            }
+        },
+        enabled: true,
+        gravity: true
+    };
     const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
     const emitCtrl = new EmitGlomeController(world, scene, camera);
     emitCtrl.glomeRadius = 1;
@@ -994,7 +1004,8 @@ async function loadMaxwell(cb) {
     const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
         retinaCtrl,
         camCtrl,
-        emitCtrl
+        emitCtrl,
+        gravityCtrl
     ], { enablePointerLock: true });
     function setSize() {
         let width = window.innerWidth * window.devicePixelRatio;
