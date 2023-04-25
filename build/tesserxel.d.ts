@@ -2473,6 +2473,10 @@ declare class FreeFlyController implements IController {
         turnDown: string;
         spinCW: string;
         spinCCW: string;
+        rollCW: string;
+        rollCCW: string;
+        pitchCW: string;
+        pitchCCW: string;
         disable: string;
         enable: string;
     };
@@ -2609,6 +2613,8 @@ declare class RetinaController implements IController {
     mouseButton: number;
     retinaEyeOffset: number;
     sectionEyeOffset: number;
+    maxSectionEyeOffset: number;
+    minSectionEyeOffset: number;
     size: GPUExtent3DStrict;
     sectionPresets: (screenSize: {
         width: number;
@@ -2631,6 +2637,11 @@ declare class RetinaController implements IController {
         addFov: string;
         subFov: string;
         toggle3D: string;
+        addEyes3dGap: string;
+        subEyes3dGap: string;
+        addEyes4dGap: string;
+        subEyes4dGap: string;
+        negEyesGap: string;
         toggleCrosshair: string;
         rotateLeft: string;
         rotateRight: string;

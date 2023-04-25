@@ -98,6 +98,12 @@ export class ControllerRegistry {
         this.ctrls = ctrls;
         this.enablePointerLock = config?.enablePointerLock ?? false;
         this.states.isKeyHold = (code) => {
+            if (code.includes("|")) {
+                for (let key of code.split("|")) {
+                    if (this.states.isKeyHold(key)) return true;
+                }
+                return false;
+            }
             for (let key of code.split("+")) {
                 if (key[0] === '.') {
                     let state = this.states.currentKeys.get(key.slice(1));
@@ -166,14 +172,14 @@ export class ControllerRegistry {
                 this.states.currentKeys.set("AltLeft", KeyState.NONE);
                 this.states.currentKeys.set("AltRight", KeyState.NONE);
             }
-            if (this.disableDefaultEvent) {
+            if (ev.altKey === true || ev.ctrlKey === true || this.disableDefaultEvent) {
                 ev.preventDefault();
                 ev.stopPropagation();
             }
         };
         this.evKeyUp = (ev) => {
             this.states.currentKeys.set(ev.code, KeyState.UP);
-            if (this.disableDefaultEvent) {
+            if (ev.altKey === true || ev.ctrlKey === true || this.disableDefaultEvent) {
                 ev.preventDefault();
                 ev.stopPropagation();
             }
@@ -322,8 +328,12 @@ export class FreeFlyController implements IController {
         turnKata: "KeyO",
         turnUp: "KeyI",
         turnDown: "KeyK",
-        spinCW: "KeyZ",
-        spinCCW: "KeyX",
+        spinCW: "KeyF|KeyZ",
+        spinCCW: "KeyH|KeyX",
+        rollCW: "KeyR",
+        rollCCW: "KeyY",
+        pitchCW: "KeyG",
+        pitchCCW: "KeyT",
         disable: "AltLeft",
         enable: "",
     }
@@ -344,8 +354,12 @@ export class FreeFlyController implements IController {
         if (!disabled) {
 
             let keyRotateSpeed = this.keyRotateSpeed * state.mspf;
+            delta = (on(key.pitchCW) ? -1 : 0) + (on(key.pitchCCW) ? 1 : 0);
+            if (delta) this._bivecKey.yz = delta * keyRotateSpeed;
             delta = (on(key.spinCW) ? -1 : 0) + (on(key.spinCCW) ? 1 : 0);
             if (delta) this._bivecKey.xz = delta * keyRotateSpeed;
+            delta = (on(key.rollCW) ? -1 : 0) + (on(key.rollCCW) ? 1 : 0);
+            if (delta) this._bivecKey.xy = delta * keyRotateSpeed;
             delta = (on(key.turnLeft) ? -1 : 0) + (on(key.turnRight) ? 1 : 0);
             if (delta) this._bivecKey.xw = delta * keyRotateSpeed;
             delta = (on(key.turnUp) ? 1 : 0) + (on(key.turnDown) ? -1 : 0);
@@ -827,6 +841,8 @@ export class RetinaController implements IController {
     mouseButton = 0;
     retinaEyeOffset = 0.1;
     sectionEyeOffset = 0.2;
+    maxSectionEyeOffset = 1;
+    minSectionEyeOffset = 0.01;
     size: GPUExtent3DStrict;
     sectionPresets: (screenSize: { width: number, height: number }) => { [label: string]: SectionPreset };
     private currentSectionConfig: string = "retina+sections";
@@ -844,6 +860,11 @@ export class RetinaController implements IController {
         addFov: "KeyT",
         subFov: "KeyG",
         toggle3D: ".KeyZ",
+        addEyes3dGap: "KeyB",
+        subEyes3dGap: "KeyV",
+        addEyes4dGap: "KeyM",
+        subEyes4dGap: "KeyN",
+        negEyesGap: ".KeyX",
         toggleCrosshair: ".KeyC",
         rotateLeft: "ArrowLeft",
         rotateRight: "ArrowRight",
@@ -945,6 +966,37 @@ export class RetinaController implements IController {
         }
         if (!disabled) {
             this.needResize = false;
+            if (this.renderer.getStereoMode()) {
+                if (state.isKeyHold(this.keyConfig.addEyes3dGap)) {
+                    this.retinaEyeOffset *= 1.05;
+                    if (this.retinaEyeOffset > 0.4) this.retinaEyeOffset = 0.4;
+                    if (this.retinaEyeOffset < -0.4) this.retinaEyeOffset = -0.4;
+                    this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
+                }
+                if (state.isKeyHold(this.keyConfig.subEyes3dGap)) {
+                    this.retinaEyeOffset /= 1.05;
+                    if (this.retinaEyeOffset > 0 && this.retinaEyeOffset < 0.03) this.retinaEyeOffset = 0.03;
+                    if (this.retinaEyeOffset < 0 && this.retinaEyeOffset > -0.03) this.retinaEyeOffset = -0.03;
+                    this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
+                }
+                if (state.isKeyHold(this.keyConfig.addEyes4dGap)) {
+                    this.sectionEyeOffset *= 1.05;
+                    if (this.sectionEyeOffset > this.maxSectionEyeOffset) this.sectionEyeOffset = this.maxSectionEyeOffset;
+                    if (this.sectionEyeOffset < -this.maxSectionEyeOffset) this.sectionEyeOffset = -this.maxSectionEyeOffset;
+                    this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
+                }
+                if (state.isKeyHold(this.keyConfig.subEyes4dGap)) {
+                    this.sectionEyeOffset /= 1.05;
+                    if (this.sectionEyeOffset > 0 && this.sectionEyeOffset < this.minSectionEyeOffset) this.sectionEyeOffset = this.minSectionEyeOffset;
+                    if (this.sectionEyeOffset < 0 && this.sectionEyeOffset > -this.minSectionEyeOffset) this.sectionEyeOffset = -this.minSectionEyeOffset;
+                    this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
+                }
+                if (state.isKeyHold(this.keyConfig.negEyesGap)) {
+                    this.sectionEyeOffset = -this.sectionEyeOffset;
+                    this.retinaEyeOffset = -this.retinaEyeOffset;
+                    this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
+                }
+            }
             if (state.isKeyHold(this.keyConfig.toggleCrosshair)) {
                 let crossHair = this.renderer.getCrosshair();
                 this.renderer.setCrosshair(crossHair === 0 ? this.crossHairSize : 0);

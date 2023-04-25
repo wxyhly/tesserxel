@@ -398,7 +398,7 @@ struct _SliceInfo{
     var sindex = iindex;
     var pos2d = pos[vindex];
     let stereoLR = f32(iindex & 1) - 0.5;
-    if (slice[sliceoffset].flag == 0 && eyeOffset.y > 0.0){
+    if (slice[sliceoffset].flag == 0 && eyeOffset.y != 0.0){
         sindex = iindex >> 1;
     }
     let s = slice[sindex + sliceoffset];
@@ -433,7 +433,7 @@ struct _SliceInfo{
         }
         normal = omat[2];
         // todo: viewport of retina slices
-        glPosition.x = (glPosition.x) * screenAspect + step(0.0001, eyeOffset.y) * stereoLR * glPosition.w;
+        glPosition.x = (glPosition.x) * screenAspect + step(0.0001, abs(eyeOffset.y)) * stereoLR * glPosition.w;
     }else{
         let vp = thumbnailViewport[sindex + sliceoffset - (refacing >> 5)];
         crossHair = eyeOffset.z / vp.w * step(abs(s.slicePos),0.1);
@@ -576,7 +576,7 @@ struct fInputType{
     var factor = 0.0;
     if(eyeCross.z > 0.0 && layerOpacity > 0.0){
         let aspectedCross = eyeCross.z*screenAspect;
-        if(eyeCross.x > 0.0 ){
+        if(eyeCross.x != 0.0 ){
             let cross1 = abs(input.fragPosition - vec2<f32>(0.25 ,0.5))*2.0;
             let cross2 = abs(input.fragPosition - vec2<f32>(0.75 ,0.5))*2.0;
             factor = step(cross1.x,0.05*aspectedCross) + step(cross2.x,0.05*aspectedCross) + step(cross1.y,eyeCross.z*0.05);
@@ -1334,7 +1334,7 @@ struct vOutputType{
         }
         if (s) this.displayConfig.sectionEyeOffset = sectionEyeOffset;
         if (r) this.displayConfig.retinaEyeOffset = retinaEyeOffset;
-        this.enableEye3D = this.displayConfig.sectionEyeOffset > 0 || this.displayConfig.retinaEyeOffset > 0;
+        this.enableEye3D = this.displayConfig.sectionEyeOffset !== 0 || this.displayConfig.retinaEyeOffset !== 0;
     }
     setCrosshair(size: number) {
         this.crossHairSize = size;
