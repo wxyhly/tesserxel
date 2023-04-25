@@ -108,60 +108,60 @@ let info = {
         "en": `<b>Control: Trackball mode</b><br>Left mouse button to rotate in 3D retina, right mouse button to rotate in 4D, center mouse button to rotate in 2D screen and front-back direction, scroll mouse wheel to scale. The operations are exactly same as software Jenn3D. <br><br>A tesseract(Hypercube). A spherical volume at each cell center is painted by different color. The default camera position is inside the tesseract, get out of the tesseract by scrolling your mouse wheel.`,
     },
     "shapes::glome": {
-        "zh": "一个表面绘制着许多平圆环纬面的超球。默认摄像机在超球内部，通过鼠标滚轮可缩小至超立方体外部。",
+        "zh": "<b>控制：轨迹球模式</b><br>一个表面绘制着许多平圆环纬面的超球。默认摄像机在超球内部，通过鼠标滚轮可缩小至超立方体外部。",
         "en": `<b>Control: Trackball mode</b><br>A glome(Hypersphere) painted by several flat tori which are equi-latitude surface. The default camera position is inside the glome, get out of the glome by scrolling your mouse wheel.`,
     },
     "mengersponge::menger_sponge1": {
         "zh": "<b>控制：自由飞行模式</b><br>门格海绵分形的第一种四维类比。从正面看上去，它在三维视野中的投影恰为三维门格海绵，因此严格来说它在三维视野中的体积为零，很难被看见。",
-        "en": `The first analogue of Menger sponge. In the front view, it's projection in 3D retina is exactly 3D Menger sponge, which has zero volume hence can be seen difficultly.`,
+        "en": `<b>Control: Free fly mode</b><br>The first analogue of Menger sponge. In the front view, it's projection in 3D retina is exactly 3D Menger sponge, which has zero volume hence can be seen difficultly.`,
     },
     "mengersponge::menger_sponge2": {
         "zh": "<b>控制：自由飞行模式</b><br>门格海绵分形的第二种四维类比。从正面看上去，它在三维视野中的投影为内部有中空的实心立方体，它的某些横截面恰为三维门格海绵。",
-        "en": `The second analogue of Menger sponge. In the front view, it's projection in 3D retina is a solid cube will some internal holes. Some cross sections of it are exactly 3D Menger sponge.`,
+        "en": `<b>Control: Free fly mode</b><br>The second analogue of Menger sponge. In the front view, it's projection in 3D retina is a solid cube will some internal holes. Some cross sections of it are exactly 3D Menger sponge.`,
     },
     "mandelbulb::mandelbulb_hopf": {
         "zh": "<b>控制：自由飞行模式</b><br>Mandelbulb分形的第一种类比。Mandelbulb分形建立在球坐标系之上。四维极座标系统有两种，该分形采用Hopf坐标。",
-        "en": "The first analogue of Mandelbulb. The construction of 3D Mandelbulb is based on spherical coordinate. In 4D, there are two similar coordinate system. Hopf coordinate is used for this fractal.",
+        "en": "<b>Control: Free fly mode</b><br>The first analogue of Mandelbulb. The construction of 3D Mandelbulb is based on spherical coordinate. In 4D, there are two similar coordinate system. Hopf coordinate is used for this fractal.",
     },
     "mandelbulb::mandelbulb_spherical": {
         "zh": "<b>控制：自由飞行模式</b><br>Mandelbulb分形的第二种类比。Mandelbulb分形建立在球坐标系之上。四维极座标系统有两种，该分形采用球极坐标。",
-        "en": "The second analogue of Mandelbulb. The construction of 3D Mandelbulb is based on spherical coordinate. In 4D, there are two similar coordinate system. Spherical polar coordinate is used for this fractal.",
+        "en": "<b>Control: Free fly mode</b><br>The second analogue of Mandelbulb. The construction of 3D Mandelbulb is based on spherical coordinate. In 4D, there are two similar coordinate system. Spherical polar coordinate is used for this fractal.",
     },
     "mandelbulb::julia_quaternion": {
         "zh": "<b>控制：自由飞行模式</b><br>使用四元数的Julia集。迭代公式为：z->z<sup>2</sup>+(-0.125-0.256<i>i</i>+0.847<i>j</i>+0.0895<i>k</i>)",
-        "en": "<b>Control: Free fly mode.</b><br>Julia set with quaternion number. The iteration fomular is: z->z<sup>2</sup>+(-0.125-0.256<i>i</i>+0.847<i>j</i>+0.0895<i>k</i>)"
+        "en": "<b>Control: Free fly mode</b><br>Julia set with quaternion number. The iteration fomular is: z->z<sup>2</sup>+(-0.125-0.256<i>i</i>+0.847<i>j</i>+0.0895<i>k</i>)"
     },
     "city_highway": {
-        "zh": "四维世界的地面是三维的，人们可以在三维地面上修建城市与空间曲线道路。这是一条单边4x3车道的双向道路。",
-        "en": "The ground of 4D world is three dimensional, where inhabitants could build city and road by spatial curve. This is a two-way road of 4x3 lanes on each side."
+        "zh": "<b>控制：保持竖直模式</b><br>四维世界的地面是三维的，人们可以在三维地面上修建城市与空间曲线道路。这是一条单边4x3车道的双向道路。",
+        "en": "<b>Control: Keep up mode</b><br>The ground of 4D world is three dimensional, where inhabitants could build city and road by spatial curve. This is a two-way road of 4x3 lanes on each side."
     },
     "navigation": {
-        "zh": "将尺寸比例缩小、时间快进的四维星球。注意为了在地面附近活动，你可能需要随时滚动鼠标滚轮调整俯仰角。该星球为双旋转，视野中的指南针为一个被水平固定的磁偶极子，它将在与赤道平行的简单地磁偶极场中受力偏转来帮助您找到方向。下方标注了当地的太阳高度角余弦年度曲线，双旋转导致北极与南极的昼夜更替速度不同。按P键可以暂停时间流逝。",
-        "en": "A 4D planet whose dimension is scaled down and time is accelerated. Note that you may need to scroll the mouse wheel to adjust the pitch angle in order to move around the ground. The planet is double-rotating. The compass in the view is a magnetic dipole which is horizontally fixed. You can use it to navigate on the planet because it will rotate in a magnetic field generated by a simple dipole whose current is parallel to the equator. The annual cosine curve of the local solar elevation angle is plotted below. The double rotation causes the north and south poles to have different duration of day and night. Press the P key to pause the time passage."
+        "zh": "<b>控制：自由飞行模式</b><br>将尺寸比例缩小、时间快进的四维星球。注意为了在地面附近活动，你可能需要随时滚动鼠标滚轮调整俯仰角。该星球为双旋转，视野中的指南针为一个被水平固定的磁偶极子，它将在与赤道平行的简单地磁偶极场中受力偏转来帮助您找到方向。下方标注了当地的太阳高度角余弦年度曲线，双旋转导致北极与南极的昼夜更替速度不同。按P键可以暂停时间流逝。",
+        "en": "<b>Control: Free fly mode</b><br>A 4D planet whose dimension is scaled down and time is accelerated. Note that you may need to scroll the mouse wheel to adjust the pitch angle in order to move around the ground. The planet is double-rotating. The compass in the view is a magnetic dipole which is horizontally fixed. You can use it to navigate on the planet because it will rotate in a magnetic field generated by a simple dipole whose current is parallel to the equator. The annual cosine curve of the local solar elevation angle is plotted below. The double rotation causes the north and south poles to have different duration of day and night. Press the P key to pause the time passage."
     },
     "backrooms": {
-        "zh": "“后室”是一种网友创作的虚构域限空间，该场景为Kane版后室离前厅最近的部分的四维类比。",
-        "en": "\"The Backrooms\" is a liminal space created on the Internet. This scene is an analogue of the first area in Kane Pixels version."
+        "zh": "<b>控制：保持竖直模式</b><br>“后室”是一种网友创作的虚构域限空间，该场景为Kane版后室离前厅最近的部分的四维类比。",
+        "en": "<b>Control: Keep up mode</b><br>\"The Backrooms\" is a liminal space created on the Internet. This scene is an analogue of the first area in Kane Pixels version."
     },
     "rails::rail1d": {
-        "zh": "铁路的自然四维类比，该场景有一段空间曲线铁轨加三车厢的平板火车组成，每个火车包括两个转向架，每个转向架有8个轮子。使用键盘T/G控制火车前进后退。",
-        "en": "The natural 4D analogy of the railway. This scene contains a spatial-curved rail and a three-carriage flat train. Each car includes two bogies, and each bogie has 8 wheels. Use the keyboard T/G to move forward / backward."
+        "zh": "<b>控制：保持竖直模式</b><br>铁路的自然四维类比，该场景有一段空间曲线铁轨加三车厢的平板火车组成，每个火车包括两个转向架，每个转向架有8个轮子。使用键盘T/G控制火车前进后退。",
+        "en": "<b>Control: Keep up mode</b><br>The natural 4D analogy of the railway. This scene contains a spatial-curved rail and a three-carriage flat train. Each car includes two bogies, and each bogie has 8 wheels. Use the keyboard T/G to move forward / backward."
     },
     "rails::rail2d": {
-        "zh": "平面轨道火车，火车在一个方向上被轨道卡住使用转向架引导转向，另一个方向则可使用方向盘人工驾驶控制方向。使用键盘T/G控制火车前进后退，键盘R/Y转向，键盘B锁定/解锁相机跟随。小心别让火车脱轨！",
-        "en": "Planar rail train. the bogie is used to guide the train in one direction, and the steering wheel is used by driver manually in another direction. Use the keyboard T/G to move forward / backward, the keyboard R/Y to turn, and the keyboard B to lock/unlock the camera following. Be careful not to derail the train!"
+        "zh": "<b>控制：保持竖直模式</b><br>平面轨道火车，火车在一个方向上被轨道卡住使用转向架引导转向，另一个方向则可使用方向盘人工驾驶控制方向。使用键盘T/G控制火车前进后退，键盘R/Y转向，键盘B锁定/解锁相机跟随。小心别让火车脱轨！",
+        "en": "<b>Control: Keep up mode</b><br>Planar rail train. the bogie is used to guide the train in one direction, and the steering wheel is used by driver manually in another direction. Use the keyboard T/G to move forward / backward, the keyboard R/Y to turn, and the keyboard B to lock/unlock the camera following. Be careful not to derail the train!"
     },
     "rubic":{
-        "zh": "四维三阶魔方演示。四维魔方的每个胞是立方体，不同于正方形只能绕面心旋转，立方体的旋转对称性则丰富得多，绕过面块、角块与棱块的轴可以进行90°、120°、180°三种角度的旋转。",
-        "en": "Demo of 4D rubic's cube of order 3. Each cell of the 4D tesseract is a cube. In 3d, a square can only be rotated around the face center. Unlike 3d, the rotational symmetry of 4d cubic cell is much richer. It can be rotated 90°, 120° and 180° around the axes through face blocks, corner blocks and edge blocks.",
+        "zh": "<b>控制：轨迹球模式</b><br>四维三阶魔方演示。四维魔方的每个胞是立方体，不同于正方形只能绕面心旋转，立方体的旋转对称性则丰富得多，绕过面块、角块与棱块的轴可以进行90°、120°、180°三种角度的旋转。使用键盘H切换至镂空模式。",
+        "en": "<b>Control: Trackball mode</b><br>Demo of 4D rubic's cube of order 3. Each cell of the 4D tesseract is a cube. In 3d, a square can only be rotated around the face center. Unlike 3d, the rotational symmetry of 4d cubic cell is much richer. It can be rotated 90°, 120° and 180° around the axes through face blocks, corner blocks and edge blocks. Use keyboard H to toggle hollow mode.",
     },
     "four_basic_scene": {
         "zh": "使用FOUR绘制一个红色双旋转超立方体。类似于3D渲染中的ThreeJs库与WebGl，tesserxel中的子库Four能够帮您隐藏底层渲染逻辑，快速构建四维场景。详见源码FourBasicScene.ts。",
         "en": `Rendering a redish double rotating hypercube by library "Four". Analogue to ThreeJs and WebGl for 3D rendering, tessexel's sub-library "Four" helps you hide low-level render implementations in order to build 4D scene fastly. detail can be found in source file FourBasicScene.ts.`
     },
     "four_materials": {
-        "zh": "四维常见材质灯光展示。注意四维空间中的点光源随距离呈三次方衰减，因此会出现即使光源周围很亮但稍远处就很黑的现象。子库Four中，物体材质使用节点递归定义，以便程序化生成贴图，解决常规3D贴图内存占用大的问题。",
-        "en": "Common materials and lightings in 4D. Note that point lights in 4D decays with the inverse cubic law. This could cause bright around the light source, but get dark rapidly in a distance. In the sub-library Four, the object material is defined recursively using nodes to generate textures procedurally and solve the problem of large memory usage of conventional 3D textures."
+        "zh": "<b>控制：保持竖直模式</b><br>四维常见材质灯光展示。注意四维空间中的点光源随距离呈三次方衰减，因此会出现即使光源周围很亮但稍远处就很黑的现象。子库Four中，物体材质使用节点递归定义，以便程序化生成贴图，解决常规3D贴图内存占用大的问题。",
+        "en": "<b>Control: Keep up mode</b><br>Common materials and lightings in 4D. Note that point lights in 4D decays with the inverse cubic law. This could cause bright around the light source, but get dark rapidly in a distance. In the sub-library Four, the object material is defined recursively using nodes to generate textures procedurally and solve the problem of large memory usage of conventional 3D textures."
     },
     "hellotetra::hello_tetra1": {
         "zh": "除非采用光线跟踪，Tesserxel绘制的最小单元就是四面体。这是绘制一个四面体的最简单代码示例。",
@@ -176,28 +176,28 @@ let info = {
         "en": "Seting up uniform with binding group in WebGPU. In each frame, update rotation matrix to uniform. Attention that one must start with group(1), because group(0) is occupied by internal usage with Tesserxel."
     },
     "rigids::st_pile": {
-        "zh": "超立方体房间中将不断掉下许多球环。使用鼠标左键发射超球轰击它们。",
-        "en": "Spheritori are dropped in the tesseract shaped room. Click left mouse button to fire glomes and hit them."
+        "zh": "<b>控制：保持竖直模式</b><br>超立方体房间中将不断掉下许多球环。使用鼠标左键发射超球轰击它们。",
+        "en": "<b>Control: Keep up mode</b><br>Spheritori are dropped in the tesseract shaped room. Click left mouse button to fire glomes and hit them."
     },
     "rigids::st_ts_chain": {
-        "zh": "球环与环球交错组成的链。使用鼠标左键发射超球轰击它们。",
-        "en": "A Chain made of spheritorus and torusphere alternatively. Click left mouse button to fire glomes and hit them."
+        "zh": "<b>控制：保持竖直模式</b><br>球环与环球交错组成的链。使用鼠标左键发射超球轰击它们。",
+        "en": "<b>Control: Keep up mode</b><br>A Chain made of spheritorus and torusphere alternatively. Click left mouse button to fire glomes and hit them."
     },
     "rigids::tg_tg_chain": {
-        "zh": "大小双圆环交错组成的链。使用鼠标左键发射超球轰击它们。",
-        "en": "A Chain made of Big and small tigers (doutorus) alternatively. Click left mouse button to fire glomes and hit them."
+        "zh": "<b>控制：保持竖直模式</b><br>大小双圆环交错组成的链。使用鼠标左键发射超球轰击它们。",
+        "en": "<b>Control: Keep up mode</b><br>A Chain made of Big and small tigers (doutorus) alternatively. Click left mouse button to fire glomes and hit them."
     },
     "rigids::mix_chain": {
-        "zh": "双圆环可以同时匹配球环与环球的孔，它可以作为锁链的“万能”连接部件。使用鼠标左键发射超球轰击它们。",
-        "en": "Tigers (doutorus) can match both holes of spheritorus and torisphere, hence they can be used as universal components for constructing chains. Click left mouse button to fire glomes and hit them."
+        "zh": "<b>控制：保持竖直模式</b><br>双圆环可以同时匹配球环与环球的孔，它可以作为锁链的“万能”连接部件。使用鼠标左键发射超球轰击它们。",
+        "en": "<b>Control: Keep up mode</b><br>Tigers (doutorus) can match both holes of spheritorus and torisphere, hence they can be used as universal components for constructing chains. Click left mouse button to fire glomes and hit them."
     },
     "rigids::rigid_test": {
-        "zh": "三维的地面上将不断掉下超立方体。使用鼠标左键发射超球轰击它们。",
+        "zh": "<b>控制：保持竖直模式</b><br>三维的地面上将不断掉下超立方体。使用鼠标左键发射超球轰击它们。",
         "en": "Tesseracts are dropped on 3D ground. Click left mouse button to fire glomes and hit them."
     },
     "forces::spring_rope": {
-        "zh": "由胡克定律弹簧模型模拟的绳子，采用四阶显式龙格库塔积分器求解。",
-        "en": "A rope simulated by spring model with hook's law, solved with 4th order explicit Runge-Kutta method."
+        "zh": "<b>控制：保持竖直模式</b><br>由胡克定律弹簧模型模拟的绳子，采用四阶显式龙格库塔积分器求解。",
+        "en": "<b>Control: Keep up mode</b><br>A rope simulated by spring model with hook's law, solved with 4th order explicit Runge-Kutta method."
     },
     "pde::wave_eq": {
         "zh": "求解环面T^3上的三维波动方程描述的4个干涉波源。",
@@ -208,20 +208,20 @@ let info = {
         "en": "River evolution simulated by rain fall. Terrain is generated by fractal 3d simplex noise."
     },
     "rigids::e_charge": {
-        "zh": "静电点电荷模拟。红球与蓝球分别带有等量异种电荷，静电力随距离三次方衰减。使用键盘G开启/关闭重力。",
-        "en": "Simulation of static electric charge. Red and blue balls have the same amount of charge but with different signs. The decay of electric force is inverse-cubic by distance. Use keyboard G to turn on/off the gravity."
+        "zh": "<b>控制：保持竖直模式</b><br>静电点电荷模拟。红球与蓝球分别带有等量异种电荷，静电力随距离三次方衰减。使用键盘G开启/关闭重力。",
+        "en": "<b>Control: Keep up mode</b><br>Simulation of static electric charge. Red and blue balls have the same amount of charge but with different signs. The decay of electric force is inverse-cubic by distance. Use keyboard G to turn on/off the gravity."
     },
     "rigids::e_dipole": {
-        "zh": "静电偶极子模拟。每个小球的红蓝两部分均带不同种电荷。使用键盘G开启/关闭重力。",
-        "en": "Simulation of static electric dipole. Red and blue parts of each ball have different sign of charge. Use keyboard G to turn on/off the gravity."
+        "zh": "<b>控制：保持竖直模式</b><br>静电偶极子模拟。每个小球的红蓝两部分均带不同种电荷。使用键盘G开启/关闭重力。",
+        "en": "<b>Control: Keep up mode</b><br>Simulation of static electric dipole. Red and blue parts of each ball have different sign of charge. Use keyboard G to turn on/off the gravity."
     },
     "rigids::m_dipole": {
-        "zh": "磁偶极子模拟。磁场由无穷小环形电流产生，方向由偶极子球上的蓝色圆周标出，红色圆周为其绝对垂直方向。使用键盘G开启/关闭重力。",
-        "en": "Simulation of magnetic dipole. Magnetic field is generated by infinitesimal current loop whose direction is marked by blue circle on the ball. Red circle is perpendicular to the current loop. Use keyboard G to turn on/off the gravity."
+        "zh": "<b>控制：保持竖直模式</b><br>磁偶极子模拟。磁场由无穷小环形电流产生，方向由偶极子球上的蓝色圆周标出，红色圆周为其绝对垂直方向。使用键盘G开启/关闭重力。",
+        "en": "<b>Control: Keep up mode</b><br>Simulation of magnetic dipole. Magnetic field is generated by infinitesimal current loop whose direction is marked by blue circle on the ball. Red circle is perpendicular to the current loop. Use keyboard G to turn on/off the gravity."
     },
     "rigids::m_dipole_dual": {
-        "zh": "对偶磁偶极子为两个绝对垂直的等大环形电流的磁场叠加。对偶磁偶极子按手性可分为互为镜像的自对偶与反自对偶磁偶极子。同种对偶磁偶极子之间因两个线圈受力抵消，因而无相互作用力。使用键盘G开启/关闭重力。",
-        "en": "Dual magnetic dipole is constructed by two perpendicular current loop with same amount. It can be categorized into two different chiral class: self-dual and anti-self-dual dipole. dipoles with the same chirality have no interactions since force applied by perpendicular current loops exactly cancel each other. Use keyboard G to turn on/off the gravity."
+        "zh": "<b>控制：保持竖直模式</b><br>对偶磁偶极子为两个绝对垂直的等大环形电流的磁场叠加。对偶磁偶极子按手性可分为互为镜像的自对偶与反自对偶磁偶极子。同种对偶磁偶极子之间因两个线圈受力抵消，因而无相互作用力。使用键盘G开启/关闭重力。",
+        "en": "<b>Control: Keep up mode</b><br>Dual magnetic dipole is constructed by two perpendicular current loop with same amount. It can be categorized into two different chiral class: self-dual and anti-self-dual dipole. dipoles with the same chirality have no interactions since force applied by perpendicular current loops exactly cancel each other. Use keyboard G to turn on/off the gravity."
     },
 
 };
