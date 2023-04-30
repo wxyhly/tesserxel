@@ -203,8 +203,7 @@ export namespace rasterizer {
 
         // voxel render pass (compute pass)
 
-        let meshJsBuffer = tesserxel.mesh.tetra.tiger(1, 16, 1, 16, 0.2, 12);
-        tesserxel.mesh.tetra.applyObj4(meshJsBuffer, new tesserxel.math.Obj4(
+        let meshJsBuffer = tesserxel.mesh.tetra.tiger(1, 16, 1, 16, 0.2, 12).applyObj4(new tesserxel.math.Obj4(
             new tesserxel.math.Vec4(0, 0, 0, 2)
         ));
 

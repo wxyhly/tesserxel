@@ -6724,127 +6724,332 @@ function toNonIndex(srcArr, idxArr, dstArr, stride) {
     }
 }
 
-function toIndexMesh$1(m) {
-    let position = [];
-    let normal = [];
-    let uvw = [];
-    let posIdx4 = [];
-    let normalIdx4 = [];
-    let uvwIdx4 = [];
-    let posIdx3 = [];
-    let normalIdx3 = [];
-    let uvwIdx3 = [];
-    if (m.quad) {
-        toIndexbuffer(m.quad.position, position, posIdx4, 4);
-        if (m.quad.normal)
-            toIndexbuffer(m.quad.normal, normal, normalIdx4, 4);
-        if (m.quad.uvw)
-            toIndexbuffer(m.quad.uvw, uvw, uvwIdx4, 4);
+class FaceMesh {
+    quad;
+    triangle;
+    constructor(d) {
+        this.quad = d.quad;
+        this.triangle = d.triangle;
     }
-    if (m.triangle) {
-        toIndexbuffer(m.triangle.position, position, posIdx3, 4);
-        if (m.triangle.normal)
-            toIndexbuffer(m.triangle.normal, normal, normalIdx3, 4);
-        if (m.triangle.uvw)
-            toIndexbuffer(m.triangle.uvw, uvw, uvwIdx3, 4);
+    applyAffineMat4(am) {
+        applyAffineMat4$1(this, am);
+        return this;
     }
-    let out = {
-        position: new Float32Array(position)
-    };
-    if (m.quad) {
-        out.quad = {
-            position: new Uint32Array(posIdx4)
-        };
-        if (m.quad.normal)
-            out.quad.normal = new Uint32Array(normalIdx4);
-        if (m.quad.uvw)
-            out.quad.uvw = new Uint32Array(uvwIdx4);
+    applyObj4(obj4) {
+        applyObj4$1(this, obj4);
+        return this;
     }
-    if (m.triangle) {
-        out.triangle = {
-            position: new Uint32Array(posIdx4)
-        };
-        if (m.triangle.normal)
-            out.triangle.normal = new Uint32Array(normalIdx4);
-        if (m.triangle.uvw)
-            out.triangle.uvw = new Uint32Array(uvwIdx4);
+    toIndexMesh() {
+        let position = [];
+        let normal = [];
+        let uvw = [];
+        let posIdx4 = [];
+        let normalIdx4 = [];
+        let uvwIdx4 = [];
+        let posIdx3 = [];
+        let normalIdx3 = [];
+        let uvwIdx3 = [];
+        if (this.quad) {
+            toIndexbuffer(this.quad.position, position, posIdx4, 4);
+            if (this.quad.normal)
+                toIndexbuffer(this.quad.normal, normal, normalIdx4, 4);
+            if (this.quad.uvw)
+                toIndexbuffer(this.quad.uvw, uvw, uvwIdx4, 4);
+        }
+        if (this.triangle) {
+            toIndexbuffer(this.triangle.position, position, posIdx3, 4);
+            if (this.triangle.normal)
+                toIndexbuffer(this.triangle.normal, normal, normalIdx3, 4);
+            if (this.triangle.uvw)
+                toIndexbuffer(this.triangle.uvw, uvw, uvwIdx3, 4);
+        }
+        let out = new FaceIndexMesh({
+            position: new Float32Array(position)
+        });
+        if (this.quad) {
+            out.quad = {
+                position: new Uint32Array(posIdx4)
+            };
+            if (this.quad.normal)
+                out.quad.normal = new Uint32Array(normalIdx4);
+            if (this.quad.uvw)
+                out.quad.uvw = new Uint32Array(uvwIdx4);
+        }
+        if (this.triangle) {
+            out.triangle = {
+                position: new Uint32Array(posIdx4)
+            };
+            if (this.triangle.normal)
+                out.triangle.normal = new Uint32Array(normalIdx4);
+            if (this.triangle.uvw)
+                out.triangle.uvw = new Uint32Array(uvwIdx4);
+        }
+        if (normal.length)
+            out.normal = new Float32Array(normal);
+        if (uvw.length)
+            out.uvw = new Float32Array(uvw);
+        return out;
     }
-    if (normal.length)
-        out.normal = new Float32Array(normal);
-    if (uvw.length)
-        out.uvw = new Float32Array(uvw);
-    return out;
+    clone() {
+        let ret = new FaceMesh({});
+        if (this.quad) {
+            ret.quad = {
+                position: this.quad.position.slice(0)
+            };
+            if (this.quad.count)
+                ret.quad.count = this.quad.count;
+            if (this.quad.normal)
+                ret.quad.normal = this.quad.normal.slice(0);
+            if (this.quad.uvw)
+                ret.quad.uvw = this.quad.uvw.slice(0);
+        }
+        if (this.triangle) {
+            ret.triangle = {
+                position: this.triangle.position.slice(0)
+            };
+            if (this.triangle.count)
+                ret.triangle.count = this.triangle.count;
+            if (this.triangle.normal)
+                ret.triangle.normal = this.triangle.normal.slice(0);
+            if (this.triangle.uvw)
+                ret.triangle.uvw = this.triangle.uvw.slice(0);
+        }
+        return ret;
+    }
+    concat(m2) {
+        let quad_position = new Float32Array((this.quad?.position?.length ?? 0) + (m2.quad?.position?.length ?? 0));
+        if (this.quad?.position)
+            quad_position.set(this.quad.position);
+        if (m2.quad?.position)
+            quad_position.set(m2.quad.position, this.quad.position?.length ?? 0);
+        let tri_position = new Float32Array((this.triangle?.position?.length ?? 0) + (m2.triangle?.position?.length ?? 0));
+        if (this.triangle?.position)
+            tri_position.set(this.triangle.position);
+        if (m2.triangle?.position)
+            tri_position.set(m2.triangle.position, this.triangle.position?.length ?? 0);
+        let ret = new FaceMesh({});
+        if (quad_position.length)
+            ret.quad = { position: quad_position };
+        if (tri_position.length)
+            ret.triangle = { position: tri_position };
+        if (this.quad?.normal && m2.quad?.normal) {
+            let normal = new Float32Array((this.quad?.normal?.length ?? 0) + (m2.quad?.normal?.length ?? 0));
+            if (this.quad?.normal)
+                normal.set(this.quad.normal);
+            if (m2.quad?.normal)
+                normal.set(m2.quad.normal, this.quad?.normal?.length ?? 0);
+            ret.quad.normal = normal;
+        }
+        if (this.triangle?.normal && m2.triangle?.normal) {
+            let normal = new Float32Array((this.triangle?.normal?.length ?? 0) + (m2.triangle?.normal?.length ?? 0));
+            if (this.triangle?.normal)
+                normal.set(this.triangle.normal);
+            if (m2.triangle?.normal)
+                normal.set(m2.triangle.normal, this.triangle?.normal?.length ?? 0);
+            ret.triangle.normal = normal;
+        }
+        if (this.quad?.uvw && m2.quad?.uvw) {
+            let uvw = new Float32Array((this.quad?.uvw?.length ?? 0) + (m2.quad?.uvw?.length ?? 0));
+            if (this.quad?.uvw)
+                uvw.set(this.quad.uvw);
+            if (m2.quad?.uvw)
+                uvw.set(m2.quad.uvw, this.quad?.uvw?.length ?? 0);
+            ret.quad.uvw = uvw;
+        }
+        if (this.triangle?.uvw && m2.triangle?.uvw) {
+            let uvw = new Float32Array((this.triangle?.uvw?.length ?? 0) + (m2.triangle?.uvw?.length ?? 0));
+            if (this.triangle?.uvw)
+                uvw.set(this.triangle.uvw);
+            if (m2.triangle?.uvw)
+                uvw.set(m2.triangle.uvw, this.triangle?.uvw?.length ?? 0);
+            ret.triangle.uvw = uvw;
+        }
+        return ret;
+    }
 }
-function toNonIndexMesh$1(m) {
-    let out = {};
-    if (m.quad) {
-        let count = m.quad.position.length << 2;
-        out.quad = {
-            position: new Float32Array(count),
-            count: count >> 4
-        };
-        toNonIndex(m.position, m.quad.position, out.quad.position, 4);
-        if (m.normal) {
-            out.quad.normal = new Float32Array(count);
-            toNonIndex(m.normal, m.quad.normal, out.quad.normal, 4);
+class FaceIndexMesh {
+    position;
+    normal;
+    uvw;
+    quad;
+    triangle;
+    constructor(d) {
+        this.quad = d.quad;
+        this.triangle = d.triangle;
+        this.position = d.position;
+        this.normal = d.normal;
+        this.uvw = d.uvw;
+    }
+    applyAffineMat4(am) {
+        applyAffineMat4$1(this, am);
+        return this;
+    }
+    applyObj4(obj4) {
+        applyObj4$1(this, obj4);
+        return this;
+    }
+    toNonIndexMesh() {
+        let out = new FaceMesh({});
+        if (this.quad) {
+            let count = this.quad.position.length << 2;
+            out.quad = {
+                position: new Float32Array(count),
+                count: count >> 4
+            };
+            toNonIndex(this.position, this.quad.position, out.quad.position, 4);
+            if (this.normal) {
+                out.quad.normal = new Float32Array(count);
+                toNonIndex(this.normal, this.quad.normal, out.quad.normal, 4);
+            }
+            if (this.uvw) {
+                out.quad.uvw = new Float32Array(count);
+                toNonIndex(this.uvw, this.quad.uvw, out.quad.uvw, 4);
+            }
         }
-        if (m.uvw) {
-            out.quad.uvw = new Float32Array(count);
-            toNonIndex(m.uvw, m.quad.uvw, out.quad.uvw, 4);
+        if (this.triangle) {
+            let count = this.triangle.position.length << 2;
+            out.triangle = {
+                position: new Float32Array(count),
+                count: count / 12
+            };
+            toNonIndex(this.position, this.triangle.position, out.triangle.position, 4);
+            if (this.normal) {
+                out.triangle.normal = new Float32Array(count);
+                toNonIndex(this.normal, this.triangle.normal, out.triangle.normal, 4);
+            }
+            if (this.uvw) {
+                out.triangle.uvw = new Float32Array(count);
+                toNonIndex(this.uvw, this.triangle.uvw, out.triangle.uvw, 4);
+            }
         }
+        return out;
     }
-    if (m.triangle) {
-        let count = m.triangle.position.length << 2;
-        out.triangle = {
-            position: new Float32Array(count),
-            count: count / 12
-        };
-        toNonIndex(m.position, m.triangle.position, out.triangle.position, 4);
-        if (m.normal) {
-            out.triangle.normal = new Float32Array(count);
-            toNonIndex(m.normal, m.triangle.normal, out.triangle.normal, 4);
+    clone() {
+        let ret = new FaceIndexMesh({ position: this.position.slice(0) });
+        if (this.uvw)
+            ret.uvw = this.uvw.slice(0);
+        if (this.normal)
+            ret.normal = this.normal.slice(0);
+        if (this.quad) {
+            ret.quad = {
+                position: this.quad.position.slice(0)
+            };
+            if (this.quad.count)
+                ret.quad.count = this.quad.count;
+            if (this.quad.normal)
+                ret.quad.normal = this.quad.normal.slice(0);
+            if (this.quad.uvw)
+                ret.quad.uvw = this.quad.uvw.slice(0);
         }
-        if (m.uvw) {
-            out.triangle.uvw = new Float32Array(count);
-            toNonIndex(m.uvw, m.triangle.uvw, out.triangle.uvw, 4);
+        if (this.triangle) {
+            ret.triangle = {
+                position: this.triangle.position.slice(0)
+            };
+            if (this.triangle.count)
+                ret.triangle.count = this.triangle.count;
+            if (this.triangle.normal)
+                ret.triangle.normal = this.triangle.normal.slice(0);
+            if (this.triangle.uvw)
+                ret.triangle.uvw = this.triangle.uvw.slice(0);
         }
+        return ret;
     }
-    return out;
-}
-function clone$1(mesh) {
-    let ret = {};
-    if (mesh.quad) {
-        ret.quad = {
-            position: mesh.quad.position.slice(0)
-        };
-        if (mesh.quad.count)
-            ret.quad.count = mesh.quad.count;
-        if (mesh.quad.normal)
-            ret.quad.normal = mesh.quad.normal.slice(0);
-        if (mesh.quad.uvw)
-            ret.quad.uvw = mesh.quad.uvw.slice(0);
+    concat(m2) {
+        let position = new Float32Array(this.position.length + m2.position.length);
+        position.set(this.position);
+        position.set(m2.position, this.position.length);
+        let ret = new FaceIndexMesh({ position });
+        if (this.normal && m2.normal) {
+            let normal = new Float32Array(this.normal.length + m2.normal.length);
+            normal.set(this.normal);
+            normal.set(m2.normal, this.normal.length);
+            ret.normal = normal;
+        }
+        if (this.uvw && m2.uvw) {
+            let uvw = new Float32Array(this.uvw.length + m2.uvw.length);
+            uvw.set(this.uvw);
+            uvw.set(m2.uvw, this.uvw.length);
+            ret.uvw = uvw;
+        }
+        // index array concat
+        if (this.quad || m2.quad) {
+            let quadCount1 = (this.quad?.count << 2) || (this.quad?.position?.length ?? 0);
+            let quadCount2 = (this.quad?.count << 2) || (this.quad?.position?.length ?? 0);
+            let quadCount = quadCount1 + quadCount2;
+            let qp = new Uint32Array(quadCount);
+            let hasN = !((this.quad && !this.quad.normal) || (m2.quad && !m2.quad.normal));
+            let hasU = !((this.quad && !this.quad.uvw) || (m2.quad && !m2.quad.uvw));
+            let qn = hasN ? new Uint32Array(quadCount) : null;
+            let qu = hasU ? new Uint32Array(quadCount) : null;
+            ret.quad = { position: qp, count: quadCount >> 2 };
+            if (this.quad?.position) {
+                qp.set(this.quad.position.subarray(0, quadCount1));
+                if (hasN) {
+                    qn.set(this.quad.normal.subarray(0, quadCount1));
+                    ret.quad.normal = qn;
+                }
+                if (hasU) {
+                    qu.set(this.quad.uvw.subarray(0, quadCount1));
+                    ret.quad.uvw = qu;
+                }
+            }
+            if (m2.quad?.position) {
+                qp.set(m2.quad.position.subarray(0, quadCount2), quadCount1);
+                if (hasN)
+                    qn.set(m2.quad.normal.subarray(0, quadCount2), quadCount1);
+                if (hasU)
+                    qu.set(m2.quad.uvw.subarray(0, quadCount2), quadCount1);
+                if (quadCount1) {
+                    for (let i = quadCount1; i < quadCount; i++) {
+                        qp[i] += this.position.length >> 2;
+                        if (hasN)
+                            qn[i] += this.normal.length >> 2;
+                        if (hasU)
+                            qu[i] += this.uvw.length >> 2;
+                    }
+                }
+            }
+        }
+        if (this.triangle || m2.triangle) {
+            let triangleCount1 = (this.triangle?.count * 3) || (this.triangle?.position?.length ?? 0);
+            let triangleCount2 = (this.triangle?.count * 3) || (this.triangle?.position?.length ?? 0);
+            let triangleCount = triangleCount1 + triangleCount2;
+            let qp = new Uint32Array(triangleCount);
+            let hasN = !((this.triangle && !this.triangle.normal) || (m2.triangle && !m2.triangle.normal));
+            let hasU = !((this.triangle && !this.triangle.uvw) || (m2.triangle && !m2.triangle.uvw));
+            let qn = hasN ? new Uint32Array(triangleCount) : null;
+            let qu = hasU ? new Uint32Array(triangleCount) : null;
+            ret.triangle = { position: qp, count: Math.round(triangleCount / 3) };
+            if (this.triangle?.position) {
+                qp.set(this.triangle.position.subarray(0, triangleCount1));
+                if (hasN) {
+                    qn.set(this.triangle.normal.subarray(0, triangleCount1));
+                    ret.triangle.normal = qn;
+                }
+                if (hasU) {
+                    qu.set(this.triangle.uvw.subarray(0, triangleCount1));
+                    ret.triangle.uvw = qu;
+                }
+            }
+            if (m2.triangle?.position) {
+                qp.set(m2.triangle.position.subarray(0, triangleCount2), triangleCount1);
+                if (hasN)
+                    qn.set(m2.triangle.normal.subarray(0, triangleCount2), triangleCount1);
+                if (hasU)
+                    qu.set(m2.triangle.uvw.subarray(0, triangleCount2), triangleCount1);
+                if (triangleCount1) {
+                    for (let i = triangleCount1; i < triangleCount; i++) {
+                        qp[i] += this.position.length >> 2;
+                        if (hasN)
+                            qn[i] += this.normal.length >> 2;
+                        if (hasU)
+                            qu[i] += this.uvw.length >> 2;
+                    }
+                }
+            }
+        }
+        return ret;
     }
-    if (mesh.triangle) {
-        ret.triangle = {
-            position: mesh.triangle.position.slice(0)
-        };
-        if (mesh.triangle.count)
-            ret.triangle.count = mesh.triangle.count;
-        if (mesh.triangle.normal)
-            ret.triangle.normal = mesh.triangle.normal.slice(0);
-        if (mesh.triangle.uvw)
-            ret.triangle.uvw = mesh.triangle.uvw.slice(0);
-    }
-    if (mesh.position) {
-        let m = mesh;
-        let ret1 = ret;
-        ret1.position = m.position.slice(0);
-        if (m.uvw)
-            ret1.uvw = m.uvw.slice(0);
-        if (m.normal)
-            ret1.normal = m.normal.slice(0);
-    }
-    return ret;
 }
 function applyAffineMat4$1(m, am) {
     let vp = new Vec4();
@@ -6934,169 +7139,8 @@ function applyObj4$1(mesh, obj) {
     }
     return mesh;
 }
-function concat$1(mesh1, mesh2) {
-    if (mesh1.position && !mesh2.position) {
-        console.error("cannot concat FaceIndexMesh with FaceMesh");
-    }
-    if (mesh2.position && !mesh1.position) {
-        console.error("cannot concat FaceMesh with FaceIndexMesh");
-    }
-    if (mesh1.position) {
-        // both are indexed
-        let m1 = mesh1;
-        let m2 = mesh2;
-        // f32 data concat
-        let position = new Float32Array(m1.position.length + m2.position.length);
-        position.set(m1.position);
-        position.set(m2.position, m1.position.length);
-        let ret = { position };
-        if (m1.normal && m2.normal) {
-            let normal = new Float32Array(m1.normal.length + m2.normal.length);
-            normal.set(m1.normal);
-            normal.set(m2.normal, m1.normal.length);
-            ret.normal = normal;
-        }
-        if (m1.uvw && m2.uvw) {
-            let uvw = new Float32Array(m1.uvw.length + m2.uvw.length);
-            uvw.set(m1.uvw);
-            uvw.set(m2.uvw, m1.uvw.length);
-            ret.uvw = uvw;
-        }
-        // index array concat
-        if (m1.quad || m2.quad) {
-            let quadCount1 = (m1.quad?.count << 2) || (m1.quad?.position?.length ?? 0);
-            let quadCount2 = (m1.quad?.count << 2) || (m1.quad?.position?.length ?? 0);
-            let quadCount = quadCount1 + quadCount2;
-            let qp = new Uint32Array(quadCount);
-            let hasN = !((m1.quad && !m1.quad.normal) || (m2.quad && !m2.quad.normal));
-            let hasU = !((m1.quad && !m1.quad.uvw) || (m2.quad && !m2.quad.uvw));
-            let qn = hasN ? new Uint32Array(quadCount) : null;
-            let qu = hasU ? new Uint32Array(quadCount) : null;
-            ret.quad = { position: qp, count: quadCount >> 2 };
-            if (m1.quad?.position) {
-                qp.set(m1.quad.position.subarray(0, quadCount1));
-                if (hasN) {
-                    qn.set(m1.quad.normal.subarray(0, quadCount1));
-                    ret.quad.normal = qn;
-                }
-                if (hasU) {
-                    qu.set(m1.quad.uvw.subarray(0, quadCount1));
-                    ret.quad.uvw = qu;
-                }
-            }
-            if (m2.quad?.position) {
-                qp.set(m2.quad.position.subarray(0, quadCount2), quadCount1);
-                if (hasN)
-                    qn.set(m2.quad.normal.subarray(0, quadCount2), quadCount1);
-                if (hasU)
-                    qu.set(m2.quad.uvw.subarray(0, quadCount2), quadCount1);
-                if (quadCount1) {
-                    for (let i = quadCount1; i < quadCount; i++) {
-                        qp[i] += m1.position.length >> 2;
-                        if (hasN)
-                            qn[i] += m1.normal.length >> 2;
-                        if (hasU)
-                            qu[i] += m1.uvw.length >> 2;
-                    }
-                }
-            }
-        }
-        if (m1.triangle || m2.triangle) {
-            let triangleCount1 = (m1.triangle?.count * 3) || (m1.triangle?.position?.length ?? 0);
-            let triangleCount2 = (m1.triangle?.count * 3) || (m1.triangle?.position?.length ?? 0);
-            let triangleCount = triangleCount1 + triangleCount2;
-            let qp = new Uint32Array(triangleCount);
-            let hasN = !((m1.triangle && !m1.triangle.normal) || (m2.triangle && !m2.triangle.normal));
-            let hasU = !((m1.triangle && !m1.triangle.uvw) || (m2.triangle && !m2.triangle.uvw));
-            let qn = hasN ? new Uint32Array(triangleCount) : null;
-            let qu = hasU ? new Uint32Array(triangleCount) : null;
-            ret.triangle = { position: qp, count: Math.round(triangleCount / 3) };
-            if (m1.triangle?.position) {
-                qp.set(m1.triangle.position.subarray(0, triangleCount1));
-                if (hasN) {
-                    qn.set(m1.triangle.normal.subarray(0, triangleCount1));
-                    ret.triangle.normal = qn;
-                }
-                if (hasU) {
-                    qu.set(m1.triangle.uvw.subarray(0, triangleCount1));
-                    ret.triangle.uvw = qu;
-                }
-            }
-            if (m2.triangle?.position) {
-                qp.set(m2.triangle.position.subarray(0, triangleCount2), triangleCount1);
-                if (hasN)
-                    qn.set(m2.triangle.normal.subarray(0, triangleCount2), triangleCount1);
-                if (hasU)
-                    qu.set(m2.triangle.uvw.subarray(0, triangleCount2), triangleCount1);
-                if (triangleCount1) {
-                    for (let i = triangleCount1; i < triangleCount; i++) {
-                        qp[i] += m1.position.length >> 2;
-                        if (hasN)
-                            qn[i] += m1.normal.length >> 2;
-                        if (hasU)
-                            qu[i] += m1.uvw.length >> 2;
-                    }
-                }
-            }
-        }
-        return ret;
-    }
-    else {
-        // both are not indexed
-        let m1 = mesh1;
-        let m2 = mesh2;
-        let quad_position = new Float32Array((m1.quad?.position?.length ?? 0) + (m2.quad?.position?.length ?? 0));
-        if (m1.quad?.position)
-            quad_position.set(m1.quad.position);
-        if (m2.quad?.position)
-            quad_position.set(m2.quad.position, m1.quad.position?.length ?? 0);
-        let tri_position = new Float32Array((m1.triangle?.position?.length ?? 0) + (m2.triangle?.position?.length ?? 0));
-        if (m1.triangle?.position)
-            tri_position.set(m1.triangle.position);
-        if (m2.triangle?.position)
-            tri_position.set(m2.triangle.position, m1.triangle.position?.length ?? 0);
-        let ret = {};
-        if (quad_position.length)
-            ret.quad = { position: quad_position };
-        if (tri_position.length)
-            ret.triangle = { position: tri_position };
-        if (m1.quad?.normal && m2.quad?.normal) {
-            let normal = new Float32Array((m1.quad?.normal?.length ?? 0) + (m2.quad?.normal?.length ?? 0));
-            if (m1.quad?.normal)
-                normal.set(m1.quad.normal);
-            if (m2.quad?.normal)
-                normal.set(m2.quad.normal, m1.quad?.normal?.length ?? 0);
-            ret.quad.normal = normal;
-        }
-        if (m1.triangle?.normal && m2.triangle?.normal) {
-            let normal = new Float32Array((m1.triangle?.normal?.length ?? 0) + (m2.triangle?.normal?.length ?? 0));
-            if (m1.triangle?.normal)
-                normal.set(m1.triangle.normal);
-            if (m2.triangle?.normal)
-                normal.set(m2.triangle.normal, m1.triangle?.normal?.length ?? 0);
-            ret.triangle.normal = normal;
-        }
-        if (m1.quad?.uvw && m2.quad?.uvw) {
-            let uvw = new Float32Array((m1.quad?.uvw?.length ?? 0) + (m2.quad?.uvw?.length ?? 0));
-            if (m1.quad?.uvw)
-                uvw.set(m1.quad.uvw);
-            if (m2.quad?.uvw)
-                uvw.set(m2.quad.uvw, m1.quad?.uvw?.length ?? 0);
-            ret.quad.uvw = uvw;
-        }
-        if (m1.triangle?.uvw && m2.triangle?.uvw) {
-            let uvw = new Float32Array((m1.triangle?.uvw?.length ?? 0) + (m2.triangle?.uvw?.length ?? 0));
-            if (m1.triangle?.uvw)
-                uvw.set(m1.triangle.uvw);
-            if (m2.triangle?.uvw)
-                uvw.set(m2.triangle.uvw, m1.triangle?.uvw?.length ?? 0);
-            ret.triangle.uvw = uvw;
-        }
-        return ret;
-    }
-}
 // todo
-// export function concatarr(meshes: (FaceMesh | FaceIndexMesh)[]): FaceMesh | FaceIndexMesh {
+// export function concat(meshes: (FaceMesh | FaceIndexMesh)[]): FaceMesh | FaceIndexMesh {
 //     let hasPosition = false;
 //     for (let i = 0; i < meshes.length; i++) {
 //         let cur = typeof (meshes[i] as FaceIndexMesh).position !== "undefined";
@@ -7295,12 +7339,8 @@ function findBorder(m) {
 
 var face = /*#__PURE__*/Object.freeze({
     __proto__: null,
-    toIndexMesh: toIndexMesh$1,
-    toNonIndexMesh: toNonIndexMesh$1,
-    clone: clone$1,
-    applyAffineMat4: applyAffineMat4$1,
-    applyObj4: applyObj4$1,
-    concat: concat$1,
+    FaceMesh: FaceMesh,
+    FaceIndexMesh: FaceIndexMesh,
     sphere: sphere,
     polygon: polygon,
     circle: circle,
@@ -7308,48 +7348,213 @@ var face = /*#__PURE__*/Object.freeze({
     findBorder: findBorder
 });
 
-function toIndexMesh(m) {
-    let position = [];
-    let normal = [];
-    let uvw = [];
-    let posIdx = [];
-    let normalIdx = [];
-    let uvwIdx = [];
-    toIndexbuffer(m.position, position, posIdx, 4);
-    if (m.normal)
-        toIndexbuffer(m.normal, normal, normalIdx, 4);
-    if (m.uvw)
-        toIndexbuffer(m.uvw, uvw, uvwIdx, 4);
-    let out = {
-        position: new Float32Array(position),
-        positionIndex: new Uint32Array(posIdx)
-    };
-    if (m.normal)
-        out.normalIndex = new Uint32Array(normalIdx);
-    if (m.uvw)
-        out.uvwIndex = new Uint32Array(uvwIdx);
-    if (normal.length)
-        out.normal = new Float32Array(normal);
-    if (uvw.length)
-        out.uvw = new Float32Array(uvw);
-    return out;
+class TetraMesh {
+    position;
+    normal;
+    uvw;
+    count;
+    constructor(d) {
+        this.position = d.position;
+        this.normal = d.normal;
+        this.uvw = d.uvw;
+        this.count = d.count;
+    }
+    applyAffineMat4(am) {
+        applyAffineMat4(this, am);
+        return this;
+    }
+    applyObj4(obj4) {
+        applyObj4(this, obj4);
+        return this;
+    }
+    clone() {
+        let ret = new TetraMesh({
+            position: this.position.slice(0),
+            count: this.count
+        });
+        if (this.uvw)
+            ret.uvw = this.uvw.slice(0);
+        if (this.normal)
+            ret.normal = this.normal.slice(0);
+        return ret;
+    }
+    toIndexMesh() {
+        let position = [];
+        let normal = [];
+        let uvw = [];
+        let posIdx = [];
+        let normalIdx = [];
+        let uvwIdx = [];
+        toIndexbuffer(this.position, position, posIdx, 4);
+        if (this.normal)
+            toIndexbuffer(this.normal, normal, normalIdx, 4);
+        if (this.uvw)
+            toIndexbuffer(this.uvw, uvw, uvwIdx, 4);
+        let out = new TetraIndexMesh({
+            position: new Float32Array(position),
+            positionIndex: new Uint32Array(posIdx)
+        });
+        if (this.normal)
+            out.normalIndex = new Uint32Array(normalIdx);
+        if (this.uvw)
+            out.uvwIndex = new Uint32Array(uvwIdx);
+        if (normal.length)
+            out.normal = new Float32Array(normal);
+        if (uvw.length)
+            out.uvw = new Float32Array(uvw);
+        return out;
+    }
+    /// this function will copy data and not modify original data
+    concat(mesh2) {
+        let position = new Float32Array(this.position.length + mesh2.position.length);
+        position.set(this.position);
+        position.set(mesh2.position, this.position.length);
+        let ret = new TetraMesh({ position, count: position.length << 4 });
+        if (this.normal && mesh2.normal) {
+            let normal = new Float32Array(this.normal.length + mesh2.normal.length);
+            normal.set(this.normal);
+            normal.set(mesh2.normal, this.normal.length);
+            ret.normal = normal;
+        }
+        if (this.uvw && mesh2.uvw) {
+            let uvw = new Float32Array(this.uvw.length + mesh2.uvw.length);
+            uvw.set(this.uvw);
+            uvw.set(mesh2.uvw, this.uvw.length);
+            ret.uvw = uvw;
+        }
+        return ret;
+    }
+    /// this function will copy data and not modify original data
+    deleteTetras(tetras) {
+        let count = this.count ?? (this.position?.length >> 4);
+        let newCount = (count - tetras.length) << 4;
+        let p = new Float32Array(newCount);
+        let n;
+        let u;
+        if (this.normal)
+            n = new Float32Array(newCount);
+        if (this.uvw)
+            u = new Float32Array(newCount);
+        let offset = 0;
+        for (let i = 0; i < this.count; i++) {
+            if (!tetras.includes(i)) {
+                p.set(this.position.subarray(i << 4, (i + 1) << 4), offset);
+                if (n)
+                    n.set(this.normal.subarray(i << 4, (i + 1) << 4), offset);
+                if (u)
+                    u.set(this.uvw.subarray(i << 4, (i + 1) << 4), offset);
+                offset += 16;
+            }
+        }
+        return new TetraMesh({
+            position: p, normal: n, uvw: u, count: newCount >> 4
+        });
+    }
+    inverseNormal() {
+        let count = this.count ?? this.position.length >> 4;
+        let temp;
+        for (let i = 0; i < count; i++) {
+            let offset = i << 4;
+            temp = this.position[offset + 0];
+            this.position[offset + 0] = this.position[offset + 4];
+            this.position[offset + 4] = temp;
+            temp = this.position[offset + 1];
+            this.position[offset + 1] = this.position[offset + 5];
+            this.position[offset + 5] = temp;
+            temp = this.position[offset + 2];
+            this.position[offset + 2] = this.position[offset + 6];
+            this.position[offset + 6] = temp;
+            temp = this.position[offset + 3];
+            this.position[offset + 3] = this.position[offset + 7];
+            this.position[offset + 7] = temp;
+            if (this.uvw) {
+                temp = this.uvw[offset + 0];
+                this.uvw[offset + 0] = this.uvw[offset + 4];
+                this.uvw[offset + 4] = temp;
+                temp = this.uvw[offset + 1];
+                this.uvw[offset + 1] = this.uvw[offset + 5];
+                this.uvw[offset + 5] = temp;
+                temp = this.uvw[offset + 2];
+                this.uvw[offset + 2] = this.uvw[offset + 6];
+                this.uvw[offset + 6] = temp;
+                temp = this.uvw[offset + 3];
+                this.uvw[offset + 3] = this.uvw[offset + 7];
+                this.uvw[offset + 7] = temp;
+            }
+            if (this.normal) {
+                temp = this.normal[offset + 0];
+                this.normal[offset + 0] = this.normal[offset + 4];
+                this.normal[offset + 4] = temp;
+                temp = this.normal[offset + 1];
+                this.normal[offset + 1] = this.normal[offset + 5];
+                this.normal[offset + 5] = temp;
+                temp = this.normal[offset + 2];
+                this.normal[offset + 2] = this.normal[offset + 6];
+                this.normal[offset + 6] = temp;
+                temp = this.normal[offset + 3];
+                this.normal[offset + 3] = this.normal[offset + 7];
+                this.normal[offset + 7] = temp;
+            }
+        }
+        this.position;
+        if (this.normal) {
+            for (let i = 0, l = this.normal.length; i < l; i++) {
+                this.normal[i] = -this.normal[i];
+            }
+        }
+        return this;
+    }
+    setUVWAsPosition() {
+        if (!this.uvw)
+            this.uvw = this.position.slice(0);
+        else {
+            this.uvw.set(this.position);
+        }
+        return this;
+    }
 }
-function toNonIndexMesh(m) {
-    let count = m.position.length << 2;
-    let out = {
-        position: new Float32Array(count),
-        count: count >> 4
-    };
-    toNonIndex(m.position, m.positionIndex, out.position, 4);
-    if (m.normal) {
-        out.normal = new Float32Array(count);
-        toNonIndex(m.normal, m.normalIndex, out.normal, 4);
+class TetraIndexMesh {
+    position;
+    normal;
+    uvw;
+    positionIndex;
+    normalIndex;
+    uvwIndex;
+    count;
+    constructor(d) {
+        this.position = d.position;
+        this.normal = d.normal;
+        this.uvw = d.uvw;
+        this.positionIndex = d.positionIndex;
+        this.normalIndex = d.normalIndex;
+        this.uvwIndex = d.uvwIndex;
+        this.count = d.count;
     }
-    if (m.uvw) {
-        out.uvw = new Float32Array(count);
-        toNonIndex(m.uvw, m.uvwIndex, out.uvw, 4);
+    applyAffineMat4(am) {
+        applyAffineMat4(this, am);
+        return this;
     }
-    return out;
+    applyObj4(obj4) {
+        applyObj4(this, obj4);
+        return this;
+    }
+    toNonIndexMesh() {
+        let count = this.position.length << 2;
+        let out = new TetraMesh({
+            position: new Float32Array(count),
+            count: count >> 4
+        });
+        toNonIndex(this.position, this.positionIndex, out.position, 4);
+        if (this.normal) {
+            out.normal = new Float32Array(count);
+            toNonIndex(this.normal, this.normalIndex, out.normal, 4);
+        }
+        if (this.uvw) {
+            out.uvw = new Float32Array(count);
+            toNonIndex(this.uvw, this.uvwIndex, out.uvw, 4);
+        }
+        return out;
+    }
 }
 function applyAffineMat4(mesh, am) {
     let vp = new Vec4();
@@ -7383,26 +7588,7 @@ function applyObj4(mesh, obj) {
     }
     return mesh;
 }
-function concat(mesh1, mesh2) {
-    let position = new Float32Array(mesh1.position.length + mesh2.position.length);
-    position.set(mesh1.position);
-    position.set(mesh2.position, mesh1.position.length);
-    let ret = { position, count: position.length << 4 };
-    if (mesh1.normal && mesh2.normal) {
-        let normal = new Float32Array(mesh1.normal.length + mesh2.normal.length);
-        normal.set(mesh1.normal);
-        normal.set(mesh2.normal, mesh1.normal.length);
-        ret.normal = normal;
-    }
-    if (mesh1.uvw && mesh2.uvw) {
-        let uvw = new Float32Array(mesh1.uvw.length + mesh2.uvw.length);
-        uvw.set(mesh1.uvw);
-        uvw.set(mesh2.uvw, mesh1.uvw.length);
-        ret.uvw = uvw;
-    }
-    return ret;
-}
-function concatarr(meshes) {
+function concat(meshes) {
     let length = 0;
     let hasNormal = true;
     let hasUvw = true;
@@ -7412,7 +7598,7 @@ function concatarr(meshes) {
         hasNormal = hasNormal && (meshes[i].normal ? true : false);
     }
     let position = new Float32Array(length);
-    let ret = { position, count: length >> 4 };
+    let ret = new TetraMesh({ position, count: length >> 4 });
     let normal, uvw;
     if (hasNormal) {
         normal = new Float32Array(length);
@@ -7435,44 +7621,8 @@ function concatarr(meshes) {
     }
     return ret;
 }
-function clone(mesh) {
-    let ret = {
-        position: mesh.position.slice(0),
-        count: mesh.count
-    };
-    if (mesh.uvw)
-        ret.uvw = mesh.uvw.slice(0);
-    if (mesh.normal)
-        ret.normal = mesh.normal.slice(0);
-    return ret;
-}
-function deleteTetras(mesh, tetras) {
-    let count = mesh.count ?? (mesh.position?.length >> 4);
-    let newCount = (count - tetras.length) << 4;
-    let p = new Float32Array(newCount);
-    let n;
-    let u;
-    if (mesh.normal)
-        n = new Float32Array(newCount);
-    if (mesh.uvw)
-        u = new Float32Array(newCount);
-    let offset = 0;
-    for (let i = 0; i < mesh.count; i++) {
-        if (!tetras.includes(i)) {
-            p.set(mesh.position.subarray(i << 4, (i + 1) << 4), offset);
-            if (n)
-                n.set(mesh.normal.subarray(i << 4, (i + 1) << 4), offset);
-            if (u)
-                u.set(mesh.uvw.subarray(i << 4, (i + 1) << 4), offset);
-            offset += 16;
-        }
-    }
-    return {
-        position: p, normal: n, uvw: u, count: newCount >> 4
-    };
-}
 
-let cube = {
+let cube = new TetraMesh({
     position: new Float32Array([
         1, 0, -1, -1,
         1, 0, 1, 1,
@@ -7540,11 +7690,11 @@ let cube = {
         1, -1, 1, 0,
     ]),
     count: 5
-};
+});
 function tesseract() {
     let rotor = new Rotor();
     let biv = new Bivec();
-    let yface = applyObj4(clone(cube), new Obj4(Vec4.y, rotor.expset(biv.set(0, _90))));
+    let yface = cube.clone().applyObj4(new Obj4(Vec4.y, rotor.expset(biv.set(0, _90))));
     let meshes = [
         biv.set(_90).exp(),
         biv.set(-_90).exp().mulsl(rotor.expset(biv.set(0, 0, 0, 0, _180))),
@@ -7553,9 +7703,9 @@ function tesseract() {
         biv.set(0, 0, 0, 0, _90).exp().mulsl(rotor.expset(biv.set(_90, 0, 0, 0, 0))),
         biv.set(0, 0, 0, 0, -_90).exp().mulsl(rotor.expset(biv.set(_90, 0, 0, 0, 0))),
         biv.set(_180).exp(),
-    ].map(r => applyObj4(clone(yface), new Obj4(new Vec4(), r)));
+    ].map(r => yface.clone().applyObj4(new Obj4(new Vec4(), r)));
     meshes.push(yface);
-    let m = concatarr(meshes);
+    let m = concat(meshes);
     for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 20; j++) {
             m.uvw[i * 80 + j * 4 + 3] = i;
@@ -7563,69 +7713,7 @@ function tesseract() {
     }
     return m;
 }
-function inverseNormal(mesh) {
-    let count = mesh.count ?? mesh.position.length >> 4;
-    let temp;
-    for (let i = 0; i < count; i++) {
-        let offset = i << 4;
-        temp = mesh.position[offset + 0];
-        mesh.position[offset + 0] = mesh.position[offset + 4];
-        mesh.position[offset + 4] = temp;
-        temp = mesh.position[offset + 1];
-        mesh.position[offset + 1] = mesh.position[offset + 5];
-        mesh.position[offset + 5] = temp;
-        temp = mesh.position[offset + 2];
-        mesh.position[offset + 2] = mesh.position[offset + 6];
-        mesh.position[offset + 6] = temp;
-        temp = mesh.position[offset + 3];
-        mesh.position[offset + 3] = mesh.position[offset + 7];
-        mesh.position[offset + 7] = temp;
-        if (mesh.uvw) {
-            temp = mesh.uvw[offset + 0];
-            mesh.uvw[offset + 0] = mesh.uvw[offset + 4];
-            mesh.uvw[offset + 4] = temp;
-            temp = mesh.uvw[offset + 1];
-            mesh.uvw[offset + 1] = mesh.uvw[offset + 5];
-            mesh.uvw[offset + 5] = temp;
-            temp = mesh.uvw[offset + 2];
-            mesh.uvw[offset + 2] = mesh.uvw[offset + 6];
-            mesh.uvw[offset + 6] = temp;
-            temp = mesh.uvw[offset + 3];
-            mesh.uvw[offset + 3] = mesh.uvw[offset + 7];
-            mesh.uvw[offset + 7] = temp;
-        }
-        if (mesh.normal) {
-            temp = mesh.normal[offset + 0];
-            mesh.normal[offset + 0] = mesh.normal[offset + 4];
-            mesh.normal[offset + 4] = temp;
-            temp = mesh.normal[offset + 1];
-            mesh.normal[offset + 1] = mesh.normal[offset + 5];
-            mesh.normal[offset + 5] = temp;
-            temp = mesh.normal[offset + 2];
-            mesh.normal[offset + 2] = mesh.normal[offset + 6];
-            mesh.normal[offset + 6] = temp;
-            temp = mesh.normal[offset + 3];
-            mesh.normal[offset + 3] = mesh.normal[offset + 7];
-            mesh.normal[offset + 7] = temp;
-        }
-    }
-    mesh.position;
-    if (mesh.normal) {
-        for (let i = 0, l = mesh.normal.length; i < l; i++) {
-            mesh.normal[i] = -mesh.normal[i];
-        }
-    }
-    return mesh;
-}
-function setUVWAsPosition(mesh) {
-    if (!mesh.uvw)
-        mesh.uvw = mesh.position.slice(0);
-    else {
-        mesh.uvw.set(mesh.position);
-    }
-    return mesh;
-}
-let hexadecachoron = {
+let hexadecachoron = new TetraMesh({
     position: new Float32Array([
         1, 0, 0, 0,
         0, 1, 0, 0,
@@ -7825,7 +7913,7 @@ let hexadecachoron = {
         0, 1, 1, 15,
     ]),
     count: 16
-};
+});
 function glome(radius, xySegment, zwSegment, latitudeSegment) {
     if (xySegment < 3)
         xySegment = 3;
@@ -8024,7 +8112,7 @@ function parametricSurface(fn, uSegment, vSegment, wSegment) {
             }
         }
     }
-    return { position, normal, uvw, count };
+    return new TetraMesh({ position, normal, uvw, count });
 }
 function convexhull(points) {
     // todo: fix a random dead loop bug
@@ -8302,7 +8390,7 @@ function loft(sp, section, step) {
         uvw[idxPtr++] = uvws[i + 2];
         uvw[idxPtr++] = uvws[i + 3];
     }
-    return { position, uvw, normal, count: count3 + count4 };
+    return new TetraMesh({ position, uvw, normal, count: count3 + count4 });
 }
 function directProduct(shape1, shape2) {
     /** border(A x B) = border(A) x B + A x border(B) */
@@ -8555,23 +8643,16 @@ function directProduct(shape1, shape2) {
         uvw[idxPtr++] = uvws[i + 2];
         uvw[idxPtr++] = uvws[i + 3];
     }
-    return { position, normal, uvw, count: position.length >> 4 };
+    return new TetraMesh({ position, normal, uvw, count: position.length >> 4 });
 }
 
 var tetra = /*#__PURE__*/Object.freeze({
     __proto__: null,
-    toIndexMesh: toIndexMesh,
-    toNonIndexMesh: toNonIndexMesh,
-    applyAffineMat4: applyAffineMat4,
-    applyObj4: applyObj4,
+    TetraMesh: TetraMesh,
+    TetraIndexMesh: TetraIndexMesh,
     concat: concat,
-    concatarr: concatarr,
-    clone: clone,
-    deleteTetras: deleteTetras,
     cube: cube,
     tesseract: tesseract,
-    inverseNormal: inverseNormal,
-    setUVWAsPosition: setUVWAsPosition,
     hexadecachoron: hexadecachoron,
     glome: glome,
     spheritorus: spheritorus,
@@ -8769,6 +8850,10 @@ var mesh = /*#__PURE__*/Object.freeze({
     __proto__: null,
     face: face,
     tetra: tetra,
+    FaceMesh: FaceMesh,
+    FaceIndexMesh: FaceIndexMesh,
+    TetraMesh: TetraMesh,
+    TetraIndexMesh: TetraIndexMesh,
     ObjFile: ObjFile
 });
 
@@ -8844,7 +8929,7 @@ class Geometry {
     dynamic = false;
     obb = new AABB;
     constructor(data) {
-        this.jsBuffer = data;
+        this.jsBuffer = data instanceof TetraMesh ? data : new TetraMesh(data);
     }
     updateOBB() {
         let obb = this.obb;
@@ -8867,14 +8952,14 @@ class TesseractGeometry extends Geometry {
     constructor(size) {
         super(tesseract());
         if (size)
-            applyObj4(this.jsBuffer, new Obj4(null, null, size instanceof Vec4 ? size : new Vec4(size, size, size, size)));
+            this.jsBuffer.applyObj4(new Obj4(null, null, size instanceof Vec4 ? size : new Vec4(size, size, size, size)));
     }
 }
 class CubeGeometry extends Geometry {
     constructor(size) {
-        super(clone(cube));
+        super(cube.clone());
         if (size)
-            applyObj4(this.jsBuffer, new Obj4(null, null, size instanceof Vec3 ? new Vec4(size.x, 1, size.y, size.z) : new Vec4(size, 1, size, size)));
+            this.jsBuffer.applyObj4(new Obj4(null, null, size instanceof Vec3 ? new Vec4(size.x, 1, size.y, size.z) : new Vec4(size, 1, size, size)));
     }
 }
 class GlomeGeometry extends Geometry {

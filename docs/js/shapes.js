@@ -310,7 +310,7 @@ var suzanne3d;
             new tesserxel.math.Vec4(0, s2),
         ]);
         let meshFile = new tesserxel.mesh.ObjFile(await loadFile("resource/suzanne.obj"));
-        let mesh = tesserxel.mesh.face.toNonIndexMesh(meshFile.parse());
+        let mesh = new tesserxel.mesh.FaceIndexMesh(meshFile.parse()).toNonIndexMesh();
         let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.loft(spline, mesh, 9));
         app.retinaController.setOpacity(10.0);
         app.renderer.setCameraProjectMatrix({ fov: 80, near: 0.01, far: 50.0 });

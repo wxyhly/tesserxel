@@ -195,13 +195,11 @@ export namespace rail2d {
         }
         run();
         async function genRail() {
-            let railSection = new mesh.ObjFile(await loadFile("resource/rail2d.obj") as string).parse();
-
-            return new four.Geometry(mesh.tetra.loft(sp, mesh.face.toNonIndexMesh(railSection as mesh.FaceIndexMesh), spSeg
-            ));
+            let railSection = new mesh.FaceIndexMesh(new mesh.ObjFile(await loadFile("resource/rail2d.obj") as string).parse());
+            return new four.Geometry(mesh.tetra.loft(sp, railSection.toNonIndexMesh(), spSeg));
         }
         function genTies() {
-            return new four.Geometry(mesh.tetra.loft(sp, mesh.face.toNonIndexMesh(
+            return new four.Geometry(mesh.tetra.loft(sp, new mesh.FaceIndexMesh(
                 {
                     position: new Float32Array([
                         tieLen, 0.01, tieZLen, 0,
@@ -227,117 +225,97 @@ export namespace rail2d {
                             0, 0, 0, 0
                         ]),
                     }
-                }
-            ), spSeg
+                }).toNonIndexMesh(), spSeg
             ));
 
         }
         function genBogies() {
-            const wheelGeom = mesh.tetra.applyObj4(
-                mesh.tetra.directProduct(
-                    {
-                        position: new Float32Array([
-                            wheelX, wheelZ, 0, 0,
-                            wheelX, -wheelZ, 0, 0,
-                            -wheelX, wheelZ, 0, 0,
-                            -wheelX, -wheelZ, 0, 0,
+            const wheelGeom = mesh.tetra.directProduct(
+                {
+                    position: new Float32Array([
+                        wheelX, wheelZ, 0, 0,
+                        wheelX, -wheelZ, 0, 0,
+                        -wheelX, wheelZ, 0, 0,
+                        -wheelX, -wheelZ, 0, 0,
+                    ]),
+                    uvw: new Float32Array([
+                        0, 0, 0, 0
+                    ]),
+                    quad: {
+                        position: new Uint32Array([
+                            0, 1, 3, 2
                         ]),
-                        uvw: new Float32Array([
+                        uvw: new Uint32Array([
                             0, 0, 0, 0
                         ]),
-                        quad: {
-                            position: new Uint32Array([
-                                0, 1, 3, 2
-                            ]),
-                            uvw: new Uint32Array([
-                                0, 0, 0, 0
-                            ]),
-                        }
-                    },
-                    mesh.face.circle(wheelR, 32)
-                ), new math.Obj4(new math.Vec4(1, 0, 0, 0), math.Bivec.yz.mulf(math._90).exp())
-            );
+                    }
+                },
+                mesh.face.circle(wheelR, 32)
+            ).applyObj4(new math.Obj4(new math.Vec4(1, 0, 0, 0), math.Bivec.yz.mulf(math._90).exp()));
 
-            const wheelFlangeGeom = mesh.tetra.applyObj4(
-                mesh.tetra.directProduct(
-                    {
-                        position: new Float32Array([
-                            wheelfX, wheelfZ, 0, 0,
-                            wheelfX, -wheelfZ, 0, 0,
-                            -wheelfX, wheelfZ, 0, 0,
-                            -wheelfX, -wheelfZ, 0, 0,
-                        ]),
-                        uvw: new Float32Array([
-                            0, 0, 0, 0
-                        ]),
-                        quad: {
-                            position: new Uint32Array([
-                                0, 1, 3, 2
-                            ]),
-                            uvw: new Uint32Array([
-                                0, 0, 0, 0
-                            ]),
-                        }
-                    },
-                    mesh.face.circle(wheelfR, 32)
-                    // )
-                ), new math.Obj4(new math.Vec4(1 - 0.12, 0, 0, 0), math.Bivec.yz.mulf(math._90).exp()));
-            let wheel = mesh.tetra.concat(wheelGeom, wheelFlangeGeom);
-            const axle = mesh.tetra.applyObj4(
-                mesh.tetra.directProduct(
-                    {
-                        position: new Float32Array([
-                            axleX, axleZ, 0, 0,
-                            axleX, -axleZ, 0, 0,
-                            -axleX, axleZ, 0, 0,
-                            -axleX, -axleZ, 0, 0,
-                        ]),
-                        uvw: new Float32Array([
-                            0, 0, 0, 0
-                        ]),
-                        quad: {
-                            position: new Uint32Array([
-                                0, 1, 3, 2
-                            ]),
-                            uvw: new Uint32Array([
-                                0, 0, 0, 0
-                            ]),
-                        }
-                    },
-                    mesh.face.circle(axleR, 32)
-                ), new math.Obj4(new math.Vec4(0, 0, 0, 0), math.Bivec.yz.mulf(math._90).exp()));
+            const wheelFlangeGeom = mesh.tetra.directProduct({
+                position: new Float32Array([
+                    wheelfX, wheelfZ, 0, 0,
+                    wheelfX, -wheelfZ, 0, 0,
+                    -wheelfX, wheelfZ, 0, 0,
+                    -wheelfX, -wheelfZ, 0, 0,
+                ]),
+                uvw: new Float32Array([
+                    0, 0, 0, 0
+                ]),
+                quad: {
+                    position: new Uint32Array([
+                        0, 1, 3, 2
+                    ]),
+                    uvw: new Uint32Array([
+                        0, 0, 0, 0
+                    ]),
+                }
+            },
+                mesh.face.circle(wheelfR, 32)
+            ).applyObj4(new math.Obj4(new math.Vec4(1 - 0.12, 0, 0, 0), math.Bivec.yz.mulf(math._90).exp()));
+            let wheel = wheelGeom.concat(wheelFlangeGeom);
+            const axle = mesh.tetra.directProduct({
+                position: new Float32Array([
+                    axleX, axleZ, 0, 0,
+                    axleX, -axleZ, 0, 0,
+                    -axleX, axleZ, 0, 0,
+                    -axleX, -axleZ, 0, 0,
+                ]),
+                uvw: new Float32Array([
+                    0, 0, 0, 0
+                ]),
+                quad: {
+                    position: new Uint32Array([
+                        0, 1, 3, 2
+                    ]),
+                    uvw: new Uint32Array([
+                        0, 0, 0, 0
+                    ]),
+                }
+            },
+                mesh.face.circle(axleR, 32)
+            ).applyObj4(new math.Obj4(new math.Vec4(0, 0, 0, 0), math.Bivec.yz.mulf(math._90).exp()));
             return {
-                back: new four.Geometry(mesh.tetra.concat(
-                    mesh.tetra.concat(
-                        mesh.tetra.concat(
-                            mesh.tetra.applyObj4(mesh.tetra.clone(wheel), new math.Obj4(new math.Vec4(0, 0, 1), new math.Bivec(0, math._180, 0, 0).exp())),
-                            mesh.tetra.applyObj4(mesh.tetra.clone(wheel), new math.Obj4(new math.Vec4(0, 0, -1), new math.Bivec(0, math._180, 0, 0).exp()))
-                        ),
-                        mesh.tetra.concat(
-                            mesh.tetra.applyObj4(mesh.tetra.clone(wheel), new math.Obj4(new math.Vec4(0, 0, 1))),
-                            mesh.tetra.applyObj4(mesh.tetra.clone(wheel), new math.Obj4(new math.Vec4(0, 0, -1)))
-                        )
-                    ), mesh.tetra.concat(
-                        mesh.tetra.concat(
-                            mesh.tetra.applyObj4(mesh.tetra.clone(axle), new math.Obj4(new math.Vec4(0, 0, 1), new math.Bivec(0, math._90, 0, 0).exp())),
-                            mesh.tetra.applyObj4(mesh.tetra.clone(axle), new math.Obj4(new math.Vec4(0, 0, -1), new math.Bivec(0, math._90, 0, 0).exp())),
-                        ),
-                        axle
-                    ),
+                back: new four.Geometry(mesh.tetra.concat([
+                    wheel.clone().applyObj4(new math.Obj4(new math.Vec4(0, 0, 1), new math.Bivec(0, math._180, 0, 0).exp())),
+                    wheel.clone().applyObj4(new math.Obj4(new math.Vec4(0, 0, -1), new math.Bivec(0, math._180, 0, 0).exp())),
+
+                    wheel.clone().applyObj4(new math.Obj4(new math.Vec4(0, 0, 1))),
+                    wheel.clone().applyObj4(new math.Obj4(new math.Vec4(0, 0, -1))),
+
+                    axle.clone().applyObj4(new math.Obj4(new math.Vec4(0, 0, 1), new math.Bivec(0, math._90, 0, 0).exp())),
+                    axle.clone().applyObj4(new math.Obj4(new math.Vec4(0, 0, -1), new math.Bivec(0, math._90, 0, 0).exp())),
+                    axle]
                 )),
-                frontWheelGroup: new four.Geometry(
-                    mesh.tetra.concat(
-                        mesh.tetra.applyObj4(mesh.tetra.clone(wheel), new math.Obj4(null, new math.Bivec(0, math._180, 0, 0).exp())),
-                        wheel
-                    )
-                ),
-                frontBogieFrame: new four.Geometry(mesh.tetra.concat(
-                    mesh.tetra.concat(
-                        mesh.tetra.applyObj4(mesh.tetra.clone(axle), new math.Obj4(new math.Vec4(0, 0, 1), new math.Bivec(0, math._90, 0, 0).exp())),
-                        mesh.tetra.applyObj4(mesh.tetra.clone(axle), new math.Obj4(new math.Vec4(0, 0, -1), new math.Bivec(0, math._90, 0, 0).exp())),
-                    ),
+                frontWheelGroup: new four.Geometry(wheel.clone().applyObj4(
+                    new math.Obj4(null, new math.Bivec(0, math._180, 0, 0).exp())
+                ).concat(wheel)),
+                frontBogieFrame: new four.Geometry(mesh.tetra.concat([
+                    axle.clone().applyObj4(new math.Obj4(new math.Vec4(0, 0, 1), new math.Bivec(0, math._90, 0, 0).exp())),
+                    axle.clone().applyObj4(new math.Obj4(new math.Vec4(0, 0, -1), new math.Bivec(0, math._90, 0, 0).exp())),
                     axle
-                ))
+                ]))
             };
         }
     }
@@ -640,143 +618,129 @@ export namespace rail1d {
         run();
     }
     function genTies() {
-        return new four.Geometry(mesh.tetra.loft(sp, mesh.face.toNonIndexMesh(
-            {
-                position: new Float32Array([
-                    tieLen, 0.01, 0, 0,
-                    0, 0.01, -tieLen, 0,
-                    -tieLen, 0.01, 0, 0,
-                    0, 0.01, tieLen, 0,
+        return new four.Geometry(mesh.tetra.loft(sp, new mesh.FaceIndexMesh({
+            position: new Float32Array([
+                tieLen, 0.01, 0, 0,
+                0, 0.01, -tieLen, 0,
+                -tieLen, 0.01, 0, 0,
+                0, 0.01, tieLen, 0,
+            ]),
+            uvw: new Float32Array([
+                1, 1, 0, 0,
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 0, 0,
+            ]),
+            normal: new Float32Array([0, 1, 0, 0]),
+            quad: {
+                position: new Uint32Array([
+                    0, 1, 2, 3
                 ]),
-                uvw: new Float32Array([
-                    1, 1, 0, 0,
-                    1, 0, 0, 0,
-                    0, 1, 0, 0,
-                    0, 0, 0, 0,
+                uvw: new Uint32Array([
+                    0, 1, 2, 3
                 ]),
-                normal: new Float32Array([0, 1, 0, 0]),
-                quad: {
-                    position: new Uint32Array([
-                        0, 1, 2, 3
-                    ]),
-                    uvw: new Uint32Array([
-                        0, 1, 2, 3
-                    ]),
-                    normal: new Uint32Array([
-                        0, 0, 0, 0
-                    ]),
-                }
+                normal: new Uint32Array([
+                    0, 0, 0, 0
+                ]),
             }
-        ), spSeg
+        }).toNonIndexMesh(), spSeg
         ));
 
     }
     async function genRail() {
-        let railSection = new mesh.ObjFile(await loadFile("resource/rail4dcrosssection.obj") as string).parse();
+        let railSection = new mesh.FaceIndexMesh(
+            new mesh.ObjFile(await loadFile("resource/rail4dcrosssection.obj") as string).parse()
+        );
 
         let monotrack =
-            mesh.face.applyObj4(railSection, new math.Obj4(new math.Vec4(0, 0, 1, 0))) as mesh.FaceIndexMesh;
-        return new four.Geometry(mesh.tetra.loft(sp, mesh.face.toNonIndexMesh(
-            mesh.face.concat(
-                mesh.face.concat(
-                    mesh.face.applyObj4(mesh.face.clone(monotrack), new math.Obj4(null, new math.Bivec(0, math._90, 0, 0).exp())),
-                    mesh.face.applyObj4(mesh.face.clone(monotrack), new math.Obj4(null, new math.Bivec(0, -math._90, 0, 0).exp())),
-                ),
-                mesh.face.concat(
-                    mesh.face.applyObj4(mesh.face.clone(monotrack), new math.Obj4(null, new math.Bivec(0, math._180, 0, 0).exp())),
-                    monotrack,
-                )
-            ) as mesh.FaceIndexMesh), spSeg
+            railSection.applyObj4(new math.Obj4(new math.Vec4(0, 0, 1, 0)));
+        return new four.Geometry(mesh.tetra.loft(sp,
+            monotrack.clone().applyObj4(new math.Obj4(null, new math.Bivec(0, math._90, 0, 0).exp())).concat(
+                monotrack.clone().applyObj4(new math.Obj4(null, new math.Bivec(0, -math._90, 0, 0).exp()))
+            ).concat(
+                monotrack.clone().applyObj4(new math.Obj4(null, new math.Bivec(0, math._180, 0, 0).exp()))
+            ).concat(
+                monotrack
+            ).toNonIndexMesh(), spSeg
         ));
     }
     function genTrain() {
-        const wheelGeom = mesh.tetra.applyObj4(//mesh.tetra.inverseNormal(
-            mesh.tetra.directProduct(
-                {
-                    position: new Float32Array([
-                        wheelX, wheelZ, 0, 0,
-                        wheelX, -wheelZ, 0, 0,
-                        -wheelX, wheelZ, 0, 0,
-                        -wheelX, -wheelZ, 0, 0,
-                    ]),
-                    uvw: new Float32Array([
-                        0, 0, 0, 0
-                    ]),
-                    quad: {
-                        position: new Uint32Array([
-                            0, 1, 3, 2
-                        ]),
-                        uvw: new Uint32Array([
-                            0, 0, 0, 0
-                        ]),
-                    }
-                },
-                mesh.face.circle(wheelR, 32)
-                // )
-            ), new math.Obj4(new math.Vec4(0, 0, 1, 0), math.Bivec.yz.mulf(math._90).exp()));
+        const wheelGeom = mesh.tetra.directProduct({
+            position: new Float32Array([
+                wheelX, wheelZ, 0, 0,
+                wheelX, -wheelZ, 0, 0,
+                -wheelX, wheelZ, 0, 0,
+                -wheelX, -wheelZ, 0, 0,
+            ]),
+            uvw: new Float32Array([
+                0, 0, 0, 0
+            ]),
+            quad: {
+                position: new Uint32Array([
+                    0, 1, 3, 2
+                ]),
+                uvw: new Uint32Array([
+                    0, 0, 0, 0
+                ]),
+            }
+        },
+            mesh.face.circle(wheelR, 32)
+        ).applyObj4(new math.Obj4(new math.Vec4(0, 0, 1, 0), math.Bivec.yz.mulf(math._90).exp()));
 
-        const wheelFlangeGeom = mesh.tetra.applyObj4(//mesh.tetra.inverseNormal(
-            mesh.tetra.directProduct(
-                {
-                    position: new Float32Array([
-                        wheelfX, wheelfZ, 0, 0,
-                        wheelfX, -wheelfZ, 0, 0,
-                        -wheelfX, wheelfZ, 0, 0,
-                        -wheelfX, -wheelfZ, 0, 0,
+        const wheelFlangeGeom = mesh.tetra.directProduct({
+            position: new Float32Array([
+                wheelfX, wheelfZ, 0, 0,
+                wheelfX, -wheelfZ, 0, 0,
+                -wheelfX, wheelfZ, 0, 0,
+                -wheelfX, -wheelfZ, 0, 0,
+            ]),
+            uvw: new Float32Array([
+                0, 0, 0, 0
+            ]),
+            quad: {
+                position: new Uint32Array([
+                    0, 1, 3, 2
+                ]),
+                uvw: new Uint32Array([
+                    0, 0, 0, 0
+                ]),
+            }
+        },
+            mesh.face.circle(wheelfR, 32)
+            // )
+        ).applyObj4(new math.Obj4(new math.Vec4(0, 0, 1 - 0.1, 0), math.Bivec.yz.mulf(math._90).exp()));
+        let wheel = wheelGeom.concat(wheelFlangeGeom);
+        const axle = mesh.tetra.directProduct(
+            {
+                position: new Float32Array([
+                    axleX, axleZ, 0, 0,
+                    axleX, -axleZ, 0, 0,
+                    -axleX, axleZ, 0, 0,
+                    -axleX, -axleZ, 0, 0,
+                ]),
+                uvw: new Float32Array([
+                    0, 0, 0, 0
+                ]),
+                quad: {
+                    position: new Uint32Array([
+                        0, 1, 3, 2
                     ]),
-                    uvw: new Float32Array([
+                    uvw: new Uint32Array([
                         0, 0, 0, 0
                     ]),
-                    quad: {
-                        position: new Uint32Array([
-                            0, 1, 3, 2
-                        ]),
-                        uvw: new Uint32Array([
-                            0, 0, 0, 0
-                        ]),
-                    }
-                },
-                mesh.face.circle(wheelfR, 32)
-                // )
-            ), new math.Obj4(new math.Vec4(0, 0, 1 - 0.1, 0), math.Bivec.yz.mulf(math._90).exp()));
-        let wheel = mesh.tetra.concat(wheelGeom, wheelFlangeGeom);
-        const axle = mesh.tetra.applyObj4(//mesh.tetra.inverseNormal(
-            mesh.tetra.directProduct(
-                {
-                    position: new Float32Array([
-                        axleX, axleZ, 0, 0,
-                        axleX, -axleZ, 0, 0,
-                        -axleX, axleZ, 0, 0,
-                        -axleX, -axleZ, 0, 0,
-                    ]),
-                    uvw: new Float32Array([
-                        0, 0, 0, 0
-                    ]),
-                    quad: {
-                        position: new Uint32Array([
-                            0, 1, 3, 2
-                        ]),
-                        uvw: new Uint32Array([
-                            0, 0, 0, 0
-                        ]),
-                    }
-                },
-                mesh.face.circle(axleR, 32)
-            ), new math.Obj4(new math.Vec4(0, 0, 0, 0), math.Bivec.yz.mulf(math._90).exp()));
-        return new four.Geometry(mesh.tetra.concat(
-            mesh.tetra.concat(
-                mesh.tetra.concat(
-                    mesh.tetra.applyObj4(mesh.tetra.clone(wheel), new math.Obj4(null, new math.Bivec(0, math._90, 0, 0).exp())),
-                    mesh.tetra.applyObj4(mesh.tetra.clone(wheel), new math.Obj4(null, new math.Bivec(0, -math._90, 0, 0).exp()))
-                ),
-                mesh.tetra.concat(
-                    mesh.tetra.applyObj4(mesh.tetra.clone(wheel), new math.Obj4(null, new math.Bivec(0, math._180, 0, 0).exp())),
-                    wheel
-                )
-            ), mesh.tetra.concat(
-                mesh.tetra.applyObj4(mesh.tetra.clone(axle), new math.Obj4(null, new math.Bivec(0, math._90, 0, 0).exp())),
-                axle
-            ),
-        ));
+                }
+            },
+            mesh.face.circle(axleR, 32)
+        ).applyObj4(new math.Obj4(new math.Vec4(0, 0, 0, 0), math.Bivec.yz.mulf(math._90).exp()));
+        return new four.Geometry(mesh.tetra.concat([
+            wheel.clone().applyObj4(new math.Obj4(null, new math.Bivec(0, math._90, 0, 0).exp())),
+            wheel.clone().applyObj4(new math.Obj4(null, new math.Bivec(0, -math._90, 0, 0).exp())),
+
+            wheel.clone().applyObj4(new math.Obj4(null, new math.Bivec(0, math._180, 0, 0).exp())),
+            wheel,
+
+            axle.clone().applyObj4(new math.Obj4(null, new math.Bivec(0, math._90, 0, 0).exp())),
+            axle
+        ]));
     }
 }

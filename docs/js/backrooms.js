@@ -77,16 +77,16 @@ var backrooms;
             tesseract.position = tesseract.position.subarray(0, -10 * 16);
             tesseract.normal = tesseract.normal.subarray(0, -10 * 16);
             const roomSize = new math.Vec4((this.pillarNumbers.x - 1) * this.pillarGap / 2, 1, (this.pillarNumbers.y - 1) * this.pillarGap / 2, (this.pillarNumbers.z - 1) * this.pillarGap / 2);
-            let wall = mesh.tetra.inverseNormal(mesh.tetra.applyObj4(mesh.tetra.clone(tesseract), new math.Obj4(new math.Vec4(roomSize.x, 0, roomSize.z, roomSize.w), new math.Rotor(), roomSize)));
+            let wall = tesseract.clone().applyObj4(new math.Obj4(new math.Vec4(roomSize.x, 0, roomSize.z, roomSize.w), new math.Rotor(), roomSize)).inverseNormal();
             wall.count -= 10;
             wall.uvw = wall.uvw.subarray(0, -10 * 16);
             wall.position = wall.position.subarray(0, -10 * 16);
             wall.normal = wall.normal.subarray(0, -10 * 16);
-            let zw = mesh.tetra.applyObj4(mesh.tetra.clone(tesseract), new math.Obj4(new math.Vec4(), new math.Rotor(), new math.Vec4(this.pillarSize1, 1, this.pillarSize2, this.pillarSize2)));
-            let xw = mesh.tetra.applyObj4(mesh.tetra.clone(tesseract), new math.Obj4(new math.Vec4(), new math.Rotor(), new math.Vec4(this.pillarSize2, 1, this.pillarSize1, this.pillarSize2)));
-            let xz = mesh.tetra.applyObj4(mesh.tetra.clone(tesseract), new math.Obj4(new math.Vec4(), new math.Rotor(), new math.Vec4(this.pillarSize2, 1, this.pillarSize2, this.pillarSize1)));
+            let zw = tesseract.clone().applyObj4(new math.Obj4(new math.Vec4(), new math.Rotor(), new math.Vec4(this.pillarSize1, 1, this.pillarSize2, this.pillarSize2)));
+            let xw = tesseract.clone().applyObj4(new math.Obj4(new math.Vec4(), new math.Rotor(), new math.Vec4(this.pillarSize2, 1, this.pillarSize1, this.pillarSize2)));
+            let xz = tesseract.clone().applyObj4(new math.Obj4(new math.Vec4(), new math.Rotor(), new math.Vec4(this.pillarSize2, 1, this.pillarSize2, this.pillarSize1)));
             this.level0Wall = new four.Geometry(wall);
-            this.pillar = new four.Geometry(mesh.tetra.concatarr([xw, zw, xz]));
+            this.pillar = new four.Geometry(mesh.tetra.concat([xw, zw, xz]));
             return this.pillar;
         }
         genPillars(material) {

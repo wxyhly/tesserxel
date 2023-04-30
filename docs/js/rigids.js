@@ -1,6 +1,5 @@
 import * as tesserxel from '../../build/tesserxel.js';
 
-// namespace examples {
 const FOUR = tesserxel.four;
 const phy = tesserxel.physics;
 const math = tesserxel.math;
@@ -272,7 +271,7 @@ var st_pile;
         }));
         let roomMesh = new FOUR.Mesh(new FOUR.TesseractGeometry(roomSize), renderMatRoom);
         roomMesh.position.y += roomSize;
-        tesserxel.mesh.tetra.inverseNormal(roomMesh.geometry.jsBuffer);
+        roomMesh.geometry.jsBuffer.inverseNormal();
         scene.add(roomMesh);
         // set up lights, camera and renderer
         let camera = new FOUR.Camera();
@@ -679,9 +678,9 @@ var thermo_stats;
         // define render materials
         const balls = [];
         const renderMat = new FOUR.LambertMaterial(new FOUR.CheckerTexture([1, 1, 1], [0.2, 0.2, 0.2]));
-        for (let i = 0; i < 500; i++) {
+        for (let i = 0; i < 20; i++) {
             const g = new phy.Rigid({
-                geometry: new phy.rigid.Glome(0.3),
+                geometry: new phy.rigid.Glome(0.5),
                 mass: 1, material: phyMat
             });
             g.position.randset().mulfs(3);
@@ -965,7 +964,7 @@ async function loadMaxwell(cb) {
     }));
     let roomMesh = new FOUR.Mesh(new FOUR.TesseractGeometry(roomSize), renderMatGround);
     roomMesh.position.y += roomSize;
-    tesserxel.mesh.tetra.inverseNormal(roomMesh.geometry.jsBuffer);
+    roomMesh.geometry.jsBuffer.inverseNormal();
     scene.add(roomMesh);
     let maxwell = new phy.MaxWell();
     world.add(maxwell);
@@ -1137,7 +1136,6 @@ var m_dipole_dual;
     }
     m_dipole_dual.load = load;
 })(m_dipole_dual || (m_dipole_dual = {}));
-// }
 
 export { e_charge, e_dipole, m_dipole, m_dipole_dual, mix_chain, rigid_test, st_pile, st_ts_chain, tg_tg_chain, thermo_stats };
 //# sourceMappingURL=rigids.js.map

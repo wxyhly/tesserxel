@@ -6,7 +6,7 @@ import { toIndexbuffer, toNonIndex } from "../index";
 /** Tetramesh store 4D mesh as tetrahedral list
  *  Each tetrahedral uses four vertices in the position list
  */
-export interface TetraMesh {
+export interface TetraMeshData {
     position: Float32Array;
     normal?: Float32Array;
     uvw?: Float32Array;
@@ -15,7 +15,7 @@ export interface TetraMesh {
 /** TetraIndexMesh is not supported for tetraslice rendering
  *  It is only used in data storage and mesh construction
  */
-export interface TetraIndexMesh {
+export interface TetraIndexMeshData {
     position: Float32Array;
     normal?: Float32Array;
     uvw?: Float32Array;
@@ -24,46 +24,182 @@ export interface TetraIndexMesh {
     uvwIndex?: Uint32Array;
     count?: number;
 }
-export function toIndexMesh(m: TetraMesh) {
-    let position = [];
-    let normal = [];
-    let uvw = [];
-    let posIdx = [];
-    let normalIdx = [];
-    let uvwIdx = [];
-    toIndexbuffer(m.position, position, posIdx, 4);
-    if (m.normal) toIndexbuffer(m.normal, normal, normalIdx, 4);
-    if (m.uvw) toIndexbuffer(m.uvw, uvw, uvwIdx, 4);
-
-    let out: TetraIndexMesh = {
-        position: new Float32Array(position),
-        positionIndex: new Uint32Array(posIdx)
-    };
-    if (m.normal) out.normalIndex = new Uint32Array(normalIdx);
-    if (m.uvw) out.uvwIndex = new Uint32Array(uvwIdx);
-    if (normal.length) out.normal = new Float32Array(normal);
-    if (uvw.length) out.uvw = new Float32Array(uvw);
-    return out;
-}
-export function toNonIndexMesh(m: TetraIndexMesh) {
-    let count = m.position.length << 2;
-    let out: TetraMesh = {
-        position: new Float32Array(count),
-        count: count >> 4
-    };
-    toNonIndex(m.position, m.positionIndex, out.position, 4);
-    if (m.normal) {
-        out.normal = new Float32Array(count);
-        toNonIndex(m.normal, m.normalIndex, out.normal, 4);
+export class TetraMesh implements TetraMeshData {
+    position: Float32Array;
+    normal?: Float32Array;
+    uvw?: Float32Array;
+    count?: number;
+    constructor(d: TetraMeshData) {
+        this.position = d.position;
+        this.normal = d.normal;
+        this.uvw = d.uvw;
+        this.count = d.count;
     }
-    if (m.uvw) {
-        out.uvw = new Float32Array(count);
-        toNonIndex(m.uvw, m.uvwIndex, out.uvw, 4);
+    applyAffineMat4(am: AffineMat4) {
+        applyAffineMat4(this, am);
+        return this;
+    }
+    applyObj4(obj4: Obj4) {
+        applyObj4(this, obj4);
+        return this;
+    }
+    clone(): TetraMesh {
+        let ret = new TetraMesh({
+            position: this.position.slice(0),
+            count: this.count
+        });
+        if (this.uvw) ret.uvw = this.uvw.slice(0);
+        if (this.normal) ret.normal = this.normal.slice(0);
+        return ret;
+    }
+    toIndexMesh() {
+        let position = [];
+        let normal = [];
+        let uvw = [];
+        let posIdx = [];
+        let normalIdx = [];
+        let uvwIdx = [];
+        toIndexbuffer(this.position, position, posIdx, 4);
+        if (this.normal) toIndexbuffer(this.normal, normal, normalIdx, 4);
+        if (this.uvw) toIndexbuffer(this.uvw, uvw, uvwIdx, 4);
+
+        let out = new TetraIndexMesh({
+            position: new Float32Array(position),
+            positionIndex: new Uint32Array(posIdx)
+        });
+        if (this.normal) out.normalIndex = new Uint32Array(normalIdx);
+        if (this.uvw) out.uvwIndex = new Uint32Array(uvwIdx);
+        if (normal.length) out.normal = new Float32Array(normal);
+        if (uvw.length) out.uvw = new Float32Array(uvw);
+        return out;
+    }
+    /// this function will copy data and not modify original data
+    concat(mesh2: TetraMesh): TetraMesh {
+        let position = new Float32Array(this.position.length + mesh2.position.length);
+        position.set(this.position);
+        position.set(mesh2.position, this.position.length);
+        let ret = new TetraMesh({ position, count: position.length << 4 });
+        if (this.normal && mesh2.normal) {
+            let normal = new Float32Array(this.normal.length + mesh2.normal.length);
+            normal.set(this.normal);
+            normal.set(mesh2.normal, this.normal.length);
+            ret.normal = normal;
+        }
+        if (this.uvw && mesh2.uvw) {
+            let uvw = new Float32Array(this.uvw.length + mesh2.uvw.length);
+            uvw.set(this.uvw);
+            uvw.set(mesh2.uvw, this.uvw.length);
+            ret.uvw = uvw;
+        }
+        return ret;
+    }
+    /// this function will copy data and not modify original data
+    deleteTetras(tetras: number[]): TetraMesh {
+        let count = this.count ?? (this.position?.length >> 4);
+        let newCount = (count - tetras.length) << 4;
+        let p = new Float32Array(newCount);
+        let n: Float32Array;
+        let u: Float32Array;
+        if (this.normal) n = new Float32Array(newCount);
+        if (this.uvw) u = new Float32Array(newCount);
+        let offset = 0;
+        for (let i = 0; i < this.count; i++) {
+            if (!tetras.includes(i)) {
+                p.set(this.position.subarray(i << 4, (i + 1) << 4), offset);
+                if (n) n.set(this.normal.subarray(i << 4, (i + 1) << 4), offset);
+                if (u) u.set(this.uvw.subarray(i << 4, (i + 1) << 4), offset);
+                offset += 16;
+            }
+        }
+        return new TetraMesh({
+            position: p, normal: n, uvw: u, count: newCount >> 4
+        });
     }
 
-    return out;
+    inverseNormal(): TetraMesh {
+        let count = this.count ?? this.position.length >> 4;
+        let temp: number;
+        for (let i = 0; i < count; i++) {
+            let offset = i << 4;
+            temp = this.position[offset + 0]; this.position[offset + 0] = this.position[offset + 4]; this.position[offset + 4] = temp;
+            temp = this.position[offset + 1]; this.position[offset + 1] = this.position[offset + 5]; this.position[offset + 5] = temp;
+            temp = this.position[offset + 2]; this.position[offset + 2] = this.position[offset + 6]; this.position[offset + 6] = temp;
+            temp = this.position[offset + 3]; this.position[offset + 3] = this.position[offset + 7]; this.position[offset + 7] = temp;
+            if (this.uvw) {
+                temp = this.uvw[offset + 0]; this.uvw[offset + 0] = this.uvw[offset + 4]; this.uvw[offset + 4] = temp;
+                temp = this.uvw[offset + 1]; this.uvw[offset + 1] = this.uvw[offset + 5]; this.uvw[offset + 5] = temp;
+                temp = this.uvw[offset + 2]; this.uvw[offset + 2] = this.uvw[offset + 6]; this.uvw[offset + 6] = temp;
+                temp = this.uvw[offset + 3]; this.uvw[offset + 3] = this.uvw[offset + 7]; this.uvw[offset + 7] = temp;
+            }
+            if (this.normal) {
+                temp = this.normal[offset + 0]; this.normal[offset + 0] = this.normal[offset + 4]; this.normal[offset + 4] = temp;
+                temp = this.normal[offset + 1]; this.normal[offset + 1] = this.normal[offset + 5]; this.normal[offset + 5] = temp;
+                temp = this.normal[offset + 2]; this.normal[offset + 2] = this.normal[offset + 6]; this.normal[offset + 6] = temp;
+                temp = this.normal[offset + 3]; this.normal[offset + 3] = this.normal[offset + 7]; this.normal[offset + 7] = temp;
+            }
+        }
+        this.position
+        if (this.normal) {
+            for (let i = 0, l = this.normal.length; i < l; i++) {
+                this.normal[i] = -this.normal[i];
+            }
+        }
+        return this;
+    }
+    setUVWAsPosition() {
+        if (!this.uvw) this.uvw = this.position.slice(0);
+        else {
+            this.uvw.set(this.position);
+        }
+        return this;
+    }
 }
-export function applyAffineMat4(mesh: TetraMesh, am: AffineMat4) {
+export class TetraIndexMesh implements TetraIndexMeshData {
+    position: Float32Array;
+    normal?: Float32Array;
+    uvw?: Float32Array;
+    positionIndex: Uint32Array;
+    normalIndex?: Uint32Array;
+    uvwIndex?: Uint32Array;
+    count?: number;
+    constructor(d: TetraIndexMeshData) {
+        this.position = d.position;
+        this.normal = d.normal;
+        this.uvw = d.uvw;
+        this.positionIndex = d.positionIndex;
+        this.normalIndex = d.normalIndex;
+        this.uvwIndex = d.uvwIndex;
+        this.count = d.count;
+    }
+    applyAffineMat4(am: AffineMat4) {
+        applyAffineMat4(this, am);
+        return this;
+    }
+    applyObj4(obj4: Obj4) {
+        applyObj4(this, obj4);
+        return this;
+    }
+    toNonIndexMesh() {
+        let count = this.position.length << 2;
+        let out = new TetraMesh({
+            position: new Float32Array(count),
+            count: count >> 4
+        });
+        toNonIndex(this.position, this.positionIndex, out.position, 4);
+        if (this.normal) {
+            out.normal = new Float32Array(count);
+            toNonIndex(this.normal, this.normalIndex, out.normal, 4);
+        }
+        if (this.uvw) {
+            out.uvw = new Float32Array(count);
+            toNonIndex(this.uvw, this.uvwIndex, out.uvw, 4);
+        }
+
+        return out;
+    }
+}
+
+function applyAffineMat4(mesh: TetraMeshData, am: AffineMat4) {
     let vp = new Vec4();
     for (let i = 0; i < mesh.position.length; i += 4) {
         vp.set(
@@ -83,7 +219,7 @@ export function applyAffineMat4(mesh: TetraMesh, am: AffineMat4) {
     }
     return mesh;
 }
-export function applyObj4(mesh: TetraMesh, obj: Obj4) {
+function applyObj4(mesh: TetraMeshData, obj: Obj4) {
     let vp = new Vec4();
     let scaleinv: Vec4;
     if (obj.scale && mesh.normal) {
@@ -124,26 +260,7 @@ export function applyObj4(mesh: TetraMesh, obj: Obj4) {
     }
     return mesh;
 }
-export function concat(mesh1: TetraMesh, mesh2: TetraMesh): TetraMesh {
-    let position = new Float32Array(mesh1.position.length + mesh2.position.length);
-    position.set(mesh1.position);
-    position.set(mesh2.position, mesh1.position.length);
-    let ret: TetraMesh = { position, count: position.length << 4 };
-    if (mesh1.normal && mesh2.normal) {
-        let normal = new Float32Array(mesh1.normal.length + mesh2.normal.length);
-        normal.set(mesh1.normal);
-        normal.set(mesh2.normal, mesh1.normal.length);
-        ret.normal = normal;
-    }
-    if (mesh1.uvw && mesh2.uvw) {
-        let uvw = new Float32Array(mesh1.uvw.length + mesh2.uvw.length);
-        uvw.set(mesh1.uvw);
-        uvw.set(mesh2.uvw, mesh1.uvw.length);
-        ret.uvw = uvw;
-    }
-    return ret;
-}
-export function concatarr(meshes: TetraMesh[]): TetraMesh {
+export function concat(meshes: TetraMeshData[]): TetraMesh {
     let length = 0;
     let hasNormal = true;
     let hasUvw = true;
@@ -153,7 +270,7 @@ export function concatarr(meshes: TetraMesh[]): TetraMesh {
         hasNormal = hasNormal && (meshes[i].normal ? true : false);
     }
     let position = new Float32Array(length);
-    let ret: TetraMesh = { position, count: length >> 4 };
+    let ret = new TetraMesh({ position, count: length >> 4 });
     let normal: Float32Array, uvw: Float32Array;
     if (hasNormal) {
         normal = new Float32Array(length);
@@ -176,33 +293,4 @@ export function concatarr(meshes: TetraMesh[]): TetraMesh {
     }
     return ret;
 }
-export function clone(mesh: TetraMesh): TetraMesh {
-    let ret: TetraMesh = {
-        position: mesh.position.slice(0),
-        count: mesh.count
-    }
-    if (mesh.uvw) ret.uvw = mesh.uvw.slice(0);
-    if (mesh.normal) ret.normal = mesh.normal.slice(0);
-    return ret;
-}
-export function deleteTetras(mesh: TetraMesh, tetras: number[]): TetraMesh {
-    let count = mesh.count ?? (mesh.position?.length >> 4);
-    let newCount = (count - tetras.length) << 4;
-    let p = new Float32Array(newCount);
-    let n: Float32Array;
-    let u: Float32Array;
-    if (mesh.normal) n = new Float32Array(newCount);
-    if (mesh.uvw) u = new Float32Array(newCount);
-    let offset = 0;
-    for (let i = 0; i < mesh.count; i++) {
-        if (!tetras.includes(i)) {
-            p.set(mesh.position.subarray(i << 4, (i + 1) << 4), offset);
-            if (n) n.set(mesh.normal.subarray(i << 4, (i + 1) << 4), offset);
-            if (u) u.set(mesh.uvw.subarray(i << 4, (i + 1) << 4), offset);
-            offset += 16;
-        }
-    }
-    return {
-        position: p, normal: n, uvw: u, count: newCount >> 4
-    }
-}
+

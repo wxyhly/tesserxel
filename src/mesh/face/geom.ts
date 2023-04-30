@@ -1,7 +1,7 @@
 import { Vec2 } from "../../math/algebra/vec2";
 import { Vec4 } from "../../math/algebra/vec4";
 import { _360 } from "../../math/const";
-import { FaceIndexMesh } from "./facemesh";
+import { FaceIndexMesh, FaceIndexMeshData } from "./facemesh";
 export function sphere(u, v) {
 
 }
@@ -113,7 +113,7 @@ export function parametricSurface(
     }
 }
 /** m must be a manifold or manifold with border */
-export function findBorder(m: FaceIndexMesh) {
+export function findBorder(m: FaceIndexMeshData) {
     if (!m.position) console.error("findBorder can onnly apply to FaceIndexMesh.");
     let borders = [];
     for (let i = 0, l = m.quad?.position?.length; i < l!; i += 4) {

@@ -344,7 +344,7 @@ class RubicMgr {
         } else {
             this.currentTask.tick();
         }
-        if(this.check()){
+        if (this.check()) {
             console.log(this.steps);
         }
         this.ticks++;
@@ -454,7 +454,7 @@ export namespace rubic {
                     for (let w = 0; w < order; w++) {
                         let wp = w * 2 - (order - 1);
                         let pos = new math.Vec4(xp, yp, zp, wp);
-                        let cube = mesh.tetra.applyObj4(mesh.tetra.tesseract(), new math.Obj4(
+                        let cube = mesh.tetra.tesseract().applyObj4(new math.Obj4(
                             pos, null, new math.Vec4(1 - cellGap, 1 - cellGap, 1 - cellGap, 1 - cellGap)
                         ));
                         let delnums: number[] = [];
@@ -468,10 +468,10 @@ export namespace rubic {
                         if (y !== order - 1) delnums.push(35, 36, 37, 38, 39);
 
 
-                        let blc = mesh.tetra.setUVWAsPosition(mesh.tetra.clone(cube));
-                        let hollow = mesh.tetra.inverseNormal(mesh.tetra.deleteTetras(mesh.tetra.applyObj4(mesh.tetra.clone(hollow_explode_blc), new math.Obj4(
+                        let blc = cube.clone().setUVWAsPosition();
+                        let hollow = hollow_explode_blc.clone().applyObj4(new math.Obj4(
                             pos//, null, new math.Vec4(1 - hollowGap, 1 - hollowGap, 1 - hollowGap, 1 - hollowGap
-                        )), delnums));
+                        )).deleteTetras(delnums).inverseNormal();
                         let m1 = new four.Mesh(new four.Geometry(blc), new four.LambertMaterial(rubicBlcColorNode)) as rubicBlcMesh;
                         let m2 = new four.Mesh(new four.Geometry(hollow), new four.LambertMaterial(rubicHColorNode)) as rubicBlcMesh;
                         m1.initPosition = pos;

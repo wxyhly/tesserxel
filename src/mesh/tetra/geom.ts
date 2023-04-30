@@ -7,9 +7,9 @@ import { Vec4 } from "../../math/algebra/vec4";
 import { _180, _360, _90 } from "../../math/const";
 import { Spline } from "../../math/geometry/spline";
 import * as face from "../../mesh/face";
-import { applyObj4, clone, concatarr, TetraMesh } from "./tetramesh";
+import { concat, TetraMesh } from "./tetramesh";
 
-export let cube: TetraMesh = {
+export let cube = new TetraMesh({
     position: new Float32Array([
         1, 0, -1, -1,
         1, 0, 1, 1,
@@ -81,12 +81,12 @@ export let cube: TetraMesh = {
         1, -1, 1, 0,
     ]),
     count: 5
-}
+});
 
 export function tesseract(): TetraMesh {
     let rotor = new Rotor();
     let biv = new Bivec();
-    let yface = applyObj4(clone(cube), new Obj4(Vec4.y, rotor.expset(biv.set(0, _90))));
+    let yface = cube.clone().applyObj4(new Obj4(Vec4.y, rotor.expset(biv.set(0, _90))));
     let meshes = [
         biv.set(_90).exp(),
         biv.set(-_90).exp().mulsl(rotor.expset(biv.set(0, 0, 0, 0, _180))),
@@ -95,9 +95,9 @@ export function tesseract(): TetraMesh {
         biv.set(0, 0, 0, 0, _90).exp().mulsl(rotor.expset(biv.set(_90, 0, 0, 0, 0))),
         biv.set(0, 0, 0, 0, -_90).exp().mulsl(rotor.expset(biv.set(_90, 0, 0, 0, 0))),
         biv.set(_180).exp(),
-    ].map(r => applyObj4(clone(yface), new Obj4(new Vec4(), r)));
+    ].map(r => yface.clone().applyObj4(new Obj4(new Vec4(), r)));
     meshes.push(yface);
-    let m = concatarr(meshes);
+    let m = concat(meshes);
     for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 20; j++) {
             m.uvw[i * 80 + j * 4 + 3] = i;
@@ -105,44 +105,7 @@ export function tesseract(): TetraMesh {
     }
     return m;
 }
-export function inverseNormal(mesh: TetraMesh): TetraMesh {
-    let count = mesh.count ?? mesh.position.length >> 4;
-    let temp: number;
-    for (let i = 0; i < count; i++) {
-        let offset = i << 4;
-        temp = mesh.position[offset + 0]; mesh.position[offset + 0] = mesh.position[offset + 4]; mesh.position[offset + 4] = temp;
-        temp = mesh.position[offset + 1]; mesh.position[offset + 1] = mesh.position[offset + 5]; mesh.position[offset + 5] = temp;
-        temp = mesh.position[offset + 2]; mesh.position[offset + 2] = mesh.position[offset + 6]; mesh.position[offset + 6] = temp;
-        temp = mesh.position[offset + 3]; mesh.position[offset + 3] = mesh.position[offset + 7]; mesh.position[offset + 7] = temp;
-        if (mesh.uvw) {
-            temp = mesh.uvw[offset + 0]; mesh.uvw[offset + 0] = mesh.uvw[offset + 4]; mesh.uvw[offset + 4] = temp;
-            temp = mesh.uvw[offset + 1]; mesh.uvw[offset + 1] = mesh.uvw[offset + 5]; mesh.uvw[offset + 5] = temp;
-            temp = mesh.uvw[offset + 2]; mesh.uvw[offset + 2] = mesh.uvw[offset + 6]; mesh.uvw[offset + 6] = temp;
-            temp = mesh.uvw[offset + 3]; mesh.uvw[offset + 3] = mesh.uvw[offset + 7]; mesh.uvw[offset + 7] = temp;
-        }
-        if (mesh.normal) {
-            temp = mesh.normal[offset + 0]; mesh.normal[offset + 0] = mesh.normal[offset + 4]; mesh.normal[offset + 4] = temp;
-            temp = mesh.normal[offset + 1]; mesh.normal[offset + 1] = mesh.normal[offset + 5]; mesh.normal[offset + 5] = temp;
-            temp = mesh.normal[offset + 2]; mesh.normal[offset + 2] = mesh.normal[offset + 6]; mesh.normal[offset + 6] = temp;
-            temp = mesh.normal[offset + 3]; mesh.normal[offset + 3] = mesh.normal[offset + 7]; mesh.normal[offset + 7] = temp;
-        }
-    }
-    mesh.position
-    if (mesh.normal) {
-        for (let i = 0, l = mesh.normal.length; i < l; i++) {
-            mesh.normal[i] = -mesh.normal[i];
-        }
-    }
-    return mesh;
-}
-export function setUVWAsPosition(mesh: TetraMesh) {
-    if (!mesh.uvw) mesh.uvw = mesh.position.slice(0);
-    else {
-        mesh.uvw.set(mesh.position);
-    }
-    return mesh;
-}
-export let hexadecachoron: TetraMesh = {
+export let hexadecachoron = new TetraMesh({
     position: new Float32Array([
         1, 0, 0, 0,
         0, 1, 0, 0,
@@ -351,7 +314,7 @@ export let hexadecachoron: TetraMesh = {
         0, 1, 1, 15,
     ]),
     count: 16
-};
+});
 export function glome(radius: number, xySegment: number, zwSegment: number, latitudeSegment: number) {
     if (xySegment < 3) xySegment = 3;
     if (zwSegment < 3) zwSegment = 3;
@@ -566,7 +529,7 @@ export function parametricSurface(
             }
         }
     }
-    return { position, normal, uvw, count };
+    return new TetraMesh({ position, normal, uvw, count });
 }
 export function convexhull(points: Vec4[]) {
     // todo: fix a random dead loop bug
@@ -707,7 +670,7 @@ export function duocylinder(xyRadius: number, xySegment: number, zwRadius: numbe
     }
     return convexhull(ps);
 }
-export function loft(sp: Spline, section: face.FaceMesh, step: number): TetraMesh {
+export function loft(sp: Spline, section: face.FaceMeshData, step: number): TetraMesh {
     let { points, rotors, curveLength } = sp.generate(step);
     let quadcount = section.quad ? section.quad.position.length >> 4 : 0;
     let count4 = quadcount * (points.length - 1) * 5;
@@ -810,9 +773,9 @@ export function loft(sp: Spline, section: face.FaceMesh, step: number): TetraMes
         uvw[idxPtr++] = uvws[i + 2];
         uvw[idxPtr++] = uvws[i + 3];
     }
-    return { position, uvw, normal, count: count3 + count4 };
+    return new TetraMesh({ position, uvw, normal, count: count3 + count4 });
 }
-export function directProduct(shape1: face.FaceIndexMesh, shape2: face.FaceIndexMesh) {
+export function directProduct(shape1: face.FaceIndexMeshData, shape2: face.FaceIndexMeshData) {
     /** border(A x B) = border(A) x B + A x border(B) */
     let edge1 = face.findBorder(shape1);
     let edge2 = face.findBorder(shape2);
@@ -1086,5 +1049,5 @@ export function directProduct(shape1: face.FaceIndexMesh, shape2: face.FaceIndex
         uvw[idxPtr++] = uvws[i + 2];
         uvw[idxPtr++] = uvws[i + 3];
     }
-    return { position, normal, uvw, count: position.length >> 4 }
+    return new TetraMesh({ position, normal, uvw, count: position.length >> 4 });
 }

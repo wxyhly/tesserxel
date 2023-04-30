@@ -1111,7 +1111,7 @@ declare type SlicePipelineLayout = GPUAutoLayoutMode | {
 /** Tetramesh store 4D mesh as tetrahedral list
  *  Each tetrahedral uses four vertices in the position list
  */
-interface TetraMesh {
+interface TetraMeshData {
     position: Float32Array;
     normal?: Float32Array;
     uvw?: Float32Array;
@@ -1120,7 +1120,7 @@ interface TetraMesh {
 /** TetraIndexMesh is not supported for tetraslice rendering
  *  It is only used in data storage and mesh construction
  */
-interface TetraIndexMesh {
+interface TetraIndexMeshData {
     position: Float32Array;
     normal?: Float32Array;
     uvw?: Float32Array;
@@ -1129,20 +1129,41 @@ interface TetraIndexMesh {
     uvwIndex?: Uint32Array;
     count?: number;
 }
-declare function toIndexMesh$1(m: TetraMesh): TetraIndexMesh;
-declare function toNonIndexMesh$1(m: TetraIndexMesh): TetraMesh;
-declare function applyAffineMat4$1(mesh: TetraMesh, am: AffineMat4): TetraMesh;
-declare function applyObj4$1(mesh: TetraMesh, obj: Obj4): TetraMesh;
-declare function concat$1(mesh1: TetraMesh, mesh2: TetraMesh): TetraMesh;
-declare function concatarr(meshes: TetraMesh[]): TetraMesh;
-declare function clone$1(mesh: TetraMesh): TetraMesh;
-declare function deleteTetras(mesh: TetraMesh, tetras: number[]): TetraMesh;
+declare class TetraMesh implements TetraMeshData {
+    position: Float32Array;
+    normal?: Float32Array;
+    uvw?: Float32Array;
+    count?: number;
+    constructor(d: TetraMeshData);
+    applyAffineMat4(am: AffineMat4): this;
+    applyObj4(obj4: Obj4): this;
+    clone(): TetraMesh;
+    toIndexMesh(): TetraIndexMesh;
+    concat(mesh2: TetraMesh): TetraMesh;
+    deleteTetras(tetras: number[]): TetraMesh;
+    inverseNormal(): TetraMesh;
+    setUVWAsPosition(): this;
+}
+declare class TetraIndexMesh implements TetraIndexMeshData {
+    position: Float32Array;
+    normal?: Float32Array;
+    uvw?: Float32Array;
+    positionIndex: Uint32Array;
+    normalIndex?: Uint32Array;
+    uvwIndex?: Uint32Array;
+    count?: number;
+    constructor(d: TetraIndexMeshData);
+    applyAffineMat4(am: AffineMat4): this;
+    applyObj4(obj4: Obj4): this;
+    toNonIndexMesh(): TetraMesh;
+}
+declare function concat(meshes: TetraMeshData[]): TetraMesh;
 
 /** FaceMesh store traditional 2-face mesh as triangle or quad list
  *  This mesh is for constructing complex tetrameshes
  *  It is not aimed for rendering purpose
  */
-interface FaceMesh {
+interface FaceMeshData {
     quad?: {
         position: Float32Array;
         normal?: Float32Array;
@@ -1156,7 +1177,27 @@ interface FaceMesh {
         count?: number;
     };
 }
-interface FaceIndexMesh {
+declare class FaceMesh implements FaceMeshData {
+    quad?: {
+        position: Float32Array;
+        normal?: Float32Array;
+        uvw?: Float32Array;
+        count?: number;
+    };
+    triangle?: {
+        position: Float32Array;
+        normal?: Float32Array;
+        uvw?: Float32Array;
+        count?: number;
+    };
+    constructor(d: FaceMeshData);
+    applyAffineMat4(am: AffineMat4): this;
+    applyObj4(obj4: Obj4): this;
+    toIndexMesh(): FaceIndexMesh;
+    clone(): FaceMesh;
+    concat(m2: FaceMesh): FaceMesh;
+}
+interface FaceIndexMeshData {
     position: Float32Array;
     normal?: Float32Array;
     uvw?: Float32Array;
@@ -1173,12 +1214,29 @@ interface FaceIndexMesh {
         count?: number;
     };
 }
-declare function toIndexMesh(m: FaceMesh): FaceIndexMesh;
-declare function toNonIndexMesh(m: FaceIndexMesh): FaceMesh;
-declare function clone(mesh: FaceMesh | FaceIndexMesh): FaceMesh | FaceIndexMesh;
-declare function applyAffineMat4(m: FaceIndexMesh | FaceMesh, am: AffineMat4): FaceMesh | FaceIndexMesh;
-declare function applyObj4(mesh: FaceIndexMesh | FaceMesh, obj: Obj4): FaceMesh | FaceIndexMesh;
-declare function concat(mesh1: FaceIndexMesh | FaceMesh, mesh2: FaceIndexMesh | FaceMesh): FaceIndexMesh | FaceMesh;
+declare class FaceIndexMesh implements FaceIndexMeshData {
+    position: Float32Array;
+    normal?: Float32Array;
+    uvw?: Float32Array;
+    quad?: {
+        position: Uint32Array;
+        normal?: Uint32Array;
+        uvw?: Uint32Array;
+        count?: number;
+    };
+    triangle?: {
+        position: Uint32Array;
+        normal?: Uint32Array;
+        uvw?: Uint32Array;
+        count?: number;
+    };
+    constructor(d: FaceIndexMeshData);
+    applyAffineMat4(am: AffineMat4): this;
+    applyObj4(obj4: Obj4): this;
+    toNonIndexMesh(): FaceMesh;
+    clone(): FaceIndexMesh;
+    concat(m2: FaceIndexMesh): FaceIndexMesh;
+}
 
 declare function sphere(u: any, v: any): void;
 declare function polygon(points: Vec4[]): {
@@ -1207,30 +1265,24 @@ declare function parametricSurface$1(fn: (inputuvw: Vec2, outputPosition: Vec4, 
     };
 };
 /** m must be a manifold or manifold with border */
-declare function findBorder(m: FaceIndexMesh): any[];
+declare function findBorder(m: FaceIndexMeshData): any[];
 
+type face_d_FaceMeshData = FaceMeshData;
 type face_d_FaceMesh = FaceMesh;
+declare const face_d_FaceMesh: typeof FaceMesh;
+type face_d_FaceIndexMeshData = FaceIndexMeshData;
 type face_d_FaceIndexMesh = FaceIndexMesh;
-declare const face_d_toIndexMesh: typeof toIndexMesh;
-declare const face_d_toNonIndexMesh: typeof toNonIndexMesh;
-declare const face_d_clone: typeof clone;
-declare const face_d_applyAffineMat4: typeof applyAffineMat4;
-declare const face_d_applyObj4: typeof applyObj4;
-declare const face_d_concat: typeof concat;
+declare const face_d_FaceIndexMesh: typeof FaceIndexMesh;
 declare const face_d_sphere: typeof sphere;
 declare const face_d_polygon: typeof polygon;
 declare const face_d_circle: typeof circle;
 declare const face_d_findBorder: typeof findBorder;
 declare namespace face_d {
   export {
+    face_d_FaceMeshData as FaceMeshData,
     face_d_FaceMesh as FaceMesh,
+    face_d_FaceIndexMeshData as FaceIndexMeshData,
     face_d_FaceIndexMesh as FaceIndexMesh,
-    face_d_toIndexMesh as toIndexMesh,
-    face_d_toNonIndexMesh as toNonIndexMesh,
-    face_d_clone as clone,
-    face_d_applyAffineMat4 as applyAffineMat4,
-    face_d_applyObj4 as applyObj4,
-    face_d_concat as concat,
     face_d_sphere as sphere,
     face_d_polygon as polygon,
     face_d_circle as circle,
@@ -1241,8 +1293,6 @@ declare namespace face_d {
 
 declare let cube: TetraMesh;
 declare function tesseract(): TetraMesh;
-declare function inverseNormal(mesh: TetraMesh): TetraMesh;
-declare function setUVWAsPosition(mesh: TetraMesh): TetraMesh;
 declare let hexadecachoron: TetraMesh;
 declare function glome(radius: number, xySegment: number, zwSegment: number, latitudeSegment: number): TetraMesh;
 declare function spheritorus(sphereRadius: number, longitudeSegment: number, latitudeSegment: number, circleRadius: number, circleSegment: number): TetraMesh;
@@ -1262,22 +1312,18 @@ declare function duocylinder(xyRadius: number, xySegment: number, zwRadius: numb
     position: Float32Array;
     count: number;
 };
-declare function loft(sp: Spline, section: FaceMesh, step: number): TetraMesh;
-declare function directProduct(shape1: FaceIndexMesh, shape2: FaceIndexMesh): {
-    position: Float32Array;
-    normal: Float32Array;
-    uvw: Float32Array;
-    count: number;
-};
+declare function loft(sp: Spline, section: FaceMeshData, step: number): TetraMesh;
+declare function directProduct(shape1: FaceIndexMeshData, shape2: FaceIndexMeshData): TetraMesh;
 
+type tetra_d_TetraMeshData = TetraMeshData;
+type tetra_d_TetraIndexMeshData = TetraIndexMeshData;
 type tetra_d_TetraMesh = TetraMesh;
+declare const tetra_d_TetraMesh: typeof TetraMesh;
 type tetra_d_TetraIndexMesh = TetraIndexMesh;
-declare const tetra_d_concatarr: typeof concatarr;
-declare const tetra_d_deleteTetras: typeof deleteTetras;
+declare const tetra_d_TetraIndexMesh: typeof TetraIndexMesh;
+declare const tetra_d_concat: typeof concat;
 declare const tetra_d_cube: typeof cube;
 declare const tetra_d_tesseract: typeof tesseract;
-declare const tetra_d_inverseNormal: typeof inverseNormal;
-declare const tetra_d_setUVWAsPosition: typeof setUVWAsPosition;
 declare const tetra_d_hexadecachoron: typeof hexadecachoron;
 declare const tetra_d_glome: typeof glome;
 declare const tetra_d_spheritorus: typeof spheritorus;
@@ -1292,20 +1338,13 @@ declare const tetra_d_loft: typeof loft;
 declare const tetra_d_directProduct: typeof directProduct;
 declare namespace tetra_d {
   export {
+    tetra_d_TetraMeshData as TetraMeshData,
+    tetra_d_TetraIndexMeshData as TetraIndexMeshData,
     tetra_d_TetraMesh as TetraMesh,
     tetra_d_TetraIndexMesh as TetraIndexMesh,
-    toIndexMesh$1 as toIndexMesh,
-    toNonIndexMesh$1 as toNonIndexMesh,
-    applyAffineMat4$1 as applyAffineMat4,
-    applyObj4$1 as applyObj4,
-    concat$1 as concat,
-    tetra_d_concatarr as concatarr,
-    clone$1 as clone,
-    tetra_d_deleteTetras as deleteTetras,
+    tetra_d_concat as concat,
     tetra_d_cube as cube,
     tetra_d_tesseract as tesseract,
-    tetra_d_inverseNormal as inverseNormal,
-    tetra_d_setUVWAsPosition as setUVWAsPosition,
     tetra_d_hexadecachoron as hexadecachoron,
     tetra_d_glome as glome,
     tetra_d_spheritorus as spheritorus,
@@ -1556,7 +1595,7 @@ declare class Geometry {
     needsUpdate: boolean;
     dynamic: boolean;
     obb: AABB;
-    constructor(data: TetraMesh);
+    constructor(data: TetraMeshData);
     updateOBB(): void;
 }
 declare class TesseractGeometry extends Geometry {
@@ -2326,7 +2365,7 @@ declare namespace render_d {
   };
 }
 
-interface IndexMesh extends FaceIndexMesh {
+interface IndexMesh extends FaceIndexMeshData {
     positionIndex?: Uint32Array;
     normalIndex?: Uint32Array;
     uvwIndex?: Uint32Array;
@@ -2340,9 +2379,17 @@ declare class ObjFile {
 }
 
 type mesh_d_FaceMesh = FaceMesh;
+declare const mesh_d_FaceMesh: typeof FaceMesh;
 type mesh_d_FaceIndexMesh = FaceIndexMesh;
+declare const mesh_d_FaceIndexMesh: typeof FaceIndexMesh;
 type mesh_d_TetraMesh = TetraMesh;
+declare const mesh_d_TetraMesh: typeof TetraMesh;
 type mesh_d_TetraIndexMesh = TetraIndexMesh;
+declare const mesh_d_TetraIndexMesh: typeof TetraIndexMesh;
+type mesh_d_FaceMeshData = FaceMeshData;
+type mesh_d_FaceIndexMeshData = FaceIndexMeshData;
+type mesh_d_TetraMeshData = TetraMeshData;
+type mesh_d_TetraIndexMeshData = TetraIndexMeshData;
 type mesh_d_ObjFile = ObjFile;
 declare const mesh_d_ObjFile: typeof ObjFile;
 declare namespace mesh_d {
@@ -2353,6 +2400,10 @@ declare namespace mesh_d {
     mesh_d_FaceIndexMesh as FaceIndexMesh,
     mesh_d_TetraMesh as TetraMesh,
     mesh_d_TetraIndexMesh as TetraIndexMesh,
+    mesh_d_FaceMeshData as FaceMeshData,
+    mesh_d_FaceIndexMeshData as FaceIndexMeshData,
+    mesh_d_TetraMeshData as TetraMeshData,
+    mesh_d_TetraIndexMeshData as TetraIndexMeshData,
     mesh_d_ObjFile as ObjFile,
   };
 }

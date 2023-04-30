@@ -4,7 +4,7 @@ import { Vec4 } from "../math/algebra/vec4";
 import { PerspectiveCamera } from "../math/geometry/camera";
 import { AABB } from "../math/geometry/primitive";
 import { tetra } from "../mesh/mesh";
-import { TetraMesh } from "../mesh/tetra";
+import { TetraMesh, TetraMeshData } from "../mesh/tetra";
 import { RaytracingPipeline, RaytracingPipelineDescriptor } from "../render/slice";
 import { Material } from "./material";
 import { Renderer } from "./renderer";
@@ -78,8 +78,8 @@ export class Geometry {
     needsUpdate = true;
     dynamic: boolean = false;
     obb = new AABB;
-    constructor(data: TetraMesh) {
-        this.jsBuffer = data;
+    constructor(data: TetraMeshData) {
+        this.jsBuffer = data instanceof TetraMesh ? data : new TetraMesh(data);
     }
     updateOBB() {
         let obb = this.obb;
@@ -101,15 +101,15 @@ export class Geometry {
 export class TesseractGeometry extends Geometry {
     constructor(size?: number | Vec4) {
         super(tetra.tesseract());
-        if (size) tetra.applyObj4(this.jsBuffer, new Obj4(null, null,
+        if (size) this.jsBuffer.applyObj4(new Obj4(null, null,
             size instanceof Vec4 ? size : new Vec4(size, size, size, size)
         ));
     }
 }
 export class CubeGeometry extends Geometry {
     constructor(size?: number | Vec3) {
-        super(tetra.clone(tetra.cube));
-        if (size) tetra.applyObj4(this.jsBuffer, new Obj4(null, null,
+        super(tetra.cube.clone());
+        if (size) this.jsBuffer.applyObj4(new Obj4(null, null,
             size instanceof Vec3 ? new Vec4(size.x, 1, size.y, size.z) : new Vec4(size, 1, size, size)
         ));
     }
@@ -229,7 +229,7 @@ export class SimpleSkyBox extends SkyBox {
         this.needsUpdate = true;
         this.jsBuffer[4] = o;
     }
-    getOpacity(){
+    getOpacity() {
         return this.jsBuffer[4];
     }
     getSunPosition() {

@@ -1,7 +1,7 @@
-import { FaceIndexMesh } from "./face/facemesh";
+import { FaceIndexMesh, FaceIndexMeshData } from "./face/facemesh";
 import { TetraIndexMesh } from "./tetra/tetramesh";
 
-interface IndexMesh extends FaceIndexMesh {
+interface IndexMesh extends FaceIndexMeshData {
     positionIndex?: Uint32Array;
     normalIndex?: Uint32Array;
     uvwIndex?: Uint32Array;

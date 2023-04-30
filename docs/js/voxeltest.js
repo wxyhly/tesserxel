@@ -193,8 +193,7 @@ var rasterizer;
         const gpu = await new tesserxel.render.GPU().init();
         const device = gpu.device;
         // voxel render pass (compute pass)
-        let meshJsBuffer = tesserxel.mesh.tetra.tiger(1, 16, 1, 16, 0.2, 12);
-        tesserxel.mesh.tetra.applyObj4(meshJsBuffer, new tesserxel.math.Obj4(new tesserxel.math.Vec4(0, 0, 0, 2)));
+        let meshJsBuffer = tesserxel.mesh.tetra.tiger(1, 16, 1, 16, 0.2, 12).applyObj4(new tesserxel.math.Obj4(new tesserxel.math.Vec4(0, 0, 0, 2)));
         const resolution = 256;
         const tetraCount = meshJsBuffer.count;
         const tileSize = 16;

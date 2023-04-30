@@ -1,141 +1,141 @@
 import * as tesserxel from "../../build/tesserxel.js"
-    export namespace city_highway {
-        const vec4 = tesserxel.math.Vec4;
-        const vec3 = tesserxel.math.Vec3;
-        const directionalLight_dir = "1.0,1.2,1.0,1.0";
-        function genRoad() {
-            const xLanes = 3;
-            const yLanes = 4;
-            const laneSide = 0.14;
-            const lineWidthHalf = 0.01;
-            const roadWidth = xLanes / (1 - 2 * laneSide);
-            const roadHeight = yLanes / (1 - 2 * laneSide);
-            const rw2 = roadWidth * 2;
-            const fenceHeight = 0.4;
-            const separatorHeight = 0.9;
-            const fenceWidthHalf = 0.12;
-            // let p = [];
-            // let q = [];
-            // for(let i=0;i<100;i++){
-            //     p.push(new vec4(Math.cos(i*0.3)*10 - 10,0,Math.sin(i*0.3)*10,i*0.5).mulfs(2));
-            //     q.push(new vec4(-Math.sin(i*0.3)*0.3*10,0,Math.cos(i*0.3)*0.3*10,0.5).mulfs(2));
-            // }
-            // let path = new tesserxel.math.Spline(p,q);
-            let edge = 40;
-            let deri = 30;
-            let path = new tesserxel.math.Spline(
-                [
-                    new vec4(0, 0, 0, 0),
-                    new vec4(0, 0, 0, edge),
-                    new vec4(edge, 0, 0, edge),
-                    new vec4(edge, 0, edge, edge),
-                    new vec4(edge, 0, edge, 0),
-                    new vec4(0, 0, edge, 0),
-                    new vec4(0, 0, 0, 0),
-                ],
-                [
-                    new vec4(0, 0, -deri, deri),
-                    new vec4(deri, 0, 0, deri),
-                    new vec4(deri, 0, deri, 0),
-                    new vec4(0, 0, deri, -deri),
-                    new vec4(-deri, 0, 0, -deri),
-                    new vec4(-deri, 0, -deri, 0),
-                    new vec4(0, 0, -deri, deri),
-                ]
-            );
-            let fenceCrossSection: tesserxel.mesh.FaceMesh = {
-                quad: {
-                    position: new Float32Array([
-                        0, fenceHeight, yLanes, 0,
-                        0, fenceHeight, -yLanes, 0,
-                        0, separatorHeight, -yLanes, 0,
-                        0, separatorHeight, yLanes, 0,
-                    ]),
-                    uvw: new Float32Array([
-                        2, 1, -1, 0,
-                        2, 1, 1, 0,
-                        2, -1, 1, 0,
-                        2, -1, -1, 0,
-                    ]),
-                    normal: new Float32Array([
-                        
-                        1, 0, 0, 0,
-                        1, 0, 0, 0,
-                        1, 0, 0, 0,
-                        1, 0, 0, 0,
-                    ])
-                }
+export namespace city_highway {
+    const vec4 = tesserxel.math.Vec4;
+    const vec3 = tesserxel.math.Vec3;
+    const directionalLight_dir = "1.0,1.2,1.0,1.0";
+    function genRoad() {
+        const xLanes = 3;
+        const yLanes = 4;
+        const laneSide = 0.14;
+        const lineWidthHalf = 0.01;
+        const roadWidth = xLanes / (1 - 2 * laneSide);
+        const roadHeight = yLanes / (1 - 2 * laneSide);
+        const rw2 = roadWidth * 2;
+        const fenceHeight = 0.4;
+        const separatorHeight = 0.9;
+        const fenceWidthHalf = 0.12;
+        // let p = [];
+        // let q = [];
+        // for(let i=0;i<100;i++){
+        //     p.push(new vec4(Math.cos(i*0.3)*10 - 10,0,Math.sin(i*0.3)*10,i*0.5).mulfs(2));
+        //     q.push(new vec4(-Math.sin(i*0.3)*0.3*10,0,Math.cos(i*0.3)*0.3*10,0.5).mulfs(2));
+        // }
+        // let path = new tesserxel.math.Spline(p,q);
+        let edge = 40;
+        let deri = 30;
+        let path = new tesserxel.math.Spline(
+            [
+                new vec4(0, 0, 0, 0),
+                new vec4(0, 0, 0, edge),
+                new vec4(edge, 0, 0, edge),
+                new vec4(edge, 0, edge, edge),
+                new vec4(edge, 0, edge, 0),
+                new vec4(0, 0, edge, 0),
+                new vec4(0, 0, 0, 0),
+            ],
+            [
+                new vec4(0, 0, -deri, deri),
+                new vec4(deri, 0, 0, deri),
+                new vec4(deri, 0, deri, 0),
+                new vec4(0, 0, deri, -deri),
+                new vec4(-deri, 0, 0, -deri),
+                new vec4(-deri, 0, -deri, 0),
+                new vec4(0, 0, -deri, deri),
+            ]
+        );
+        let fenceCrossSection = new tesserxel.mesh.FaceMesh({
+            quad: {
+                position: new Float32Array([
+                    0, fenceHeight, yLanes, 0,
+                    0, fenceHeight, -yLanes, 0,
+                    0, separatorHeight, -yLanes, 0,
+                    0, separatorHeight, yLanes, 0,
+                ]),
+                uvw: new Float32Array([
+                    2, 1, -1, 0,
+                    2, 1, 1, 0,
+                    2, -1, 1, 0,
+                    2, -1, -1, 0,
+                ]),
+                normal: new Float32Array([
+
+                    1, 0, 0, 0,
+                    1, 0, 0, 0,
+                    1, 0, 0, 0,
+                    1, 0, 0, 0,
+                ])
             }
+        });
 
-            let crossSection: tesserxel.mesh.FaceMesh = {
-                quad: {
-                    position: new Float32Array([
-                        rw2, 0, -roadHeight, 0,
-                        rw2, 0, roadHeight, 0,
-                        -rw2, 0, roadHeight, 0,
-                        -rw2, 0, -roadHeight, 0,
+        let crossSection = new tesserxel.mesh.FaceMesh({
+            quad: {
+                position: new Float32Array([
+                    rw2, 0, -roadHeight, 0,
+                    rw2, 0, roadHeight, 0,
+                    -rw2, 0, roadHeight, 0,
+                    -rw2, 0, -roadHeight, 0,
 
-                        -fenceWidthHalf, 0, -yLanes, 0,
-                        -fenceWidthHalf, 0, yLanes, 0,
-                        -fenceWidthHalf, fenceHeight, yLanes, 0,
-                        -fenceWidthHalf, fenceHeight, -yLanes, 0,
+                    -fenceWidthHalf, 0, -yLanes, 0,
+                    -fenceWidthHalf, 0, yLanes, 0,
+                    -fenceWidthHalf, fenceHeight, yLanes, 0,
+                    -fenceWidthHalf, fenceHeight, -yLanes, 0,
 
-                        fenceWidthHalf, fenceHeight, -yLanes, 0,
-                        fenceWidthHalf, fenceHeight, yLanes, 0,
-                        fenceWidthHalf, 0, yLanes, 0,
-                        fenceWidthHalf, 0, -yLanes, 0,
+                    fenceWidthHalf, fenceHeight, -yLanes, 0,
+                    fenceWidthHalf, fenceHeight, yLanes, 0,
+                    fenceWidthHalf, 0, yLanes, 0,
+                    fenceWidthHalf, 0, -yLanes, 0,
 
-                        fenceWidthHalf, fenceHeight, -yLanes, 0,
-                        fenceWidthHalf, fenceHeight, yLanes, 0,
-                        -fenceWidthHalf, fenceHeight, yLanes, 0,
-                        -fenceWidthHalf, fenceHeight, -yLanes, 0,
-                    ]),
-                    uvw: new Float32Array([
-                        0, 1, -1, 0,
-                        0, 1, 1, 0,
-                        0, -1, 1, 0,
-                        0, -1, -1, 0,
+                    fenceWidthHalf, fenceHeight, -yLanes, 0,
+                    fenceWidthHalf, fenceHeight, yLanes, 0,
+                    -fenceWidthHalf, fenceHeight, yLanes, 0,
+                    -fenceWidthHalf, fenceHeight, -yLanes, 0,
+                ]),
+                uvw: new Float32Array([
+                    0, 1, -1, 0,
+                    0, 1, 1, 0,
+                    0, -1, 1, 0,
+                    0, -1, -1, 0,
 
-                        1, 1, -1, 0,
-                        1, 1, 1, 0,
-                        1, -1, 1, 0,
-                        1, -1, -1, 0,
+                    1, 1, -1, 0,
+                    1, 1, 1, 0,
+                    1, -1, 1, 0,
+                    1, -1, -1, 0,
 
-                        1, -1, -1, 0,
-                        1, -1, 1, 0,
-                        1, 1, 1, 0,
-                        1, 1, -1, 0,
+                    1, -1, -1, 0,
+                    1, -1, 1, 0,
+                    1, 1, 1, 0,
+                    1, 1, -1, 0,
 
-                        1, 1, -1, 0,
-                        1, 1, 1, 0,
-                        1, -1, 1, 0,
-                        1, -1, -1, 0,
+                    1, 1, -1, 0,
+                    1, 1, 1, 0,
+                    1, -1, 1, 0,
+                    1, -1, -1, 0,
 
-                    ]),
-                    normal: new Float32Array([
-                        0, 1, 0, 0,
-                        0, 1, 0, 0,
-                        0, 1, 0, 0,
-                        0, 1, 0, 0,
-                        -1, 0, 0, 0,
-                        -1, 0, 0, 0,
-                        -1, 0, 0, 0,
-                        -1, 0, 0, 0,
-                        1, 0, 0, 0,
-                        1, 0, 0, 0,
-                        1, 0, 0, 0,
-                        1, 0, 0, 0,
-                        0, 1, 0, 0,
-                        0, 1, 0, 0,
-                        0, 1, 0, 0,
-                        0, 1, 0, 0,
-                    ])
-                }
+                ]),
+                normal: new Float32Array([
+                    0, 1, 0, 0,
+                    0, 1, 0, 0,
+                    0, 1, 0, 0,
+                    0, 1, 0, 0,
+                    -1, 0, 0, 0,
+                    -1, 0, 0, 0,
+                    -1, 0, 0, 0,
+                    -1, 0, 0, 0,
+                    1, 0, 0, 0,
+                    1, 0, 0, 0,
+                    1, 0, 0, 0,
+                    1, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 1, 0, 0,
+                    0, 1, 0, 0,
+                    0, 1, 0, 0,
+                ])
             }
-            let roadmesh = tesserxel.mesh.tetra.loft(path, crossSection, 20);
-            let fencemesh = tesserxel.mesh.tetra.loft(path, fenceCrossSection, 256);
-            roadmesh = tesserxel.mesh.tetra.concat(roadmesh,fencemesh);
-            let roadvertCode = `
+        });
+        let roadmesh = tesserxel.mesh.tetra.loft(path, crossSection, 20);
+        let fencemesh = tesserxel.mesh.tetra.loft(path, fenceCrossSection, 256);
+        roadmesh = roadmesh.concat(fencemesh);
+        let roadvertCode = `
             struct InputType{
                 @location(0) pos: mat4x4<f32>,
                 @location(1) uvw: mat4x4<f32>,
@@ -163,7 +163,7 @@ import * as tesserxel from "../../build/tesserxel.js"
                 );
             }
             `;
-            let roadfragCode = `
+        let roadfragCode = `
             struct fInputType{
                 @location(0) uvw : vec4<f32>,
                 @location(1) normal : vec4<f32>,
@@ -218,14 +218,14 @@ import * as tesserxel from "../../build/tesserxel.js"
                     return roadTexture(vary.uvw.yzw, phong);
                 }
             }`;
-            return { path, roadmesh, roadfragCode, roadvertCode };
-        }
-        
-        function genBuilding(path: tesserxel.math.Spline) {
-            const buildingCount = 1024;
-            const buildingMaxRadius = 120;
-            const buildingMinRadius = 15;
-            const buildingVertCode = `
+        return { path, roadmesh, roadfragCode, roadvertCode };
+    }
+
+    function genBuilding(path: tesserxel.math.Spline) {
+        const buildingCount = 1024;
+        const buildingMaxRadius = 120;
+        const buildingMinRadius = 15;
+        const buildingVertCode = `
             
             struct InputType{
                 @location(0) pos: mat4x4<f32>,
@@ -260,7 +260,7 @@ import * as tesserxel from "../../build/tesserxel.js"
                 return OutputType(apply(camMat,apply(modelMat,input.pos)), uvw, normalizeVec4(modelMat.matrix * input.normal));
             }
             `;
-            const buildingFragCode = `
+        const buildingFragCode = `
             struct fInputType{
                 @location(0) uvw : vec4<f32>,
                 @location(1) normal : vec4<f32>
@@ -300,51 +300,51 @@ import * as tesserxel from "../../build/tesserxel.js"
                 // return vec4<f32>(1.0,0.0,0.0,0.3);
             }
             `;
-            let buildingTransformBuffer = new Float32Array(20 * buildingCount);
-            const points = path.generate(20).points;
-            const pointLen = points.length;
-            const srand = new tesserxel.math.Srand(12345);
-            const buildingMinRadius2 = buildingMinRadius * buildingMinRadius;
-            for (let i = 0; i < buildingCount; i++) {
-                let willContinue = false;
-                let randPointIdx = srand.nexti(pointLen);
-                let r: number;
-                do {
-                    r = Math.sqrt(srand.nextf()) * buildingMaxRadius;
-                } while (r < buildingMinRadius);
-                let randVec = vec3.srand(srand).mulfs(r);
-                randVec.adds(points[randPointIdx].xzw());
-                for (let idx = 0; idx < pointLen; idx++) {
-                    let testP = points[idx];
-                    // let testP = points[idx >= pointLen ? idx - pointLen : idx < 0 ? idx + pointLen : idx];
-                    if (testP.xzw().sub(randVec).normsqr() < buildingMinRadius2) {
-                        i--;
-                        willContinue = true;
-                        break;
-                    }
+        let buildingTransformBuffer = new Float32Array(20 * buildingCount);
+        const points = path.generate(20).points;
+        const pointLen = points.length;
+        const srand = new tesserxel.math.Srand(12345);
+        const buildingMinRadius2 = buildingMinRadius * buildingMinRadius;
+        for (let i = 0; i < buildingCount; i++) {
+            let willContinue = false;
+            let randPointIdx = srand.nexti(pointLen);
+            let r: number;
+            do {
+                r = Math.sqrt(srand.nextf()) * buildingMaxRadius;
+            } while (r < buildingMinRadius);
+            let randVec = vec3.srand(srand).mulfs(r);
+            randVec.adds(points[randPointIdx].xzw());
+            for (let idx = 0; idx < pointLen; idx++) {
+                let testP = points[idx];
+                // let testP = points[idx >= pointLen ? idx - pointLen : idx < 0 ? idx + pointLen : idx];
+                if (testP.xzw().sub(randVec).normsqr() < buildingMinRadius2) {
+                    i--;
+                    willContinue = true;
+                    break;
                 }
-                if (willContinue) continue;
-                let randRot = tesserxel.math.Quaternion.srand(srand).toMat3().elem;
-                let scale = vec4.srand(srand);
-                scale.x += 3;
-                scale.z += 3;
-                scale.y += 1.5;
-                scale.y *= 4;
-                scale.w += 3;
-                scale.mulfs(1.5);
-                new tesserxel.math.AffineMat4(
-                    tesserxel.math.Mat4.diag(scale.x, scale.y, scale.z, scale.w).mulsr(new tesserxel.math.Mat4(
-                        randRot[0], 0, randRot[3], randRot[6],
-                        0, 1, 0, 0,
-                        randRot[1], 0, randRot[4], randRot[7],
-                        randRot[2], 0, randRot[5], randRot[8]
-                    )),
-                    new vec4(randVec.x, scale.y, randVec.y, randVec.z)
-                ).writeBuffer(buildingTransformBuffer, 20 * i);
             }
-            return { buildingFragCode, buildingVertCode, buildingTransformBuffer, buildingCount };
+            if (willContinue) continue;
+            let randRot = tesserxel.math.Quaternion.srand(srand).toMat3().elem;
+            let scale = vec4.srand(srand);
+            scale.x += 3;
+            scale.z += 3;
+            scale.y += 1.5;
+            scale.y *= 4;
+            scale.w += 3;
+            scale.mulfs(1.5);
+            new tesserxel.math.AffineMat4(
+                tesserxel.math.Mat4.diag(scale.x, scale.y, scale.z, scale.w).mulsr(new tesserxel.math.Mat4(
+                    randRot[0], 0, randRot[3], randRot[6],
+                    0, 1, 0, 0,
+                    randRot[1], 0, randRot[4], randRot[7],
+                    randRot[2], 0, randRot[5], randRot[8]
+                )),
+                new vec4(randVec.x, scale.y, randVec.y, randVec.z)
+            ).writeBuffer(buildingTransformBuffer, 20 * i);
         }
-        let rtCode = `
+        return { buildingFragCode, buildingVertCode, buildingTransformBuffer, buildingCount };
+    }
+    let rtCode = `
         @group(1) @binding(0) var<uniform> camMat: AffineMat;
 
         struct rayOut{
@@ -431,113 +431,113 @@ import * as tesserxel from "../../build/tesserxel.js"
             return fOut(vec4<f32>(sky(rd),0.1),0.999999);
         }
         `;
-        const { roadmesh, roadfragCode, roadvertCode, path } = genRoad();
-        const { buildingFragCode, buildingTransformBuffer, buildingVertCode, buildingCount } = genBuilding(path);
-        const terrainSize = 500;
-        let terrainTransformBuffer = new Float32Array([
-            terrainSize, 0, 0, 0,
-            0, terrainSize, 0, 0,
-            0, 0, terrainSize, 0,
-            0, 0, 0, terrainSize,
-            0, -0.1, 0, 0,
+    const { roadmesh, roadfragCode, roadvertCode, path } = genRoad();
+    const { buildingFragCode, buildingTransformBuffer, buildingVertCode, buildingCount } = genBuilding(path);
+    const terrainSize = 500;
+    let terrainTransformBuffer = new Float32Array([
+        terrainSize, 0, 0, 0,
+        0, terrainSize, 0, 0,
+        0, 0, terrainSize, 0,
+        0, 0, 0, terrainSize,
+        0, -0.1, 0, 0,
+    ]);
+
+    export async function load() {
+        let gpu = await new tesserxel.render.GPU().init();
+        let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+        let context = gpu.getContext(canvas);
+        let renderer = await new tesserxel.render.SliceRenderer().init(gpu, context, {
+            enableFloat16Blend: true,
+            sliceGroupSize: 8
+        });
+        renderer.setCameraProjectMatrix({ fov: 100, near: 0.1, far: 500 });
+        let roadpipeline = await renderer.createTetraSlicePipeline({
+            vertex: { code: roadvertCode, entryPoint: "main" },
+            fragment: {
+                code: roadfragCode,
+                entryPoint: "main"
+            },
+            cullMode: "none"
+        });
+        let buildingPipeline = await renderer.createTetraSlicePipeline({
+            vertex: { code: buildingVertCode, entryPoint: "main" },
+            fragment: {
+                code: buildingFragCode,
+                entryPoint: "main"
+            },
+            cullMode: "front"
+        });
+        let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
+        let roadmeshBindGroup = renderer.createVertexShaderBindGroup(roadpipeline, 1, [
+            gpu.createBuffer(GPUBufferUsage.STORAGE, roadmesh.position),
+            gpu.createBuffer(GPUBufferUsage.STORAGE, roadmesh.uvw),
+            gpu.createBuffer(GPUBufferUsage.STORAGE, roadmesh.normal),
+            camBuffer
         ]);
-
-        export async function load() {
-            let gpu = await new tesserxel.render.GPU().init();
-            let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-            let context = gpu.getContext(canvas);
-            let renderer = await new tesserxel.render.SliceRenderer().init(gpu, context, {
-                enableFloat16Blend: true,
-                sliceGroupSize: 8
-            });
-            renderer.setCameraProjectMatrix({ fov: 100, near: 0.1, far: 500 });
-            let roadpipeline = await renderer.createTetraSlicePipeline({
-                vertex: { code: roadvertCode, entryPoint: "main" },
-                fragment: {
-                    code: roadfragCode,
-                    entryPoint: "main"
-                },
-                cullMode: "none"
-            });
-            let buildingPipeline = await renderer.createTetraSlicePipeline({
-                vertex: { code: buildingVertCode, entryPoint: "main" },
-                fragment: {
-                    code: buildingFragCode,
-                    entryPoint: "main"
-                },
-                cullMode: "front"
-            });
-            let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
-            let roadmeshBindGroup = renderer.createVertexShaderBindGroup(roadpipeline, 1, [
-                gpu.createBuffer(GPUBufferUsage.STORAGE, roadmesh.position),
-                gpu.createBuffer(GPUBufferUsage.STORAGE, roadmesh.uvw),
-                gpu.createBuffer(GPUBufferUsage.STORAGE, roadmesh.normal),
-                camBuffer
-            ]);
-            let buildingMesh = tesserxel.mesh.tetra.tesseract();
-            for (let i = 0; i < buildingMesh.uvw.length; i += 4) {
-                buildingMesh.uvw[i + 3] = 1.5;
-            }
-            let terrainMesh = tesserxel.mesh.tetra.clone(tesserxel.mesh.tetra.cube);
-            for (let i = 0; i < terrainMesh.uvw.length; i += 4) {
-                terrainMesh.uvw[i + 3] = 0;
-            }
-            let buildingBindGroup = renderer.createVertexShaderBindGroup(buildingPipeline, 1, [
-                gpu.createBuffer(GPUBufferUsage.STORAGE, buildingMesh.position),
-                gpu.createBuffer(GPUBufferUsage.STORAGE, buildingMesh.uvw),
-                gpu.createBuffer(GPUBufferUsage.STORAGE, buildingMesh.normal),
-                camBuffer,
-                gpu.createBuffer(GPUBufferUsage.STORAGE, buildingTransformBuffer)
-            ]);
-            let terrainBindGroup = renderer.createVertexShaderBindGroup(buildingPipeline, 1, [
-                gpu.createBuffer(GPUBufferUsage.STORAGE, terrainMesh.position),
-                gpu.createBuffer(GPUBufferUsage.STORAGE, terrainMesh.uvw),
-                gpu.createBuffer(GPUBufferUsage.STORAGE, terrainMesh.normal),
-                camBuffer,
-                gpu.createBuffer(GPUBufferUsage.STORAGE, terrainTransformBuffer)
-            ]);
-            let rtPipeline = await renderer.createRaytracingPipeline({
-                code: rtCode,
-                rayEntryPoint: "mainRay",
-                fragmentEntryPoint: "mainFragment"
-            });
-            let rtBindGroup = [renderer.createVertexShaderBindGroup(rtPipeline, 1, [camBuffer])];
-            let camController = new tesserxel.util.ctrl.KeepUpController();
-            camController.object.position.set(0.5, 0.5, 0.5, 3);
-            camController.keyMoveSpeed *= 5;
-            let retinaController = new tesserxel.util.ctrl.RetinaController(renderer);
-            let ctrlreg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
-            renderer.setOpacity(5);
-            let camMatJSBuffer = new Float32Array(20);
-            renderer.setScreenClearColor({ r: 1.0, g: 1.0, b: 1.0, a: 1.0 });
-            renderer.setWorldClearColor({ r: 0.7, g: 0.85, b: 1.0, a: 0.1 });
-            let run = () => {
-                ctrlreg.update();
-                camController.object.getAffineMat4inv().writeBuffer(camMatJSBuffer);
-                gpu.device.queue.writeBuffer(camBuffer, 0, camMatJSBuffer);
-
-                renderer.render(() => {
-                    renderer.beginTetras(roadpipeline);
-                    renderer.sliceTetras(roadmeshBindGroup, roadmesh.count);
-                    renderer.drawTetras();
-                    renderer.beginTetras(buildingPipeline);
-                    renderer.sliceTetras(buildingBindGroup, buildingMesh.count - 5, buildingCount);
-                    renderer.sliceTetras(terrainBindGroup, 5);
-                    renderer.drawTetras();
-                    renderer.drawRaytracing(rtPipeline, rtBindGroup);
-                });
-                window.requestAnimationFrame(run);
-            }
-            function setSize() {
-                let width = window.innerWidth * window.devicePixelRatio;
-                let height = window.innerHeight * window.devicePixelRatio;
-                canvas.width = width;
-                canvas.height = height;
-                renderer.setSize({ width, height });
-            }
-            setSize();
-            window.addEventListener("resize", setSize);
-            run();
+        let buildingMesh = tesserxel.mesh.tetra.tesseract();
+        for (let i = 0; i < buildingMesh.uvw.length; i += 4) {
+            buildingMesh.uvw[i + 3] = 1.5;
         }
+        let terrainMesh = tesserxel.mesh.tetra.cube.clone();
+        for (let i = 0; i < terrainMesh.uvw.length; i += 4) {
+            terrainMesh.uvw[i + 3] = 0;
+        }
+        let buildingBindGroup = renderer.createVertexShaderBindGroup(buildingPipeline, 1, [
+            gpu.createBuffer(GPUBufferUsage.STORAGE, buildingMesh.position),
+            gpu.createBuffer(GPUBufferUsage.STORAGE, buildingMesh.uvw),
+            gpu.createBuffer(GPUBufferUsage.STORAGE, buildingMesh.normal),
+            camBuffer,
+            gpu.createBuffer(GPUBufferUsage.STORAGE, buildingTransformBuffer)
+        ]);
+        let terrainBindGroup = renderer.createVertexShaderBindGroup(buildingPipeline, 1, [
+            gpu.createBuffer(GPUBufferUsage.STORAGE, terrainMesh.position),
+            gpu.createBuffer(GPUBufferUsage.STORAGE, terrainMesh.uvw),
+            gpu.createBuffer(GPUBufferUsage.STORAGE, terrainMesh.normal),
+            camBuffer,
+            gpu.createBuffer(GPUBufferUsage.STORAGE, terrainTransformBuffer)
+        ]);
+        let rtPipeline = await renderer.createRaytracingPipeline({
+            code: rtCode,
+            rayEntryPoint: "mainRay",
+            fragmentEntryPoint: "mainFragment"
+        });
+        let rtBindGroup = [renderer.createVertexShaderBindGroup(rtPipeline, 1, [camBuffer])];
+        let camController = new tesserxel.util.ctrl.KeepUpController();
+        camController.object.position.set(0.5, 0.5, 0.5, 3);
+        camController.keyMoveSpeed *= 5;
+        let retinaController = new tesserxel.util.ctrl.RetinaController(renderer);
+        let ctrlreg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
+        renderer.setOpacity(5);
+        let camMatJSBuffer = new Float32Array(20);
+        renderer.setScreenClearColor({ r: 1.0, g: 1.0, b: 1.0, a: 1.0 });
+        renderer.setWorldClearColor({ r: 0.7, g: 0.85, b: 1.0, a: 0.1 });
+        let run = () => {
+            ctrlreg.update();
+            camController.object.getAffineMat4inv().writeBuffer(camMatJSBuffer);
+            gpu.device.queue.writeBuffer(camBuffer, 0, camMatJSBuffer);
+
+            renderer.render(() => {
+                renderer.beginTetras(roadpipeline);
+                renderer.sliceTetras(roadmeshBindGroup, roadmesh.count);
+                renderer.drawTetras();
+                renderer.beginTetras(buildingPipeline);
+                renderer.sliceTetras(buildingBindGroup, buildingMesh.count - 5, buildingCount);
+                renderer.sliceTetras(terrainBindGroup, 5);
+                renderer.drawTetras();
+                renderer.drawRaytracing(rtPipeline, rtBindGroup);
+            });
+            window.requestAnimationFrame(run);
+        }
+        function setSize() {
+            let width = window.innerWidth * window.devicePixelRatio;
+            let height = window.innerHeight * window.devicePixelRatio;
+            canvas.width = width;
+            canvas.height = height;
+            renderer.setSize({ width, height });
+        }
+        setSize();
+        window.addEventListener("resize", setSize);
+        run();
     }
+}
 // }

@@ -42,7 +42,7 @@ var city_highway;
             new vec4(-deri, 0, -deri, 0),
             new vec4(0, 0, -deri, deri),
         ]);
-        let fenceCrossSection = {
+        let fenceCrossSection = new tesserxel.mesh.FaceMesh({
             quad: {
                 position: new Float32Array([
                     0, fenceHeight, yLanes, 0,
@@ -63,8 +63,8 @@ var city_highway;
                     1, 0, 0, 0,
                 ])
             }
-        };
-        let crossSection = {
+        });
+        let crossSection = new tesserxel.mesh.FaceMesh({
             quad: {
                 position: new Float32Array([
                     rw2, 0, -roadHeight, 0,
@@ -121,10 +121,10 @@ var city_highway;
                     0, 1, 0, 0,
                 ])
             }
-        };
+        });
         let roadmesh = tesserxel.mesh.tetra.loft(path, crossSection, 20);
         let fencemesh = tesserxel.mesh.tetra.loft(path, fenceCrossSection, 256);
-        roadmesh = tesserxel.mesh.tetra.concat(roadmesh, fencemesh);
+        roadmesh = roadmesh.concat(fencemesh);
         let roadvertCode = `
             struct InputType{
                 @location(0) pos: mat4x4<f32>,
@@ -459,7 +459,7 @@ var city_highway;
         for (let i = 0; i < buildingMesh.uvw.length; i += 4) {
             buildingMesh.uvw[i + 3] = 1.5;
         }
-        let terrainMesh = tesserxel.mesh.tetra.clone(tesserxel.mesh.tetra.cube);
+        let terrainMesh = tesserxel.mesh.tetra.cube.clone();
         for (let i = 0; i < terrainMesh.uvw.length; i += 4) {
             terrainMesh.uvw[i + 3] = 0;
         }
