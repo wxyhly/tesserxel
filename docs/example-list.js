@@ -4,7 +4,7 @@ let examples = [
         child: [
             { target: "shapes::tesseract", zh: "超立方体", en: "Tesseract (Hypercube)" },
             { target: "shapes::tesseract_ortho", zh: "超立方体（正交投影）", en: "Tesseract (Orthographic Projection)" },
-            { target: "shapes::duocylinder", zh: "双圆环柱", en: "Duocylinder" },
+            { target: "shapes::duocylinder", zh: "双圆柱", en: "Duocylinder" },
             { target: "shapes::spheritorus", zh: "球环", en: "Spheritorus" },
             { target: "shapes::torisphere", zh: "环球", en: "Torisphere" },
             { target: "shapes::tiger", zh: "双圆环", en: "Tiger (Duotorus)" },
