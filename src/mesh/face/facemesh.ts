@@ -148,6 +148,19 @@ export class FaceMesh implements FaceMeshData {
         }
         return ret;
     }
+    setConstantNormal(n: Vec4) {
+        if (this.quad) {
+            let len = this.quad.count << 4;
+            this.quad.normal ??= new Float32Array(len);
+            for (let i = 0; i < len; i += 4) n.writeBuffer(this.quad.normal, i);
+        }
+        if (this.triangle) {
+            let len = this.triangle.count * 12;
+            this.triangle.normal ??= new Float32Array(len);
+            for (let i = 0; i < len; i += 4) n.writeBuffer(this.triangle.normal, i);
+        }
+        return this;
+    }
 }
 export interface FaceIndexMeshData {
     position: Float32Array;
@@ -255,6 +268,18 @@ export class FaceIndexMesh implements FaceIndexMeshData {
             if (this.triangle.uvw) ret.triangle.uvw = this.triangle.uvw.slice(0);
         }
         return ret;
+    }
+    setConstantNormal(n: Vec4) {
+        this.normal = new Float32Array([n.x, n.y, n.z, n.w]);
+        if (this.quad) {
+            this.quad.normal ??= new Uint32Array(this.quad.count << 2);
+            this.quad.normal.fill(0);
+        }
+        if (this.triangle) {
+            this.triangle.normal ??= new Uint32Array(this.triangle.count * 3);
+            this.triangle.normal.fill(0);
+        }
+        return this;
     }
     concat(m2: FaceIndexMesh): FaceIndexMesh {
         let position = new Float32Array(this.position.length + m2.position.length);

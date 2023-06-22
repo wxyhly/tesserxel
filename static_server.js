@@ -1,6 +1,7 @@
 import { createServer } from 'http';
 import { readFile } from 'fs';
 import { extname } from 'path';
+import { argv } from 'process';
 
 var contentTypes = {
     ".css": "text/css",
@@ -39,6 +40,7 @@ var serveur = createServer(function (req, res) {
         }
     });
 });
-serveur.listen('8087', function () {
-    console.log('server start on port 8087');
+const port = argv[2] ?? '8087';
+serveur.listen(port, function () {
+    console.log(`server start on port ${port}`);
 })

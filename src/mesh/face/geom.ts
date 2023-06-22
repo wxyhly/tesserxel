@@ -1,15 +1,29 @@
 import { Vec2 } from "../../math/algebra/vec2";
 import { Vec4 } from "../../math/algebra/vec4";
-import { _360 } from "../../math/const";
-import { FaceIndexMesh, FaceIndexMeshData } from "./facemesh";
-export function sphere(u, v) {
-
+import { _180, _360 } from "../../math/const";
+import { FaceIndexMesh, FaceIndexMeshData, FaceMesh } from "./facemesh";
+export function sphere(radius:number, u:number, v:number, uAngle: number = _360, vAngle: number = _180) {
+    if (u < 3) u = 3;
+    if (v < 3) v = 3;
+    return parametricSurface((uvw, pos, norm) => {
+        let u = uvw.x * uAngle;
+        let v = uvw.y * vAngle;
+        let sv = Math.sin(v);
+        let cv = Math.cos(v);
+        norm.set(
+            sv * Math.cos(u), sv * Math.sin(u), cv, 0
+        );
+        sv *= radius;
+        pos.set(
+            sv * Math.cos(u), sv * Math.sin(u), cv * radius, 0
+        );
+    }, u, v);
 }
-export function polygon(points: Vec4[]) {
+export function polygon(points: Vec4[]): FaceIndexMesh {
     //todo: concave polygon
     const len = points.length;
     if (len < 3) console.error(`Polygon must have at least 3 points, ${len} points found`);
-    const ret = {
+    const ret = new FaceIndexMesh({
         position: new Float32Array(len << 2),
         uvw: new Float32Array(len << 2),
         triangle: {
@@ -17,7 +31,7 @@ export function polygon(points: Vec4[]) {
             uvw: new Uint32Array(len * 3 - 6),
             count: len - 2
         }
-    };
+    });
     let offset = 0;
     for (let i = 0; i < len; i++) {
         points[i].writeBuffer(ret.position, i << 2);
@@ -32,7 +46,7 @@ export function polygon(points: Vec4[]) {
             ret.triangle.uvw[offset++] = i - 1;
         }
     }
-    ret.position
+    // ret.position
     return ret;
 }
 export function circle(radius: number, segment: number) {
@@ -108,9 +122,9 @@ export function parametricSurface(
             }
         }
     }
-    return {
+    return new FaceMesh({
         quad: { position, normal, uvw }
-    }
+    });
 }
 /** m must be a manifold or manifold with border */
 export function findBorder(m: FaceIndexMeshData) {

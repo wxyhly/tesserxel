@@ -6866,6 +6866,21 @@ class FaceMesh {
         }
         return ret;
     }
+    setConstantNormal(n) {
+        if (this.quad) {
+            let len = this.quad.count << 4;
+            this.quad.normal ??= new Float32Array(len);
+            for (let i = 0; i < len; i += 4)
+                n.writeBuffer(this.quad.normal, i);
+        }
+        if (this.triangle) {
+            let len = this.triangle.count * 12;
+            this.triangle.normal ??= new Float32Array(len);
+            for (let i = 0; i < len; i += 4)
+                n.writeBuffer(this.triangle.normal, i);
+        }
+        return this;
+    }
 }
 class FaceIndexMesh {
     position;
@@ -6953,6 +6968,18 @@ class FaceIndexMesh {
                 ret.triangle.uvw = this.triangle.uvw.slice(0);
         }
         return ret;
+    }
+    setConstantNormal(n) {
+        this.normal = new Float32Array([n.x, n.y, n.z, n.w]);
+        if (this.quad) {
+            this.quad.normal ??= new Uint32Array(this.quad.count << 2);
+            this.quad.normal.fill(0);
+        }
+        if (this.triangle) {
+            this.triangle.normal ??= new Uint32Array(this.triangle.count * 3);
+            this.triangle.normal.fill(0);
+        }
+        return this;
     }
     concat(m2) {
         let position = new Float32Array(this.position.length + m2.position.length);
@@ -7189,14 +7216,27 @@ function applyObj4$1(mesh, obj) {
 //     }
 // }
 
-function sphere(u, v) {
+function sphere$1(radius, u, v, uAngle = _360, vAngle = _180) {
+    if (u < 3)
+        u = 3;
+    if (v < 3)
+        v = 3;
+    return parametricSurface$1((uvw, pos, norm) => {
+        let u = uvw.x * uAngle;
+        let v = uvw.y * vAngle;
+        let sv = Math.sin(v);
+        let cv = Math.cos(v);
+        norm.set(sv * Math.cos(u), sv * Math.sin(u), cv, 0);
+        sv *= radius;
+        pos.set(sv * Math.cos(u), sv * Math.sin(u), cv * radius, 0);
+    }, u, v);
 }
 function polygon(points) {
     //todo: concave polygon
     const len = points.length;
     if (len < 3)
         console.error(`Polygon must have at least 3 points, ${len} points found`);
-    const ret = {
+    const ret = new FaceIndexMesh({
         position: new Float32Array(len << 2),
         uvw: new Float32Array(len << 2),
         triangle: {
@@ -7204,7 +7244,7 @@ function polygon(points) {
             uvw: new Uint32Array(len * 3 - 6),
             count: len - 2
         }
-    };
+    });
     let offset = 0;
     for (let i = 0; i < len; i++) {
         points[i].writeBuffer(ret.position, i << 2);
@@ -7219,7 +7259,7 @@ function polygon(points) {
             ret.triangle.uvw[offset++] = i - 1;
         }
     }
-    ret.position;
+    // ret.position
     return ret;
 }
 function circle(radius, segment) {
@@ -7290,9 +7330,9 @@ function parametricSurface$1(fn, uSegment, vSegment) {
             }
         }
     }
-    return {
+    return new FaceMesh({
         quad: { position, normal, uvw }
-    };
+    });
 }
 /** m must be a manifold or manifold with border */
 function findBorder(m) {
@@ -7341,7 +7381,7 @@ var face = /*#__PURE__*/Object.freeze({
     __proto__: null,
     FaceMesh: FaceMesh,
     FaceIndexMesh: FaceIndexMesh,
-    sphere: sphere,
+    sphere: sphere$1,
     polygon: polygon,
     circle: circle,
     parametricSurface: parametricSurface$1,
@@ -7993,6 +8033,9 @@ function spherinderSide(radius1, radius2, longitudeSegment, latitudeSegment, hei
         norm.set(Math.sin(v) * su, Math.cos(v) * su, -cosS * cu, -sinS);
     }, longitudeSegment, latitudeSegment, heightSegment);
 }
+function sphere(radius, u, v) {
+    return rotatoid(Bivec.yz, polygon(new Array(u).fill(0).map((_, i) => new Vec4(Math.cos(i / (u - 1) * _180) * radius, Math.sin(i / (u - 1) * _180) * radius))).toNonIndexMesh().setConstantNormal(Vec4.w), v);
+}
 function tiger(xyRadius, xySegment, zwRadius, zwSegment, secondaryRadius, secondarySegment) {
     if (xySegment < 3)
         xySegment = 3;
@@ -8256,33 +8299,24 @@ function convexhull(points) {
         points[indices[(p << 2) + 3]].writeBuffer(position, countPtr);
         countPtr += 4;
     }
-    return {
+    return new TetraMesh({
         position,
         count
-    };
+    });
 }
 function duocone(xyRadius, xySegment, zwRadius, zwSegment) {
-    let ps = [];
-    for (let i = 0; i < xySegment; i++) {
-        let ii = i * _360 / xySegment;
-        ps.push(new Vec4(xyRadius * Math.cos(ii), xyRadius * Math.sin(ii)));
-    }
-    for (let i = 0; i < zwSegment; i++) {
-        let ii = i * _360 / zwSegment;
-        ps.push(new Vec4(0, 0, zwRadius * Math.cos(ii), zwRadius * Math.sin(ii)));
-    }
-    return convexhull(ps);
+    // return rotatoid(Bivec.xz,new face.FaceIndexMesh({
+    //     position,
+    //     normal,
+    //     uvw
+    // }),xySegment);
 }
 function duocylinder(xyRadius, xySegment, zwRadius, zwSegment) {
-    let ps = [];
-    for (let i = 0; i < xySegment; i++) {
-        let ii = i * _360 / xySegment;
-        for (let j = 0; j < zwSegment; j++) {
-            let jj = j * _360 / zwSegment;
-            ps.push(new Vec4(xyRadius * Math.cos(ii), xyRadius * Math.sin(ii), zwRadius * Math.cos(jj), zwRadius * Math.sin(jj)));
-        }
+    let dp = directProduct(circle(xyRadius, xySegment), circle(zwRadius, zwSegment));
+    for (let i = 0; i < dp.uvw.length; i += 4) {
+        dp.uvw[i + 2] = dp.uvw[i + 3] < 0.5 ? Math.atan2(dp.position[i + 3], dp.position[i + 2]) : Math.atan2(dp.position[i + 1], dp.position[i]);
     }
-    return convexhull(ps);
+    return dp;
 }
 function loft(sp, section, step) {
     let { points, rotors, curveLength } = sp.generate(step);
@@ -8357,6 +8391,124 @@ function loft(sp, section, step) {
                 ptr -= 12;
                 if (j) {
                     let doffset = offset - 24;
+                    pushTetra(doffset, 0, 1, 2, 3);
+                    pushTetra(doffset, 1, 2, 3, 5);
+                    pushTetra(doffset, 3, 4, 1, 5);
+                }
+            }
+        }
+    }
+    function pushTetra(offset, a, b, c, d) {
+        a = offset + (a << 2);
+        b = offset + (b << 2);
+        c = offset + (c << 2);
+        d = offset + (d << 2);
+        pushIdx(a);
+        pushIdx(b);
+        pushIdx(c);
+        pushIdx(d);
+    }
+    function pushIdx(i) {
+        position[idxPtr++] = positions[i];
+        position[idxPtr++] = positions[i + 1];
+        position[idxPtr++] = positions[i + 2];
+        position[idxPtr++] = positions[i + 3];
+        idxPtr -= 4;
+        normal[idxPtr++] = normals[i];
+        normal[idxPtr++] = normals[i + 1];
+        normal[idxPtr++] = normals[i + 2];
+        normal[idxPtr++] = normals[i + 3];
+        idxPtr -= 4;
+        uvw[idxPtr++] = uvws[i];
+        uvw[idxPtr++] = uvws[i + 1];
+        uvw[idxPtr++] = uvws[i + 2];
+        uvw[idxPtr++] = uvws[i + 3];
+    }
+    return new TetraMesh({ position, uvw, normal, count: count3 + count4 });
+}
+// bv is rotate plane (not axis plane), it must be simple and normalized
+function rotatoid(bv, section, step, angle = _360) {
+    let coeffAngle = angle / (step - 1);
+    let rotors = new Array(step).fill(0).map((_, i) => bv.mulf(coeffAngle * i).exp());
+    let quadcount = section.quad ? section.quad.position.length >> 4 : 0;
+    let count4 = quadcount * (rotors.length) * 5;
+    let tricount = section.triangle ? section.triangle.position.length / 12 : 0;
+    let count3 = tricount * (rotors.length) * 3;
+    let arraySize = count4 + count3 << 4;
+    let pslen4 = quadcount * rotors.length << 4;
+    let pslen3 = tricount * rotors.length * 12;
+    let pslen = Math.max(pslen4, pslen3);
+    let positions = new Float32Array(pslen);
+    let uvws = new Float32Array(pslen);
+    let normals = new Float32Array(pslen);
+    let position = new Float32Array(arraySize);
+    let uvw = new Float32Array(arraySize);
+    let normal = new Float32Array(arraySize);
+    let _vec4 = new Vec4(); // cache
+    let offset = 0;
+    let idxPtr = 0;
+    if (section.quad) {
+        let pos = section.quad.position;
+        let norm = section.quad.normal;
+        let uv = section.quad.uvw;
+        for (let ptr = 0; ptr < (quadcount << 4); ptr += 16) {
+            for (let j = 0; j < rotors.length; j++) {
+                let r = rotors[j];
+                for (let i = 0; i < 4; i++, ptr += 4) {
+                    _vec4.set(pos[ptr], pos[ptr + 1], pos[ptr + 2], pos[ptr + 3]);
+                    _vec4.rotates(r);
+                    _vec4.writeBuffer(positions, offset);
+                    if (norm) {
+                        _vec4.set(norm[ptr], norm[ptr + 1], norm[ptr + 2], norm[ptr + 3]);
+                    }
+                    else {
+                        _vec4.set();
+                    }
+                    _vec4.rotates(r);
+                    _vec4.writeBuffer(normals, offset);
+                    _vec4.set(uv[ptr], uv[ptr + 1], uv[ptr + 2], coeffAngle * j);
+                    _vec4.writeBuffer(uvws, offset);
+                    offset += 4;
+                }
+                ptr -= 16;
+                let doffset = offset - 32;
+                if (j) {
+                    pushTetra(doffset, 0, 1, 3, 4);
+                    pushTetra(doffset, 1, 5, 6, 4);
+                    pushTetra(doffset, 1, 3, 6, 2);
+                    pushTetra(doffset, 4, 7, 6, 3);
+                    pushTetra(doffset, 1, 3, 4, 6);
+                }
+            }
+        }
+    }
+    if (section.triangle) {
+        offset = 0;
+        let pos = section.triangle.position;
+        let norm = section.triangle.normal;
+        let uv = section.triangle.uvw;
+        for (let ptr = 0, l = tricount * 12; ptr < l; ptr += 12) {
+            for (let j = 0; j < rotors.length; j++) {
+                let r = rotors[j];
+                for (let i = 0; i < 3; i++, ptr += 4) {
+                    _vec4.set(pos[ptr], pos[ptr + 1], pos[ptr + 2], pos[ptr + 3]);
+                    _vec4.rotates(r);
+                    _vec4.writeBuffer(positions, offset);
+                    if (norm) {
+                        _vec4.set(norm[ptr], norm[ptr + 1], norm[ptr + 2], norm[ptr + 3]);
+                    }
+                    else {
+                        _vec4.set();
+                    }
+                    _vec4.rotates(r);
+                    _vec4.writeBuffer(normals, offset);
+                    _vec4.set(uv[ptr], uv[ptr + 1], uv[ptr + 2], coeffAngle * j);
+                    _vec4.writeBuffer(uvws, offset);
+                    offset += 4;
+                }
+                ptr -= 12;
+                let doffset = offset - 24;
+                if (j) {
                     pushTetra(doffset, 0, 1, 2, 3);
                     pushTetra(doffset, 1, 2, 3, 5);
                     pushTetra(doffset, 3, 4, 1, 5);
@@ -8658,12 +8810,14 @@ var tetra = /*#__PURE__*/Object.freeze({
     spheritorus: spheritorus,
     torisphere: torisphere,
     spherinderSide: spherinderSide,
+    sphere: sphere,
     tiger: tiger,
     parametricSurface: parametricSurface,
     convexhull: convexhull,
     duocone: duocone,
     duocylinder: duocylinder,
     loft: loft,
+    rotatoid: rotatoid,
     directProduct: directProduct
 });
 
@@ -10529,6 +10683,31 @@ var rigid;
         }
     }
     rigid_1.Tiger = Tiger;
+    /** default orientation: (xy-z)-w */
+    class Ditorus extends RigidGeometry {
+        majorRadius;
+        minorRadius;
+        minorRadius2;
+        /** majorRadius, minorRadius: torus's radius, minorRadius: cirle's radius */
+        constructor(majorRadius, minorRadius, minorRadius2) {
+            super();
+            this.majorRadius = majorRadius;
+            this.minorRadius = minorRadius;
+            this.minorRadius2 = minorRadius2;
+            let minorRadius12 = minorRadius + minorRadius2;
+            this.obb = new AABB(new Vec4(-majorRadius - minorRadius12, -majorRadius - minorRadius12, -minorRadius12, -minorRadius), new Vec4(majorRadius + minorRadius12, majorRadius + minorRadius12, minorRadius12, minorRadius));
+            this.boundingGlome = majorRadius + minorRadius12;
+        }
+        initializeMassInertia(rigid) {
+            rigid.inertiaIsotroy = false;
+            let maj1 = this.majorRadius * this.majorRadius;
+            this.majorRadius * this.minorRadius;
+            let min = this.minorRadius * this.minorRadius;
+            let min2 = this.minorRadius2 * this.minorRadius2;
+            rigid.inertia.set(2 * maj1 + min * 5, maj1 + min * 6 + min2, maj1 + min2, maj1 + min * 6 + min2, maj1 + min2, 2 * min + min2).mulfs(rigid.mass * 0.5);
+        }
+    }
+    rigid_1.Ditorus = Ditorus;
     // todo
     class ThickHexahedronGrid extends RigidGeometry {
         grid1;
@@ -12864,6 +13043,31 @@ class NarrowPhase {
                 normal, point, depth, a: a.rigid, b: b.rigid
             });
         }
+    }
+    detectDitorusGlome(a, b) {
+        // convert glome to dt's coord
+        let p = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+        let xy = p.x * p.x + p.y * p.y;
+        let sqrtxy = Math.sqrt(xy);
+        let d1 = sqrtxy - a.majorRadius;
+        Math.sqrt(d1 * d1 + p.z * p.z);
+        a.majorRadius / sqrtxy;
+        // let d2 = Math.sqrt(d1);
+        // let zw = p.z * p.z + p.w * p.w;
+        // let sqrtzw = Math.sqrt(zw);
+        // let distance = Math.sqrt(
+        //     a.majorRadius1 * a.majorRadius1 + a.majorRadius2 * a.majorRadius2
+        //     + xy + zw - 2 * (sqrtxy * a.majorRadius1 + sqrtzw * a.majorRadius2)
+        // );
+        // let depth = a.minorRadius + b.radius - distance;
+        // if (depth < 0) return;
+        // // find support of circle along normal
+        // let k1 = sqrtxy ? a.majorRadius1 / sqrtxy : 0;
+        // let k2 = sqrtzw ? a.majorRadius2 / sqrtzw : 0;
+        // let point = new Vec4(p.x * k1, p.y * k1, p.z * k2, p.w * k2).rotates(a.rigid.rotation);
+        // let normal = point.adds(a.rigid.position).sub(b.rigid.position).norms().negs();
+        // point.addmulfs(normal, a.minorRadius - depth * 0.5);
+        // this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
     }
 }
 

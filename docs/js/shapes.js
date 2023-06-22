@@ -172,6 +172,32 @@ var spheritorus;
     }
     spheritorus.load = load;
 })(spheritorus || (spheritorus = {}));
+var duocylinder;
+(function (duocylinder) {
+    async function load() {
+        let mesh = tesserxel.mesh.tetra.duocylinder(1, 16, 1, 16);
+        let app = await new ShapesApp().init(`
+        @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+            const ambientLight = vec3<f32>(0.1);
+            let colour = step(fract(vary.uvw.z * 3.0),0.5);
+            let frontLightColor = mix(vec3<f32>(5.0,4.6,5.0*colour),vec3<f32>(5.0*colour,4.6,5.0), vary.uvw.w);
+            let backLightColor = mix(vec3<f32>(0.1,1.2,1.4*colour),vec3<f32>(0.1*colour,1.2,1.4),vary.uvw.w);
+            const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
+            let halfvec = normalize(directionalLight_dir - normalize(vary.pos));
+            let highLight = pow(max(0.0,dot(vary.normal,halfvec)),30);
+            let color = (
+                frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
+            )* (0.4 + 0.8*highLight);
+            return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
+        }`, mesh);
+        app.retinaController.setOpacity(10.0);
+        app.renderer.setCameraProjectMatrix({ fov: 80, near: 0.01, far: 50.0 });
+        app.trackBallController.object.rotation.l.set(Math.SQRT1_2, 0, Math.SQRT1_2, 0);
+        app.trackBallController.object.rotation.r.set();
+        app.run();
+    }
+    duocylinder.load = load;
+})(duocylinder || (duocylinder = {}));
 var torisphere;
 (function (torisphere) {
     async function load() {
@@ -296,7 +322,7 @@ var suzanne3d;
     async function load() {
         let s = 2;
         let s2 = 3.2;
-        let spline = new tesserxel.math.Spline([
+        new tesserxel.math.Spline([
             new tesserxel.math.Vec4(-s, 0),
             new tesserxel.math.Vec4(0, s),
             new tesserxel.math.Vec4(s, 0),
@@ -310,8 +336,8 @@ var suzanne3d;
             new tesserxel.math.Vec4(0, s2),
         ]);
         let meshFile = new tesserxel.mesh.ObjFile(await loadFile("resource/suzanne.obj"));
-        let mesh = new tesserxel.mesh.FaceIndexMesh(meshFile.parse()).toNonIndexMesh();
-        let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.loft(spline, mesh, 9));
+        let mesh = new tesserxel.mesh.FaceIndexMesh(meshFile.parse()).applyObj4(new tesserxel.math.Obj4(new tesserxel.math.Vec4(-s))).toNonIndexMesh();
+        let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.rotatoid(new tesserxel.math.Bivec(0, 0, 1), mesh, 36));
         app.retinaController.setOpacity(10.0);
         app.renderer.setCameraProjectMatrix({ fov: 80, near: 0.01, far: 50.0 });
         app.trackBallController.object.rotation.l.set(Math.SQRT1_2, 0, Math.SQRT1_2, 0);
@@ -320,34 +346,59 @@ var suzanne3d;
     }
     suzanne3d.load = load;
 })(suzanne3d || (suzanne3d = {}));
-var directproduct;
-(function (directproduct) {
+async function makeProduct(src1, src2) {
+    let meshfiles = await Promise.all([loadFile(src1), loadFile(src2)]);
+    let meshFile1 = new tesserxel.mesh.ObjFile(meshfiles[0]).parse();
+    let meshFile2 = new tesserxel.mesh.ObjFile(meshfiles[1]).parse();
+    let mesh = tesserxel.mesh.tetra.directProduct(meshFile1, meshFile2);
+    let app = await new ShapesApp().init(`
+        @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+            const ambientLight = vec3<f32>(0.1);
+            const frontLightColor = vec3<f32>(5.0,4.6,3.5);
+            const backLightColor = vec3<f32>(0.1,1.2,1.4);
+            const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
+            let halfvec = normalize(directionalLight_dir - normalize(vary.pos));
+            let highLight = pow(max(0.0,dot(vary.normal,halfvec)),30);
+            var color:vec3<f32> = mix(vec3<f32>(1.0),vec3<f32>(1.0,0.0,0.0), vary.uvw.w);
+            color = color * (
+                frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
+            )* (0.4 + 0.8*highLight);
+            return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
+        }`, mesh);
+    app.retinaController.setOpacity(10.0);
+    app.renderer.setCameraProjectMatrix({ fov: 80, near: 0.01, far: 50.0 });
+    app.trackBallController.object.rotation.l.set(Math.SQRT1_2, 0, Math.SQRT1_2, 0);
+    app.trackBallController.object.rotation.r.set();
+    app.run();
+}
+var directproduct1;
+(function (directproduct1) {
     async function load() {
-        let meshFile1 = new tesserxel.mesh.ObjFile(await loadFile("resource/text.obj")).parse();
-        let meshFile2 = new tesserxel.mesh.ObjFile(await loadFile("resource/text.obj")).parse();
-        let mesh = tesserxel.mesh.tetra.directProduct(meshFile1, meshFile2);
-        let app = await new ShapesApp().init(`
-            @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
-                const ambientLight = vec3<f32>(0.1);
-                const frontLightColor = vec3<f32>(5.0,4.6,3.5);
-                const backLightColor = vec3<f32>(0.1,1.2,1.4);
-                const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
-                let halfvec = normalize(directionalLight_dir - normalize(vary.pos));
-                let highLight = pow(max(0.0,dot(vary.normal,halfvec)),30);
-                var color:vec3<f32> = mix(vec3<f32>(1.0),vec3<f32>(1.0,0.0,0.0), vary.uvw.w);
-                color = color * (
-                    frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
-                )* (0.4 + 0.8*highLight);
-                return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
-            }`, mesh);
-        app.retinaController.setOpacity(10.0);
-        app.renderer.setCameraProjectMatrix({ fov: 80, near: 0.01, far: 50.0 });
-        app.trackBallController.object.rotation.l.set(Math.SQRT1_2, 0, Math.SQRT1_2, 0);
-        app.trackBallController.object.rotation.r.set();
-        app.run();
+        await makeProduct("resource/text.obj", "resource/text.obj");
     }
-    directproduct.load = load;
-})(directproduct || (directproduct = {}));
+    directproduct1.load = load;
+})(directproduct1 || (directproduct1 = {}));
+var directproduct2;
+(function (directproduct2) {
+    async function load() {
+        await makeProduct("resource/bub.obj", "resource/cxk.obj");
+    }
+    directproduct2.load = load;
+})(directproduct2 || (directproduct2 = {}));
+var directproduct3;
+(function (directproduct3) {
+    async function load() {
+        await makeProduct("resource/cxk.obj", "resource/cxk.obj");
+    }
+    directproduct3.load = load;
+})(directproduct3 || (directproduct3 = {}));
+var directproduct4;
+(function (directproduct4) {
+    async function load() {
+        await makeProduct("resource/bub.obj", "resource/text.obj");
+    }
+    directproduct4.load = load;
+})(directproduct4 || (directproduct4 = {}));
 
-export { directproduct, glome, spheritorus, suzanne3d, tesseract, tesseract_ortho, tiger, torisphere };
+export { directproduct1, directproduct2, directproduct3, directproduct4, duocylinder, glome, spheritorus, suzanne3d, tesseract, tesseract_ortho, tiger, torisphere };
 //# sourceMappingURL=shapes.js.map

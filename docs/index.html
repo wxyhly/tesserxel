@@ -171,6 +171,9 @@
                     getInfo(target);
                     toggleGroup(link, subPanel);
                 });
+                if (c.visible !== true) {
+                    toggleGroup(link, subPanel);
+                }
             } else {
                 link.addEventListener('click', () => {
                     window.location.hash = c.target;

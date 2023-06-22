@@ -406,6 +406,14 @@ export function spherinderSide(radius1: number, radius2: number, longitudeSegmen
         norm.set(Math.sin(v) * su, Math.cos(v) * su, -cosS * cu, -sinS);
     }, longitudeSegment, latitudeSegment, heightSegment);
 }
+export function sphere(radius: number, u: number, v: number) {
+    return rotatoid(Bivec.yz, face.polygon(new Array(u).fill(0).map((_, i) =>
+        new Vec4(
+            Math.cos(i / (u - 1) * _180) * radius,
+            Math.sin(i / (u - 1) * _180) * radius,
+        )
+    )).toNonIndexMesh().setConstantNormal(Vec4.w), v);
+}
 export function tiger(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number, secondaryRadius: number, secondarySegment: number) {
     if (xySegment < 3) xySegment = 3;
     if (zwSegment < 3) zwSegment = 3;
@@ -638,37 +646,37 @@ export function convexhull(points: Vec4[]) {
         points[indices[(p << 2) + 2]].writeBuffer(position, countPtr); countPtr += 4;
         points[indices[(p << 2) + 3]].writeBuffer(position, countPtr); countPtr += 4;
     }
-    return {
+    return new TetraMesh({
         position,
         count
-    }
+    });
 }
 export function duocone(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number) {
-    let ps = [];
-    for (let i = 0; i < xySegment; i++) {
-        let ii = i * _360 / xySegment;
-        ps.push(new Vec4(xyRadius * Math.cos(ii), xyRadius * Math.sin(ii)));
-    }
-    for (let i = 0; i < zwSegment; i++) {
-        let ii = i * _360 / zwSegment;
-        ps.push(new Vec4(0, 0, zwRadius * Math.cos(ii), zwRadius * Math.sin(ii)));
-    }
-    return convexhull(ps);
+    // let ps = [];
+    // for (let i = 0; i < xySegment; i++) {
+    //     let ii = i * _360 / xySegment;
+    //     ps.push(new Vec4(xyRadius * Math.cos(ii), xyRadius * Math.sin(ii)));
+    // }
+    // for (let i = 0; i < zwSegment; i++) {
+    //     let ii = i * _360 / zwSegment;
+    //     ps.push(new Vec4(0, 0, zwRadius * Math.cos(ii), zwRadius * Math.sin(ii)));
+    // }
+    // return convexhull(ps);
+    const len = xySegment * 12;
+    const position = new Float32Array(len);
+    // return rotatoid(Bivec.xz,new face.FaceIndexMesh({
+    //     position,
+    //     normal,
+    //     uvw
+    // }),xySegment);
 }
 
 export function duocylinder(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number) {
-    let ps = [];
-    for (let i = 0; i < xySegment; i++) {
-        let ii = i * _360 / xySegment;
-        for (let j = 0; j < zwSegment; j++) {
-            let jj = j * _360 / zwSegment;
-            ps.push(new Vec4(
-                xyRadius * Math.cos(ii), xyRadius * Math.sin(ii),
-                zwRadius * Math.cos(jj), zwRadius * Math.sin(jj)
-            ));
-        }
+    let dp = directProduct(face.circle(xyRadius, xySegment), face.circle(zwRadius, zwSegment));
+    for (let i = 0; i < dp.uvw.length; i += 4) {
+        dp.uvw[i+2] = dp.uvw[i+3] < 0.5 ? Math.atan2(dp.position[i+3],dp.position[i+2]):Math.atan2(dp.position[i+1],dp.position[i]);
     }
-    return convexhull(ps);
+    return dp;
 }
 export function loft(sp: Spline, section: face.FaceMeshData, step: number): TetraMesh {
     let { points, rotors, curveLength } = sp.generate(step);
@@ -743,6 +751,115 @@ export function loft(sp: Spline, section: face.FaceMeshData, step: number): Tetr
                 ptr -= 12;
                 if (j) {
                     let doffset = offset - 24;
+                    pushTetra(doffset, 0, 1, 2, 3);
+                    pushTetra(doffset, 1, 2, 3, 5);
+                    pushTetra(doffset, 3, 4, 1, 5);
+                }
+            }
+        }
+    }
+    function pushTetra(offset: number, a: number, b: number, c: number, d: number) {
+        a = offset + (a << 2);
+        b = offset + (b << 2);
+        c = offset + (c << 2);
+        d = offset + (d << 2);
+        pushIdx(a); pushIdx(b); pushIdx(c); pushIdx(d);
+    }
+    function pushIdx(i: number) {
+        position[idxPtr++] = positions[i];
+        position[idxPtr++] = positions[i + 1];
+        position[idxPtr++] = positions[i + 2];
+        position[idxPtr++] = positions[i + 3];
+        idxPtr -= 4;
+        normal[idxPtr++] = normals[i];
+        normal[idxPtr++] = normals[i + 1];
+        normal[idxPtr++] = normals[i + 2];
+        normal[idxPtr++] = normals[i + 3];
+        idxPtr -= 4;
+        uvw[idxPtr++] = uvws[i];
+        uvw[idxPtr++] = uvws[i + 1];
+        uvw[idxPtr++] = uvws[i + 2];
+        uvw[idxPtr++] = uvws[i + 3];
+    }
+    return new TetraMesh({ position, uvw, normal, count: count3 + count4 });
+}
+// bv is rotate plane (not axis plane), it must be simple and normalized
+export function rotatoid(bv: Bivec, section: face.FaceMeshData, step: number, angle: number = _360): TetraMesh {
+    let coeffAngle = angle / (step - 1);
+    let rotors = new Array(step).fill(0).map((_, i) => bv.mulf(coeffAngle * i).exp());
+    let quadcount = section.quad ? section.quad.position.length >> 4 : 0;
+    let count4 = quadcount * (rotors.length) * 5;
+    let tricount = section.triangle ? section.triangle.position.length / 12 : 0;
+    let count3 = tricount * (rotors.length) * 3;
+    let arraySize = count4 + count3 << 4;
+    let pslen4 = quadcount * rotors.length << 4;
+    let pslen3 = tricount * rotors.length * 12;
+    let pslen = Math.max(pslen4, pslen3);
+    let positions = new Float32Array(pslen);
+    let uvws = new Float32Array(pslen);
+    let normals = new Float32Array(pslen);
+    let position = new Float32Array(arraySize);
+    let uvw = new Float32Array(arraySize);
+    let normal = new Float32Array(arraySize);
+    let _vec4 = new Vec4(); // cache
+    let offset = 0;
+    let idxPtr = 0;
+    if (section.quad) {
+        let pos = section.quad.position;
+        let norm = section.quad.normal;
+        let uv = section.quad.uvw;
+        for (let ptr = 0; ptr < (quadcount << 4); ptr += 16) {
+            for (let j = 0; j < rotors.length; j++) {
+                let r = rotors[j];
+                for (let i = 0; i < 4; i++, ptr += 4) {
+                    _vec4.set(pos[ptr], pos[ptr + 1], pos[ptr + 2], pos[ptr + 3]);
+                    _vec4.rotates(r);
+                    _vec4.writeBuffer(positions, offset);
+                    if (norm) {
+                        _vec4.set(norm[ptr], norm[ptr + 1], norm[ptr + 2], norm[ptr + 3]);
+                    } else { _vec4.set(); }
+                    _vec4.rotates(r);
+                    _vec4.writeBuffer(normals, offset);
+                    _vec4.set(uv[ptr], uv[ptr + 1], uv[ptr + 2], coeffAngle * j);
+                    _vec4.writeBuffer(uvws, offset);
+                    offset += 4;
+                }
+                ptr -= 16;
+                let doffset = offset - 32;
+                if (j) {
+                    pushTetra(doffset, 0, 1, 3, 4);
+                    pushTetra(doffset, 1, 5, 6, 4);
+                    pushTetra(doffset, 1, 3, 6, 2);
+                    pushTetra(doffset, 4, 7, 6, 3);
+                    pushTetra(doffset, 1, 3, 4, 6);
+                }
+            }
+        }
+    }
+    if (section.triangle) {
+        offset = 0;
+        let pos = section.triangle.position;
+        let norm = section.triangle.normal;
+        let uv = section.triangle.uvw;
+        for (let ptr = 0, l = tricount * 12; ptr < l; ptr += 12) {
+            for (let j = 0; j < rotors.length; j++) {
+                let r = rotors[j];
+                for (let i = 0; i < 3; i++, ptr += 4) {
+                    _vec4.set(pos[ptr], pos[ptr + 1], pos[ptr + 2], pos[ptr + 3]);
+                    _vec4.rotates(r);
+                    _vec4.writeBuffer(positions, offset);
+                    if (norm) {
+                        _vec4.set(norm[ptr], norm[ptr + 1], norm[ptr + 2], norm[ptr + 3]);
+                    } else { _vec4.set(); }
+                    _vec4.rotates(r);
+                    _vec4.writeBuffer(normals, offset);
+                    _vec4.set(uv[ptr], uv[ptr + 1], uv[ptr + 2], coeffAngle * j);
+                    _vec4.writeBuffer(uvws, offset);
+                    offset += 4;
+                }
+                ptr -= 12;
+                let doffset = offset - 24;
+                if (j) {
                     pushTetra(doffset, 0, 1, 2, 3);
                     pushTetra(doffset, 1, 2, 3, 5);
                     pushTetra(doffset, 3, 4, 1, 5);

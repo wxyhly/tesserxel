@@ -4,12 +4,20 @@ let examples = [
         child: [
             { target: "shapes::tesseract", zh: "超立方体", en: "Tesseract (Hypercube)" },
             { target: "shapes::tesseract_ortho", zh: "超立方体（正交投影）", en: "Tesseract (Orthographic Projection)" },
+            { target: "shapes::duocylinder", zh: "双圆柱", en: "Duocylinder" },
             { target: "shapes::spheritorus", zh: "球环", en: "Spheritorus" },
             { target: "shapes::torisphere", zh: "环球", en: "Torisphere" },
             { target: "shapes::tiger", zh: "双圆环", en: "Tiger (Duotorus)" },
             { target: "shapes::glome", zh: "超球", en: "Glome (Hyphersphere)" },
             { target: "shapes::suzanne3d", zh: "猴头放样", en: "Lofted Suzanne" },
-            { target: "shapes::directproduct", zh: "直积形", en: "Direct Product" },
+            {
+                group: "product", zh: "直积形", en: "Direct Product",
+                child: [
+                    { target: "shapes::directproduct1", zh: "文字 x 文字", en: "Text x Text" },
+                    { target: "shapes::directproduct2", zh: "人 x 鸡", en: "Man x Chiken" },
+                    { target: "shapes::directproduct3", zh: "人 x 人", en: "Man x Man" },
+                    { target: "shapes::directproduct4", zh: "文字 x 鸡", en: "Text x Chiken" }]
+            }
         ]
     },
     {

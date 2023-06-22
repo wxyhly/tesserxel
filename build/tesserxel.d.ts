@@ -1196,6 +1196,7 @@ declare class FaceMesh implements FaceMeshData {
     toIndexMesh(): FaceIndexMesh;
     clone(): FaceMesh;
     concat(m2: FaceMesh): FaceMesh;
+    setConstantNormal(n: Vec4): this;
 }
 interface FaceIndexMeshData {
     position: Float32Array;
@@ -1235,35 +1236,14 @@ declare class FaceIndexMesh implements FaceIndexMeshData {
     applyObj4(obj4: Obj4): this;
     toNonIndexMesh(): FaceMesh;
     clone(): FaceIndexMesh;
+    setConstantNormal(n: Vec4): this;
     concat(m2: FaceIndexMesh): FaceIndexMesh;
 }
 
-declare function sphere(u: any, v: any): void;
-declare function polygon(points: Vec4[]): {
-    position: Float32Array;
-    uvw: Float32Array;
-    triangle: {
-        position: Uint32Array;
-        uvw: Uint32Array;
-        count: number;
-    };
-};
-declare function circle(radius: number, segment: number): {
-    position: Float32Array;
-    uvw: Float32Array;
-    triangle: {
-        position: Uint32Array;
-        uvw: Uint32Array;
-        count: number;
-    };
-};
-declare function parametricSurface$1(fn: (inputuvw: Vec2, outputPosition: Vec4, outputNormal: Vec4) => void, uSegment: number, vSegment: number): {
-    quad: {
-        position: Float32Array;
-        normal: Float32Array;
-        uvw: Float32Array;
-    };
-};
+declare function sphere$1(radius: number, u: number, v: number, uAngle?: number, vAngle?: number): FaceMesh;
+declare function polygon(points: Vec4[]): FaceIndexMesh;
+declare function circle(radius: number, segment: number): FaceIndexMesh;
+declare function parametricSurface$1(fn: (inputuvw: Vec2, outputPosition: Vec4, outputNormal: Vec4) => void, uSegment: number, vSegment: number): FaceMesh;
 /** m must be a manifold or manifold with border */
 declare function findBorder(m: FaceIndexMeshData): any[];
 
@@ -1273,7 +1253,6 @@ declare const face_d_FaceMesh: typeof FaceMesh;
 type face_d_FaceIndexMeshData = FaceIndexMeshData;
 type face_d_FaceIndexMesh = FaceIndexMesh;
 declare const face_d_FaceIndexMesh: typeof FaceIndexMesh;
-declare const face_d_sphere: typeof sphere;
 declare const face_d_polygon: typeof polygon;
 declare const face_d_circle: typeof circle;
 declare const face_d_findBorder: typeof findBorder;
@@ -1283,7 +1262,7 @@ declare namespace face_d {
     face_d_FaceMesh as FaceMesh,
     face_d_FaceIndexMeshData as FaceIndexMeshData,
     face_d_FaceIndexMesh as FaceIndexMesh,
-    face_d_sphere as sphere,
+    sphere$1 as sphere,
     face_d_polygon as polygon,
     face_d_circle as circle,
     parametricSurface$1 as parametricSurface,
@@ -1298,21 +1277,14 @@ declare function glome(radius: number, xySegment: number, zwSegment: number, lat
 declare function spheritorus(sphereRadius: number, longitudeSegment: number, latitudeSegment: number, circleRadius: number, circleSegment: number): TetraMesh;
 declare function torisphere(circleRadius: number, circleSegment: number, sphereRadius: number, longitudeSegment: number, latitudeSegment: number): TetraMesh;
 declare function spherinderSide(radius1: number, radius2: number, longitudeSegment: number, latitudeSegment: number, height: number, heightSegment?: number): TetraMesh;
+declare function sphere(radius: number, u: number, v: number): TetraMesh;
 declare function tiger(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number, secondaryRadius: number, secondarySegment: number): TetraMesh;
 declare function parametricSurface(fn: (inputUVW: Vec3, outputPosition: Vec4, outputNormal: Vec4) => void, uSegment: number, vSegment: number, wSegment: number): TetraMesh;
-declare function convexhull(points: Vec4[]): {
-    position: Float32Array;
-    count: number;
-};
-declare function duocone(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number): {
-    position: Float32Array;
-    count: number;
-};
-declare function duocylinder(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number): {
-    position: Float32Array;
-    count: number;
-};
+declare function convexhull(points: Vec4[]): TetraMesh;
+declare function duocone(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number): void;
+declare function duocylinder(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number): TetraMesh;
 declare function loft(sp: Spline, section: FaceMeshData, step: number): TetraMesh;
+declare function rotatoid(bv: Bivec, section: FaceMeshData, step: number, angle?: number): TetraMesh;
 declare function directProduct(shape1: FaceIndexMeshData, shape2: FaceIndexMeshData): TetraMesh;
 
 type tetra_d_TetraMeshData = TetraMeshData;
@@ -1329,12 +1301,14 @@ declare const tetra_d_glome: typeof glome;
 declare const tetra_d_spheritorus: typeof spheritorus;
 declare const tetra_d_torisphere: typeof torisphere;
 declare const tetra_d_spherinderSide: typeof spherinderSide;
+declare const tetra_d_sphere: typeof sphere;
 declare const tetra_d_tiger: typeof tiger;
 declare const tetra_d_parametricSurface: typeof parametricSurface;
 declare const tetra_d_convexhull: typeof convexhull;
 declare const tetra_d_duocone: typeof duocone;
 declare const tetra_d_duocylinder: typeof duocylinder;
 declare const tetra_d_loft: typeof loft;
+declare const tetra_d_rotatoid: typeof rotatoid;
 declare const tetra_d_directProduct: typeof directProduct;
 declare namespace tetra_d {
   export {
@@ -1350,12 +1324,14 @@ declare namespace tetra_d {
     tetra_d_spheritorus as spheritorus,
     tetra_d_torisphere as torisphere,
     tetra_d_spherinderSide as spherinderSide,
+    tetra_d_sphere as sphere,
     tetra_d_tiger as tiger,
     tetra_d_parametricSurface as parametricSurface,
     tetra_d_convexhull as convexhull,
     tetra_d_duocone as duocone,
     tetra_d_duocylinder as duocylinder,
     tetra_d_loft as loft,
+    tetra_d_rotatoid as rotatoid,
     tetra_d_directProduct as directProduct,
   };
 }
@@ -1978,6 +1954,15 @@ declare namespace rigid {
         constructor(majorRadius1: number, majorRadius2: number, minorRadius: number);
         initializeMassInertia(rigid: Rigid): void;
     }
+    /** default orientation: (xy-z)-w */
+    class Ditorus extends RigidGeometry {
+        majorRadius: number;
+        minorRadius: number;
+        minorRadius2: number;
+        /** majorRadius, minorRadius: torus's radius, minorRadius: cirle's radius */
+        constructor(majorRadius: number, minorRadius: number, minorRadius2: number);
+        initializeMassInertia(rigid: Rigid): void;
+    }
     class ThickHexahedronGrid extends RigidGeometry {
         grid1: Vec4[][][];
         grid2: Vec4[][][];
@@ -2173,6 +2158,7 @@ declare class NarrowPhase {
     private detectTigerTiger;
     private detectTigerTorisphere;
     private detectTigerSpheritorus;
+    private detectDitorusGlome;
 }
 
 interface SolverConstructor {
