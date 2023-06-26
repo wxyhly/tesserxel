@@ -6,8 +6,9 @@
         ],
         "target": "ES2022",
         "sourceMap":true,
-        "declaration": true,
-        "declarationDir": "build/dts"
+        "outDir":"js",
     },
-    "include":["./src/**/*"]
+    
+    "include":["./src/**/*"],
+    "exclude": ["../build/**/*"]
 }

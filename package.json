@@ -4,11 +4,8 @@
   "description": "WebGPU based 3D screen Renderer for 4D Objects",
   "scripts": {
     "build": "npx rollup -c rollup.config.js",
+    "build-examples": "cd examples && tsc",
     "start": "node static_server"
-  },
-  "staticFiles": {
-    "staticPath": "resource",
-    "staticOutPath": "resource"
   },
   "author": "Hqak",
   "license": "ISC",
