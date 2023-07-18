@@ -7,6 +7,7 @@ import { Vec4 } from "../../math/algebra/vec4";
 import { _180, _360, _90 } from "../../math/const";
 import { Spline } from "../../math/geometry/spline";
 import * as face from "../../mesh/face";
+import { CWMesh } from "../cwmesh/cwmesh";
 import { concat, TetraMesh } from "./tetramesh";
 
 export let cube = new TetraMesh({
@@ -674,7 +675,7 @@ export function duocone(xyRadius: number, xySegment: number, zwRadius: number, z
 export function duocylinder(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number) {
     let dp = directProduct(face.circle(xyRadius, xySegment), face.circle(zwRadius, zwSegment));
     for (let i = 0; i < dp.uvw.length; i += 4) {
-        dp.uvw[i+2] = dp.uvw[i+3] < 0.5 ? Math.atan2(dp.position[i+3],dp.position[i+2]):Math.atan2(dp.position[i+1],dp.position[i]);
+        dp.uvw[i + 2] = dp.uvw[i + 3] < 0.5 ? Math.atan2(dp.position[i + 3], dp.position[i + 2]) : Math.atan2(dp.position[i + 1], dp.position[i]);
     }
     return dp;
 }
@@ -1167,4 +1168,50 @@ export function directProduct(shape1: face.FaceIndexMeshData, shape2: face.FaceI
         uvw[idxPtr++] = uvws[i + 3];
     }
     return new TetraMesh({ position, normal, uvw, count: position.length >> 4 });
+}
+export function cwmesh(cwmesh: CWMesh, notClosed?: boolean) {
+    let simplexes: number[][];
+    const borders = cwmesh.findBorder(4);
+    if (!borders) notClosed = true;
+    if (!notClosed) {
+        // closed 4d objecgt's surface
+        const cells = [];
+        const cellsO = [];
+        for (const [cellId, border] of borders.entries()) {
+            if (border !== 1 && border !== -1) continue;
+            cells.push(cellId);
+            cellsO.push(border === 1);
+        }
+        simplexes = cwmesh.triangulate(3, cells, cellsO).flat();
+    } else {
+        simplexes = cwmesh.triangulate(3, cwmesh.data[3].map((_, idx) => idx)).flat();
+    }
+    const arrLen = simplexes.length << 4;
+    const tetramesh = new TetraMesh({
+        position: new Float32Array(arrLen),
+        normal: new Float32Array(arrLen),
+        count: simplexes.length
+    });
+    let offset = 0;
+    const vertices = cwmesh.data[0] as Vec4[];
+    const v1 = new Vec4, v2 = new Vec4, v3 = new Vec4;
+    for (const s of simplexes) {
+
+        const a0 = vertices[s[0]];
+        const a1 = vertices[s[1]];
+        const a2 = vertices[s[2]];
+        const a3 = vertices[s[3]];
+
+        const normal = v1.subset(a0, a1).wedge(v2.subset(a0, a2)).wedgev(v3.subset(a0, a3)).norms();
+
+        a0.writeBuffer(tetramesh.position, offset);
+        normal.writeBuffer(tetramesh.normal, offset); offset += 4;
+        a1.writeBuffer(tetramesh.position, offset);
+        normal.writeBuffer(tetramesh.normal, offset); offset += 4;
+        a2.writeBuffer(tetramesh.position, offset);
+        normal.writeBuffer(tetramesh.normal, offset); offset += 4;
+        a3.writeBuffer(tetramesh.position, offset);
+        normal.writeBuffer(tetramesh.normal, offset); offset += 4;
+    }
+    return tetramesh;
 }

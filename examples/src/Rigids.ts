@@ -106,8 +106,9 @@ class EmitGlomeController implements tesserxel.util.ctrl.IController {
     initialSpeed = 5;
     maximumBulletDistance = 30;
     glomeRadius = 0.5;
-    constructor(world: tesserxel.physics.World, scene: tesserxel.four.Scene, camera: tesserxel.math.Obj4) {
+    constructor(world: tesserxel.physics.World, scene: tesserxel.four.Scene, camera: tesserxel.math.Obj4, renderer: tesserxel.four.Renderer) {
         this.world = world; this.scene = scene; this.camera = camera;
+        renderer.compileMaterials([this.glomeMaterial]);
     }
     update(state: tesserxel.util.ctrl.ControllerState): void {
         if (state.queryDisabled({ disable: "AltLeft" })) return;
@@ -201,7 +202,7 @@ export namespace st_pile {
         const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
             retinaCtrl,
             camCtrl,
-            new EmitGlomeController(world, scene, camera)
+            new EmitGlomeController(world, scene, camera, renderer)
         ], { enablePointerLock: true });
         let t = -2;
         let emitType = 0;
@@ -316,7 +317,7 @@ export namespace st_pile {
 
         const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
 
-        const emitCtrl = new EmitGlomeController(world, scene, camera);
+        const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
         emitCtrl.initialSpeed = 5;
 
         const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
@@ -400,7 +401,7 @@ export namespace rigid_test {
 
         const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
 
-        const emitCtrl = new EmitGlomeController(world, scene, camera);
+        const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
         emitCtrl.initialSpeed = 10;
 
         const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
@@ -515,7 +516,7 @@ export namespace st_ts_chain {
 
         const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
 
-        const emitCtrl = new EmitGlomeController(world, scene, camera);
+        const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
         emitCtrl.glomeRadius = 2;
         emitCtrl.maximumBulletDistance = 70;
         emitCtrl.initialSpeed = 10;
@@ -699,7 +700,7 @@ export namespace tg_tg_chain {
 
         const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
 
-        const emitCtrl = new EmitGlomeController(world, scene, camera);
+        const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
         emitCtrl.glomeRadius = 2;
         emitCtrl.maximumBulletDistance = 70;
         emitCtrl.initialSpeed = 10;
@@ -731,6 +732,162 @@ export namespace tg_tg_chain {
         run();
     }
 }
+export namespace dzhanibekov {
+    class GUI {
+        canvasHeight: number = 200;
+        /// horizontal factor for sun angle curve
+        timePerPixel: number = 0.05;
+        private canvas: HTMLCanvasElement;
+        private context: CanvasRenderingContext2D;
+        private time = 0;
+        data1: tesserxel.math.Bivec[] = [];
+        data2: tesserxel.math.Bivec[] = [];
+        maxPoints = 3000;
+        constructor() {
+            this.canvas = document.createElement("canvas");
+            this.canvas.style.width = "100%";
+            this.canvas.style.height = this.canvasHeight + "px";
+            this.canvas.style.position = "absolute";
+            this.canvas.style.bottom = "0px";
+            this.canvas.style.left = "0px";
+
+            this.context = this.canvas.getContext("2d");
+            document.body.appendChild(this.canvas);
+        }
+        setSize() {
+            this.canvas.width = window.innerWidth * window.devicePixelRatio;
+            this.canvas.height = this.canvasHeight * window.devicePixelRatio;
+        }
+        update(g: tesserxel.physics.Rigid) {
+            this.time++;
+            const dp = new math.Bivec();
+            g.getAngularMomentum(dp, new math.Vec4);
+            if ((this.time & 3) == 1) {
+                this.data1.unshift(dp);
+                this.data2.unshift(g.angularVelocity.rotate(g.rotation.conj()));
+            }
+            if (this.data1.length > this.maxPoints) this.data1.pop();
+            if (this.data2.length > this.maxPoints) this.data2.pop();
+            const c = this.context;
+            const width = this.canvas.width;
+            const hdiv2 = this.canvas.height / 2;
+            c.clearRect(0, 0, width, this.canvas.height);
+            c.font = "30px Arial";
+
+            c.lineWidth = 1;
+            function draw(label: string, gain: number, data: tesserxel.math.Bivec[], idx: string, style: string) {
+                c.strokeStyle = style;
+                c.beginPath();
+                c.moveTo(0, hdiv2);
+                const isJ = label[0] == "J";
+                for (let x = 0; x < width; x += 2) {
+                    const bivec = data[Math.round((width - x) / 2)];
+                    if (!bivec) {
+                        c.moveTo(x, hdiv2);
+                    } else {
+                        c.lineTo(x, hdiv2 * (-bivec[idx] * gain + 1));
+                    }
+                }
+                c.stroke();
+                c.fillStyle = style;
+                c.fillText(label, isJ ? 10 : width - 60, hdiv2 * (-data[0][idx] * gain + 1));
+            }
+            c.strokeStyle = "rgb(0,0,0)";
+            c.beginPath();
+            c.moveTo(0, hdiv2);
+            c.lineTo(width, hdiv2);
+            c.stroke();
+
+            draw("Jxy", 0.4, this.data1, "xy", "rgb(255,120,50)");
+            draw("Jxz", 0.4, this.data1, "xz", "rgb(220,220,0)");
+            draw("Jxw", 0.4, this.data1, "xw", "rgb(255,20,255)");
+            draw("Jyz", 0.4, this.data1, "yz", "rgb(120,255,20)");
+            draw("Jyw", 0.4, this.data1, "yw", "rgb(20,255,20)");
+            draw("Jzw", 0.4, this.data1, "zw", "rgb(0,220,220)");
+
+            c.lineWidth = 3;
+            draw("Wxy", 0.4, this.data2, "xy", "rgb(190,90,0)");
+            draw("Wxz", 0.4, this.data2, "xz", "rgb(140,130,0)");
+            draw("Wxw", 0.4, this.data2, "xw", "rgb(140,0,140)");
+            draw("Wyz", 0.4, this.data2, "yz", "rgb(90,190,0)");
+            draw("Wyw", 0.4, this.data2, "yw", "rgb(0,150,0)");
+            draw("Wzw", 0.4, this.data2, "zw", "rgb(0,130,140)");
+        }
+    }
+    export async function load() {
+        const engine = new phy.Engine({ substep: 50, broadPhase: phy.IgnoreAllBroadPhase });
+        const world = new phy.World();
+        world.gravity.set();
+        const scene = new FOUR.Scene();
+        const compassLongueur = 2;
+        const compassThickness = 0.1;
+        const compassMeshMG = new FOUR.Mesh(new FOUR.TesseractGeometry(new math.Vec4(compassLongueur, compassThickness, compassThickness, compassThickness)), new FOUR.LambertMaterial([1, 0, 0, 1]));
+        const compassMeshWE = new FOUR.Mesh(new FOUR.TesseractGeometry(new math.Vec4(compassThickness, compassThickness, compassLongueur, compassThickness)), new FOUR.LambertMaterial([0, 0.8, 0, 1]));
+        const compassMeshNS = new FOUR.Mesh(new FOUR.TesseractGeometry(new math.Vec4(compassThickness, compassThickness, compassThickness, compassLongueur)), new FOUR.LambertMaterial([0, 0, 1, 1]));
+        const compassMeshUD = new FOUR.Mesh(new FOUR.TesseractGeometry(new math.Vec4(compassThickness, compassLongueur, compassThickness, compassThickness)), new FOUR.LambertMaterial([0.6, 0.6, 0, 1]));
+        const renderMat = new FOUR.LambertMaterial(new FOUR.CheckerTexture([1, 1, 1, 0.4], [0.2, 0.2, 0.2, 0.8]));
+        let g = new phy.Rigid({
+            // geometry: new phy.rigid.Tesseractoid(new math.Vec4(1,1.1,1.2,1.3)),
+            geometry: new phy.rigid.Tesseractoid(new math.Vec4(1.1, 0.6, 1.3, 0.8)),
+            // geometry: new phy.rigid.Tesseractoid(new math.Vec4(0.2,0.4,0.8,1.6)),
+            mass: 2, material: new phy.Material(1, 1)
+        });
+        g.angularVelocity.set(1e-4, 1e-4, 1e-4, 1, 1e-4, 1e-4);
+        const fixMeshMG = new FOUR.Mesh(new FOUR.TesseractGeometry(new math.Vec4(compassLongueur, compassThickness, compassThickness, compassThickness)), new FOUR.LambertMaterial([1, 0, 0, 0.3]));
+        const fixMeshWE = new FOUR.Mesh(new FOUR.TesseractGeometry(new math.Vec4(compassThickness, compassThickness, compassLongueur, compassThickness)), new FOUR.LambertMaterial([0, 0.8, 0, 0.3]));
+        const fixMeshNS = new FOUR.Mesh(new FOUR.TesseractGeometry(new math.Vec4(compassThickness, compassThickness, compassThickness, compassLongueur)), new FOUR.LambertMaterial([0, 0, 1, 0.3]));
+        const fixMeshUD = new FOUR.Mesh(new FOUR.TesseractGeometry(new math.Vec4(compassThickness, compassLongueur, compassThickness, compassThickness)), new FOUR.LambertMaterial([0.6, 0.6, 0, 0.3]));
+        addRigidToScene(world, scene, renderMat, g);
+        rigidsInSceneLists[0][0].add(compassMeshNS, compassMeshWE, compassMeshMG, compassMeshUD);
+        scene.add(fixMeshNS, fixMeshWE, fixMeshMG, fixMeshUD);
+        let camera = new FOUR.Camera();
+        camera.position.w = 4;
+        scene.add(camera);
+        scene.add(new FOUR.AmbientLight(0.3));
+        scene.add(new FOUR.DirectionalLight(
+            [2.2, 2.0, 1.9],
+            new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()
+        ));
+        scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+
+        const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+        const renderer = await new FOUR.Renderer(canvas).init();
+        renderer.core.setScreenClearColor([1, 1, 1, 1]);
+        renderer.core.setEyeOffset(0.5);
+        renderer.core.setOpacity(20);
+        // controllers
+
+        const camCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
+        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
+
+        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+            retinaCtrl,
+            camCtrl,
+        ], { enablePointerLock: true });
+        const gui = new GUI;
+        function setSize() {
+            let width = window.innerWidth * window.devicePixelRatio;
+            let height = window.innerHeight * window.devicePixelRatio;
+            gui.setSize();
+            renderer.setSize({ width, height });
+        }
+        function run() {
+            // syncronise physics world and render scene
+            updateRidigsInScene();
+            // update controller states
+            controllerRegistry.update();
+            // rendering
+            renderer.render(scene, camera);
+            // simulating physics
+            engine.update(world, 1 / 10);
+            gui.update(g);
+            window.requestAnimationFrame(run);
+        }
+        window.addEventListener("resize", setSize);
+        setSize();
+        run();
+    }
+}
 export namespace thermo_stats {
     export async function load() {
 
@@ -747,30 +904,38 @@ export namespace thermo_stats {
         const balls: tesserxel.physics.Rigid[] = [];
         const renderMat = new FOUR.LambertMaterial(new FOUR.CheckerTexture([1, 1, 1], [0.2, 0.2, 0.2]));
 
-        for (let i = 0; i < 20; i++) {
-            const g = new phy.Rigid({
-                geometry: new phy.rigid.Glome(0.5),
-                mass: 1, material: phyMat
-            });
-            g.position.randset().mulfs(3);
-            addRigidToScene(world, scene, renderMat, g);
-            // if (!i) {
-            g.velocity.set(g.position.y, -g.position.x, g.position.w, -g.position.z).mulfs(4);
-            // }
-            balls.push(g);
-        }
-        // let g = new phy.Rigid({
-        //     geometry: new phy.rigid.Glome(0.3),
-        //     mass: 1, material: phyMat
-        // });
-        // g.position.set(-1, 0, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
-
+        // for (let i = 0; i < 20; i++) {
+        //     const g = new phy.Rigid({
+        //         geometry: new phy.rigid.Glome(0.5),
+        //         mass: 1, material: phyMat
+        //     });
+        //     g.position.randset().mulfs(3);
+        //     addRigidToScene(world, scene, renderMat, g);
+        //     // if (!i) {
+        //     g.velocity.copy(g.position).mulfs(-0.1);
+        //     g.angularVelocity.randset();
+        //     // g.velocity.set(g.position.y, -g.position.x, g.position.w, -g.position.z).mulfs(4);
+        //     // }
+        //     balls.push(g);
+        // }
+        let g = new phy.Rigid({
+            geometry: new phy.rigid.Tesseractoid(new math.Vec4(1.1, 0.3, 1.5, 0.7)),
+            mass: 1, material: phyMat
+        });
+        // g.velocity.x = 1;
+        // g.rotation.randset();
+        g.angularVelocity.set(1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4);
+        g.angularVelocity.xy = 2;
+        // g.position.set(-1, 0, 0, 0);
+        addRigidToScene(world, scene, renderMat, g); balls.push(g);
+        balls.push(g);
         // g = new phy.Rigid({
         //     geometry: new phy.rigid.Glome(0.3),
         //     mass: 1, material: phyMat
         // });
-        // g.position.set(1, 0, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
+        // g.position.set(1, 0.4, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
         // g.velocity.x = -1;
+        // balls.push(g);
 
 
         // g = new phy.Rigid({
@@ -857,7 +1022,7 @@ export namespace thermo_stats {
         const camCtrl = new tesserxel.util.ctrl.TrackBallController(camera);
         const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
 
-        // const emitCtrl = new EmitGlomeController(world, scene, camera);
+        // const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
         // emitCtrl.glomeRadius = 2;
         // emitCtrl.maximumBulletDistance = 70;
         // emitCtrl.initialSpeed = 10;
@@ -887,21 +1052,28 @@ export namespace thermo_stats {
             renderer.render(scene, camera);
             camera.position.negs();
             // simulating physics
-            engine.update(world, factor / 100);
+            if (time > 300 || time < 2) engine.update(world, factor / 20);
             window.requestAnimationFrame(run);
             if (time % 32 === 0) {
-                let jeg: string[] = [];
-                let sum = new math.Bivec();
-                for (const g of balls) {
-                    let degree = Math.atan2(g.angularVelocity.dual().add(g.angularVelocity).norm(), g.angularVelocity.dual().sub(g.angularVelocity).norm());
-                    degree = degree * 4 / Math.PI - 1;
-                    jeg.push(degree.toFixed(4));
-                    sum.adds(g.angularVelocity);
+                // let jeg: string[] = [];
+                // let sum = new math.Bivec();
+                // for (const g of balls) {
+                //     let degree = Math.atan2(g.angularVelocity.dual().add(g.angularVelocity).norm(), g.angularVelocity.dual().sub(g.angularVelocity).norm());
+                //     degree = degree * 4 / Math.PI - 1;
+                //     jeg.push(degree.toFixed(4));
+                //     sum.adds(g.angularVelocity);
+                // }
+                // let degree = Math.atan2(sum.dual().add(sum).norm(), sum.dual().sub(sum).norm());
+                // degree = degree * 4 / Math.PI - 1;
+                // console.log(jeg.join(","));
+                // console.log(degree.toFixed(4));
+                const p = new math.Bivec();
+                const dp = new math.Bivec();
+                for (const b of balls) {
+                    p.adds(b.getAngularMomentum(dp, new math.Vec4));
                 }
-                let degree = Math.atan2(sum.dual().add(sum).norm(), sum.dual().sub(sum).norm());
-                degree = degree * 4 / Math.PI - 1;
-                console.log(jeg.join(","));
-                console.log(degree.toFixed(4));
+                console.log(g.angularVelocity.rotate(g.rotation.conj()));
+                console.log(p);
             }
 
         }
@@ -989,7 +1161,7 @@ export namespace mix_chain {
 
         const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
 
-        const emitCtrl = new EmitGlomeController(world, scene, camera);
+        const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
         emitCtrl.glomeRadius = 2;
         emitCtrl.maximumBulletDistance = 70;
         emitCtrl.initialSpeed = 10;
@@ -1109,7 +1281,7 @@ async function loadMaxwell(cb: (
 
     const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
 
-    const emitCtrl = new EmitGlomeController(world, scene, camera);
+    const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
     emitCtrl.glomeRadius = 1;
     emitCtrl.maximumBulletDistance = 70;
     emitCtrl.initialSpeed = 10;
@@ -1211,7 +1383,7 @@ export namespace m_dipole {
                     new math.Obj4(new math.Vec4(0, 0, 0.49), null, new math.Vec4(0.1, 0.1, 0.1, 0.1))
                 )
             ));
-            const chargeNum = 6;
+            const chargeNum = 12;
             const radius = 5;
             // await renderMatMDipole.compile(renderer);
             let damp = new phy.Damping(0.01, 0.01);

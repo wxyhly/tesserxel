@@ -78,7 +78,7 @@ export class TetraMesh implements TetraMeshData {
         let position = new Float32Array(this.position.length + mesh2.position.length);
         position.set(this.position);
         position.set(mesh2.position, this.position.length);
-        let ret = new TetraMesh({ position, count: position.length << 4 });
+        let ret = new TetraMesh({ position, count: position.length >> 4 });
         if (this.normal && mesh2.normal) {
             let normal = new Float32Array(this.normal.length + mesh2.normal.length);
             normal.set(this.normal);

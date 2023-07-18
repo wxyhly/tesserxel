@@ -1,5 +1,4 @@
 import * as tesserxel from "../../build/tesserxel.js";
-// namespace examples {
 export var instanced_cubes;
 (function (instanced_cubes) {
     let vertCode = `
@@ -127,5 +126,4 @@ struct fInputType{
     }
     instanced_cubes.load = load;
 })(instanced_cubes || (instanced_cubes = {}));
-// }
 //# sourceMappingURL=instanced_cubes.js.map

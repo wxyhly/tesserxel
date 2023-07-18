@@ -1,5 +1,4 @@
 import * as tesserxel from "../../build/tesserxel.js";
-// namespace examples {
 export var hello_tetra1;
 (function (hello_tetra1) {
     async function load() {
@@ -177,5 +176,4 @@ export var hello_tetra3;
     }
     hello_tetra3.load = load;
 })(hello_tetra3 || (hello_tetra3 = {}));
-// }
 //# sourceMappingURL=hellotetra.js.map

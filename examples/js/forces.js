@@ -1,5 +1,4 @@
 import * as tesserxel from "../../build/tesserxel.js";
-// namespace examples {
 export var spring_rope;
 (function (spring_rope) {
     async function load() {
@@ -84,5 +83,4 @@ export var spring_rope;
     }
     spring_rope.load = load;
 })(spring_rope || (spring_rope = {}));
-// }
 //# sourceMappingURL=forces.js.map

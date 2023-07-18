@@ -2,21 +2,51 @@ let examples = [
     {
         group: "geoms", zh: "几何体", en: "Geometries",
         child: [
-            { target: "shapes::tesseract", zh: "超立方体", en: "Tesseract (Hypercube)" },
-            { target: "shapes::tesseract_ortho", zh: "超立方体（正交投影）", en: "Tesseract (Orthographic Projection)" },
-            { target: "shapes::duocylinder", zh: "双圆柱", en: "Duocylinder" },
-            { target: "shapes::spheritorus", zh: "球环", en: "Spheritorus" },
-            { target: "shapes::torisphere", zh: "环球", en: "Torisphere" },
-            { target: "shapes::tiger", zh: "双圆环", en: "Tiger (Duotorus)" },
-            { target: "shapes::glome", zh: "超球", en: "Glome (Hyphersphere)" },
-            { target: "shapes::suzanne3d", zh: "猴头放样", en: "Lofted Suzanne" },
             {
-                group: "product", zh: "直积形", en: "Direct Product",
+                group: "polytopes", zh: "多胞体", en: "Polytopes",
+                child: [
+                    
+                    { target: "shapes::tesseract", zh: "超立方体", en: "Tesseract (Hypercube)" },
+                    { target: "shapes::tesseract_ortho", zh: "超立方体（正交投影）", en: "Tesseract (Orthographic Projection)" },
+                    { target: "cwmesh::cell5", zh: "正5胞体", en: "5-Cell" },
+                    { target: "cwmesh::cell8", zh: "正8胞体", en: "8-Cell" },
+                    { target: "cwmesh::cell16", zh: "正16胞体", en: "16-Cell" },
+                    { target: "cwmesh::cell24", zh: "正24胞体", en: "24-Cell" },
+                    { target: "cwmesh::cell120", zh: "正120胞体", en: "120-Cell" },
+                    { target: "cwmesh::cell600", zh: "正600胞体", en: "600-Cell" },
+                    { target: "cwmesh::duopr5", zh: "5,5-双棱柱", en: "5,5-Duoprism" },
+                    // { target: "cwmesh::duopy5", zh: "5,5-双棱锥", en: "5,5-Duopyramid" },
+                    { target: "cwmesh::prpr5", zh: "正5棱柱柱", en: "Pentagonal Prism Prism" },
+                    { target: "cwmesh::prpy5", zh: "正5棱柱锥", en: "Pentagonal Prism Pyramid" },
+                    { target: "cwmesh::pypr5", zh: "正5棱锥柱", en: "Pentagonal Pyramidal Prism" },
+                    { target: "cwmesh::pypy5", zh: "正5棱锥锥", en: "Pentagonal Pyramidal Pyramid" },
+                    // {
+                    //     group: "uniform_polytopes", zh: "半正多胞体", en: "Uniform Polytopes",
+                    //     child: [
+
+                    //     ]
+                    // }
+
+                ]
+            },
+            {
+                group: "product", zh: "不规则直积形", en: "Iregular Duoprism",
                 child: [
                     { target: "shapes::directproduct1", zh: "文字 x 文字", en: "Text x Text" },
                     { target: "shapes::directproduct2", zh: "人 x 鸡", en: "Man x Chiken" },
                     { target: "shapes::directproduct3", zh: "人 x 人", en: "Man x Man" },
                     { target: "shapes::directproduct4", zh: "文字 x 鸡", en: "Text x Chiken" }]
+            },
+            {
+                group: "curved", zh: "弯曲图形", en: "Curved 4D Shapes",
+                child: [
+                    { target: "shapes::duocylinder", zh: "双圆柱", en: "Duocylinder" },
+                    { target: "shapes::spheritorus", zh: "球环", en: "Spheritorus" },
+                    { target: "shapes::torisphere", zh: "环球", en: "Torisphere" },
+                    { target: "shapes::tiger", zh: "双圆环", en: "Tiger (Duotorus)" },
+                    { target: "shapes::glome", zh: "超球", en: "Glome (Hyphersphere)" },
+                    { target: "shapes::suzanne3d", zh: "猴头旋转体", en: "Suzanne Rotatoid" }
+                ]
             }
         ]
     },
@@ -40,7 +70,8 @@ let examples = [
             { target: "rigids::st_pile", zh: "球环堆", en: "Spheritorus Pile" },
             { target: "pde::wave_eq", zh: "三维波动方程", en: "Wave Equation" },
             { target: "pde::river_evolution", zh: "河流演化", en: "River Evolution" },
-            { target: "rigids::thermo_stats", zh: "热力学旋转分布律", en: "Thermotic Rotation Distribution" },
+            { target: "rigids::dzhanibekov", zh: "刚体自由旋转进动", en: "Dzhanibekov Effect" },
+            // { target: "rigids::thermo_stats", zh: "热力学旋转分布律", en: "Thermotic Rotation Distribution" },
             { target: "pde::erosion", zh: "流水侵蚀（试验）", en: "Hydraulic Erosion (Experimental)" },
             {
                 group: "rigid_chain", zh: "刚体链", en: "Rigid Chains",
@@ -159,7 +190,7 @@ let info = {
         "zh": "<b>控制：保持竖直模式</b><br>平面轨道火车，火车在一个方向上被轨道卡住使用转向架引导转向，另一个方向则可使用方向盘人工驾驶控制方向。使用键盘T/G控制火车前进后退，键盘R/Y转向，键盘B锁定/解锁相机跟随。小心别让火车脱轨！",
         "en": "<b>Control: Keep up mode</b><br>Planar rail train. the bogie is used to guide the train in one direction, and the steering wheel is used by driver manually in another direction. Use the keyboard T/G to move forward / backward, the keyboard R/Y to turn, and the keyboard B to lock/unlock the camera following. Be careful not to derail the train!"
     },
-    "rubic":{
+    "rubic": {
         "zh": "<b>控制：轨迹球模式</b><br>四维三阶魔方演示。四维魔方的每个胞是立方体，不同于正方形只能绕面心旋转，立方体的旋转对称性则丰富得多，绕过面块、角块与棱块的轴可以进行90°、120°、180°三种角度的旋转。使用键盘H切换至镂空模式。",
         "en": "<b>Control: Trackball mode</b><br>Demo of 4D rubic's cube of order 3. Each cell of the 4D tesseract is a cube. In 3d, a square can only be rotated around the face center. Unlike 3d, the rotational symmetry of 4d cubic cell is much richer. It can be rotated 90°, 120° and 180° around the axes through face blocks, corner blocks and edge blocks. Use keyboard H to toggle hollow mode.",
     },
@@ -233,3 +264,11 @@ let info = {
     },
 
 };
+examples.find(v => v.group === "geoms").child.find(v => v.group === "polytopes").child.filter(
+    v => v.target ? v.target.startsWith("cwmesh::") : false
+).forEach(v => {
+    info[v.target] = {
+        "zh": `<b>控制：轨迹球模式</b><br>${v.zh}。按大键盘的数字0、1、2、3键可分别切换显示/隐藏该多胞体的顶点、棱、面、胞。`,
+        "en": `<b>Control: Trackball mode</b><br>Polytope ${v.en}. Press keyboard digital 0, 1, 2, 3 keys to show / hide vertices, edges, faces, cells of this polytope respectively.`,
+    }
+});

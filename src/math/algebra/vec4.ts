@@ -7,6 +7,7 @@ import { _360 } from "../const";
 import { Bivec } from "./bivec";
 import { Rotor } from "./rotor";
 import { Mat4 } from "./mat4";
+import { Obj4 } from "./affine";
 export class Vec4Pool extends Pool<Vec4>{
     constructObject() { return new Vec4; }
 }
@@ -245,6 +246,26 @@ export class Vec4 {
             this.x * a[8] + this.y * a[9] + this.z * a[10] + this.w * a[11],
             this.x * a[12] + this.y * a[13] + this.z * a[14] + this.w * a[15]
         );
+    }
+    applyObj4(o: Obj4) {
+        if(o.scale){
+            this.x *= o.scale.x;
+            this.y *= o.scale.y;
+            this.z *= o.scale.z;
+            this.w *= o.scale.w;
+        }
+        this.rotates(o.rotation).adds(o.position);
+        return this;
+    }
+    applyObj4inv(o: Obj4) {
+        this.subs(o.position).rotatesconj(o.rotation);
+        if(o.scale){
+            this.x /= o.scale.x;
+            this.y /= o.scale.y;
+            this.z /= o.scale.z;
+            this.w /= o.scale.w;
+        }
+        return this;
     }
     rotate(r: Rotor): Vec4 {
         return _Q.copy(this).mulsl(r.l).mulsr(r.r).xyzw();

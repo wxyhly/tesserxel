@@ -1,5 +1,4 @@
 import * as tesserxel from "../../build/tesserxel.js";
-// namespace examples {
 /** Double rotation of a tesseract */
 export var four_basic_scene;
 (function (four_basic_scene) {
@@ -49,5 +48,4 @@ export var four_basic_scene;
     }
     four_basic_scene.load = load;
 })(four_basic_scene || (four_basic_scene = {}));
-// }
 //# sourceMappingURL=four_basic_scene.js.map

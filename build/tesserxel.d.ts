@@ -229,6 +229,7 @@ declare class Bivec {
     rotates(r: Rotor): Bivec;
     rotatesconj(r: Rotor): Bivec;
     rotateset(bivec: Bivec, r: Rotor): Bivec;
+    rotateconjset(bivec: Bivec, r: Rotor): Bivec;
     /** return a random oriented simple normalized bivector */
     static rand(): Bivec;
     randset(): Bivec;
@@ -419,6 +420,48 @@ declare class Quaternion {
     pushPool(pool?: QuaternionPool): void;
 }
 
+/** [A(4x4), b(1x4)]
+ *
+ *  [0(4x1), 1(1x1)]
+ *
+ *  a blocked 5x5 matrix for transform in 4d
+ */
+declare class AffineMat4 {
+    mat: Mat4;
+    vec: Vec4;
+    constructor(mat?: Mat4, vec?: Vec4);
+    writeBuffer(b: Float32Array, offset?: number): void;
+    inv(): AffineMat4;
+    invs(): AffineMat4;
+    mul(m: AffineMat4): AffineMat4;
+    /** this = this * m */
+    mulsr(m: AffineMat4): AffineMat4;
+    /** this = m * this */
+    mulsl(m: AffineMat4): AffineMat4;
+    setFromObj4(o: Obj4): this;
+    setFromObj4inv(o: Obj4): this;
+}
+/** an coordinate transform of rotation translation and scale */
+declare class Obj4 {
+    position: Vec4;
+    rotation: Rotor;
+    scale: Vec4 | undefined;
+    constructor(position?: Vec4, rotation?: Rotor, scale?: Vec4);
+    copyObj4(o: Obj4): this;
+    local2world(point: Vec4): Vec4;
+    world2local(point: Vec4): Vec4;
+    getMat4(): Mat4;
+    getMat4inv(): Mat4;
+    getAffineMat4(): AffineMat4;
+    getAffineMat4inv(): AffineMat4;
+    translates(v: Vec4): this;
+    rotates(r: Rotor): this;
+    rotatesconj(r: Rotor): this;
+    rotatesb(b: Bivec): this;
+    rotatesAt(r: Rotor, center?: Vec4): this;
+    lookAt(direction: Vec4, target: Vec4): this;
+}
+
 declare class Vec4Pool extends Pool<Vec4> {
     constructObject(): Vec4;
 }
@@ -518,6 +561,8 @@ declare class Vec4 {
     dotbset(v: Vec4, B: Bivec): Vec4;
     /** this = mat * this */
     mulmatls(mat4: Mat4): Vec4;
+    applyObj4(o: Obj4): this;
+    applyObj4inv(o: Obj4): this;
     rotate(r: Rotor): Vec4;
     rotates(r: Rotor): Vec4;
     rotateconj(r: Rotor): Vec4;
@@ -648,46 +693,30 @@ declare class Mat2 {
     pushPool(pool?: Mat2Pool): void;
 }
 
-/** [A(4x4), b(1x4)]
- *
- *  [0(4x1), 1(1x1)]
- *
- *  a blocked 5x5 matrix for transform in 4d
- */
-declare class AffineMat4 {
-    mat: Mat4;
-    vec: Vec4;
-    constructor(mat?: Mat4, vec?: Vec4);
-    writeBuffer(b: Float32Array, offset?: number): void;
-    inv(): AffineMat4;
-    invs(): AffineMat4;
-    mul(m: AffineMat4): AffineMat4;
-    /** this = this * m */
-    mulsr(m: AffineMat4): AffineMat4;
-    /** this = m * this */
-    mulsl(m: AffineMat4): AffineMat4;
-    setFromObj4(o: Obj4): this;
-    setFromObj4inv(o: Obj4): this;
-}
-/** an coordinate transform of rotation translation and scale */
-declare class Obj4 {
-    position: Vec4;
-    rotation: Rotor;
-    scale: Vec4 | undefined;
-    constructor(position?: Vec4, rotation?: Rotor, scale?: Vec4);
-    copyObj4(o: Obj4): this;
-    local2world(point: Vec4): Vec4;
-    world2local(point: Vec4): Vec4;
-    getMat4(): Mat4;
-    getMat4inv(): Mat4;
-    getAffineMat4(): AffineMat4;
-    getAffineMat4inv(): AffineMat4;
-    translates(v: Vec4): Obj4;
-    rotates(r: Rotor): Obj4;
-    rotatesconj(r: Rotor): Obj4;
-    rotatesb(b: Bivec): Obj4;
-    rotatesAt(r: Rotor, center?: Vec4): Obj4;
-    lookAt(direction: Vec4, target: Vec4): this;
+declare type Relation = number[];
+declare class CosetTable {
+    length: number;
+    private p;
+    cosets: number[][];
+    private generatorMap;
+    private generatorInvMap;
+    private letters;
+    private genInvMap;
+    private relations;
+    private subsets;
+    private parseWord;
+    constructor(generator: string, relation: string[], subset: string[]);
+    private define;
+    private coincidence;
+    private merge;
+    private findRep;
+    private scanAndFill;
+    enumerate(): this;
+    private compress;
+    private standardize;
+    private swapCoset;
+    getRepresentatives(): Relation[];
+    findCoset(w: Relation): number;
 }
 
 interface PerspectiveCamera {
@@ -766,6 +795,24 @@ declare class Perlin3 {
     value(x: number, y: number, z: number): number;
 }
 
+declare class Polytope {
+    private gens;
+    private rels;
+    private schlafli;
+    private fullgroupRepresentatives;
+    private basis1;
+    private basis2;
+    constructor(schlafli: number[]);
+    private generateVertices;
+    private getInitVertex;
+    generateFaceLinkTable(srcNum: number, srcTable: number[], destTable: number[]): number[][];
+    getRegularPolytope(): (number[][] | Vec4[])[];
+    getFirstStructure(): {
+        cosetTable: CosetTable;
+        subGroupTable: number[];
+    }[];
+}
+
 type math_d_PerspectiveCamera = PerspectiveCamera;
 type math_d_OrthographicCamera = OrthographicCamera;
 type math_d_Vec2 = Vec2;
@@ -828,6 +875,8 @@ type math_d_Spline = Spline;
 declare const math_d_Spline: typeof Spline;
 type math_d_Perlin3 = Perlin3;
 declare const math_d_Perlin3: typeof Perlin3;
+type math_d_Polytope = Polytope;
+declare const math_d_Polytope: typeof Polytope;
 declare const math_d__180: typeof _180;
 declare const math_d__30: typeof _30;
 declare const math_d__60: typeof _60;
@@ -840,6 +889,8 @@ declare const math_d__RAD2DEG: typeof _RAD2DEG;
 declare const math_d__COS30: typeof _COS30;
 declare const math_d__TAN30: typeof _TAN30;
 declare const math_d__GOLDRATIO: typeof _GOLDRATIO;
+type math_d_CosetTable = CosetTable;
+declare const math_d_CosetTable: typeof CosetTable;
 declare namespace math_d {
   export {
     math_d_PerspectiveCamera as PerspectiveCamera,
@@ -879,6 +930,7 @@ declare namespace math_d {
     math_d_Ray as Ray,
     math_d_Spline as Spline,
     math_d_Perlin3 as Perlin3,
+    math_d_Polytope as Polytope,
     math_d__180 as _180,
     math_d__30 as _30,
     math_d__60 as _60,
@@ -891,6 +943,7 @@ declare namespace math_d {
     math_d__COS30 as _COS30,
     math_d__TAN30 as _TAN30,
     math_d__GOLDRATIO as _GOLDRATIO,
+    math_d_CosetTable as CosetTable,
   };
 }
 
@@ -1270,6 +1323,57 @@ declare namespace face_d {
   };
 }
 
+declare type FaceId = number;
+declare type Simplex = number[];
+declare type Face = Array<FaceId>;
+declare type FaceOrientaion = Array<boolean>;
+declare type DimList<T> = Array<T>;
+declare type CWMeshStructData = DimList<Face[] | Vec4[]>;
+declare type OrientaionData = DimList<FaceOrientaion[]>;
+declare type CWMeshSelectionData = DimList<Set<FaceId>>;
+declare type RankedCWMap = DimList<Map<FaceId, FaceId>>;
+declare class CWMeshSelection {
+    cwmesh: CWMesh;
+    selData: CWMeshSelectionData;
+    constructor(cwmesh: CWMesh, data?: CWMeshSelectionData);
+    clone(): CWMeshSelection;
+    closure(): CWMeshSelection;
+    addFace(dim: number, faceId: FaceId): this;
+}
+declare class CWMesh {
+    data: CWMeshStructData;
+    orientation: OrientaionData;
+    clone(): CWMesh;
+    sort2DFace(): void;
+    flipOrientation(dim: number, faceIds?: FaceId[]): void;
+    calculateOrientationInFace(dim: number, faceId: FaceId): void;
+    deleteSelection(sel: CWMeshSelection): RankedCWMap;
+    findBorder(dim: number, faceIds?: Set<FaceId>): Map<number, number>;
+    getAllSelection(): CWMeshSelection;
+    triangulate(dim: number, faceIds: number[], orientations?: boolean[]): Simplex[][];
+    duplicate(sel?: CWMeshSelection, notCheckselectionClosure?: boolean): DimList<Map<number, number>>;
+    bridge(mapInfo: DimList<Map<FaceId, FaceId>>): DimList<Map<number, number>>;
+    topologicalExtrude(sel?: CWMeshSelection): {
+        cloneInfo: DimList<Map<number, number>>;
+        bridgeInfo: DimList<Map<number, number>>;
+    };
+    topologicalCone(sel?: CWMeshSelection, notCheckselectionClosure?: boolean): {
+        coneVertex: number;
+        map: DimList<Map<number, number>>;
+    };
+    topologicalProduct(shape2: CWMesh, thisSel?: CWMeshSelection, shape2Sel?: CWMeshSelection): DimList<Map<number, DimList<Map<number, number>>>>;
+    apply(verticesCalls: (vertex: Vec4) => Vec4): this;
+    makePrism(direction: Vec4, alignCenter: boolean, sel?: CWMeshSelection): {
+        cloneInfo: DimList<Map<number, number>>;
+        bridgeInfo: DimList<Map<number, number>>;
+    };
+    makePyramid(point: Vec4, sel?: CWMeshSelection): {
+        coneVertex: number;
+        map: DimList<Map<number, number>>;
+    };
+    makeDirectProduct(shape2: CWMesh, thisSel?: CWMeshSelection, shape2Sel?: CWMeshSelection): DimList<Map<number, DimList<Map<number, number>>>>;
+}
+
 declare let cube: TetraMesh;
 declare function tesseract(): TetraMesh;
 declare let hexadecachoron: TetraMesh;
@@ -1286,6 +1390,7 @@ declare function duocylinder(xyRadius: number, xySegment: number, zwRadius: numb
 declare function loft(sp: Spline, section: FaceMeshData, step: number): TetraMesh;
 declare function rotatoid(bv: Bivec, section: FaceMeshData, step: number, angle?: number): TetraMesh;
 declare function directProduct(shape1: FaceIndexMeshData, shape2: FaceIndexMeshData): TetraMesh;
+declare function cwmesh(cwmesh: CWMesh, notClosed?: boolean): TetraMesh;
 
 type tetra_d_TetraMeshData = TetraMeshData;
 type tetra_d_TetraIndexMeshData = TetraIndexMeshData;
@@ -1310,6 +1415,7 @@ declare const tetra_d_duocylinder: typeof duocylinder;
 declare const tetra_d_loft: typeof loft;
 declare const tetra_d_rotatoid: typeof rotatoid;
 declare const tetra_d_directProduct: typeof directProduct;
+declare const tetra_d_cwmesh: typeof cwmesh;
 declare namespace tetra_d {
   export {
     tetra_d_TetraMeshData as TetraMeshData,
@@ -1333,6 +1439,7 @@ declare namespace tetra_d {
     tetra_d_loft as loft,
     tetra_d_rotatoid as rotatoid,
     tetra_d_directProduct as directProduct,
+    tetra_d_cwmesh as cwmesh,
   };
 }
 
@@ -1574,30 +1681,6 @@ declare class Geometry {
     constructor(data: TetraMeshData);
     updateOBB(): void;
 }
-declare class TesseractGeometry extends Geometry {
-    constructor(size?: number | Vec4);
-}
-declare class CubeGeometry extends Geometry {
-    constructor(size?: number | Vec3);
-}
-declare class GlomeGeometry extends Geometry {
-    constructor(size?: number, detail?: number);
-}
-declare class SpheritorusGeometry extends Geometry {
-    constructor(sphereRadius?: number, circleRadius?: number, detail?: number);
-}
-declare class TorisphereGeometry extends Geometry {
-    constructor(circleRadius?: number, sphereRadius?: number, detail?: number);
-}
-declare class SpherinderSideGeometry extends Geometry {
-    constructor(sphereRadius1?: number, sphereRadius2?: number, height?: number, detail?: number);
-}
-declare class TigerGeometry extends Geometry {
-    constructor(circleRadius?: number, radius1?: number, radius2?: number, detail?: number);
-}
-declare class ConvexHullGeometry extends Geometry {
-    constructor(points: Vec4[]);
-}
 declare abstract class SkyBox {
     pipeline: RaytracingPipeline;
     uBuffer: GPUBuffer;
@@ -1717,6 +1800,31 @@ interface DrawList {
     };
 }
 
+declare class TesseractGeometry extends Geometry {
+    constructor(size?: number | Vec4);
+}
+declare class CubeGeometry extends Geometry {
+    constructor(size?: number | Vec3);
+}
+declare class GlomeGeometry extends Geometry {
+    constructor(size?: number, detail?: number);
+}
+declare class SpheritorusGeometry extends Geometry {
+    constructor(sphereRadius?: number, circleRadius?: number, detail?: number);
+}
+declare class TorisphereGeometry extends Geometry {
+    constructor(circleRadius?: number, sphereRadius?: number, detail?: number);
+}
+declare class SpherinderSideGeometry extends Geometry {
+    constructor(sphereRadius1?: number, sphereRadius2?: number, height?: number, detail?: number);
+}
+declare class TigerGeometry extends Geometry {
+    constructor(circleRadius?: number, radius1?: number, radius2?: number, detail?: number);
+}
+declare class ConvexHullGeometry extends Geometry {
+    constructor(points: Vec4[]);
+}
+
 type four_d_PointLight = PointLight;
 declare const four_d_PointLight: typeof PointLight;
 type four_d_DirectionalLight = DirectionalLight;
@@ -1738,22 +1846,6 @@ type four_d_Mesh = Mesh;
 declare const four_d_Mesh: typeof Mesh;
 type four_d_Geometry = Geometry;
 declare const four_d_Geometry: typeof Geometry;
-type four_d_TesseractGeometry = TesseractGeometry;
-declare const four_d_TesseractGeometry: typeof TesseractGeometry;
-type four_d_CubeGeometry = CubeGeometry;
-declare const four_d_CubeGeometry: typeof CubeGeometry;
-type four_d_GlomeGeometry = GlomeGeometry;
-declare const four_d_GlomeGeometry: typeof GlomeGeometry;
-type four_d_SpheritorusGeometry = SpheritorusGeometry;
-declare const four_d_SpheritorusGeometry: typeof SpheritorusGeometry;
-type four_d_TorisphereGeometry = TorisphereGeometry;
-declare const four_d_TorisphereGeometry: typeof TorisphereGeometry;
-type four_d_SpherinderSideGeometry = SpherinderSideGeometry;
-declare const four_d_SpherinderSideGeometry: typeof SpherinderSideGeometry;
-type four_d_TigerGeometry = TigerGeometry;
-declare const four_d_TigerGeometry: typeof TigerGeometry;
-type four_d_ConvexHullGeometry = ConvexHullGeometry;
-declare const four_d_ConvexHullGeometry: typeof ConvexHullGeometry;
 type four_d_SkyBox = SkyBox;
 declare const four_d_SkyBox: typeof SkyBox;
 type four_d_SimpleSkyBox = SimpleSkyBox;
@@ -1793,6 +1885,22 @@ declare const four_d_Vec4TransformNode: typeof Vec4TransformNode;
 declare const four_d_NoiseWGSLHeader: typeof NoiseWGSLHeader;
 type four_d_NoiseTexture = NoiseTexture;
 declare const four_d_NoiseTexture: typeof NoiseTexture;
+type four_d_TesseractGeometry = TesseractGeometry;
+declare const four_d_TesseractGeometry: typeof TesseractGeometry;
+type four_d_CubeGeometry = CubeGeometry;
+declare const four_d_CubeGeometry: typeof CubeGeometry;
+type four_d_GlomeGeometry = GlomeGeometry;
+declare const four_d_GlomeGeometry: typeof GlomeGeometry;
+type four_d_SpheritorusGeometry = SpheritorusGeometry;
+declare const four_d_SpheritorusGeometry: typeof SpheritorusGeometry;
+type four_d_TorisphereGeometry = TorisphereGeometry;
+declare const four_d_TorisphereGeometry: typeof TorisphereGeometry;
+type four_d_SpherinderSideGeometry = SpherinderSideGeometry;
+declare const four_d_SpherinderSideGeometry: typeof SpherinderSideGeometry;
+type four_d_TigerGeometry = TigerGeometry;
+declare const four_d_TigerGeometry: typeof TigerGeometry;
+type four_d_ConvexHullGeometry = ConvexHullGeometry;
+declare const four_d_ConvexHullGeometry: typeof ConvexHullGeometry;
 declare namespace four_d {
   export {
     four_d_PointLight as PointLight,
@@ -1807,14 +1915,6 @@ declare namespace four_d {
     four_d_Camera as Camera,
     four_d_Mesh as Mesh,
     four_d_Geometry as Geometry,
-    four_d_TesseractGeometry as TesseractGeometry,
-    four_d_CubeGeometry as CubeGeometry,
-    four_d_GlomeGeometry as GlomeGeometry,
-    four_d_SpheritorusGeometry as SpheritorusGeometry,
-    four_d_TorisphereGeometry as TorisphereGeometry,
-    four_d_SpherinderSideGeometry as SpherinderSideGeometry,
-    four_d_TigerGeometry as TigerGeometry,
-    four_d_ConvexHullGeometry as ConvexHullGeometry,
     four_d_SkyBox as SkyBox,
     four_d_SimpleSkyBox as SimpleSkyBox,
     four_d_ColorOutputNode as ColorOutputNode,
@@ -1839,6 +1939,14 @@ declare namespace four_d {
     four_d_Vec4TransformNode as Vec4TransformNode,
     four_d_NoiseWGSLHeader as NoiseWGSLHeader,
     four_d_NoiseTexture as NoiseTexture,
+    four_d_TesseractGeometry as TesseractGeometry,
+    four_d_CubeGeometry as CubeGeometry,
+    four_d_GlomeGeometry as GlomeGeometry,
+    four_d_SpheritorusGeometry as SpheritorusGeometry,
+    four_d_TorisphereGeometry as TorisphereGeometry,
+    four_d_SpherinderSideGeometry as SpherinderSideGeometry,
+    four_d_TigerGeometry as TigerGeometry,
+    four_d_ConvexHullGeometry as ConvexHullGeometry,
   };
 }
 
@@ -1881,6 +1989,11 @@ declare class Rigid extends Obj4 {
     angularAcceleration: Bivec;
     constructor(param: SimpleRigidDescriptor | UnionRigidDescriptor);
     getlinearVelocity(out: Vec4, point: Vec4): Vec4;
+    getMomentum(out: Vec4): Vec4;
+    getAngularMomentum(out: Bivec, point?: Vec4): Bivec;
+    getLinearKineticEnergy(): number;
+    getAngularKineticEnergy(): number;
+    getKineticEnergy(): number;
 }
 /** internal type for union rigid geometry */
 interface SubRigid extends Rigid {
@@ -2364,6 +2477,15 @@ declare class ObjFile {
     parse(): IndexMesh;
 }
 
+declare function polytope(schlafli: number[]): CWMesh;
+
+declare const geoms_d_polytope: typeof polytope;
+declare namespace geoms_d {
+  export {
+    geoms_d_polytope as polytope,
+  };
+}
+
 type mesh_d_FaceMesh = FaceMesh;
 declare const mesh_d_FaceMesh: typeof FaceMesh;
 type mesh_d_FaceIndexMesh = FaceIndexMesh;
@@ -2376,6 +2498,10 @@ type mesh_d_FaceMeshData = FaceMeshData;
 type mesh_d_FaceIndexMeshData = FaceIndexMeshData;
 type mesh_d_TetraMeshData = TetraMeshData;
 type mesh_d_TetraIndexMeshData = TetraIndexMeshData;
+type mesh_d_CWMesh = CWMesh;
+declare const mesh_d_CWMesh: typeof CWMesh;
+type mesh_d_CWMeshSelection = CWMeshSelection;
+declare const mesh_d_CWMeshSelection: typeof CWMeshSelection;
 type mesh_d_ObjFile = ObjFile;
 declare const mesh_d_ObjFile: typeof ObjFile;
 declare namespace mesh_d {
@@ -2390,6 +2516,9 @@ declare namespace mesh_d {
     mesh_d_FaceIndexMeshData as FaceIndexMeshData,
     mesh_d_TetraMeshData as TetraMeshData,
     mesh_d_TetraIndexMeshData as TetraIndexMeshData,
+    mesh_d_CWMesh as CWMesh,
+    mesh_d_CWMeshSelection as CWMeshSelection,
+    geoms_d as cw,
     mesh_d_ObjFile as ObjFile,
   };
 }
@@ -2477,9 +2606,10 @@ declare class TrackBallController implements IController {
         disable: string;
         enable: string;
     };
+    cameraMode: boolean;
     private _bivec;
     private normalisePeriodMask;
-    constructor(object?: Obj4);
+    constructor(object?: Obj4, cameraMode?: boolean);
     update(state: ControllerState): void;
     lookAtCenter(): void;
 }

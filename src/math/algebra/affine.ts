@@ -135,23 +135,23 @@ export class Obj4 {
             this.rotation.conj().toMat4()
         ), new Vec4(b.x * x, b.y * y, b.z * z, b.w * w));
     }
-    translates(v: Vec4): Obj4 {
+    translates(v: Vec4): this {
         this.position.adds(v);
         return this;
     }
-    rotates(r: Rotor): Obj4 {
+    rotates(r: Rotor): this {
         this.rotation.mulsl(r);
         return this;
     }
-    rotatesconj(r: Rotor): Obj4 {
+    rotatesconj(r: Rotor): this {
         this.rotation.mulslconj(r);
         return this;
     }
-    rotatesb(b: Bivec): Obj4 {
+    rotatesb(b: Bivec): this {
         this.rotation.mulsl(_r.expset(b));
         return this;
     }
-    rotatesAt(r: Rotor, center: Vec4 = new Vec4()): Obj4 {
+    rotatesAt(r: Rotor, center: Vec4 = new Vec4()): this {
         this.rotation.mulsl(r);
         this.position.subs(center).rotates(r).adds(center);
         return this;

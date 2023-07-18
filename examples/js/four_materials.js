@@ -1,5 +1,4 @@
 import * as tesserxel from "../../build/tesserxel.js";
-// namespace examples {
 export var four_materials;
 (function (four_materials) {
     async function load() {
@@ -79,5 +78,4 @@ export var four_materials;
     }
     four_materials.load = load;
 })(four_materials || (four_materials = {}));
-// }
 //# sourceMappingURL=four_materials.js.map

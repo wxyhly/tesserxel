@@ -289,6 +289,15 @@ export class Bivec {
         this.yz = (A.w - B.w) * 0.5; this.yw = (B.z - A.z) * 0.5; this.zw = (A.y - B.y) * 0.5;
         return this;
     }
+    rotateconjset(bivec: Bivec, r: Rotor): Bivec {
+        let A = _Q_1.set(0, bivec.xy + bivec.zw, bivec.xz - bivec.yw, bivec.xw + bivec.yz);
+        let B = _Q_2.set(0, bivec.xy - bivec.zw, bivec.xz + bivec.yw, bivec.xw - bivec.yz);
+        A.mulslconj(r.l).mulsr(r.l);
+        B.mulsl(r.r).mulsrconj(r.r);
+        this.xy = (A.y + B.y) * 0.5; this.xz = (A.z + B.z) * 0.5; this.xw = (A.w + B.w) * 0.5;
+        this.yz = (A.w - B.w) * 0.5; this.yw = (B.z - A.z) * 0.5; this.zw = (A.y - B.y) * 0.5;
+        return this;
+    }
     /** return a random oriented simple normalized bivector */
     static rand(): Bivec {
         // sampled in isoclinic space uniformly for left and right part respectively

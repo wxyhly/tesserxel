@@ -32,14 +32,14 @@ export abstract class ForceAccumulator {
                 o.acceleration.addmulfs(o.force, o.invMass);
             }
             if (o.inertiaIsotroy) {
-                if (o.torque.norm1() > 0) o.angularAcceleration.set().addmulfs(o.torque, o.invInertia!.xy);
+                if (o.torque.norm1() > 0) o.angularAcceleration.set().addmulfs(o.torque, o.invInertia.xy);
             } else {
                 // Euler equation of motion
-                let localT = (o.torque.norm1() > 0) ? this._biv2.rotateset(o.torque, o.rotation) : this._bivec0;
-                let localW = this._biv1.rotateset(o.angularVelocity, o.rotation);
-                let localL = mulBivec(o.angularAcceleration, localW, o.inertia!);
-                mulBivec(o.angularAcceleration, localL.crossrs(localW).adds(localT), o.invInertia!);
-                o.angularAcceleration.rotatesconj(o.rotation);
+                let localT = (o.torque.norm1() > 0) ? this._biv2.rotateconjset(o.torque, o.rotation) : this._bivec0;
+                let localW = this._biv1.rotateconjset(o.angularVelocity, o.rotation);
+                let localL = mulBivec(o.angularAcceleration, localW, o.inertia);
+                mulBivec(o.angularAcceleration, localL.crossrs(localW).negs().adds(localT), o.invInertia);
+                o.angularAcceleration.rotates(o.rotation);
             }
         }
     }

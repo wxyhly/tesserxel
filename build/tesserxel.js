@@ -1388,6 +1388,19 @@ class Bivec {
         this.zw = (A.y - B.y) * 0.5;
         return this;
     }
+    rotateconjset(bivec, r) {
+        let A = _Q_1.set(0, bivec.xy + bivec.zw, bivec.xz - bivec.yw, bivec.xw + bivec.yz);
+        let B = _Q_2.set(0, bivec.xy - bivec.zw, bivec.xz + bivec.yw, bivec.xw - bivec.yz);
+        A.mulslconj(r.l).mulsr(r.l);
+        B.mulsl(r.r).mulsrconj(r.r);
+        this.xy = (A.y + B.y) * 0.5;
+        this.xz = (A.z + B.z) * 0.5;
+        this.xw = (A.w + B.w) * 0.5;
+        this.yz = (A.w - B.w) * 0.5;
+        this.yw = (B.z - A.z) * 0.5;
+        this.zw = (A.y - B.y) * 0.5;
+        return this;
+    }
     /** return a random oriented simple normalized bivector */
     static rand() {
         // sampled in isoclinic space uniformly for left and right part respectively
@@ -1675,6 +1688,26 @@ class Vec4 {
     mulmatls(mat4) {
         let a = mat4.elem;
         return this.set(this.x * a[0] + this.y * a[1] + this.z * a[2] + this.w * a[3], this.x * a[4] + this.y * a[5] + this.z * a[6] + this.w * a[7], this.x * a[8] + this.y * a[9] + this.z * a[10] + this.w * a[11], this.x * a[12] + this.y * a[13] + this.z * a[14] + this.w * a[15]);
+    }
+    applyObj4(o) {
+        if (o.scale) {
+            this.x *= o.scale.x;
+            this.y *= o.scale.y;
+            this.z *= o.scale.z;
+            this.w *= o.scale.w;
+        }
+        this.rotates(o.rotation).adds(o.position);
+        return this;
+    }
+    applyObj4inv(o) {
+        this.subs(o.position).rotatesconj(o.rotation);
+        if (o.scale) {
+            this.x /= o.scale.x;
+            this.y /= o.scale.y;
+            this.z /= o.scale.z;
+            this.w /= o.scale.w;
+        }
+        return this;
     }
     rotate(r) {
         return _Q.copy(this).mulsl(r.l).mulsr(r.r).xyzw();
@@ -2525,6 +2558,257 @@ class Obj4 {
     }
 }
 
+class CosetTable {
+    length = 1;
+    p = [0];
+    cosets;
+    // store int map for letters (e.g. "a" "b" "a'" "b'")
+    generatorMap = [];
+    generatorInvMap = new Map;
+    letters = 0; // equal to generatorMap.length
+    // map between integers, ("a" <-> "'a")
+    genInvMap = [];
+    // int representation of relations and subsets
+    relations;
+    subsets;
+    // convert word to int representation
+    parseWord(w) {
+        const word = [];
+        for (let i = 0; i < w.length; i++) {
+            if (w[i + 1] == "'") {
+                word.push(this.generatorInvMap.get(w[i] + "'"));
+                i++;
+            }
+            else {
+                word.push(this.generatorInvMap.get(w[i]));
+            }
+        }
+        return word;
+    }
+    constructor(generator, relation, subset) {
+        for (const c of generator) {
+            this.generatorInvMap.set(c, this.letters++);
+            this.generatorMap.push(c);
+            if (relation.includes(c + c)) {
+                this.genInvMap[this.letters - 1] = this.letters - 1;
+            }
+            else {
+                this.genInvMap[this.letters] = this.letters - 1;
+                this.genInvMap[this.letters - 1] = this.letters;
+                this.generatorInvMap.set(c + "'", this.letters++);
+                this.generatorMap.push(c + "'");
+            }
+        }
+        this.relations = relation.map(w => this.parseWord(w));
+        this.subsets = subset.map(w => this.parseWord(w));
+        this.cosets = [new Array(this.letters)];
+    }
+    define(coset, gen) {
+        this.cosets[coset][gen] = this.length;
+        const newLine = new Array(this.letters);
+        newLine[this.genInvMap[gen]] = coset;
+        this.cosets.push(newLine);
+        this.p.push(this.length);
+        this.length++;
+    }
+    coincidence(a, b) {
+        const q = [];
+        this.merge(a, b, q);
+        for (let i = 0; i < q.length; i++) {
+            const y = q[i];
+            for (let x = 0; x < this.letters; x++) {
+                const d = this.cosets[y][x];
+                if (d !== undefined) {
+                    let mu = this.findRep(y);
+                    let v = this.findRep(d);
+                    let mux = this.cosets[mu][x];
+                    if (mux !== undefined) {
+                        this.merge(v, mux, q);
+                    }
+                    else {
+                        this.cosets[mu][x] = v;
+                    }
+                    let vxinv = this.cosets[v][this.genInvMap[x]];
+                    if (vxinv !== undefined) {
+                        this.merge(mu, vxinv, q);
+                    }
+                    else {
+                        this.cosets[v][this.genInvMap[x]] = mu;
+                    }
+                }
+            }
+        }
+    }
+    merge(a, b, q) {
+        const i1 = this.findRep(a);
+        const i2 = this.findRep(b);
+        if (i1 !== i2) {
+            const u = Math.min(i1, i2);
+            const v = Math.max(i1, i2);
+            this.p[v] = u;
+            q.push(v);
+        }
+    }
+    findRep(k) {
+        let l = k;
+        let r = this.p[l];
+        while (r !== l) {
+            l = r;
+            r = this.p[l];
+        }
+        let mu = k;
+        r = this.p[mu];
+        while (r !== l) {
+            this.p[mu] = l;
+            mu = r;
+            r = this.p[mu];
+        }
+        return l;
+    }
+    scanAndFill(coset, relation) {
+        const r = relation.length - 1;
+        let f = coset;
+        let i = 0;
+        let b = coset;
+        let j = r;
+        while (true) {
+            let fxi;
+            while (i <= r && (fxi = this.cosets[f][relation[i]]) !== undefined) {
+                f = fxi;
+                i++;
+            }
+            if (i > r) {
+                if (f !== coset)
+                    this.coincidence(f, coset);
+                return;
+            }
+            let bxjinv;
+            while (j >= i && (bxjinv = this.cosets[b][this.genInvMap[relation[j]]]) !== undefined) {
+                b = bxjinv;
+                j--;
+            }
+            if (j < i) {
+                this.coincidence(f, b);
+                return;
+            }
+            else if (i === j) {
+                this.cosets[b][this.genInvMap[relation[i]]] = f;
+                this.cosets[f][relation[i]] = b;
+                return;
+            }
+            else {
+                this.define(f, relation[i]);
+            }
+        }
+    }
+    enumerate() {
+        for (const w of this.subsets) {
+            this.scanAndFill(0, w);
+        }
+        for (let a = 0; a < this.cosets.length; a++) {
+            if (this.p[a] !== a)
+                continue;
+            for (const w of this.relations) {
+                this.scanAndFill(a, w);
+                if (this.p[a] !== a)
+                    break;
+            }
+            if (this.p[a] !== a)
+                continue;
+            for (let x = 0; x < this.letters; x++) {
+                if (this.cosets[a][x] === undefined)
+                    this.define(a, x);
+            }
+        }
+        this.compress();
+        this.standardize();
+        return this;
+    }
+    compress() {
+        let j = 0;
+        let p2 = [];
+        for (let i = 0; i < this.p.length; i++) {
+            if (this.p[i] === i) {
+                p2[i] = j++;
+            }
+        }
+        this.cosets = this.cosets.filter((v, i) => this.p[i] === i);
+        for (let i = 0; i < this.cosets.length; i++) {
+            for (let x = 0; x < this.letters; x++) {
+                this.cosets[i][x] = p2[this.p[this.cosets[i][x]]];
+            }
+        }
+        this.length = this.cosets.length;
+    }
+    standardize() {
+        let y = 1;
+        for (let a = 0; a < this.cosets.length; a++) {
+            for (let x = 0; x < this.letters; x++) {
+                let b = this.cosets[a][x];
+                if (b >= y) {
+                    if (b > y)
+                        this.swapCoset(y, b);
+                    y++;
+                    if (y === this.length - 1)
+                        return;
+                }
+            }
+        }
+    }
+    swapCoset(b, y) {
+        let z = this.cosets[y];
+        this.cosets[y] = this.cosets[b];
+        this.cosets[b] = z;
+        for (let x = 0; x < this.letters; x++) {
+            const ix = this.genInvMap[x];
+            const u = this.cosets[y][x];
+            const v = this.cosets[b][x];
+            if (u === b) {
+                this.cosets[y][x] = y;
+            }
+            else if (u === y) {
+                this.cosets[y][x] = b;
+            }
+            else {
+                this.cosets[u][ix] = y;
+            }
+            if (v === b) {
+                this.cosets[b][x] = y;
+            }
+            else if (v === y) {
+                this.cosets[b][x] = b;
+            }
+            else {
+                this.cosets[v][ix] = b;
+            }
+        }
+    }
+    getRepresentatives() {
+        const represents = new Array(this.cosets.length);
+        represents[0] = [];
+        for (let a = 0; a < this.cosets.length; a++) {
+            console.assert(represents[a] !== undefined);
+            for (let x = 0; x < this.letters; x++) {
+                const next = this.cosets[a][x];
+                if (!represents[next]) {
+                    represents[next] = represents[a].slice(0);
+                    represents[next].push(x);
+                }
+            }
+        }
+        return represents;
+    }
+    findCoset(w) {
+        let coset = 0;
+        w = w.slice(0);
+        let x;
+        while ((x = w.shift()) !== undefined) {
+            coset = this.cosets[coset][x];
+        }
+        return coset;
+    }
+}
+
 /** If fov == 0, then return Orthographic projection matrix
  *  Caution: This function calculates PerspectiveMatrix for 0-1 depth range */
 function getPerspectiveProjectionMatrix(c) {
@@ -2824,6 +3108,165 @@ class Perlin3 {
     }
 }
 
+class Polytope {
+    gens;
+    rels;
+    schlafli;
+    fullgroupRepresentatives;
+    // reflection directions: these dirs are sqrt(1/2) length for calc convenience
+    // [b2[0], 0 ..]
+    // [b1[1],b2[1],0..]
+    // [0,b1[2],b2[2],0..]
+    // [0,0,b1[2],b2[2],0..]
+    // ...
+    basis1 = [0,];
+    basis2 = [1,];
+    constructor(schlafli) {
+        let len = schlafli.length + 1;
+        this.schlafli = schlafli;
+        // get group descriptors
+        let gens = "";
+        let rels = [];
+        for (let i = 0; i < len; i++) {
+            gens += i;
+        }
+        for (let i = 0; i < len; i++) {
+            const si = i.toString();
+            for (let j = i; j < len; j++) {
+                const sj = j.toString();
+                const mij = i === j ? 1 : j === i + 1 ? schlafli[i] : 2;
+                rels.push((si + sj).repeat(mij));
+            }
+        }
+        this.gens = gens;
+        this.rels = rels;
+        // get reflection descriptors
+        for (let i = 1; i < len; i++) {
+            const cos = Math.cos(Math.PI / this.schlafli[i - 1]);
+            this.basis1.push(Math.abs(cos / this.basis2[i - 1]));
+            this.basis2.push(Math.sqrt(1 - this.basis1[i] * this.basis1[i]));
+        }
+        // these dirs are sqrt(1/2) length for calc convenience
+        for (let i = 1; i < len; i++) {
+            this.basis1[i] *= Math.SQRT2;
+            this.basis2[i] *= Math.SQRT2;
+        }
+    }
+    generateVertices(v0, cosetTable) {
+        const vertices = new Array(cosetTable.length);
+        vertices[0] = v0.clone();
+        for (const [c, coset] of cosetTable.cosets.entries()) {
+            const v = vertices[c];
+            for (const [x, cx] of coset.entries()) {
+                if (vertices[cx])
+                    continue;
+                if (x === 0) {
+                    const nv = v.clone();
+                    nv.x = -nv.x;
+                    vertices[cx] = nv;
+                    continue;
+                }
+                const vs = v.flat();
+                // these dirs are sqrt(1/2) length, no need to mul 2
+                const proj = (vs[x - 1] * this.basis1[x] + vs[x] * this.basis2[x]);
+                vs[x - 1] -= proj * this.basis1[x];
+                vs[x] -= proj * this.basis2[x];
+                vertices[cx] = new Vec4(...vs);
+            }
+        }
+        return vertices;
+    }
+    getInitVertex(vertexPosition) {
+        if (this.gens.length !== vertexPosition.length + 1)
+            throw ("Polytope.getInitVertex: vertexPosition length must be" + (this.gens.length - 1));
+        const pqr = vertexPosition.slice(0);
+        const remain = pqr.length ? 1 - pqr.reduce((a, b) => a + b) : 1;
+        if (remain < 0)
+            throw "vertexPosition's sum must be less than or equal to 1";
+        pqr.push(remain);
+        const basisVec = [Vec4.x];
+        for (let i = 1; i < this.basis1.length; i++) {
+            const v = [0, 0, 0, 0];
+            v[i - 1] = this.basis1[i];
+            v[i] = this.basis2[i];
+            basisVec.push(new Vec4(...v));
+        }
+        const points = [];
+        for (let j = 0; j < this.gens.length; j++) {
+            let a;
+            for (let i = 0; i < this.gens.length; i++) {
+                if (i === j)
+                    continue;
+                if (!a) {
+                    a = basisVec[i];
+                    continue;
+                }
+                if (a instanceof Vec4) {
+                    a = a.wedge(basisVec[i]);
+                    continue;
+                }
+                if (a instanceof Bivec) {
+                    a = a.wedgev(basisVec[i]);
+                    continue;
+                }
+            }
+            if (vertexPosition.length === 1) {
+                const na = a.yxzw();
+                na.x = -na.x;
+                points.push(na);
+            }
+            else if (vertexPosition.length === 2) {
+                points.push(a.wedgev(Vec4.w));
+            }
+            else if (vertexPosition.length === 3) {
+                points.push(a);
+            }
+        }
+        const v0 = new Vec4;
+        for (const [i, k] of pqr.entries()) {
+            v0.addmulfs(points[i].norms(), k);
+        }
+        return v0;
+    }
+    generateFaceLinkTable(srcNum, srcTable, destTable) {
+        const src = new Array(srcNum);
+        for (let i = 0; i < srcTable.length; i++) {
+            src[srcTable[i]] ??= new Set();
+            src[srcTable[i]].add(destTable[i]);
+        }
+        return src.map(e => Array.from(e));
+    }
+    getRegularPolytope() {
+        if (this.gens.length === 1)
+            return [];
+        // kface[0] : Vtable, kface[1] : Etable...
+        const kfaceTable = this.getFirstStructure();
+        let pqr = new Array(this.gens.length - 1);
+        pqr.fill(0);
+        if (pqr.length)
+            pqr[0] = 1;
+        const V = this.gens.length > 4 ? kfaceTable[0].cosetTable.cosets.map(() => new Array()) : this.generateVertices(this.getInitVertex(pqr), kfaceTable[0].cosetTable);
+        let polytope = [V];
+        for (let i = 1; i < this.gens.length; i++) {
+            polytope.push(this.generateFaceLinkTable(kfaceTable[i].cosetTable.length, kfaceTable[i].subGroupTable, kfaceTable[i - 1].subGroupTable));
+        }
+        return polytope;
+    }
+    getFirstStructure() {
+        this.fullgroupRepresentatives ??= new CosetTable(this.gens, this.rels, []).enumerate().getRepresentatives();
+        const table = [];
+        for (let i = 0; i < this.gens.length; i++) {
+            // example: V: "b,c,d"  E: "a,c,d" F: "a,b,d" C: "a,b,c"
+            const subgroup = Array.from(this.gens);
+            subgroup.splice(i, 1);
+            const cosetTable = new CosetTable(this.gens, this.rels, subgroup).enumerate();
+            const subGroupTable = this.fullgroupRepresentatives.map(w => cosetTable.findCoset(w));
+            table.push({ cosetTable, subGroupTable });
+        }
+        return table;
+    }
+}
+
 var math = /*#__PURE__*/Object.freeze({
     __proto__: null,
     Vec2: Vec2,
@@ -2861,6 +3304,7 @@ var math = /*#__PURE__*/Object.freeze({
     Ray: Ray,
     Spline: Spline,
     Perlin3: Perlin3,
+    Polytope: Polytope,
     _180: _180,
     _30: _30,
     _60: _60,
@@ -2872,7 +3316,8 @@ var math = /*#__PURE__*/Object.freeze({
     _RAD2DEG: _RAD2DEG,
     _COS30: _COS30,
     _TAN30: _TAN30,
-    _GOLDRATIO: _GOLDRATIO
+    _GOLDRATIO: _GOLDRATIO,
+    CosetTable: CosetTable
 });
 
 // @ts-nocheck
@@ -6724,6 +7169,280 @@ function toNonIndex(srcArr, idxArr, dstArr, stride) {
     }
 }
 
+class TetraMesh {
+    position;
+    normal;
+    uvw;
+    count;
+    constructor(d) {
+        this.position = d.position;
+        this.normal = d.normal;
+        this.uvw = d.uvw;
+        this.count = d.count;
+    }
+    applyAffineMat4(am) {
+        applyAffineMat4$1(this, am);
+        return this;
+    }
+    applyObj4(obj4) {
+        applyObj4$1(this, obj4);
+        return this;
+    }
+    clone() {
+        let ret = new TetraMesh({
+            position: this.position.slice(0),
+            count: this.count
+        });
+        if (this.uvw)
+            ret.uvw = this.uvw.slice(0);
+        if (this.normal)
+            ret.normal = this.normal.slice(0);
+        return ret;
+    }
+    toIndexMesh() {
+        let position = [];
+        let normal = [];
+        let uvw = [];
+        let posIdx = [];
+        let normalIdx = [];
+        let uvwIdx = [];
+        toIndexbuffer(this.position, position, posIdx, 4);
+        if (this.normal)
+            toIndexbuffer(this.normal, normal, normalIdx, 4);
+        if (this.uvw)
+            toIndexbuffer(this.uvw, uvw, uvwIdx, 4);
+        let out = new TetraIndexMesh({
+            position: new Float32Array(position),
+            positionIndex: new Uint32Array(posIdx)
+        });
+        if (this.normal)
+            out.normalIndex = new Uint32Array(normalIdx);
+        if (this.uvw)
+            out.uvwIndex = new Uint32Array(uvwIdx);
+        if (normal.length)
+            out.normal = new Float32Array(normal);
+        if (uvw.length)
+            out.uvw = new Float32Array(uvw);
+        return out;
+    }
+    /// this function will copy data and not modify original data
+    concat(mesh2) {
+        let position = new Float32Array(this.position.length + mesh2.position.length);
+        position.set(this.position);
+        position.set(mesh2.position, this.position.length);
+        let ret = new TetraMesh({ position, count: position.length >> 4 });
+        if (this.normal && mesh2.normal) {
+            let normal = new Float32Array(this.normal.length + mesh2.normal.length);
+            normal.set(this.normal);
+            normal.set(mesh2.normal, this.normal.length);
+            ret.normal = normal;
+        }
+        if (this.uvw && mesh2.uvw) {
+            let uvw = new Float32Array(this.uvw.length + mesh2.uvw.length);
+            uvw.set(this.uvw);
+            uvw.set(mesh2.uvw, this.uvw.length);
+            ret.uvw = uvw;
+        }
+        return ret;
+    }
+    /// this function will copy data and not modify original data
+    deleteTetras(tetras) {
+        let count = this.count ?? (this.position?.length >> 4);
+        let newCount = (count - tetras.length) << 4;
+        let p = new Float32Array(newCount);
+        let n;
+        let u;
+        if (this.normal)
+            n = new Float32Array(newCount);
+        if (this.uvw)
+            u = new Float32Array(newCount);
+        let offset = 0;
+        for (let i = 0; i < this.count; i++) {
+            if (!tetras.includes(i)) {
+                p.set(this.position.subarray(i << 4, (i + 1) << 4), offset);
+                if (n)
+                    n.set(this.normal.subarray(i << 4, (i + 1) << 4), offset);
+                if (u)
+                    u.set(this.uvw.subarray(i << 4, (i + 1) << 4), offset);
+                offset += 16;
+            }
+        }
+        return new TetraMesh({
+            position: p, normal: n, uvw: u, count: newCount >> 4
+        });
+    }
+    inverseNormal() {
+        let count = this.count ?? this.position.length >> 4;
+        let temp;
+        for (let i = 0; i < count; i++) {
+            let offset = i << 4;
+            temp = this.position[offset + 0];
+            this.position[offset + 0] = this.position[offset + 4];
+            this.position[offset + 4] = temp;
+            temp = this.position[offset + 1];
+            this.position[offset + 1] = this.position[offset + 5];
+            this.position[offset + 5] = temp;
+            temp = this.position[offset + 2];
+            this.position[offset + 2] = this.position[offset + 6];
+            this.position[offset + 6] = temp;
+            temp = this.position[offset + 3];
+            this.position[offset + 3] = this.position[offset + 7];
+            this.position[offset + 7] = temp;
+            if (this.uvw) {
+                temp = this.uvw[offset + 0];
+                this.uvw[offset + 0] = this.uvw[offset + 4];
+                this.uvw[offset + 4] = temp;
+                temp = this.uvw[offset + 1];
+                this.uvw[offset + 1] = this.uvw[offset + 5];
+                this.uvw[offset + 5] = temp;
+                temp = this.uvw[offset + 2];
+                this.uvw[offset + 2] = this.uvw[offset + 6];
+                this.uvw[offset + 6] = temp;
+                temp = this.uvw[offset + 3];
+                this.uvw[offset + 3] = this.uvw[offset + 7];
+                this.uvw[offset + 7] = temp;
+            }
+            if (this.normal) {
+                temp = this.normal[offset + 0];
+                this.normal[offset + 0] = this.normal[offset + 4];
+                this.normal[offset + 4] = temp;
+                temp = this.normal[offset + 1];
+                this.normal[offset + 1] = this.normal[offset + 5];
+                this.normal[offset + 5] = temp;
+                temp = this.normal[offset + 2];
+                this.normal[offset + 2] = this.normal[offset + 6];
+                this.normal[offset + 6] = temp;
+                temp = this.normal[offset + 3];
+                this.normal[offset + 3] = this.normal[offset + 7];
+                this.normal[offset + 7] = temp;
+            }
+        }
+        this.position;
+        if (this.normal) {
+            for (let i = 0, l = this.normal.length; i < l; i++) {
+                this.normal[i] = -this.normal[i];
+            }
+        }
+        return this;
+    }
+    setUVWAsPosition() {
+        if (!this.uvw)
+            this.uvw = this.position.slice(0);
+        else {
+            this.uvw.set(this.position);
+        }
+        return this;
+    }
+}
+class TetraIndexMesh {
+    position;
+    normal;
+    uvw;
+    positionIndex;
+    normalIndex;
+    uvwIndex;
+    count;
+    constructor(d) {
+        this.position = d.position;
+        this.normal = d.normal;
+        this.uvw = d.uvw;
+        this.positionIndex = d.positionIndex;
+        this.normalIndex = d.normalIndex;
+        this.uvwIndex = d.uvwIndex;
+        this.count = d.count;
+    }
+    applyAffineMat4(am) {
+        applyAffineMat4$1(this, am);
+        return this;
+    }
+    applyObj4(obj4) {
+        applyObj4$1(this, obj4);
+        return this;
+    }
+    toNonIndexMesh() {
+        let count = this.position.length << 2;
+        let out = new TetraMesh({
+            position: new Float32Array(count),
+            count: count >> 4
+        });
+        toNonIndex(this.position, this.positionIndex, out.position, 4);
+        if (this.normal) {
+            out.normal = new Float32Array(count);
+            toNonIndex(this.normal, this.normalIndex, out.normal, 4);
+        }
+        if (this.uvw) {
+            out.uvw = new Float32Array(count);
+            toNonIndex(this.uvw, this.uvwIndex, out.uvw, 4);
+        }
+        return out;
+    }
+}
+function applyAffineMat4$1(mesh, am) {
+    let vp = new Vec4();
+    for (let i = 0; i < mesh.position.length; i += 4) {
+        vp.set(mesh.position[i], mesh.position[i + 1], mesh.position[i + 2], mesh.position[i + 3]).mulmatls(am.mat).adds(am.vec).writeBuffer(mesh.position, i);
+        if (mesh.normal) {
+            vp.set(mesh.normal[i], mesh.normal[i + 1], mesh.normal[i + 2], mesh.normal[i + 3]).mulmatls(am.mat).writeBuffer(mesh.position, i);
+        }
+    }
+    return mesh;
+}
+function applyObj4$1(mesh, obj) {
+    let vp = new Vec4();
+    let scaleinv;
+    if (obj.scale && mesh.normal) {
+        scaleinv = new Vec4(1 / obj.scale.x, 1 / obj.scale.y, 1 / obj.scale.z, 1 / obj.scale.w);
+    }
+    for (let i = 0; i < mesh.position.length; i += 4) {
+        if (obj.scale) {
+            vp.set(mesh.position[i] * obj.scale.x, mesh.position[i + 1] * obj.scale.y, mesh.position[i + 2] * obj.scale.z, mesh.position[i + 3] * obj.scale.w).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.position, i);
+            if (mesh.normal) {
+                vp.set(mesh.normal[i] * scaleinv.x, mesh.normal[i + 1] * scaleinv.y, mesh.normal[i + 2] * scaleinv.z, mesh.normal[i + 3] * scaleinv.w).rotates(obj.rotation).norms().writeBuffer(mesh.normal, i);
+            }
+        }
+        else {
+            vp.set(mesh.position[i], mesh.position[i + 1], mesh.position[i + 2], mesh.position[i + 3]).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.position, i);
+            if (mesh.normal) {
+                vp.set(mesh.normal[i], mesh.normal[i + 1], mesh.normal[i + 2], mesh.normal[i + 3]).rotates(obj.rotation).writeBuffer(mesh.normal, i);
+            }
+        }
+    }
+    return mesh;
+}
+function concat(meshes) {
+    let length = 0;
+    let hasNormal = true;
+    let hasUvw = true;
+    for (let i = 0; i < meshes.length; i++) {
+        length += meshes[i].position.length;
+        hasUvw = hasUvw && (meshes[i].uvw ? true : false);
+        hasNormal = hasNormal && (meshes[i].normal ? true : false);
+    }
+    let position = new Float32Array(length);
+    let ret = new TetraMesh({ position, count: length >> 4 });
+    let normal, uvw;
+    if (hasNormal) {
+        normal = new Float32Array(length);
+        ret.normal = normal;
+    }
+    if (hasUvw) {
+        uvw = new Float32Array(length);
+        ret.uvw = uvw;
+    }
+    length = 0;
+    for (let i = 0; i < meshes.length; i++) {
+        position.set(meshes[i].position, length);
+        if (hasNormal) {
+            normal.set(meshes[i].normal, length);
+        }
+        if (hasUvw) {
+            uvw.set(meshes[i].uvw, length);
+        }
+        length += meshes[i].position.length;
+    }
+    return ret;
+}
+
 class FaceMesh {
     quad;
     triangle;
@@ -6732,11 +7451,11 @@ class FaceMesh {
         this.triangle = d.triangle;
     }
     applyAffineMat4(am) {
-        applyAffineMat4$1(this, am);
+        applyAffineMat4(this, am);
         return this;
     }
     applyObj4(obj4) {
-        applyObj4$1(this, obj4);
+        applyObj4(this, obj4);
         return this;
     }
     toIndexMesh() {
@@ -6896,11 +7615,11 @@ class FaceIndexMesh {
         this.uvw = d.uvw;
     }
     applyAffineMat4(am) {
-        applyAffineMat4$1(this, am);
+        applyAffineMat4(this, am);
         return this;
     }
     applyObj4(obj4) {
-        applyObj4$1(this, obj4);
+        applyObj4(this, obj4);
         return this;
     }
     toNonIndexMesh() {
@@ -7078,7 +7797,7 @@ class FaceIndexMesh {
         return ret;
     }
 }
-function applyAffineMat4$1(m, am) {
+function applyAffineMat4(m, am) {
     let vp = new Vec4();
     if (m.position) {
         const mesh = m;
@@ -7111,7 +7830,7 @@ function applyAffineMat4$1(m, am) {
         return mesh;
     }
 }
-function applyObj4$1(mesh, obj) {
+function applyObj4(mesh, obj) {
     let vp = new Vec4();
     let scaleinv;
     if (obj.scale && (mesh.normal || mesh.quad?.normal || mesh.triangle?.normal)) {
@@ -7387,280 +8106,6 @@ var face = /*#__PURE__*/Object.freeze({
     parametricSurface: parametricSurface$1,
     findBorder: findBorder
 });
-
-class TetraMesh {
-    position;
-    normal;
-    uvw;
-    count;
-    constructor(d) {
-        this.position = d.position;
-        this.normal = d.normal;
-        this.uvw = d.uvw;
-        this.count = d.count;
-    }
-    applyAffineMat4(am) {
-        applyAffineMat4(this, am);
-        return this;
-    }
-    applyObj4(obj4) {
-        applyObj4(this, obj4);
-        return this;
-    }
-    clone() {
-        let ret = new TetraMesh({
-            position: this.position.slice(0),
-            count: this.count
-        });
-        if (this.uvw)
-            ret.uvw = this.uvw.slice(0);
-        if (this.normal)
-            ret.normal = this.normal.slice(0);
-        return ret;
-    }
-    toIndexMesh() {
-        let position = [];
-        let normal = [];
-        let uvw = [];
-        let posIdx = [];
-        let normalIdx = [];
-        let uvwIdx = [];
-        toIndexbuffer(this.position, position, posIdx, 4);
-        if (this.normal)
-            toIndexbuffer(this.normal, normal, normalIdx, 4);
-        if (this.uvw)
-            toIndexbuffer(this.uvw, uvw, uvwIdx, 4);
-        let out = new TetraIndexMesh({
-            position: new Float32Array(position),
-            positionIndex: new Uint32Array(posIdx)
-        });
-        if (this.normal)
-            out.normalIndex = new Uint32Array(normalIdx);
-        if (this.uvw)
-            out.uvwIndex = new Uint32Array(uvwIdx);
-        if (normal.length)
-            out.normal = new Float32Array(normal);
-        if (uvw.length)
-            out.uvw = new Float32Array(uvw);
-        return out;
-    }
-    /// this function will copy data and not modify original data
-    concat(mesh2) {
-        let position = new Float32Array(this.position.length + mesh2.position.length);
-        position.set(this.position);
-        position.set(mesh2.position, this.position.length);
-        let ret = new TetraMesh({ position, count: position.length << 4 });
-        if (this.normal && mesh2.normal) {
-            let normal = new Float32Array(this.normal.length + mesh2.normal.length);
-            normal.set(this.normal);
-            normal.set(mesh2.normal, this.normal.length);
-            ret.normal = normal;
-        }
-        if (this.uvw && mesh2.uvw) {
-            let uvw = new Float32Array(this.uvw.length + mesh2.uvw.length);
-            uvw.set(this.uvw);
-            uvw.set(mesh2.uvw, this.uvw.length);
-            ret.uvw = uvw;
-        }
-        return ret;
-    }
-    /// this function will copy data and not modify original data
-    deleteTetras(tetras) {
-        let count = this.count ?? (this.position?.length >> 4);
-        let newCount = (count - tetras.length) << 4;
-        let p = new Float32Array(newCount);
-        let n;
-        let u;
-        if (this.normal)
-            n = new Float32Array(newCount);
-        if (this.uvw)
-            u = new Float32Array(newCount);
-        let offset = 0;
-        for (let i = 0; i < this.count; i++) {
-            if (!tetras.includes(i)) {
-                p.set(this.position.subarray(i << 4, (i + 1) << 4), offset);
-                if (n)
-                    n.set(this.normal.subarray(i << 4, (i + 1) << 4), offset);
-                if (u)
-                    u.set(this.uvw.subarray(i << 4, (i + 1) << 4), offset);
-                offset += 16;
-            }
-        }
-        return new TetraMesh({
-            position: p, normal: n, uvw: u, count: newCount >> 4
-        });
-    }
-    inverseNormal() {
-        let count = this.count ?? this.position.length >> 4;
-        let temp;
-        for (let i = 0; i < count; i++) {
-            let offset = i << 4;
-            temp = this.position[offset + 0];
-            this.position[offset + 0] = this.position[offset + 4];
-            this.position[offset + 4] = temp;
-            temp = this.position[offset + 1];
-            this.position[offset + 1] = this.position[offset + 5];
-            this.position[offset + 5] = temp;
-            temp = this.position[offset + 2];
-            this.position[offset + 2] = this.position[offset + 6];
-            this.position[offset + 6] = temp;
-            temp = this.position[offset + 3];
-            this.position[offset + 3] = this.position[offset + 7];
-            this.position[offset + 7] = temp;
-            if (this.uvw) {
-                temp = this.uvw[offset + 0];
-                this.uvw[offset + 0] = this.uvw[offset + 4];
-                this.uvw[offset + 4] = temp;
-                temp = this.uvw[offset + 1];
-                this.uvw[offset + 1] = this.uvw[offset + 5];
-                this.uvw[offset + 5] = temp;
-                temp = this.uvw[offset + 2];
-                this.uvw[offset + 2] = this.uvw[offset + 6];
-                this.uvw[offset + 6] = temp;
-                temp = this.uvw[offset + 3];
-                this.uvw[offset + 3] = this.uvw[offset + 7];
-                this.uvw[offset + 7] = temp;
-            }
-            if (this.normal) {
-                temp = this.normal[offset + 0];
-                this.normal[offset + 0] = this.normal[offset + 4];
-                this.normal[offset + 4] = temp;
-                temp = this.normal[offset + 1];
-                this.normal[offset + 1] = this.normal[offset + 5];
-                this.normal[offset + 5] = temp;
-                temp = this.normal[offset + 2];
-                this.normal[offset + 2] = this.normal[offset + 6];
-                this.normal[offset + 6] = temp;
-                temp = this.normal[offset + 3];
-                this.normal[offset + 3] = this.normal[offset + 7];
-                this.normal[offset + 7] = temp;
-            }
-        }
-        this.position;
-        if (this.normal) {
-            for (let i = 0, l = this.normal.length; i < l; i++) {
-                this.normal[i] = -this.normal[i];
-            }
-        }
-        return this;
-    }
-    setUVWAsPosition() {
-        if (!this.uvw)
-            this.uvw = this.position.slice(0);
-        else {
-            this.uvw.set(this.position);
-        }
-        return this;
-    }
-}
-class TetraIndexMesh {
-    position;
-    normal;
-    uvw;
-    positionIndex;
-    normalIndex;
-    uvwIndex;
-    count;
-    constructor(d) {
-        this.position = d.position;
-        this.normal = d.normal;
-        this.uvw = d.uvw;
-        this.positionIndex = d.positionIndex;
-        this.normalIndex = d.normalIndex;
-        this.uvwIndex = d.uvwIndex;
-        this.count = d.count;
-    }
-    applyAffineMat4(am) {
-        applyAffineMat4(this, am);
-        return this;
-    }
-    applyObj4(obj4) {
-        applyObj4(this, obj4);
-        return this;
-    }
-    toNonIndexMesh() {
-        let count = this.position.length << 2;
-        let out = new TetraMesh({
-            position: new Float32Array(count),
-            count: count >> 4
-        });
-        toNonIndex(this.position, this.positionIndex, out.position, 4);
-        if (this.normal) {
-            out.normal = new Float32Array(count);
-            toNonIndex(this.normal, this.normalIndex, out.normal, 4);
-        }
-        if (this.uvw) {
-            out.uvw = new Float32Array(count);
-            toNonIndex(this.uvw, this.uvwIndex, out.uvw, 4);
-        }
-        return out;
-    }
-}
-function applyAffineMat4(mesh, am) {
-    let vp = new Vec4();
-    for (let i = 0; i < mesh.position.length; i += 4) {
-        vp.set(mesh.position[i], mesh.position[i + 1], mesh.position[i + 2], mesh.position[i + 3]).mulmatls(am.mat).adds(am.vec).writeBuffer(mesh.position, i);
-        if (mesh.normal) {
-            vp.set(mesh.normal[i], mesh.normal[i + 1], mesh.normal[i + 2], mesh.normal[i + 3]).mulmatls(am.mat).writeBuffer(mesh.position, i);
-        }
-    }
-    return mesh;
-}
-function applyObj4(mesh, obj) {
-    let vp = new Vec4();
-    let scaleinv;
-    if (obj.scale && mesh.normal) {
-        scaleinv = new Vec4(1 / obj.scale.x, 1 / obj.scale.y, 1 / obj.scale.z, 1 / obj.scale.w);
-    }
-    for (let i = 0; i < mesh.position.length; i += 4) {
-        if (obj.scale) {
-            vp.set(mesh.position[i] * obj.scale.x, mesh.position[i + 1] * obj.scale.y, mesh.position[i + 2] * obj.scale.z, mesh.position[i + 3] * obj.scale.w).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.position, i);
-            if (mesh.normal) {
-                vp.set(mesh.normal[i] * scaleinv.x, mesh.normal[i + 1] * scaleinv.y, mesh.normal[i + 2] * scaleinv.z, mesh.normal[i + 3] * scaleinv.w).rotates(obj.rotation).norms().writeBuffer(mesh.normal, i);
-            }
-        }
-        else {
-            vp.set(mesh.position[i], mesh.position[i + 1], mesh.position[i + 2], mesh.position[i + 3]).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.position, i);
-            if (mesh.normal) {
-                vp.set(mesh.normal[i], mesh.normal[i + 1], mesh.normal[i + 2], mesh.normal[i + 3]).rotates(obj.rotation).writeBuffer(mesh.normal, i);
-            }
-        }
-    }
-    return mesh;
-}
-function concat(meshes) {
-    let length = 0;
-    let hasNormal = true;
-    let hasUvw = true;
-    for (let i = 0; i < meshes.length; i++) {
-        length += meshes[i].position.length;
-        hasUvw = hasUvw && (meshes[i].uvw ? true : false);
-        hasNormal = hasNormal && (meshes[i].normal ? true : false);
-    }
-    let position = new Float32Array(length);
-    let ret = new TetraMesh({ position, count: length >> 4 });
-    let normal, uvw;
-    if (hasNormal) {
-        normal = new Float32Array(length);
-        ret.normal = normal;
-    }
-    if (hasUvw) {
-        uvw = new Float32Array(length);
-        ret.uvw = uvw;
-    }
-    length = 0;
-    for (let i = 0; i < meshes.length; i++) {
-        position.set(meshes[i].position, length);
-        if (hasNormal) {
-            normal.set(meshes[i].normal, length);
-        }
-        if (hasUvw) {
-            uvw.set(meshes[i].uvw, length);
-        }
-        length += meshes[i].position.length;
-    }
-    return ret;
-}
 
 let cube = new TetraMesh({
     position: new Float32Array([
@@ -8797,6 +9242,56 @@ function directProduct(shape1, shape2) {
     }
     return new TetraMesh({ position, normal, uvw, count: position.length >> 4 });
 }
+function cwmesh(cwmesh, notClosed) {
+    let simplexes;
+    const borders = cwmesh.findBorder(4);
+    if (!borders)
+        notClosed = true;
+    if (!notClosed) {
+        // closed 4d objecgt's surface
+        const cells = [];
+        const cellsO = [];
+        for (const [cellId, border] of borders.entries()) {
+            if (border !== 1 && border !== -1)
+                continue;
+            cells.push(cellId);
+            cellsO.push(border === 1);
+        }
+        simplexes = cwmesh.triangulate(3, cells, cellsO).flat();
+    }
+    else {
+        simplexes = cwmesh.triangulate(3, cwmesh.data[3].map((_, idx) => idx)).flat();
+    }
+    const arrLen = simplexes.length << 4;
+    const tetramesh = new TetraMesh({
+        position: new Float32Array(arrLen),
+        normal: new Float32Array(arrLen),
+        count: simplexes.length
+    });
+    let offset = 0;
+    const vertices = cwmesh.data[0];
+    const v1 = new Vec4, v2 = new Vec4, v3 = new Vec4;
+    for (const s of simplexes) {
+        const a0 = vertices[s[0]];
+        const a1 = vertices[s[1]];
+        const a2 = vertices[s[2]];
+        const a3 = vertices[s[3]];
+        const normal = v1.subset(a0, a1).wedge(v2.subset(a0, a2)).wedgev(v3.subset(a0, a3)).norms();
+        a0.writeBuffer(tetramesh.position, offset);
+        normal.writeBuffer(tetramesh.normal, offset);
+        offset += 4;
+        a1.writeBuffer(tetramesh.position, offset);
+        normal.writeBuffer(tetramesh.normal, offset);
+        offset += 4;
+        a2.writeBuffer(tetramesh.position, offset);
+        normal.writeBuffer(tetramesh.normal, offset);
+        offset += 4;
+        a3.writeBuffer(tetramesh.position, offset);
+        normal.writeBuffer(tetramesh.normal, offset);
+        offset += 4;
+    }
+    return tetramesh;
+}
 
 var tetra = /*#__PURE__*/Object.freeze({
     __proto__: null,
@@ -8818,197 +9313,8 @@ var tetra = /*#__PURE__*/Object.freeze({
     duocylinder: duocylinder,
     loft: loft,
     rotatoid: rotatoid,
-    directProduct: directProduct
-});
-
-class ObjFile {
-    data;
-    constructor(data) {
-        this.data = this.stringify(data);
-    }
-    stringify(data) {
-        if (typeof data === "string")
-            return data;
-        let out = "# Tesserxel ObjFile Parser\n# github.com/wxyhly/tesserxel\n";
-        out += writeVertexLike("v", data.position);
-        if (data.normal)
-            out += writeVertexLike("vn", data.normal);
-        if (data.uvw)
-            out += writeVertexLike("vt", data.uvw);
-        if (data.positionIndex) {
-            let m = data;
-            out += writeFaceLike("t", m.positionIndex, m.uvwIndex, m.normalIndex, 4);
-            return out;
-        }
-        let m = data;
-        if (m.triangle) {
-            out += writeFaceLike("f", m.triangle.position, m.triangle.uvw, m.triangle.normal, 3);
-        }
-        if (m.quad) {
-            out += writeFaceLike("f", m.quad.position, m.quad.uvw, m.quad.normal, 4);
-        }
-        return out;
-        function writeVertexLike(identifier, data) {
-            let out = "\n";
-            const reg = new RegExp(" " + (0).toPrecision(7) + "$", "g");
-            for (let i = 0, l = data.length; i < l; i += 4) {
-                let line = identifier;
-                for (let q = 0; q < 4; q++) {
-                    line += " " + data[i + q].toPrecision(7);
-                }
-                line = line.trim().replace(reg, "");
-                if (identifier === "vt")
-                    line = line.replace(reg, "");
-                out += line + "\n";
-            }
-            return out;
-        }
-        function writeFaceLike(identifier, v, vt, vn, stride) {
-            let out = "\n";
-            for (let i = 0, l = v.length; i < l; i += stride) {
-                let line = identifier;
-                for (let q = 0; q < stride; q++) {
-                    line += " " + (v[i + q] + 1);
-                    if (vt)
-                        line += "/" + (vt[i + q] + 1);
-                    if (vn)
-                        line += "/" + (vn[i + q] + 1);
-                    line = line.replace(/\/+$/, "");
-                }
-                out += line + "\n";
-            }
-            return out;
-        }
-    }
-    parse() {
-        let lines = this.data.split("\n");
-        let v = [];
-        let vt = [];
-        let vn = [];
-        let quad = {
-            v: [],
-            vt: [],
-            vn: [],
-        };
-        let tetra = {
-            v: [],
-            vt: [],
-            vn: [],
-        };
-        let triangle = {
-            v: [],
-            vt: [],
-            vn: [],
-        };
-        for (let i = 0, l = lines.length; i < l; i++) {
-            let line = lines[i].trim();
-            if (isCommentOrEmpty(line))
-                continue;
-            let splitArr = line.toLowerCase().split(/\s/g);
-            switch (splitArr[0]) {
-                case "o":
-                    // parseObj(splitArr);
-                    break;
-                case "v":
-                    parseVertexLike(v, splitArr);
-                    break;
-                case "vt":
-                    parseVertexLike(vt, splitArr);
-                    break;
-                case "vn":
-                    parseVertexLike(vn, splitArr);
-                    break;
-                case "f":
-                    if (splitArr.length === 5) {
-                        parseFaceLike(quad, splitArr);
-                    }
-                    else if (splitArr.length === 4) {
-                        parseFaceLike(triangle, splitArr);
-                    }
-                    else {
-                        error(i, "Unsupported polygonal face: Only triangles and quads are allowed.");
-                    }
-                    break;
-                case "t":
-                    if (splitArr.length === 5) {
-                        parseFaceLike(tetra, splitArr);
-                    }
-                    else {
-                        error(i, `Vertices of tetrahedron must be 4, found ${splitArr.length - 1} vertices.`);
-                    }
-            }
-        }
-        let out = tetra.v.length ? {
-            position: new Float32Array(v),
-            positionIndex: new Uint32Array(tetra.v)
-        } : {
-            position: new Float32Array(v)
-        };
-        if (vt.length)
-            out.uvw = new Float32Array(vt);
-        if (vn.length)
-            out.normal = new Float32Array(vn);
-        if (triangle.v.length) {
-            out.triangle = {
-                position: new Uint32Array(triangle.v)
-            };
-            if (triangle.vt.length)
-                out.triangle.uvw = new Uint32Array(triangle.vt);
-            if (triangle.vn.length)
-                out.triangle.normal = new Uint32Array(triangle.vn);
-        }
-        if (quad.v.length) {
-            out.quad = {
-                position: new Uint32Array(quad.v)
-            };
-            if (quad.vt.length)
-                out.quad.uvw = new Uint32Array(quad.vt);
-            if (quad.vn.length)
-                out.quad.normal = new Uint32Array(quad.vn);
-        }
-        if (tetra.v.length) {
-            if (tetra.vt.length)
-                out.uvwIndex = new Uint32Array(tetra.vt);
-            if (tetra.vn.length)
-                out.normalIndex = new Uint32Array(tetra.vn);
-        }
-        return out;
-        function parseVertexLike(dst, splitArr) {
-            while (splitArr.length < 5) {
-                splitArr.push("0");
-            }
-            for (let i = 1, l = splitArr.length; i < l; i++) {
-                dst.push(Number(splitArr[i]));
-            }
-        }
-        function parseFaceLike(dst, splitArr) {
-            for (let i = 1, l = splitArr.length; i < l; i++) {
-                let attrs = splitArr[i].split("/");
-                dst.v.push(Number(attrs[0]) - 1);
-                if (attrs[1])
-                    dst.vt.push(Number(attrs[1]) - 1);
-                if (attrs[2])
-                    dst.vn.push(Number(attrs[2]) - 1);
-            }
-        }
-        function isCommentOrEmpty(line) {
-            return line === "" || line[0] === "#";
-        }
-        function error(line, msg) {
-            console.error("ObjFileParser: " + msg + "\n at line " + line + `"${lines[line]}"`);
-        }
-    }
-}
-
-var mesh = /*#__PURE__*/Object.freeze({
-    __proto__: null,
-    face: face,
-    tetra: tetra,
-    FaceMesh: FaceMesh,
-    FaceIndexMesh: FaceIndexMesh,
-    TetraMesh: TetraMesh,
-    TetraIndexMesh: TetraIndexMesh,
-    ObjFile: ObjFile
+    directProduct: directProduct,
+    cwmesh: cwmesh
 });
 
 class Scene {
@@ -9100,51 +9406,6 @@ class Geometry {
             obb.max.z = Math.max(obb.max.z, pos[i + 2]);
             obb.max.w = Math.max(obb.max.w, pos[i + 3]);
         }
-    }
-}
-class TesseractGeometry extends Geometry {
-    constructor(size) {
-        super(tesseract());
-        if (size)
-            this.jsBuffer.applyObj4(new Obj4(null, null, size instanceof Vec4 ? size : new Vec4(size, size, size, size)));
-    }
-}
-class CubeGeometry extends Geometry {
-    constructor(size) {
-        super(cube.clone());
-        if (size)
-            this.jsBuffer.applyObj4(new Obj4(null, null, size instanceof Vec3 ? new Vec4(size.x, 1, size.y, size.z) : new Vec4(size, 1, size, size)));
-    }
-}
-class GlomeGeometry extends Geometry {
-    constructor(size = 1, detail = 2) {
-        super(glome(size, detail * 8, detail * 8, detail * 6));
-    }
-}
-class SpheritorusGeometry extends Geometry {
-    constructor(sphereRadius = 0.4, circleRadius = 1, detail = 2) {
-        super(spheritorus(sphereRadius, detail * 8, detail * 6, circleRadius, detail * 8));
-    }
-}
-class TorisphereGeometry extends Geometry {
-    constructor(circleRadius = 0.2, sphereRadius = 0.8, detail = 2) {
-        super(torisphere(circleRadius, detail * 6, sphereRadius, detail * 8, detail * 6));
-    }
-}
-class SpherinderSideGeometry extends Geometry {
-    constructor(sphereRadius1 = 0.4, sphereRadius2 = sphereRadius1, height = 1, detail = 2) {
-        super(spherinderSide(sphereRadius1, sphereRadius2, detail * 8, detail * 6, height, detail * 2));
-    }
-}
-class TigerGeometry extends Geometry {
-    constructor(circleRadius = 0.2, radius1 = 0.8, radius2 = 0.8, detail = 2) {
-        super(tiger(radius1, detail * 8, radius2, detail * 8, circleRadius, detail * 6));
-    }
-}
-class ConvexHullGeometry extends Geometry {
-    constructor(points) {
-        super(convexhull(points));
-        console.assert(false, "todo: need to generate normal");
     }
 }
 class SkyBox {
@@ -10353,6 +10614,830 @@ class NoiseTexture extends MaterialNode {
     }
 }
 
+class ObjFile {
+    data;
+    constructor(data) {
+        this.data = this.stringify(data);
+    }
+    stringify(data) {
+        if (typeof data === "string")
+            return data;
+        let out = "# Tesserxel ObjFile Parser\n# github.com/wxyhly/tesserxel\n";
+        out += writeVertexLike("v", data.position);
+        if (data.normal)
+            out += writeVertexLike("vn", data.normal);
+        if (data.uvw)
+            out += writeVertexLike("vt", data.uvw);
+        if (data.positionIndex) {
+            let m = data;
+            out += writeFaceLike("t", m.positionIndex, m.uvwIndex, m.normalIndex, 4);
+            return out;
+        }
+        let m = data;
+        if (m.triangle) {
+            out += writeFaceLike("f", m.triangle.position, m.triangle.uvw, m.triangle.normal, 3);
+        }
+        if (m.quad) {
+            out += writeFaceLike("f", m.quad.position, m.quad.uvw, m.quad.normal, 4);
+        }
+        return out;
+        function writeVertexLike(identifier, data) {
+            let out = "\n";
+            const reg = new RegExp(" " + (0).toPrecision(7) + "$", "g");
+            for (let i = 0, l = data.length; i < l; i += 4) {
+                let line = identifier;
+                for (let q = 0; q < 4; q++) {
+                    line += " " + data[i + q].toPrecision(7);
+                }
+                line = line.trim().replace(reg, "");
+                if (identifier === "vt")
+                    line = line.replace(reg, "");
+                out += line + "\n";
+            }
+            return out;
+        }
+        function writeFaceLike(identifier, v, vt, vn, stride) {
+            let out = "\n";
+            for (let i = 0, l = v.length; i < l; i += stride) {
+                let line = identifier;
+                for (let q = 0; q < stride; q++) {
+                    line += " " + (v[i + q] + 1);
+                    if (vt)
+                        line += "/" + (vt[i + q] + 1);
+                    if (vn)
+                        line += "/" + (vn[i + q] + 1);
+                    line = line.replace(/\/+$/, "");
+                }
+                out += line + "\n";
+            }
+            return out;
+        }
+    }
+    parse() {
+        let lines = this.data.split("\n");
+        let v = [];
+        let vt = [];
+        let vn = [];
+        let quad = {
+            v: [],
+            vt: [],
+            vn: [],
+        };
+        let tetra = {
+            v: [],
+            vt: [],
+            vn: [],
+        };
+        let triangle = {
+            v: [],
+            vt: [],
+            vn: [],
+        };
+        for (let i = 0, l = lines.length; i < l; i++) {
+            let line = lines[i].trim();
+            if (isCommentOrEmpty(line))
+                continue;
+            let splitArr = line.toLowerCase().split(/\s/g);
+            switch (splitArr[0]) {
+                case "o":
+                    // parseObj(splitArr);
+                    break;
+                case "v":
+                    parseVertexLike(v, splitArr);
+                    break;
+                case "vt":
+                    parseVertexLike(vt, splitArr);
+                    break;
+                case "vn":
+                    parseVertexLike(vn, splitArr);
+                    break;
+                case "f":
+                    if (splitArr.length === 5) {
+                        parseFaceLike(quad, splitArr);
+                    }
+                    else if (splitArr.length === 4) {
+                        parseFaceLike(triangle, splitArr);
+                    }
+                    else {
+                        error(i, "Unsupported polygonal face: Only triangles and quads are allowed.");
+                    }
+                    break;
+                case "t":
+                    if (splitArr.length === 5) {
+                        parseFaceLike(tetra, splitArr);
+                    }
+                    else {
+                        error(i, `Vertices of tetrahedron must be 4, found ${splitArr.length - 1} vertices.`);
+                    }
+            }
+        }
+        let out = tetra.v.length ? {
+            position: new Float32Array(v),
+            positionIndex: new Uint32Array(tetra.v)
+        } : {
+            position: new Float32Array(v)
+        };
+        if (vt.length)
+            out.uvw = new Float32Array(vt);
+        if (vn.length)
+            out.normal = new Float32Array(vn);
+        if (triangle.v.length) {
+            out.triangle = {
+                position: new Uint32Array(triangle.v)
+            };
+            if (triangle.vt.length)
+                out.triangle.uvw = new Uint32Array(triangle.vt);
+            if (triangle.vn.length)
+                out.triangle.normal = new Uint32Array(triangle.vn);
+        }
+        if (quad.v.length) {
+            out.quad = {
+                position: new Uint32Array(quad.v)
+            };
+            if (quad.vt.length)
+                out.quad.uvw = new Uint32Array(quad.vt);
+            if (quad.vn.length)
+                out.quad.normal = new Uint32Array(quad.vn);
+        }
+        if (tetra.v.length) {
+            if (tetra.vt.length)
+                out.uvwIndex = new Uint32Array(tetra.vt);
+            if (tetra.vn.length)
+                out.normalIndex = new Uint32Array(tetra.vn);
+        }
+        return out;
+        function parseVertexLike(dst, splitArr) {
+            while (splitArr.length < 5) {
+                splitArr.push("0");
+            }
+            for (let i = 1, l = splitArr.length; i < l; i++) {
+                dst.push(Number(splitArr[i]));
+            }
+        }
+        function parseFaceLike(dst, splitArr) {
+            for (let i = 1, l = splitArr.length; i < l; i++) {
+                let attrs = splitArr[i].split("/");
+                dst.v.push(Number(attrs[0]) - 1);
+                if (attrs[1])
+                    dst.vt.push(Number(attrs[1]) - 1);
+                if (attrs[2])
+                    dst.vn.push(Number(attrs[2]) - 1);
+            }
+        }
+        function isCommentOrEmpty(line) {
+            return line === "" || line[0] === "#";
+        }
+        function error(line, msg) {
+            console.error("ObjFileParser: " + msg + "\n at line " + line + `"${lines[line]}"`);
+        }
+    }
+}
+
+function range(i) {
+    const arr = [];
+    for (let j = 0; j < i; j++) {
+        arr.push(j);
+    }
+    return arr;
+}
+class CWMeshSelection {
+    cwmesh;
+    selData;
+    constructor(cwmesh, data) {
+        this.cwmesh = cwmesh;
+        this.selData = data ?? [];
+    }
+    clone() {
+        return new CWMeshSelection(this.cwmesh, this.selData.map(set => new Set(set)));
+    }
+    /// this function modify selection into closure
+    closure() {
+        const sel = this.selData;
+        for (let dim = sel.length - 1; dim > 0; dim--) {
+            if (!sel[dim])
+                continue;
+            const faces = this.cwmesh.data[dim];
+            for (const faceId of sel[dim]) {
+                for (const d_faceId of faces[faceId]) {
+                    sel[dim - 1] ??= new Set();
+                    sel[dim - 1].add(d_faceId);
+                }
+            }
+        }
+        return this;
+    }
+    addFace(dim, faceId) {
+        const seldata = this.selData;
+        seldata[dim] ??= new Set;
+        seldata[dim].add(faceId);
+        return this;
+    }
+}
+class CWMesh {
+    data = [];
+    orientation = [];
+    clone() {
+        const newcwmesh = new CWMesh();
+        newcwmesh.data = this.data.map(dataDim => dataDim ? dataDim.map((face) => face instanceof Vec4 ? face.clone() : face.slice(0)) : undefined);
+        newcwmesh.orientation = this.orientation.map(oDim => oDim ? oDim.map((faceO) => faceO.slice(0)) : undefined);
+        return newcwmesh;
+    }
+    /* structure normalizations */
+    /// faces must be orientated
+    sort2DFace() {
+        const d_faces = this.data[1];
+        const facesO = this.orientation[2];
+        const faces = this.data[2];
+        for (const [faceId, face] of faces.entries()) {
+            const faceO = facesO[faceId];
+            const dd2nextdfaceMap = new Map();
+            for (const [d_faceIdx, d_faceId] of face.entries()) {
+                const d_face = d_faces[d_faceId];
+                const o = faceO[d_faceIdx];
+                dd2nextdfaceMap.set(d_face[o ? 0 : 1], d_faceIdx);
+            }
+            let curIdx = 0;
+            let newOrder = [curIdx];
+            const faceLength = face.length;
+            while (true) {
+                const d_faceId = face[curIdx];
+                const next_dd_faceIdx = faceO[curIdx] ? 1 : 0;
+                const dd_faceId = d_faces[d_faceId][next_dd_faceIdx];
+                curIdx = dd2nextdfaceMap.get(dd_faceId);
+                if (curIdx === 0)
+                    break;
+                newOrder.push(curIdx);
+                if (newOrder.length > faceLength) {
+                    console.error("Non manifold structure found.");
+                    break;
+                }
+            }
+            faces[faceId] = newOrder.map(i => face[i]);
+            facesO[faceId] = newOrder.map(i => faceO[i]);
+        }
+    }
+    flipOrientation(dim, faceIds) {
+        faceIds ??= range(this.data[dim].length);
+        if (dim === 0)
+            throw "Vertex orientation flip is not implemented";
+        if (dim === 1) {
+            const edgeTable = this.data[1];
+            for (const faceId of faceIds) {
+                const edge = edgeTable[faceId];
+                const a = edge[0];
+                edge[0] = edge[1];
+                edge[1] = a;
+            }
+        }
+        else {
+            const oTable = this.orientation[dim];
+            if (!oTable)
+                throw "Orientation is undefiend";
+            for (const faceId of faceIds) {
+                const o = oTable[faceId];
+                if (o === undefined)
+                    throw "Orientation is undefiend";
+                for (let i = 0; i < o.length; i++)
+                    o[i] = !o[i];
+            }
+        }
+        const cellTable = this.data[dim + 1];
+        const cellOTable = this.orientation[dim + 1];
+        if (!cellOTable)
+            return;
+        for (const [cellId, cell] of cellTable.entries()) {
+            for (const [faceIdx, faceId] of cell.entries()) {
+                if (faceIds.includes(faceId)) {
+                    cellOTable[cellId][faceIdx] = !cellOTable[cellId][faceIdx];
+                }
+            }
+        }
+    }
+    calculateOrientationInFace(dim, faceId) {
+        this.orientation ??= [];
+        this.orientation[dim] ??= [];
+        if (this.orientation[dim][faceId])
+            return;
+        if (dim === 0)
+            return;
+        if (dim === 1)
+            return; // edge: [1, -1]
+        const face = this.data[dim][faceId];
+        // if d_face not oriented yet, deal with it first
+        if (dim !== 2) {
+            for (const d_faceId of face) {
+                this.orientation[dim - 1] ??= [];
+                if (!this.orientation[dim - 1][d_faceId])
+                    this.calculateOrientationInFace(dim - 1, d_faceId);
+            }
+        }
+        // get all dd_face and its table
+        const dd2dtable = new Map;
+        const d_faces = face.map(d_faceId => this.data[dim - 1][d_faceId]);
+        let d_faceIdx = 0;
+        for (const d_face of d_faces) {
+            for (const [dd_faceIdx, dd_faceId] of d_face.entries()) {
+                if (!dd2dtable.has(dd_faceId))
+                    dd2dtable.set(dd_faceId, new Array());
+                dd2dtable.get(dd_faceId).push([dd_faceIdx, d_faceIdx]);
+            }
+            d_faceIdx++;
+        }
+        const faceO = new Array(face.length);
+        faceO[0] = true;
+        let current_d_faceIdxs = [];
+        let current_d_faceIdx = 0;
+        const dfOTable = this.orientation[dim - 1];
+        while (current_d_faceIdx !== undefined) {
+            const currentFaceId = face[current_d_faceIdx];
+            for (const [dd_faceIdx, dd_faceId] of d_faces[current_d_faceIdx].entries()) {
+                const ajacent_d_faceIdxs = dd2dtable.get(dd_faceId);
+                if (ajacent_d_faceIdxs.length > 2)
+                    throw "Non manifold structure found";
+                if (ajacent_d_faceIdxs.length === 1)
+                    continue;
+                let [next_dd_faceIdx, next_d_faceIdx] = ajacent_d_faceIdxs[0][1] === current_d_faceIdx ? ajacent_d_faceIdxs[1] : ajacent_d_faceIdxs[0];
+                if (faceO[next_d_faceIdx] !== undefined)
+                    continue;
+                const dd_faceOInCurrentFace = dim === 2 ? 0 === dd_faceIdx : dfOTable[currentFaceId][dd_faceIdx];
+                const dd_faceOInNextFace = dim === 2 ? 0 === next_dd_faceIdx : dfOTable[face[next_d_faceIdx]][next_dd_faceIdx];
+                faceO[next_d_faceIdx] = (faceO[current_d_faceIdx] === dd_faceOInCurrentFace) !== dd_faceOInNextFace;
+                current_d_faceIdxs.push(next_d_faceIdx);
+            }
+            current_d_faceIdx = current_d_faceIdxs.pop();
+        }
+        this.orientation[dim][faceId] = faceO;
+    }
+    /// this will reorder faceIds after deleting
+    deleteSelection(sel) {
+        const remapping = [];
+        for (const [dim, selDim] of sel.selData.entries()) {
+            if (!selDim)
+                continue;
+            remapping[dim] = new Map;
+            let newId = 0;
+            let del;
+            this.data[dim] = this.data[dim].filter((face, faceId) => (del = !selDim.has(faceId),
+                remapping[dim].set(faceId, del ? -1 : newId++),
+                del));
+            this.orientation[dim] = this.orientation[dim].filter((face, faceId) => !selDim.has(faceId));
+        }
+        for (const [dim, dataDim] of this.data.entries()) {
+            const remapDim = remapping[dim - 1];
+            if (!remapDim || !remapDim.size)
+                continue;
+            for (const face of dataDim) {
+                for (const [faceIdx, faceId] of face.entries()) {
+                    face[faceIdx] = remapDim.get(faceId);
+                    if (face[faceIdx] === -1)
+                        throw "A deleted subface is used by other faces";
+                }
+            }
+        }
+        return remapping;
+    }
+    /* get informations from part of cwmesh */
+    findBorder(dim, faceIds) {
+        if (dim === 0)
+            return;
+        if (!this.data[dim] || !this.data[dim].length)
+            return;
+        faceIds ??= new Set(range(this.data[dim].length));
+        const bordersO = new Map();
+        const faces = this.data[dim];
+        const facesO = this.orientation[dim] ?? [];
+        for (const faceId of faceIds) {
+            const face = faces[faceId];
+            const faceO = dim === 1 ? [false, true] : facesO[faceId] ?? [];
+            for (const [d_faceIdx, d_faceId] of face.entries()) {
+                const orientation = faceO[d_faceIdx];
+                if (!bordersO.get(d_faceId)) {
+                    bordersO.set(d_faceId, (orientation === undefined) ? NaN : (orientation ? 1 : -1));
+                }
+                else {
+                    const prev = bordersO.get(d_faceId);
+                    if (isNaN(prev))
+                        bordersO.delete(d_faceId);
+                    bordersO.set(d_faceId, prev + (orientation ? 1 : -1));
+                }
+            }
+        }
+        for (const [k, v] of bordersO) {
+            if (v === 0) {
+                bordersO.delete(k);
+            }
+        }
+        return bordersO;
+    }
+    getAllSelection() {
+        return new CWMeshSelection(this, this.data.map(dimData => dimData ? new Set(range(dimData.length)) : undefined));
+    }
+    /// faces must be flat, convex and orientated
+    triangulate(dim, faceIds, orientations) {
+        faceIds ??= range(this.data[dim].length);
+        const faces = this.data[dim];
+        const facesO = this.orientation[dim];
+        if (dim === 0) {
+            throw "can't triangulate points";
+        }
+        if (dim === 1) {
+            return faceIds.map((id, idx) => [
+                !orientations || orientations[idx] === false ? [
+                    this.data[1][id][1], this.data[1][id][0]
+                ] : [
+                    this.data[1][id][0], this.data[1][id][1]
+                ]
+            ]);
+        }
+        const result = [];
+        for (const [faceIdx, faceId] of faceIds.entries()) {
+            const face = faces[faceId];
+            const faceO = facesO[faceId];
+            // get the first vertex
+            let subfaceDim = dim - 1;
+            let subface0Id = face[0];
+            while (subfaceDim) {
+                subface0Id = this.data[subfaceDim--][subface0Id][0];
+            }
+            const d_faceWaitForTriagulate = [];
+            const d_faceWaitForTriagulateO = [];
+            for (const [d_faceIdx, d_faceId] of face.entries()) {
+                // get subfaces who contain the first vertex
+                const tempsel = new CWMeshSelection(this).addFace(dim - 1, d_faceId).closure();
+                if (tempsel.selData[0].has(subface0Id))
+                    continue;
+                d_faceWaitForTriagulate.push(d_faceId);
+                d_faceWaitForTriagulateO.push(faceO[d_faceIdx]);
+            }
+            const faceResult = this.triangulate(dim - 1, d_faceWaitForTriagulate, d_faceWaitForTriagulateO).flat();
+            faceResult.forEach(s => {
+                s.push(subface0Id);
+                if (orientations && orientations[faceIdx] === false) {
+                    const temp = s[0];
+                    s[0] = s[1];
+                    s[1] = temp;
+                }
+            });
+            result.push(faceResult);
+        }
+        return result;
+    }
+    /* modify topology of cwmesh */
+    duplicate(sel, notCheckselectionClosure) {
+        if (!sel)
+            notCheckselectionClosure = true;
+        sel ??= this.getAllSelection();
+        const closure = (notCheckselectionClosure ? sel : sel.closure()).selData;
+        const info = [];
+        const vertexIsVec4 = this.data[0][0] instanceof Vec4;
+        for (const [dim, faceIdList] of closure.entries()) {
+            info[dim] = new Map;
+            const faces = this.data[dim];
+            const facesO = this.orientation[dim];
+            for (const faceId of faceIdList) {
+                const f0 = faces.length;
+                info[dim].set(faceId, f0);
+                if (dim === 0)
+                    faces.push((vertexIsVec4 ? faces[faceId].clone() : []));
+                else {
+                    faces.push(faces[faceId].map(d_faceId => info[dim - 1].get(d_faceId)));
+                    if (facesO && facesO[faceId]) {
+                        facesO[f0] = facesO[faceId].slice(0);
+                    }
+                }
+            }
+        }
+        return info;
+    }
+    // before making bridge, oritation must be consist, this can be checked and corrected (todo)						
+    bridge(mapInfo) {
+        const info = [];
+        for (const [dim, faceIdList] of mapInfo.entries()) {
+            const faces = this.data[dim];
+            const facesO = this.orientation[dim];
+            this.data[dim + 1] ??= [];
+            const cells = this.data[dim + 1];
+            const invO = (dim & 1) === 0;
+            if (!this.orientation[dim + 1])
+                this.orientation[dim + 1] = [];
+            const cellsO = this.orientation[dim + 1];
+            for (const [faceId, clonedFaceId] of faceIdList) {
+                const face = faces[faceId];
+                const faceO = facesO ? facesO[faceId] : undefined;
+                const newId = cells.length;
+                info[dim] ??= new Map;
+                info[dim].set(faceId, newId);
+                if (dim === 0)
+                    cells.push([faceId, clonedFaceId]);
+                else {
+                    const newCell = face.map(d_faceId => info[dim - 1].get(d_faceId));
+                    newCell.push(faceId, clonedFaceId);
+                    cells.push(newCell);
+                    // D(Extrude(A)) = (-1)^(dim+1)(A - Aclone) + Extrude(DA)
+                    const newCellO = dim === 1 ? [false, true] : faceO.slice(0);
+                    newCellO.push(!invO, invO);
+                    cellsO[newId] = newCellO;
+                }
+            }
+        }
+        return info;
+    }
+    topologicalExtrude(sel) {
+        sel ??= this.getAllSelection();
+        const cloneInfo = this.duplicate(sel);
+        const bridgeInfo = this.bridge(cloneInfo);
+        return { cloneInfo, bridgeInfo };
+    }
+    topologicalCone(sel, notCheckselectionClosure) {
+        if (!sel)
+            notCheckselectionClosure = true;
+        sel ??= this.getAllSelection();
+        sel = notCheckselectionClosure ? sel : sel.closure();
+        const info = [];
+        const v0 = this.data[0].length;
+        this.data[0].push(this.data[0][0] instanceof Vec4 ? new Vec4() : []);
+        for (const [dim, faceIdList] of sel.selData.entries()) {
+            const faces = this.data[dim];
+            const facesO = this.orientation[dim];
+            this.data[dim + 1] ??= [];
+            const cells = this.data[dim + 1];
+            this.orientation[dim + 1] ??= [];
+            const invO = (dim & 1) === 0;
+            const cellsO = this.orientation[dim + 1];
+            for (const faceId of faceIdList) {
+                const face = faces[faceId];
+                const faceO = facesO ? facesO[faceId] : undefined;
+                const newId = cells.length;
+                info[dim] ??= new Map;
+                info[dim].set(faceId, newId);
+                if (dim === 0)
+                    cells.push([faceId, v0]);
+                else {
+                    const newCell = face.map(d_faceId => info[dim - 1].get(d_faceId));
+                    newCell.push(faceId);
+                    cells.push(newCell);
+                    // D(Cone(A)) = (-1)^(dim+1)A + Cone(DA)
+                    if (faceO) {
+                        const newCellO = faceO.slice(0);
+                        newCellO.push(!invO);
+                        cellsO[newId] = newCellO;
+                    }
+                    else if (dim === 1) {
+                        cellsO[newId] = [false, true, !invO];
+                    }
+                }
+            }
+        }
+        return {
+            coneVertex: v0,
+            map: info
+        };
+    }
+    // this U= this[thisSel] x shape2[shape2Sel]
+    topologicalProduct(shape2, thisSel, shape2Sel) {
+        if (thisSel)
+            thisSel.closure();
+        if (shape2Sel)
+            shape2Sel.closure();
+        thisSel ??= this.getAllSelection();
+        shape2Sel ??= shape2.getAllSelection();
+        // productInfo[dim2].get(face2Id)[dim1].get(face1Id) ==> face1_x_face2_Id
+        const productInfo = [new Map];
+        // this[i] x shape2[0]
+        let firstCopy = true;
+        for (const sp2vId of shape2Sel.selData[0]) {
+            if (firstCopy) {
+                const identityInfo = thisSel.selData.map(set => new Map(set.entries()));
+                productInfo[0].set(sp2vId, identityInfo);
+                firstCopy = false;
+            }
+            else {
+                const cloneInfo = this.duplicate(thisSel, true);
+                productInfo[0].set(sp2vId, cloneInfo);
+            }
+        }
+        // loop shape2
+        for (const [dim2, thisSel2dim] of shape2Sel.selData.entries()) {
+            // skip shape2[0], already calculated
+            if (!dim2 || !thisSel2dim)
+                continue;
+            const faces2 = shape2.data[dim2];
+            const faces2O = shape2.orientation[dim2];
+            productInfo[dim2] ??= new Map;
+            const productInfoDim2 = productInfo[dim2];
+            for (const face2Id of thisSel2dim) {
+                const face2 = faces2[face2Id];
+                const face2O = faces2O ? faces2O[face2Id] : undefined;
+                if (!productInfoDim2.has(face2Id))
+                    productInfoDim2.set(face2Id, []);
+                const face2ProductInfo = productInfoDim2.get(face2Id);
+                // loop shape1
+                for (const [dim1, thisSel1dim] of thisSel.selData.entries()) {
+                    if (!thisSel1dim)
+                        continue;
+                    const dim12 = dim1 + dim2;
+                    const faces1 = this.data[dim1];
+                    const faces1O = this.orientation[dim1];
+                    face2ProductInfo[dim1] ??= new Map;
+                    this.data[dim12] ??= [];
+                    const cells = this.data[dim12];
+                    if (dim12 > 1)
+                        this.orientation[dim12] ??= [];
+                    const cellsO = this.orientation[dim12];
+                    for (const face1Id of thisSel1dim) {
+                        const face1 = faces1[face1Id];
+                        const face1O = faces1O ? faces1O[face1Id] : undefined;
+                        // regist newCell
+                        const newCell = [];
+                        const newCellO = [];
+                        const newCellId = cells.length;
+                        face2ProductInfo[dim1].set(face1Id, newCellId);
+                        // D(shape1) x shape2 
+                        // const invO = (dim1 & 1) === 1;
+                        // if (dim1) { // exclude 0-face with no border
+                        //     for (const [d_face1Idx, d_face1Id] of (face1 as Face).entries()) {
+                        //         newCell.push(face2ProductInfo[dim1 - 1].get(d_face1Id));
+                        //         if (dim1 > 1) newCellO.push(invO !== face1O[d_face1Idx]);
+                        //     }
+                        //     if (dim1 === 1) newCellO.push(invO, !invO);
+                        // }
+                        // // D(shape2) x shape1                       
+                        // for (const [d_face2Idx, d_face2Id] of (face2 as Face).entries()) {
+                        //     newCell.push(productInfo[dim2 - 1].get(d_face2Id)[dim1].get(face1Id));
+                        //     if (dim2 > 1) newCellO.push(face2O[d_face2Idx]);
+                        // }
+                        // if (dim2 === 1) newCellO.push(false, true);
+                        // D(shape1) x shape2 
+                        if (dim1) { // exclude 0-face with no border
+                            for (const [d_face1Idx, d_face1Id] of face1.entries()) {
+                                newCell.push(face2ProductInfo[dim1 - 1].get(d_face1Id));
+                                if (dim1 > 1)
+                                    newCellO.push(face1O[d_face1Idx]);
+                            }
+                            if (dim1 === 1)
+                                newCellO.push(false, true);
+                        }
+                        // D(shape2) x shape1
+                        const invO = (dim1 & 1) === 1;
+                        for (const [d_face2Idx, d_face2Id] of face2.entries()) {
+                            newCell.push(productInfo[dim2 - 1].get(d_face2Id)[dim1].get(face1Id));
+                            if (dim2 > 1)
+                                newCellO.push(invO !== face2O[d_face2Idx]);
+                        }
+                        if (dim2 === 1)
+                            newCellO.push(invO, !invO);
+                        if (dim12 === 1) {
+                            if (newCellO[0] === true) {
+                                const temp = newCell[0];
+                                newCell[0] = newCell[1];
+                                newCell[1] = temp;
+                            }
+                        }
+                        else {
+                            cellsO.push(newCellO);
+                        }
+                        cells.push(newCell);
+                    }
+                }
+            }
+        }
+        return productInfo;
+    }
+    /* modify concrete shape of cwmesh up to 4d */
+    apply(verticesCalls) {
+        this.data[0].forEach(verticesCalls);
+        return this;
+    }
+    makePrism(direction, alignCenter, sel) {
+        const { cloneInfo, bridgeInfo } = this.topologicalExtrude(sel);
+        const vs = this.data[0];
+        if (alignCenter) {
+            for (const [srcvId, destvId] of cloneInfo[0]) {
+                vs[srcvId].addmulfs(direction, -0.5);
+                vs[destvId].addmulfs(direction, 0.5);
+            }
+        }
+        else {
+            for (const [srcvId, destvId] of cloneInfo[0]) {
+                vs[destvId].adds(direction);
+            }
+        }
+        return { cloneInfo, bridgeInfo };
+    }
+    makePyramid(point, sel) {
+        const info = this.topologicalCone(sel);
+        const vs = this.data[0];
+        vs[info.coneVertex].copy(point);
+        return info;
+    }
+    makeDirectProduct(shape2, thisSel, shape2Sel) {
+        const v1s = this.data[0];
+        const v2s = shape2.data[0];
+        const info = this.topologicalProduct(shape2, thisSel, shape2Sel);
+        for (const [v2Id, dim1List] of info[0]) {
+            for (const [v1Id, v1_x_v2Id] of dim1List[0]) {
+                if (v1Id === v1_x_v2Id)
+                    break;
+                if (v1Id !== v1_x_v2Id)
+                    v1s[v1_x_v2Id].addset(v1s[v1Id], v2s[v2Id]);
+            }
+        }
+        for (const [v2Id, dim1List] of info[0]) {
+            for (const [v1Id, v1_x_v2Id] of dim1List[0]) {
+                if (v1Id !== v1_x_v2Id)
+                    break;
+                if (v1Id === v1_x_v2Id)
+                    v1s[v1_x_v2Id].addset(v1s[v1Id], v2s[v2Id]);
+            }
+        }
+        return info;
+    }
+}
+
+function polytope(schlafli) {
+    const m = new CWMesh();
+    if (!schlafli) {
+        m.data = [[new Vec4]];
+        return m;
+    }
+    if (schlafli.length === 0) {
+        m.data = [[Vec4.xNeg.clone(), Vec4.x.clone()], [[0, 1]]];
+        return m;
+    }
+    const dim = schlafli.length + 1;
+    m.data = new Polytope(schlafli).getRegularPolytope();
+    m.data.push([m.data[dim - 1].map((_, i) => i)]);
+    m.calculateOrientationInFace(dim, 0);
+    m.flipOrientation(dim - 1, Array.from(m.orientation[dim][0].entries()).filter(([idx, o]) => o === false).map(([idx, o]) => m.data[dim][0][idx]));
+    return m;
+}
+// export function prism()
+
+var geoms = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    polytope: polytope
+});
+
+var mesh = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    face: face,
+    tetra: tetra,
+    cw: geoms,
+    FaceMesh: FaceMesh,
+    FaceIndexMesh: FaceIndexMesh,
+    TetraMesh: TetraMesh,
+    TetraIndexMesh: TetraIndexMesh,
+    CWMesh: CWMesh,
+    CWMeshSelection: CWMeshSelection,
+    ObjFile: ObjFile
+});
+
+class TesseractGeometry extends Geometry {
+    constructor(size) {
+        super(tesseract());
+        if (size)
+            this.jsBuffer.applyObj4(new Obj4(null, null, size instanceof Vec4 ? size : new Vec4(size, size, size, size)));
+    }
+}
+class CubeGeometry extends Geometry {
+    constructor(size) {
+        super(cube.clone());
+        if (size)
+            this.jsBuffer.applyObj4(new Obj4(null, null, size instanceof Vec3 ? new Vec4(size.x, 1, size.y, size.z) : new Vec4(size, 1, size, size)));
+    }
+}
+class GlomeGeometry extends Geometry {
+    constructor(size = 1, detail = 2) {
+        super(glome(size, detail * 8, detail * 8, detail * 6));
+    }
+}
+class SpheritorusGeometry extends Geometry {
+    constructor(sphereRadius = 0.4, circleRadius = 1, detail = 2) {
+        super(spheritorus(sphereRadius, detail * 8, detail * 6, circleRadius, detail * 8));
+    }
+}
+class TorisphereGeometry extends Geometry {
+    constructor(circleRadius = 0.2, sphereRadius = 0.8, detail = 2) {
+        super(torisphere(circleRadius, detail * 6, sphereRadius, detail * 8, detail * 6));
+    }
+}
+class SpherinderSideGeometry extends Geometry {
+    constructor(sphereRadius1 = 0.4, sphereRadius2 = sphereRadius1, height = 1, detail = 2) {
+        super(spherinderSide(sphereRadius1, sphereRadius2, detail * 8, detail * 6, height, detail * 2));
+    }
+}
+class TigerGeometry extends Geometry {
+    constructor(circleRadius = 0.2, radius1 = 0.8, radius2 = 0.8, detail = 2) {
+        super(tiger(radius1, detail * 8, radius2, detail * 8, circleRadius, detail * 6));
+    }
+}
+class ConvexHullGeometry extends Geometry {
+    constructor(points) {
+        super(convexhull(points));
+        console.assert(false, "todo: need to generate normal");
+    }
+}
+
 var four = /*#__PURE__*/Object.freeze({
     __proto__: null,
     PointLight: PointLight,
@@ -10366,14 +11451,6 @@ var four = /*#__PURE__*/Object.freeze({
     Camera: Camera,
     Mesh: Mesh,
     Geometry: Geometry,
-    TesseractGeometry: TesseractGeometry,
-    CubeGeometry: CubeGeometry,
-    GlomeGeometry: GlomeGeometry,
-    SpheritorusGeometry: SpheritorusGeometry,
-    TorisphereGeometry: TorisphereGeometry,
-    SpherinderSideGeometry: SpherinderSideGeometry,
-    TigerGeometry: TigerGeometry,
-    ConvexHullGeometry: ConvexHullGeometry,
     SkyBox: SkyBox,
     SimpleSkyBox: SimpleSkyBox,
     MaterialNode: MaterialNode,
@@ -10391,7 +11468,15 @@ var four = /*#__PURE__*/Object.freeze({
     WorldCoordVec4Input: WorldCoordVec4Input,
     Vec4TransformNode: Vec4TransformNode,
     NoiseWGSLHeader: NoiseWGSLHeader,
-    NoiseTexture: NoiseTexture
+    NoiseTexture: NoiseTexture,
+    TesseractGeometry: TesseractGeometry,
+    CubeGeometry: CubeGeometry,
+    GlomeGeometry: GlomeGeometry,
+    SpheritorusGeometry: SpheritorusGeometry,
+    TorisphereGeometry: TorisphereGeometry,
+    SpherinderSideGeometry: SpherinderSideGeometry,
+    TigerGeometry: TigerGeometry,
+    ConvexHullGeometry: ConvexHullGeometry
 });
 
 /** all properities hold by class Rigid should not be modified
@@ -10441,6 +11526,40 @@ class Rigid extends Obj4 {
             return out.set();
         let relPosition = out.subset(point, this.position);
         return out.dotbset(relPosition, this.angularVelocity).adds(this.velocity);
+    }
+    getMomentum(out) {
+        if (this.type === "still")
+            return out.set();
+        return out.copy(this.velocity).mulfs(this.mass);
+    }
+    getAngularMomentum(out, point) {
+        const v = vec4Pool.pop();
+        const p = vec4Pool.pop().copy(this.position);
+        if (point)
+            p.subs(point);
+        out.wedgevvset(p, this.getMomentum(v));
+        p.pushPool();
+        const localW = bivecPool.pop();
+        const localIW = bivecPool.pop();
+        localW.rotateconjset(this.angularVelocity, this.rotation);
+        mulBivec(localIW, this.inertia, localW);
+        v.pushPool();
+        return out.adds(localIW.rotates(this.rotation));
+    }
+    getLinearKineticEnergy() {
+        return this.velocity.normsqr() * this.mass / 2;
+    }
+    getAngularKineticEnergy() {
+        const localW = bivecPool.pop();
+        const localIW = bivecPool.pop();
+        localW.rotateset(this.angularVelocity, this.rotation);
+        const k = localW.dot(mulBivec(localIW, this.inertia, localW)) / 2;
+        localIW.pushPool();
+        localIW.pushPool();
+        return k;
+    }
+    getKineticEnergy() {
+        return this.getLinearKineticEnergy() + this.getAngularKineticEnergy();
     }
 }
 class RigidGeometry {
@@ -11074,11 +12193,11 @@ class ForceAccumulator {
             }
             else {
                 // Euler equation of motion
-                let localT = (o.torque.norm1() > 0) ? this._biv2.rotateset(o.torque, o.rotation) : this._bivec0;
-                let localW = this._biv1.rotateset(o.angularVelocity, o.rotation);
+                let localT = (o.torque.norm1() > 0) ? this._biv2.rotateconjset(o.torque, o.rotation) : this._bivec0;
+                let localW = this._biv1.rotateconjset(o.angularVelocity, o.rotation);
                 let localL = mulBivec(o.angularAcceleration, localW, o.inertia);
-                mulBivec(o.angularAcceleration, localL.crossrs(localW).adds(localT), o.invInertia);
-                o.angularAcceleration.rotatesconj(o.rotation);
+                mulBivec(o.angularAcceleration, localL.crossrs(localW).negs().adds(localT), o.invInertia);
+                o.angularAcceleration.rotates(o.rotation);
             }
         }
     }
@@ -13812,11 +14931,13 @@ class TrackBallController {
         disable: "AltLeft",
         enable: "",
     };
+    cameraMode = false;
     _bivec = new Bivec();
     normalisePeriodMask = 15;
-    constructor(object) {
+    constructor(object, cameraMode) {
         if (object)
             this.object = object;
+        this.cameraMode = cameraMode ?? false;
     }
     update(state) {
         let disabled = state.queryDisabled(this.keyConfig);
@@ -13843,7 +14964,15 @@ class TrackBallController {
         else {
             this._bivec.mulfs(dampFactor);
         }
-        this.object.rotates(this._bivec.exp());
+        const rotor = this._bivec.exp();
+        if (this.cameraMode) {
+            rotor.mulsrconj(this.object.rotation).mulsl(this.object.rotation);
+            this.object.rotates(rotor);
+            this.object.position.rotates(rotor);
+        }
+        else {
+            this.object.rotates(rotor);
+        }
         if ((state.updateCount & this.normalisePeriodMask) === 0) {
             this.object.rotation.norms();
         }

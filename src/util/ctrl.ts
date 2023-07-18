@@ -263,10 +263,12 @@ export class TrackBallController implements IController {
         disable: "AltLeft",
         enable: "",
     }
+    cameraMode = false;
     private _bivec = new Bivec();
     private normalisePeriodMask = 15;
-    constructor(object?: Obj4) {
+    constructor(object?: Obj4, cameraMode?: boolean) {
         if (object) this.object = object;
+        this.cameraMode = cameraMode ?? false;
     }
     update(state: ControllerState) {
         let disabled = state.queryDisabled(this.keyConfig);
@@ -292,7 +294,14 @@ export class TrackBallController implements IController {
         } else {
             this._bivec.mulfs(dampFactor);
         }
-        this.object.rotates(this._bivec.exp());
+        const rotor = this._bivec.exp();
+        if (this.cameraMode) {
+            rotor.mulsrconj(this.object.rotation).mulsl(this.object.rotation);
+            this.object.rotates(rotor);
+            this.object.position.rotates(rotor);
+        } else {
+            this.object.rotates(rotor);
+        }
         if ((state.updateCount & this.normalisePeriodMask) === 0) {
             this.object.rotation.norms();
         }

@@ -158,6 +158,7 @@
     const infodiv = document.querySelector('.info-content');
     infodiv.innerHTML = info.default[lang];
     function addSubChild(parent, childs) {
+        let containCurrentLink = false;
         for (let c of childs) {
             let link = document.createElement("a");
             link.innerHTML = c[lang];
@@ -166,13 +167,15 @@
                 link.classList.add("group", "show");
                 subPanel = document.createElement("div");
                 subPanel.classList.add("subdiv");
-                addSubChild(subPanel, c.child);
+                const showThisSubgroup = addSubChild(subPanel, c.child);
                 link.addEventListener('click', () => {
                     getInfo(target);
                     toggleGroup(link, subPanel);
                 });
-                if (c.visible !== true) {
+                if (!showThisSubgroup) {
                     toggleGroup(link, subPanel);
+                }else{
+                    containCurrentLink = true;
                 }
             } else {
                 link.addEventListener('click', () => {
@@ -182,10 +185,14 @@
                     toggle(link, c.target, lang);
                 });
             }
-            if (target === c.target) toggle(link, target, lang);
+            if (target === c.target) {
+                containCurrentLink = true;
+                toggle(link, target, lang);
+            }
             parent.appendChild(link);
             if (subPanel) parent.appendChild(subPanel);
         }
+        return containCurrentLink;
     }
     addSubChild(document.querySelector('.examples'), examples);
 
