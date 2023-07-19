@@ -33,9 +33,9 @@ let examples = [
                 group: "product", zh: "不规则直积形", en: "Iregular Duoprism",
                 child: [
                     { target: "shapes::directproduct1", zh: "文字 x 文字", en: "Text x Text" },
-                    { target: "shapes::directproduct2", zh: "人 x 鸡", en: "Man x Chiken" },
+                    { target: "shapes::directproduct2", zh: "人 x 鸡", en: "Man x Chicken" },
                     { target: "shapes::directproduct3", zh: "人 x 人", en: "Man x Man" },
-                    { target: "shapes::directproduct4", zh: "文字 x 鸡", en: "Text x Chiken" }]
+                    { target: "shapes::directproduct4", zh: "文字 x 鸡", en: "Text x Chicken" }]
             },
             {
                 group: "curved", zh: "弯曲图形", en: "Curved 4D Shapes",

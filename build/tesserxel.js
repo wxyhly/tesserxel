@@ -10997,6 +10997,13 @@ class CWMesh {
         return remapping;
     }
     /* get informations from part of cwmesh */
+    dim() {
+        for (let i = this.data.length - 1; i >= 0; i--) {
+            if (this.data[i].length) {
+                return i;
+            }
+        }
+    }
     findBorder(dim, faceIds) {
         if (dim === 0)
             return;
@@ -11081,6 +11088,23 @@ class CWMesh {
             result.push(faceResult);
         }
         return result;
+    }
+    /// dual data doesn't generate orientation information
+    getDualData(dim, faceIds) {
+        faceIds ??= range(this.data[dim].length);
+        const data = [];
+        for (let d = dim; d; d--) {
+            const faces = this.data[d];
+            data[d - 1] ??= new Map;
+            for (const [faceId, face] of faces.entries()) {
+                for (const d_faceId of face) {
+                    if (!data[d - 1].get(d_faceId))
+                        data[d - 1].set(d_faceId, new Set);
+                    data[d - 1].get(d_faceId).add(faceId);
+                }
+            }
+        }
+        return data;
     }
     /* modify topology of cwmesh */
     duplicate(sel, notCheckselectionClosure) {
@@ -11253,21 +11277,6 @@ class CWMesh {
                         const newCellId = cells.length;
                         face2ProductInfo[dim1].set(face1Id, newCellId);
                         // D(shape1) x shape2 
-                        // const invO = (dim1 & 1) === 1;
-                        // if (dim1) { // exclude 0-face with no border
-                        //     for (const [d_face1Idx, d_face1Id] of (face1 as Face).entries()) {
-                        //         newCell.push(face2ProductInfo[dim1 - 1].get(d_face1Id));
-                        //         if (dim1 > 1) newCellO.push(invO !== face1O[d_face1Idx]);
-                        //     }
-                        //     if (dim1 === 1) newCellO.push(invO, !invO);
-                        // }
-                        // // D(shape2) x shape1                       
-                        // for (const [d_face2Idx, d_face2Id] of (face2 as Face).entries()) {
-                        //     newCell.push(productInfo[dim2 - 1].get(d_face2Id)[dim1].get(face1Id));
-                        //     if (dim2 > 1) newCellO.push(face2O[d_face2Idx]);
-                        // }
-                        // if (dim2 === 1) newCellO.push(false, true);
-                        // D(shape1) x shape2 
                         if (dim1) { // exclude 0-face with no border
                             for (const [d_face1Idx, d_face1Id] of face1.entries()) {
                                 newCell.push(face2ProductInfo[dim1 - 1].get(d_face1Id));
@@ -11351,6 +11360,12 @@ class CWMesh {
             }
         }
         return info;
+    }
+    /// mesh must be closed manifold
+    makeDual() {
+        const d = (this.findBorder(this.dim()).size) ? this.dim() - 1 : this.dim();
+        this.getDualData(d);
+        // for(let nd=0,dim=d;)
     }
 }
 

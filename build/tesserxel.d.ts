@@ -1348,9 +1348,11 @@ declare class CWMesh {
     flipOrientation(dim: number, faceIds?: FaceId[]): void;
     calculateOrientationInFace(dim: number, faceId: FaceId): void;
     deleteSelection(sel: CWMeshSelection): RankedCWMap;
+    dim(): number;
     findBorder(dim: number, faceIds?: Set<FaceId>): Map<number, number>;
     getAllSelection(): CWMeshSelection;
     triangulate(dim: number, faceIds: number[], orientations?: boolean[]): Simplex[][];
+    getDualData(dim: number, faceIds?: number[]): DimList<Map<number, Set<number>>>;
     duplicate(sel?: CWMeshSelection, notCheckselectionClosure?: boolean): DimList<Map<number, number>>;
     bridge(mapInfo: DimList<Map<FaceId, FaceId>>): DimList<Map<number, number>>;
     topologicalExtrude(sel?: CWMeshSelection): {
@@ -1372,6 +1374,7 @@ declare class CWMesh {
         map: DimList<Map<number, number>>;
     };
     makeDirectProduct(shape2: CWMesh, thisSel?: CWMeshSelection, shape2Sel?: CWMeshSelection): DimList<Map<number, DimList<Map<number, number>>>>;
+    makeDual(): void;
 }
 
 declare let cube: TetraMesh;

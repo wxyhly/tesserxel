@@ -27,6 +27,7 @@ function cwmesh1dframe(cwmesh, radius, u, v) {
 }
 function cwmesh2Tetrahedra(cwmesh) {
     const material = new tesserxel.four.LambertMaterial([1, 1, 0, 0.15]);
+    material.cullMode = "none";
     const geom = new tesserxel.four.Geometry(tesserxel.mesh.tetra.cwmesh(cwmesh));
     return new tesserxel.four.Mesh(geom, material);
 }
@@ -51,11 +52,22 @@ function cwmesh2dframe(cwmesh, radius, segment) {
             }
         }
         const thickness = tesserxel.mesh.cw.polytope([segment]);
-        thickness.apply(v => v.mulfs(radius).rotates(tesserxel.math.Rotor.lookAtbb(Bivec.xy, faceBivec.duals().norms())));
+        // if (faceBivec.xy * faceBivec.zw > 0) {
+        // thickness.apply(v => (v.x = -v.x,v));
+        // }
+        // const x = Vec4.x.clone();
+        // const y = Vec4.x.clone();
+        // const R = tesserxel.math.Rotor.lookAtbb(
+        //     Bivec.xy, faceBivec.dual().norms()
+        // );
+        // x.rotates(R);
+        // y.rotates(R);
+        // x.wedge(y)
+        const R = tesserxel.math.Rotor.lookAtbb(Bivec.yx, faceBivec.duals().norms());
+        thickness.apply(v => v.mulfs(radius).rotates(R));
         thickness.makeDirectProduct(cwmesh, undefined, faceSel);
         if (!tetra) {
             tetra = tesserxel.mesh.tetra.cwmesh(thickness);
-            // console.log(tetra.count);
         }
         else {
             tetra = tetra.concat(tesserxel.mesh.tetra.cwmesh(thickness));
@@ -100,8 +112,8 @@ async function loadRegularPolytope3d1dFaceScene(mesh) {
     scene.setBackgroudColor({ r: 1.0, g: 1.0, b: 1.0, a: 0.08 });
     let camera = new FOUR.Camera();
     const mesh0 = cwmesh0dframe(mesh, 0.07, 1);
-    const mesh1 = cwmesh1dframe(mesh, 0.05, 6, 6);
-    const mesh2 = cwmesh2dframe(mesh, 0.04, 4);
+    const mesh1 = cwmesh1dframe(mesh, 0.05, 5, 5);
+    const mesh2 = cwmesh2dframe(mesh, 0.04, 5);
     const mesh3 = cwmesh2Tetrahedra(mesh);
     scene.add(mesh0);
     scene.add(mesh1);
