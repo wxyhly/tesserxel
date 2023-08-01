@@ -216,14 +216,15 @@ export class Rotor {
         pool.push(this);
     }
 
-
-    fromMat4(m: Mat4) {
-        return Rotor.lookAt(Vec4.x, m.x_()).mulsl(
-            _r.setFromLookAt(_vec4.copy(Vec4.y).rotates(this), m.y_())
-        ).mulsl(
-            _r.setFromLookAt(_vec4.copy(Vec4.z).rotates(this), m.z_())
-        );
-    }
+    // todo: fixbug
+    
+    // fromMat4(m: Mat4) {
+    //     return Rotor.lookAt(Vec4.x, m.x_()).mulsl(
+    //         _r.setFromLookAt(_vec4.copy(Vec4.y).rotates(this), m.y_())
+    //     ).mulsl(
+    //         _r.setFromLookAt(_vec4.copy(Vec4.z).rotates(this), m.z_())
+    //     );
+    // }
 }
 
 export let _r = new Rotor();

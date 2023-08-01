@@ -15,11 +15,12 @@ let examples = [
                     { target: "cwmesh::cell120", zh: "正120胞体", en: "120-Cell" },
                     { target: "cwmesh::cell600", zh: "正600胞体", en: "600-Cell" },
                     { target: "cwmesh::duopr5", zh: "5,5-双棱柱", en: "5,5-Duoprism" },
-                    // { target: "cwmesh::duopy5", zh: "5,5-双棱锥", en: "5,5-Duopyramid" },
+                    { target: "cwmesh::duopy5", zh: "5,5-双棱锥", en: "5,5-Duopyramid" },
                     { target: "cwmesh::prpr5", zh: "正5棱柱柱", en: "Pentagonal Prism Prism" },
                     { target: "cwmesh::prpy5", zh: "正5棱柱锥", en: "Pentagonal Prism Pyramid" },
                     { target: "cwmesh::pypr5", zh: "正5棱锥柱", en: "Pentagonal Pyramidal Prism" },
                     { target: "cwmesh::pypy5", zh: "正5棱锥锥", en: "Pentagonal Pyramidal Pyramid" },
+                    { target: "cwmesh::test", zh: "test", en: "test" },
                     // {
                     //     group: "uniform_polytopes", zh: "半正多胞体", en: "Uniform Polytopes",
                     //     child: [
@@ -43,6 +44,7 @@ let examples = [
                     { target: "shapes::duocylinder", zh: "双圆柱", en: "Duocylinder" },
                     { target: "shapes::spheritorus", zh: "球环", en: "Spheritorus" },
                     { target: "shapes::torisphere", zh: "环球", en: "Torisphere" },
+                    { target: "shapes::torinder", zh: "圆环柱", en: "Torinder" },
                     { target: "shapes::tiger", zh: "双圆环", en: "Tiger (Duotorus)" },
                     { target: "shapes::glome", zh: "超球", en: "Glome (Hyphersphere)" },
                     { target: "shapes::suzanne3d", zh: "猴头旋转体", en: "Suzanne Rotatoid" }
@@ -65,6 +67,7 @@ let examples = [
     {
         group: "phy", zh: "物理世界", en: "Physics World",
         child: [
+
             { target: "forces::spring_rope", zh: "弹簧绳", en: "Rope with Springs" },
             { target: "rigids::rigid_test", zh: "刚体测试", en: "Rigid Body Test" },
             { target: "rigids::st_pile", zh: "球环堆", en: "Spheritorus Pile" },
@@ -79,6 +82,16 @@ let examples = [
                     { target: "rigids::st_ts_chain", zh: "环球球环链", en: "ST-TS Chain" },
                     { target: "rigids::tg_tg_chain", zh: "双圆环链", en: "Tiger(Duotorus) Chain" },
                     { target: "rigids::mix_chain", zh: "杂环链", en: "Mixed Chain" },
+                ]
+            },
+            {
+                group: "rotating_rigids", zh: "旋转刚体", en:"Rotating Rigids",
+                child: [
+                    { target: "rigids::gyro_conic_prism", zh: "圆锥柱陀螺", en: "Conic Prism Gyro" },
+                    { target: "rigids::gyro_cylindral_cone", zh: "圆柱锥陀螺", en: "Cylindral Cone Gyro" },
+                    { target: "rigids::gyro_dicone", zh: "圆锥锥陀螺", en: "Dicone Gyro" },
+                    { target: "rigids::gyro_duocone", zh: "双圆锥陀螺", en: "Duocone Gyro" },
+                    { target: "rigids::gyro_sphericone", zh: "球锥陀螺", en: "Sphericone Gyro" },
                 ]
             },
             {

@@ -1,7 +1,7 @@
 import { Obj4 } from "../math/algebra/affine";
 import { Vec3 } from "../math/algebra/vec3";
 import { Vec4 } from "../math/algebra/vec4";
-import { tetra } from "../mesh/mesh";
+import { CWMesh, tetra } from "../mesh/mesh";
 import { Geometry } from "./scene";
 
 export class TesseractGeometry extends Geometry {
@@ -49,5 +49,10 @@ export class ConvexHullGeometry extends Geometry {
     constructor(points: Vec4[]) {
         super(tetra.convexhull(points));
         console.assert(false, "todo: need to generate normal");
+    }
+}
+export class CWMeshGeometry extends Geometry{
+    constructor(cwmesh:CWMesh) {
+        super(tetra.cwmesh(cwmesh).setUVWAsPosition());
     }
 }

@@ -1,5 +1,6 @@
 import { Vec4 } from "../../math/algebra/vec4";
-import { Obj4 } from "../../math/math";
+import { Bivec, Obj4, Rotor, _360 } from "../../math/math";
+import { path, polytope } from "./geoms";
 export type FaceId = number;
 export type Simplex = number[];
 export type Face = Array<FaceId>;
@@ -122,12 +123,57 @@ export class CWMesh {
             }
         }
     }
+    calculateOrientation(dim: number, faceIds?: FaceId[]) {
+        if (dim === 0) return;
+        if (dim === 1) return; // edge: [-1, 1]
+        faceIds ??= range(this.data[dim].length);
+        const d2ftable: Map<number, Array<[number, number]>> = new Map;
+        const faces = faceIds.map(faceId => this.data[dim][faceId] as Face);
+
+        for (const [faceIdx, faceId] of faceIds.entries()) {
+            const face = faces[faceIdx] as Face;
+
+            // if face not oriented yet, deal with it first
+
+            if (dim !== 2) {
+                this.orientation[dim] ??= [];
+                if (!this.orientation[dim][faceId]) this.calculateOrientationInFace(dim, faceId);
+            }
+
+            // get all d_face and its table
+
+            for (const [d_faceIdx, d_faceId] of face.entries()) {
+                if (!d2ftable.has(d_faceId)) d2ftable.set(d_faceId, new Array());
+                d2ftable.get(d_faceId).push([d_faceIdx, faceIdx]);
+            }
+        }
+        let current_faceIdxs = [];
+        let current_faceIdx = 0;
+        const fOTable = this.orientation[dim];
+        const faceO: boolean[] = [];
+        while (current_faceIdx !== undefined) {
+            const currentFaceId = faceIds[current_faceIdx];
+            for (const [d_faceIdx, d_faceId] of faces[current_faceIdx].entries()) {
+                const ajacent_faceIdxs = d2ftable.get(d_faceId);
+                if (ajacent_faceIdxs.length > 2) throw "Non manifold structure found";
+                if (ajacent_faceIdxs.length === 1) continue;
+                let [next_d_faceIdx, next_faceIdx] = ajacent_faceIdxs[0][1] === current_faceIdx ? ajacent_faceIdxs[1] : ajacent_faceIdxs[0];
+                if (faceO[next_faceIdx] !== undefined) continue;
+                const d_faceOInCurrentFace = dim === 2 ? 1 === d_faceIdx : fOTable[currentFaceId][d_faceIdx];
+                const d_faceOInNextFace = dim === 2 ? 1 === next_d_faceIdx : fOTable[faceIds[next_faceIdx]][next_d_faceIdx];
+                faceO[next_faceIdx] = (faceO[current_faceIdx] === d_faceOInCurrentFace) !== d_faceOInNextFace;
+                current_faceIdxs.push(next_faceIdx);
+            }
+            current_faceIdx = current_faceIdxs.pop();
+        }
+        this.flipOrientation(dim, faceO.map((o, idx) => [o, faceIds[idx]] as [boolean, number]).filter(([o, id]) => !o).map(([o, id]) => id));
+    }
     calculateOrientationInFace(dim: number, faceId: FaceId) {
         this.orientation ??= [];
         this.orientation[dim] ??= [];
         if (this.orientation[dim][faceId]) return;
         if (dim === 0) return;
-        if (dim === 1) return; // edge: [1, -1]
+        if (dim === 1) return; // edge: [-1, 1]
         const face = this.data[dim][faceId] as Face;
 
         // if d_face not oriented yet, deal with it first
@@ -163,8 +209,8 @@ export class CWMesh {
                 if (ajacent_d_faceIdxs.length === 1) continue;
                 let [next_dd_faceIdx, next_d_faceIdx] = ajacent_d_faceIdxs[0][1] === current_d_faceIdx ? ajacent_d_faceIdxs[1] : ajacent_d_faceIdxs[0];
                 if (faceO[next_d_faceIdx] !== undefined) continue;
-                const dd_faceOInCurrentFace = dim === 2 ? 0 === dd_faceIdx : dfOTable[currentFaceId][dd_faceIdx];
-                const dd_faceOInNextFace = dim === 2 ? 0 === next_dd_faceIdx : dfOTable[face[next_d_faceIdx]][next_dd_faceIdx];
+                const dd_faceOInCurrentFace = dim === 2 ? 1 === dd_faceIdx : dfOTable[currentFaceId][dd_faceIdx];
+                const dd_faceOInNextFace = dim === 2 ? 1 === next_dd_faceIdx : dfOTable[face[next_d_faceIdx]][next_dd_faceIdx];
                 faceO[next_d_faceIdx] = (faceO[current_d_faceIdx] === dd_faceOInCurrentFace) !== dd_faceOInNextFace;
                 current_d_faceIdxs.push(next_d_faceIdx);
             }
@@ -526,6 +572,39 @@ export class CWMesh {
         }
         return { cloneInfo, bridgeInfo };
     }
+    makeRotatoid(bivec: Bivec, segment: number, angle?: number) {
+        // throw "not test yet";
+        let pathcw: CWMesh;
+        const dangle = (angle ?? _360) / segment;
+        const ps: Vec4[] = [];
+        for (let i = 0, j = 0; i < segment; i++, j += dangle) { ps.push(new Vec4(Math.cos(j), Math.sin(j))); }
+        if (angle === undefined) {
+            pathcw = path(ps, true);
+        } else {
+            ps.push(new Vec4(Math.cos(angle), Math.sin(angle)));
+            pathcw = path(ps, false);
+        }
+        const R0 = Rotor.lookAtbb(Bivec.xy, bivec);
+        pathcw.apply(v => v.rotates(R0));
+
+        const v1s = this.data[0] as Vec4[];
+        const info = this.topologicalProduct(pathcw);
+
+        const r0 = bivec.mulf(dangle).exp();
+        const r = r0.clone();
+        const rarr: Rotor[] = [new Rotor, r.clone()];
+        for (let i = 2; i < pathcw.data[0].length; i++) {
+            rarr.push(r.mulsl(r0).clone());
+        }
+        for (const [v2Id, dim1List] of info[0]) {
+            for (const [v1Id, v1_x_v2Id] of dim1List[0]) {
+                if (v1Id === v1_x_v2Id) break;
+                if (v1Id !== v1_x_v2Id) v1s[v1_x_v2Id].copy(v1s[v1Id]).rotates(rarr[v2Id]);
+                r.mulsl(r0);
+            }
+        }
+        return info;
+    }
     makePyramid(point: Vec4, sel?: CWMeshSelection) {
         const info = this.topologicalCone(sel);
         const vs = this.data[0] as Vec4[];
@@ -552,9 +631,24 @@ export class CWMesh {
     }
     /// mesh must be closed manifold
     makeDual() {
-        const d = (this.findBorder(this.dim()).size)?this.dim()-1:this.dim();
-        this.getDualData(d);
-        // for(let nd=0,dim=d;)
+        const d = (this.findBorder(this.dim()).size) ? this.dim() - 1 : this.dim();
+        const info = this.getDualData(d);
+        const mesh = new CWMesh;
+        for (let nd = d, dim = 0; nd > 0; nd--, dim++) {
+            mesh.data[nd] = [];
+            const nfaces = mesh.data[nd];
+            for (let [faceId, coDfaceId] of info[dim]) {
+                nfaces[faceId] = Array.from(coDfaceId);
+            }
+        }
+        mesh.data[0] = this.data[d].map((_, faceId) => {
+            const arr = Array.from(new CWMeshSelection(this).addFace(d, faceId).closure().selData[0]).map(
+                vId => this.data[0][vId] as Vec4
+            );
+            return arr.reduce((a: Vec4, b: Vec4) => a.adds(b), new Vec4).divfs(arr.length);
+        });
+        mesh.calculateOrientation(3);
+        return mesh;
     }
 
 }

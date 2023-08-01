@@ -3,7 +3,7 @@ import { Pool } from "../pool";
 import { Srand } from "../random";
 import { Mat3 } from "./mat3";
 import { Mat4 } from "./mat4";
-import { Vec3, _vec3, _vec3_1 } from "./vec3";
+import { Vec3, _vec3, _vec3_1, _vec3_2 } from "./vec3";
 import { Vec4 } from "./vec4";
 
 export class QuaternionPool extends Pool<Quaternion>{
@@ -18,13 +18,13 @@ export class Quaternion {
     constructor(x: number = 1, y: number = 0, z: number = 0, w: number = 0) {
         this.x = x; this.y = y; this.z = z; this.w = w;
     }
-    set(x: number = 1, y: number = 0, z: number = 0, w: number = 0): Quaternion {
+    set(x: number = 1, y: number = 0, z: number = 0, w: number = 0) {
         this.x = x; this.y = y; this.z = z; this.w = w; return this;
     }
     flat(): number[] {
         return [this.x, this.y, this.z, this.w];
     }
-    copy(v: Vec4 | Quaternion): Quaternion {
+    copy(v: Vec4 | Quaternion) {
         this.x = v.x; this.y = v.y;
         this.z = v.z; this.w = v.w;
         return this;
@@ -256,11 +256,34 @@ export class Quaternion {
         }
         return right.exp();
     }
+    setFromLookAt(from: Vec3, to: Vec3) {
+
+        let right = _vec3.wedgeset(from, to);
+        let s = right.norm();
+        let c = from.dot(to);
+        if (s > 0.000001) { // not aligned
+            right.mulfs(Math.atan2(s, c) / s);
+        } else if (c < 0) { // almost n reversely aligned
+            let v = _vec3_1.wedgeset(from, Vec3.x);
+            if (v.norm1() < 0.01) {
+                v = _vec3_1.wedgeset(from, Vec3.y);
+            }
+            return this.expset(v.norms().mulfs(_180));
+        }
+        return this.expset(right);
+    }
     pushPool(pool: QuaternionPool = quaternionPool) {
         pool.push(this);
     }
+    /** set rotor from a rotation matrix,
+         * i.e. m must be orthogonal with determinant 1.
+         * algorithm: iteratively aligne each axis. */
+    setFromMat3(m: Mat3) {
+        return this.setFromLookAt(Vec3.x, m.x_()).mulsl(
+            _Q.setFromLookAt(_vec3_2.copy(Vec3.y).rotates(this), m.y_())
+        )
+    }
 }
-
 export let _Q = new Quaternion();
 export let _Q_1 = new Quaternion();
 export let _Q_2 = new Quaternion();

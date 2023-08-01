@@ -115,7 +115,53 @@ export class TetraMesh implements TetraMeshData {
             position: p, normal: n, uvw: u, count: newCount >> 4
         });
     }
-
+    generateNormal(splitThreshold?: number): this {
+        if (!this.normal) {
+            this.normal = new Float32Array(this.count << 4);
+            const v1 = new Vec4, v2 = new Vec4, v3 = new Vec4;
+            for (let i = 0, offset = 0; i < this.position.length;) {
+                const a0 = new Vec4(this.position[i++], this.position[i++], this.position[i++], this.position[i++]);
+                const a1 = new Vec4(this.position[i++], this.position[i++], this.position[i++], this.position[i++]);
+                const a2 = new Vec4(this.position[i++], this.position[i++], this.position[i++], this.position[i++]);
+                const a3 = new Vec4(this.position[i++], this.position[i++], this.position[i++], this.position[i++]);
+                const normal = v1.subset(a0, a1).wedge(v2.subset(a0, a2)).wedgev(v3.subset(a0, a3)).norms();
+                normal.writeBuffer(this.normal, offset); offset += 4;
+                normal.writeBuffer(this.normal, offset); offset += 4;
+                normal.writeBuffer(this.normal, offset); offset += 4;
+                normal.writeBuffer(this.normal, offset); offset += 4;
+            }
+        }
+        if (!splitThreshold) return this; // shade flat, complete
+        // then for shade smooth
+        const threshold = Math.cos(splitThreshold);
+        let position: number[] = [];
+        let posIdx: number[] = [];
+        let point2clusterTable: number[][] = [];
+        toIndexbuffer(this.position, position, posIdx, 4);
+        for (let i = 0; i < posIdx.length; i++) {
+            const a0 = posIdx[i];
+            point2clusterTable[a0] ??= []; point2clusterTable[a0].push(i);
+        }
+        const newNormal = new Float32Array(this.count << 4);
+        const tempNormal = new Vec4;
+        for (let i = 0, i4 = 0; i < posIdx.length; i++, i4 += 4) {
+            const a0 = posIdx[i];
+            let thisNormal = new Vec4(this.normal[i4], this.normal[i4 + 1], this.normal[i4 + 2], this.normal[i4 + 3]);
+            let sum = thisNormal.clone();
+            for (const idx of point2clusterTable[a0]) {
+                if (i === idx) continue;
+                const idx4 = idx << 2;
+                tempNormal.set(this.normal[idx4], this.normal[idx4 + 1], this.normal[idx4 + 2], this.normal[idx4 + 3]);
+                if (thisNormal.dot(tempNormal) > threshold) {
+                    sum.adds(tempNormal);
+                }
+            }
+            sum.norms();
+            sum.writeBuffer(newNormal, i << 2);
+        }
+        this.normal = newNormal;
+        return this;
+    }
     inverseNormal(): TetraMesh {
         let count = this.count ?? this.position.length >> 4;
         let temp: number;

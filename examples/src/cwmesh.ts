@@ -96,7 +96,7 @@ class DisplayCtrl implements tesserxel.util.ctrl.IController {
         }
     }
 }
-async function loadRegularPolytope3d1dFaceScene(mesh: tesserxel.mesh.CWMesh) {
+async function loadPolytope0123dFacesScene(mesh: tesserxel.mesh.CWMesh) {
     const FOUR = tesserxel.four;
     const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
     /** This is a asycn function wait for request WebGPU adapter and do initiations */
@@ -152,7 +152,15 @@ export namespace duopr5 {
         const mesh = polytope([5]);
         const mesh2 = polytope([5]);
         mesh.makeDirectProduct(mesh2.apply(v => v.set(0, 0, v.x, -v.y)));
-        await loadRegularPolytope3d1dFaceScene(mesh);
+        await loadPolytope0123dFacesScene(mesh);
+    }
+}
+export namespace duopy5 {
+    export async function load() {
+        const mesh = polytope([5]);
+        const mesh2 = polytope([5]);
+        mesh.makeDirectProduct(mesh2.apply(v => v.set(0, 0, v.x, -v.y)));
+        await loadPolytope0123dFacesScene(mesh.makeDual());
     }
 }
 export namespace prpr5 {
@@ -160,7 +168,7 @@ export namespace prpr5 {
         const mesh = polytope([5]);
         mesh.makePrism(Vec4.z, true);
         mesh.makePrism(Vec4.w, true);
-        await loadRegularPolytope3d1dFaceScene(mesh);
+        await loadPolytope0123dFacesScene(mesh);
     }
 }
 export namespace prpy5 {
@@ -168,7 +176,7 @@ export namespace prpy5 {
         const mesh = polytope([5]);
         mesh.makePrism(Vec4.z, true);
         mesh.makePyramid(Vec4.w);
-        await loadRegularPolytope3d1dFaceScene(mesh);
+        await loadPolytope0123dFacesScene(mesh);
     }
 }
 export namespace pypy5 {
@@ -176,7 +184,7 @@ export namespace pypy5 {
         const mesh = polytope([5]);
         mesh.makePyramid(Vec4.z);
         mesh.makePyramid(Vec4.w);
-        await loadRegularPolytope3d1dFaceScene(mesh);
+        await loadPolytope0123dFacesScene(mesh);
     }
 }
 export namespace pypr5 {
@@ -184,36 +192,36 @@ export namespace pypr5 {
         const mesh = polytope([5]);
         mesh.makePyramid(Vec4.z);
         mesh.makePrism(Vec4.w, true);
-        await loadRegularPolytope3d1dFaceScene(mesh);
+        await loadPolytope0123dFacesScene(mesh);
     }
 }
 export namespace cell5 {
     export async function load() {
-        await loadRegularPolytope3d1dFaceScene(polytope([3, 3, 3]));
+        await loadPolytope0123dFacesScene(polytope([3, 3, 3]));
     }
 }
 export namespace cell8 {
     export async function load() {
-        await loadRegularPolytope3d1dFaceScene(polytope([4, 3, 3]));
+        await loadPolytope0123dFacesScene(polytope([4, 3, 3]));
     }
 }
 export namespace cell120 {
     export async function load() {
-        await loadRegularPolytope3d1dFaceScene(polytope([5, 3, 3]));
+        await loadPolytope0123dFacesScene(polytope([5, 3, 3]));
     }
 }
 export namespace cell16 {
     export async function load() {
-        await loadRegularPolytope3d1dFaceScene(polytope([3, 3, 4]));
+        await loadPolytope0123dFacesScene(polytope([3, 3, 4]));
     }
 }
 export namespace cell24 {
     export async function load() {
-        await loadRegularPolytope3d1dFaceScene(polytope([3, 4, 3]));
+        await loadPolytope0123dFacesScene(polytope([3, 4, 3]));
     }
 }
 export namespace cell600 {
     export async function load() {
-        await loadRegularPolytope3d1dFaceScene(polytope([3, 3, 5]));
+        await loadPolytope0123dFacesScene(polytope([3, 3, 5]));
     }
 }

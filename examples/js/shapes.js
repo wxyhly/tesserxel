@@ -316,6 +316,20 @@ async function loadFile(src) {
         xhr.send();
     });
 }
+export var torinder;
+(function (torinder) {
+    async function load() {
+        const mesh = tesserxel.mesh.cw.solidTorus(1, 0.2, 32, 32);
+        mesh.makePrism(tesserxel.math.Vec4.w, true);
+        let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.cwmesh(mesh).inverseNormal().generateNormal(0.9).applyObj4(new tesserxel.math.Obj4(null, null, new tesserxel.math.Vec4(0.04, 0.04, 0.04, 0.04))).setUVWAsPosition().applyObj4(new tesserxel.math.Obj4(null, null, new tesserxel.math.Vec4(25, 25, 25, 25))));
+        app.retinaController.setOpacity(10.0);
+        app.renderer.setCameraProjectMatrix({ fov: 110, near: 0.01, far: 10.0 });
+        app.trackBallController.object.rotation.l.set();
+        app.trackBallController.object.rotation.r.set();
+        app.run();
+    }
+    torinder.load = load;
+})(torinder || (torinder = {}));
 export var suzanne3d;
 (function (suzanne3d) {
     async function load() {

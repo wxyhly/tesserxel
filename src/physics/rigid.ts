@@ -1,7 +1,9 @@
 import { Obj4 } from "../math/algebra/affine";
 import { Bivec, bivecPool } from "../math/algebra/bivec";
+import { Matrix } from "../math/algebra/matrix";
 import { Vec4, vec4Pool } from "../math/algebra/vec4";
 import { AABB } from "../math/geometry/primitive";
+import { Quaternion, Rotor } from "../math/math";
 import { Material, mulBivec } from "./engine";
 
 export type RigidType = "still" | "passive" | "active";
@@ -76,7 +78,7 @@ export class Rigid extends Obj4 {
     getAngularMomentum(out: Bivec, point?: Vec4) {
         const v = vec4Pool.pop();
         const p = vec4Pool.pop().copy(this.position);
-        if(point) p.subs(point);
+        if (point) p.subs(point);
         out.wedgevvset(p, this.getMomentum(v));
         p.pushPool();
         const localW = bivecPool.pop();
@@ -116,19 +118,19 @@ export abstract class RigidGeometry {
         this.initializeMassInertia(rigid);
         if (!rigid.mass && rigid.type === "active") rigid.type = "still";
         if (rigid.inertia) {
-            rigid.invInertia!.xy = 1 / rigid.inertia.xy;
+            rigid.invInertia.xy = 1 / rigid.inertia.xy;
             if (!rigid.inertiaIsotroy) {
-                rigid.invInertia!.xz = 1 / rigid.inertia.xz;
-                rigid.invInertia!.yz = 1 / rigid.inertia.yz;
-                rigid.invInertia!.xw = 1 / rigid.inertia.xw;
-                rigid.invInertia!.yw = 1 / rigid.inertia.yw;
-                rigid.invInertia!.zw = 1 / rigid.inertia.zw;
+                rigid.invInertia.xz = 1 / rigid.inertia.xz;
+                rigid.invInertia.yz = 1 / rigid.inertia.yz;
+                rigid.invInertia.xw = 1 / rigid.inertia.xw;
+                rigid.invInertia.yw = 1 / rigid.inertia.yw;
+                rigid.invInertia.zw = 1 / rigid.inertia.zw;
             } else {
-                rigid.invInertia!.xz = rigid.invInertia!.xy;
-                rigid.invInertia!.yz = rigid.invInertia!.xy;
-                rigid.invInertia!.xw = rigid.invInertia!.xy;
-                rigid.invInertia!.yw = rigid.invInertia!.xy;
-                rigid.invInertia!.zw = rigid.invInertia!.xy;
+                rigid.invInertia.xz = rigid.invInertia.xy;
+                rigid.invInertia.yz = rigid.invInertia.xy;
+                rigid.invInertia.xw = rigid.invInertia.xy;
+                rigid.invInertia.yw = rigid.invInertia.xy;
+                rigid.invInertia.zw = rigid.invInertia.xy;
                 rigid.inertia.xz = rigid.inertia.xy;
                 rigid.inertia.yz = rigid.inertia.xy;
                 rigid.inertia.xw = rigid.inertia.xy;
@@ -163,14 +165,14 @@ export namespace rigid {
             }
             // todo
             // let inertia = new Matrix(6,6);
-            rigid.inertia!.xy = 1;
+            rigid.inertia.xy = 1;
             rigid.inertiaIsotroy = true;
             rigid.type = "active";
         };
         updateCoord() {
             for (let r of this.components) {
-                r.position.copy(r.localCoord!.position).rotates(this.rigid.rotation).adds(this.rigid.position);
-                r.rotation.copy(r.localCoord!.rotation).mulsl(this.rigid.rotation);
+                r.position.copy(r.localCoord.position).rotates(this.rigid.rotation).adds(this.rigid.position);
+                r.rotation.copy(r.localCoord.rotation).mulsl(this.rigid.rotation);
             }
         }
     }
@@ -185,7 +187,7 @@ export namespace rigid {
         }
         initializeMassInertia(rigid: Rigid) {
             rigid.inertiaIsotroy = true;
-            rigid.inertia!.xy = rigid.mass! * this.radiusSqr * 0.25;
+            rigid.inertia.xy = rigid.mass! * this.radiusSqr * 0.25;
         }
     }
     export class Convex extends RigidGeometry {
@@ -201,8 +203,107 @@ export namespace rigid {
             }
             this.boundingGlome = Math.sqrt(this.boundingGlome);
         }
+        private getPointsInertia(points: Vec4[], mass: number) {
+            const inertiaMat = new Matrix(6);
+            const tempMat = new Matrix(6);
+            for (const p of points) {
+                const r11 = p.x * p.x;
+                const r12 = p.x * p.y;
+                const r13 = p.x * p.z;
+                const r14 = p.x * p.w;
+                const r22 = p.y * p.y;
+                const r23 = p.y * p.z;
+                const r24 = p.y * p.w;
+                const r33 = p.z * p.z;
+                const r34 = p.z * p.w;
+                const r44 = p.w * p.w;
+                tempMat.setElements(
+                    r11 + r22, r23, r24, -r13, -r14, 0,
+                    r23, r11 + r33, r34, r12, 0, -r14,
+                    r24, r34, r44 + r11, 0, r12, r13,
+                    -r13, r12, 0, r22 + r33, r34, -r24,
+                    -r14, 0, r12, r34, r44 + r22, r23,
+                    0, -r14, r13, -r24, r23, r33 + r44
+                ).ts();
+                inertiaMat.adds(tempMat);
+            }
+            return inertiaMat.mulfs(mass / points.length);
+        }
         initializeMassInertia(rigid: Rigid) {
             // todo inertia calc
+            const tempMat = new Matrix(6);
+            // const Rt = Rotor.rand();
+
+            const clinicMat = Matrix.fromArray([
+                [1, 0, 0, 0, 0, 1],
+                [0, 1, 0, 0, -1, 0],
+                [0, 0, 1, 1, 0, 0],
+                [1, 0, 0, 0, 0, -1],
+                [0, 1, 0, 0, 1, 0],
+                [0, 0, 1, -1, 0, 0],
+            ]).mulfs(Math.SQRT1_2);
+            const clinicMats = clinicMat.clone().ts();
+            function toBivecClinicMatrix(Rt: Rotor) {
+                const RtMat = new Matrix(6);
+                const bxy = Bivec.xy.rotate(Rt);
+                const bxz = Bivec.xz.rotate(Rt);
+                const bxw = Bivec.xw.rotate(Rt);
+                const byz = Bivec.yz.rotate(Rt);
+                const byw = Bivec.yw.rotate(Rt);
+                const bzw = Bivec.zw.rotate(Rt);
+                RtMat.setElements(
+                    bxy.xy, bxy.xz, bxy.xw, bxy.yz, bxy.yw, bxy.zw,
+                    bxz.xy, bxz.xz, bxz.xw, bxz.yz, bxz.yw, bxz.zw,
+                    bxw.xy, bxw.xz, bxw.xw, bxw.yz, bxw.yw, bxw.zw,
+                    byz.xy, byz.xz, byz.xw, byz.yz, byz.yw, byz.zw,
+                    byw.xy, byw.xz, byw.xw, byw.yz, byw.yw, byw.zw,
+                    bzw.xy, bzw.xz, bzw.xw, bzw.yz, bzw.yw, bzw.zw,
+                )
+                return clinicMat.mul(RtMat).mul(clinicMats);
+            }
+
+            // calculate inertia matrix before rotation
+            // const inertiaMat0 = this.getPointsInertia((rigid.geometry as Convex).points, rigid.mass);
+            // (rigid.geometry as Convex).points.forEach(v => v.rotates(Rt));
+            // calculate inertia matrix after rotation
+            const inertiaMat = this.getPointsInertia((rigid.geometry as Convex).points, rigid.mass);
+            // console.log(inertiaMat0,RtMat.mul(inertiaMat).mul(RtMat.ts())); // ok
+
+            // convert to isoclinic basis
+            // const iClinicMat0 = clinicMat.mul(inertiaMat0).mul(clinicMats);
+            const iClinicMat = clinicMat.mul(inertiaMat).mul(clinicMats);
+            // console.log(iClinicMat0, iClinicMat);
+            // extract part P:
+            // [aId  P; P'  aId]
+            const p = iClinicMat.subMatrix(0, 3, 3, 3);
+            if (p.norm1() < 1e-5) {
+                rigid.inertiaIsotroy = true;
+                rigid.inertia.set(...inertiaMat.diag()).mulfs(rigid.mass * 0.2); // factor for solid
+                return;
+            }
+            const { U, V } = p.SVdecompose(24);
+            if (V.det() < 0) {
+                V.elem[6] = -V.elem[6];
+                V.elem[7] = -V.elem[7];
+                V.elem[8] = -V.elem[8];
+            }
+            // const newR = new Matrix(6);
+            // const L = Matrix.fromArray([[0, 0, 1], [0, 1, 0], [1, 0, 0]]);
+            // newR.setFromSubMatrix(U.clone().ts(), 3, 3);
+            // newR.setFromSubMatrix((V.clone()), 3, 3, 0, 0, 3, 3);
+            // console.log(newR.mul(iClinicMat).mul(newR.clone().ts()));
+
+            const rL = new Quaternion().setFromMat3(U.toMat3());
+            const rR = new Quaternion().setFromMat3(V.toMat3());
+            const rotor = new Rotor(rL, rR);
+            // console.log(newR, toBivecClinicMatrix(rotor));
+
+            (rigid.geometry as Convex).points.forEach(v => v.rotatesconj(rotor));
+            // calculate inertia matrix
+            const inertiaMat2 = this.getPointsInertia((rigid.geometry as Convex).points, rigid.mass);
+            // console.log(inertiaMat2);
+            rigid.rotates(rotor);
+            rigid.inertia.set(...inertiaMat2.diag()).mulfs(rigid.mass * 0.2); // factor for solid
         }
     }
     export class Tesseractoid extends Convex {
@@ -235,13 +336,13 @@ export namespace rigid {
             let isoratio = mins / maxs;
             rigid.inertiaIsotroy = isoratio > 0.95;
             if (rigid.inertiaIsotroy) {
-                rigid.inertia!.xy = rigid.mass! * (mins + maxs) * (mins + maxs) * 0.2;
+                rigid.inertia.xy = rigid.mass * (mins + maxs) * (mins + maxs) * 0.2;
             } else {
                 let x = this.size.x * this.size.x;
                 let y = this.size.y * this.size.y;
                 let z = this.size.z * this.size.z;
                 let w = this.size.w * this.size.w;
-                rigid.inertia!.set(x + y, x + z, x + w, y + z, y + w, z + w).mulfs(rigid.mass! * 0.2);
+                rigid.inertia.set(x + y, x + z, x + w, y + z, y + w, z + w).mulfs(rigid.mass * 0.2);
             }
         }
     }
@@ -291,7 +392,7 @@ export namespace rigid {
             let half = maj + 5 * min;
             let parallel = 2 * maj + 6 * min;
             let perp = 4 * min;
-            rigid.inertia!.set(half, half, parallel, perp, half, half).mulfs(rigid.mass! * 0.1);
+            rigid.inertia.set(half, half, parallel, perp, half, half).mulfs(rigid.mass! * 0.1);
         }
     }
     /** default orientation: XZW */
@@ -319,7 +420,7 @@ export namespace rigid {
             let min = this.minorRadius * this.minorRadius;
             let half = 2 * maj + 5 * min;
             let parallel = 3 * maj + 6 * min;
-            rigid.inertia!.set(half, parallel, parallel, half, half, parallel).mulfs(rigid.mass! * 0.1);
+            rigid.inertia.set(half, parallel, parallel, half, half, parallel).mulfs(rigid.mass! * 0.1);
         }
     }
     /** default orientation: 1:XY, 2:ZW */
@@ -346,7 +447,7 @@ export namespace rigid {
             let maj2 = this.majorRadius2 * this.majorRadius2;
             let min = this.minorRadius * this.minorRadius;
             let half = maj1 + maj2 + min * 6;
-            rigid.inertia!.set(2 * maj1 + min * 5, half, half, half, half, 2 * maj2 + min * 5).mulfs(rigid.mass! * 0.5);
+            rigid.inertia.set(2 * maj1 + min * 5, half, half, half, half, 2 * maj2 + min * 5).mulfs(rigid.mass! * 0.5);
         }
     }
     /** default orientation: (xy-z)-w */
@@ -375,7 +476,7 @@ export namespace rigid {
             let min = this.minorRadius * this.minorRadius;
             let min2 = this.minorRadius2 * this.minorRadius2;
             let half = maj1 + maj2 + min * 6;
-            rigid.inertia!.set(2 * maj1 + min * 5, maj1 + min * 6 + min2, maj1 + min2, maj1 + min * 6 + min2, maj1 + min2, 2 * min + min2).mulfs(rigid.mass! * 0.5);
+            rigid.inertia.set(2 * maj1 + min * 5, maj1 + min * 6 + min2, maj1 + min2, maj1 + min * 6 + min2, maj1 + min2, 2 * min + min2).mulfs(rigid.mass! * 0.5);
         }
     }
     // todo

@@ -52,17 +52,6 @@ function cwmesh2dframe(cwmesh, radius, segment) {
             }
         }
         const thickness = tesserxel.mesh.cw.polytope([segment]);
-        // if (faceBivec.xy * faceBivec.zw > 0) {
-        // thickness.apply(v => (v.x = -v.x,v));
-        // }
-        // const x = Vec4.x.clone();
-        // const y = Vec4.x.clone();
-        // const R = tesserxel.math.Rotor.lookAtbb(
-        //     Bivec.xy, faceBivec.dual().norms()
-        // );
-        // x.rotates(R);
-        // y.rotates(R);
-        // x.wedge(y)
         const R = tesserxel.math.Rotor.lookAtbb(Bivec.yx, faceBivec.duals().norms());
         thickness.apply(v => v.mulfs(radius).rotates(R));
         thickness.makeDirectProduct(cwmesh, undefined, faceSel);
@@ -102,7 +91,7 @@ class DisplayCtrl {
         }
     }
 }
-async function loadRegularPolytope3d1dFaceScene(mesh) {
+async function loadPolytope0123dFacesScene(mesh) {
     const FOUR = tesserxel.four;
     const canvas = document.getElementById("gpu-canvas");
     /** This is a asycn function wait for request WebGPU adapter and do initiations */
@@ -158,17 +147,27 @@ export var duopr5;
         const mesh = polytope([5]);
         const mesh2 = polytope([5]);
         mesh.makeDirectProduct(mesh2.apply(v => v.set(0, 0, v.x, -v.y)));
-        await loadRegularPolytope3d1dFaceScene(mesh);
+        await loadPolytope0123dFacesScene(mesh);
     }
     duopr5.load = load;
 })(duopr5 || (duopr5 = {}));
+export var duopy5;
+(function (duopy5) {
+    async function load() {
+        const mesh = polytope([5]);
+        const mesh2 = polytope([5]);
+        mesh.makeDirectProduct(mesh2.apply(v => v.set(0, 0, v.x, -v.y)));
+        await loadPolytope0123dFacesScene(mesh.makeDual());
+    }
+    duopy5.load = load;
+})(duopy5 || (duopy5 = {}));
 export var prpr5;
 (function (prpr5) {
     async function load() {
         const mesh = polytope([5]);
         mesh.makePrism(Vec4.z, true);
         mesh.makePrism(Vec4.w, true);
-        await loadRegularPolytope3d1dFaceScene(mesh);
+        await loadPolytope0123dFacesScene(mesh);
     }
     prpr5.load = load;
 })(prpr5 || (prpr5 = {}));
@@ -178,7 +177,7 @@ export var prpy5;
         const mesh = polytope([5]);
         mesh.makePrism(Vec4.z, true);
         mesh.makePyramid(Vec4.w);
-        await loadRegularPolytope3d1dFaceScene(mesh);
+        await loadPolytope0123dFacesScene(mesh);
     }
     prpy5.load = load;
 })(prpy5 || (prpy5 = {}));
@@ -188,7 +187,7 @@ export var pypy5;
         const mesh = polytope([5]);
         mesh.makePyramid(Vec4.z);
         mesh.makePyramid(Vec4.w);
-        await loadRegularPolytope3d1dFaceScene(mesh);
+        await loadPolytope0123dFacesScene(mesh);
     }
     pypy5.load = load;
 })(pypy5 || (pypy5 = {}));
@@ -198,49 +197,49 @@ export var pypr5;
         const mesh = polytope([5]);
         mesh.makePyramid(Vec4.z);
         mesh.makePrism(Vec4.w, true);
-        await loadRegularPolytope3d1dFaceScene(mesh);
+        await loadPolytope0123dFacesScene(mesh);
     }
     pypr5.load = load;
 })(pypr5 || (pypr5 = {}));
 export var cell5;
 (function (cell5) {
     async function load() {
-        await loadRegularPolytope3d1dFaceScene(polytope([3, 3, 3]));
+        await loadPolytope0123dFacesScene(polytope([3, 3, 3]));
     }
     cell5.load = load;
 })(cell5 || (cell5 = {}));
 export var cell8;
 (function (cell8) {
     async function load() {
-        await loadRegularPolytope3d1dFaceScene(polytope([4, 3, 3]));
+        await loadPolytope0123dFacesScene(polytope([4, 3, 3]));
     }
     cell8.load = load;
 })(cell8 || (cell8 = {}));
 export var cell120;
 (function (cell120) {
     async function load() {
-        await loadRegularPolytope3d1dFaceScene(polytope([5, 3, 3]));
+        await loadPolytope0123dFacesScene(polytope([5, 3, 3]));
     }
     cell120.load = load;
 })(cell120 || (cell120 = {}));
 export var cell16;
 (function (cell16) {
     async function load() {
-        await loadRegularPolytope3d1dFaceScene(polytope([3, 3, 4]));
+        await loadPolytope0123dFacesScene(polytope([3, 3, 4]));
     }
     cell16.load = load;
 })(cell16 || (cell16 = {}));
 export var cell24;
 (function (cell24) {
     async function load() {
-        await loadRegularPolytope3d1dFaceScene(polytope([3, 4, 3]));
+        await loadPolytope0123dFacesScene(polytope([3, 4, 3]));
     }
     cell24.load = load;
 })(cell24 || (cell24 = {}));
 export var cell600;
 (function (cell600) {
     async function load() {
-        await loadRegularPolytope3d1dFaceScene(polytope([3, 3, 5]));
+        await loadPolytope0123dFacesScene(polytope([3, 3, 5]));
     }
     cell600.load = load;
 })(cell600 || (cell600 = {}));

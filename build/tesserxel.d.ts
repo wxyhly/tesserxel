@@ -145,6 +145,12 @@ declare class Mat3 {
     setid(): Mat3;
     ts(): Mat3;
     t(): Mat3;
+    /** col vector */ x_(): Vec3;
+    /** col vector */ y_(): Vec3;
+    /** col vector */ z_(): Vec3;
+    /** row vector */ _x(): Vec3;
+    /** row vector */ _y(): Vec3;
+    /** row vector */ _z(): Vec3;
     copy(m2: Mat3): Mat3;
     add(m2: Mat3): Mat3;
     adds(m2: Mat3): Mat3;
@@ -299,7 +305,6 @@ declare class Rotor {
     randset(): Rotor;
     srandset(seed: Srand): Rotor;
     pushPool(pool?: RotorPool): void;
-    fromMat4(m: Mat4): Rotor;
 }
 
 declare class Mat4Pool extends Pool<Mat4> {
@@ -367,9 +372,9 @@ declare class Quaternion {
     z: number;
     w: number;
     constructor(x?: number, y?: number, z?: number, w?: number);
-    set(x?: number, y?: number, z?: number, w?: number): Quaternion;
+    set(x?: number, y?: number, z?: number, w?: number): this;
     flat(): number[];
-    copy(v: Vec4 | Quaternion): Quaternion;
+    copy(v: Vec4 | Quaternion): this;
     yzw(): Vec3;
     ywz(): Vec3;
     zyw(): Vec3;
@@ -410,14 +415,19 @@ declare class Quaternion {
     toMat3(): Mat3;
     toLMat4(): Mat4;
     toRMat4(): Mat4;
-    expset(v: Vec3): Quaternion;
+    expset(v: Vec3): this;
     static rand(): Quaternion;
     static srand(seed: Srand): Quaternion;
     randset(): Quaternion;
     srandset(seed: Srand): Quaternion;
     /** "from" and "to" must be normalized vectors*/
     static lookAt(from: Vec3, to: Vec3): Quaternion;
+    setFromLookAt(from: Vec3, to: Vec3): this;
     pushPool(pool?: QuaternionPool): void;
+    /** set rotor from a rotation matrix,
+         * i.e. m must be orthogonal with determinant 1.
+         * algorithm: iteratively aligne each axis. */
+    setFromMat3(m: Mat3): Quaternion;
 }
 
 /** [A(4x4), b(1x4)]
@@ -757,11 +767,13 @@ declare class Ray {
 declare class Plane {
     /** normal need to be normalized */
     normal: Vec4;
+    /** halfspace n.v < offset */
     offset: number;
     constructor(normal: Vec4, offset: number);
-    distanceToPoint(p: Vec4): void;
+    distanceToPoint(p: Vec4): number;
     /** regard r as an infinity line */
     distanceToLine(r: Ray): void;
+    intersectRay(r: Ray): void;
 }
 declare class AABB {
     min: Vec4;
@@ -800,6 +812,7 @@ declare class Polytope {
     private rels;
     private schlafli;
     private fullgroupRepresentatives;
+    private fullgroupTable;
     private basis1;
     private basis2;
     constructor(schlafli: number[]);
@@ -807,10 +820,15 @@ declare class Polytope {
     private getInitVertex;
     generateFaceLinkTable(srcNum: number, srcTable: number[], destTable: number[]): number[][];
     getRegularPolytope(): (number[][] | Vec4[])[];
+    getStructures(subgroups: string[][]): {
+        cosetTable: CosetTable;
+        subGroupTable: number[];
+    }[];
     getFirstStructure(): {
         cosetTable: CosetTable;
         subGroupTable: number[];
     }[];
+    getPolytope(): (number[][] | Vec4[])[];
 }
 
 type math_d_PerspectiveCamera = PerspectiveCamera;
@@ -1194,6 +1212,7 @@ declare class TetraMesh implements TetraMeshData {
     toIndexMesh(): TetraIndexMesh;
     concat(mesh2: TetraMesh): TetraMesh;
     deleteTetras(tetras: number[]): TetraMesh;
+    generateNormal(splitThreshold?: number): this;
     inverseNormal(): TetraMesh;
     setUVWAsPosition(): this;
 }
@@ -1346,6 +1365,7 @@ declare class CWMesh {
     clone(): CWMesh;
     sort2DFace(): void;
     flipOrientation(dim: number, faceIds?: FaceId[]): void;
+    calculateOrientation(dim: number, faceIds?: FaceId[]): void;
     calculateOrientationInFace(dim: number, faceId: FaceId): void;
     deleteSelection(sel: CWMeshSelection): RankedCWMap;
     dim(): number;
@@ -1369,12 +1389,13 @@ declare class CWMesh {
         cloneInfo: DimList<Map<number, number>>;
         bridgeInfo: DimList<Map<number, number>>;
     };
+    makeRotatoid(bivec: Bivec, segment: number, angle?: number): DimList<Map<number, DimList<Map<number, number>>>>;
     makePyramid(point: Vec4, sel?: CWMeshSelection): {
         coneVertex: number;
         map: DimList<Map<number, number>>;
     };
     makeDirectProduct(shape2: CWMesh, thisSel?: CWMeshSelection, shape2Sel?: CWMeshSelection): DimList<Map<number, DimList<Map<number, number>>>>;
-    makeDual(): void;
+    makeDual(): CWMesh;
 }
 
 declare let cube: TetraMesh;
@@ -1803,6 +1824,77 @@ interface DrawList {
     };
 }
 
+interface IndexMesh extends FaceIndexMeshData {
+    positionIndex?: Uint32Array;
+    normalIndex?: Uint32Array;
+    uvwIndex?: Uint32Array;
+    count?: number;
+}
+declare class ObjFile {
+    data: string;
+    constructor(data: string | TetraIndexMesh | FaceIndexMesh);
+    private stringify;
+    parse(): IndexMesh;
+}
+
+declare function polytope(schlafli: number[]): CWMesh;
+declare function path(points: Vec4[] | number, closed?: boolean): CWMesh;
+declare function solidTorus(majorRadius: number, minorRadius: number, u: number, v: number): CWMesh;
+declare function ball2(u: number, v: number): CWMesh;
+declare function ball3(u: number, v: number, w: number): void;
+
+declare const geoms_d_polytope: typeof polytope;
+declare const geoms_d_path: typeof path;
+declare const geoms_d_solidTorus: typeof solidTorus;
+declare const geoms_d_ball2: typeof ball2;
+declare const geoms_d_ball3: typeof ball3;
+declare namespace geoms_d {
+  export {
+    geoms_d_polytope as polytope,
+    geoms_d_path as path,
+    geoms_d_solidTorus as solidTorus,
+    geoms_d_ball2 as ball2,
+    geoms_d_ball3 as ball3,
+  };
+}
+
+type mesh_d_FaceMesh = FaceMesh;
+declare const mesh_d_FaceMesh: typeof FaceMesh;
+type mesh_d_FaceIndexMesh = FaceIndexMesh;
+declare const mesh_d_FaceIndexMesh: typeof FaceIndexMesh;
+type mesh_d_TetraMesh = TetraMesh;
+declare const mesh_d_TetraMesh: typeof TetraMesh;
+type mesh_d_TetraIndexMesh = TetraIndexMesh;
+declare const mesh_d_TetraIndexMesh: typeof TetraIndexMesh;
+type mesh_d_FaceMeshData = FaceMeshData;
+type mesh_d_FaceIndexMeshData = FaceIndexMeshData;
+type mesh_d_TetraMeshData = TetraMeshData;
+type mesh_d_TetraIndexMeshData = TetraIndexMeshData;
+type mesh_d_CWMesh = CWMesh;
+declare const mesh_d_CWMesh: typeof CWMesh;
+type mesh_d_CWMeshSelection = CWMeshSelection;
+declare const mesh_d_CWMeshSelection: typeof CWMeshSelection;
+type mesh_d_ObjFile = ObjFile;
+declare const mesh_d_ObjFile: typeof ObjFile;
+declare namespace mesh_d {
+  export {
+    face_d as face,
+    tetra_d as tetra,
+    mesh_d_FaceMesh as FaceMesh,
+    mesh_d_FaceIndexMesh as FaceIndexMesh,
+    mesh_d_TetraMesh as TetraMesh,
+    mesh_d_TetraIndexMesh as TetraIndexMesh,
+    mesh_d_FaceMeshData as FaceMeshData,
+    mesh_d_FaceIndexMeshData as FaceIndexMeshData,
+    mesh_d_TetraMeshData as TetraMeshData,
+    mesh_d_TetraIndexMeshData as TetraIndexMeshData,
+    mesh_d_CWMesh as CWMesh,
+    mesh_d_CWMeshSelection as CWMeshSelection,
+    geoms_d as cw,
+    mesh_d_ObjFile as ObjFile,
+  };
+}
+
 declare class TesseractGeometry extends Geometry {
     constructor(size?: number | Vec4);
 }
@@ -1826,6 +1918,9 @@ declare class TigerGeometry extends Geometry {
 }
 declare class ConvexHullGeometry extends Geometry {
     constructor(points: Vec4[]);
+}
+declare class CWMeshGeometry extends Geometry {
+    constructor(cwmesh: CWMesh);
 }
 
 type four_d_PointLight = PointLight;
@@ -1904,6 +1999,8 @@ type four_d_TigerGeometry = TigerGeometry;
 declare const four_d_TigerGeometry: typeof TigerGeometry;
 type four_d_ConvexHullGeometry = ConvexHullGeometry;
 declare const four_d_ConvexHullGeometry: typeof ConvexHullGeometry;
+type four_d_CWMeshGeometry = CWMeshGeometry;
+declare const four_d_CWMeshGeometry: typeof CWMeshGeometry;
 declare namespace four_d {
   export {
     four_d_PointLight as PointLight,
@@ -1950,6 +2047,7 @@ declare namespace four_d {
     four_d_SpherinderSideGeometry as SpherinderSideGeometry,
     four_d_TigerGeometry as TigerGeometry,
     four_d_ConvexHullGeometry as ConvexHullGeometry,
+    four_d_CWMeshGeometry as CWMeshGeometry,
   };
 }
 
@@ -2028,6 +2126,7 @@ declare namespace rigid {
         points: Vec4[];
         _cachePoints: Vec4[];
         constructor(points: Vec4[]);
+        private getPointsInertia;
         initializeMassInertia(rigid: Rigid): void;
     }
     class Tesseractoid extends Convex {
@@ -2464,65 +2563,6 @@ declare namespace render_d {
     render_d_Size3DDict as Size3DDict,
     render_d_VoxelBuffer as VoxelBuffer,
     render_d_createVoxelBuffer as createVoxelBuffer,
-  };
-}
-
-interface IndexMesh extends FaceIndexMeshData {
-    positionIndex?: Uint32Array;
-    normalIndex?: Uint32Array;
-    uvwIndex?: Uint32Array;
-    count?: number;
-}
-declare class ObjFile {
-    data: string;
-    constructor(data: string | TetraIndexMesh | FaceIndexMesh);
-    private stringify;
-    parse(): IndexMesh;
-}
-
-declare function polytope(schlafli: number[]): CWMesh;
-
-declare const geoms_d_polytope: typeof polytope;
-declare namespace geoms_d {
-  export {
-    geoms_d_polytope as polytope,
-  };
-}
-
-type mesh_d_FaceMesh = FaceMesh;
-declare const mesh_d_FaceMesh: typeof FaceMesh;
-type mesh_d_FaceIndexMesh = FaceIndexMesh;
-declare const mesh_d_FaceIndexMesh: typeof FaceIndexMesh;
-type mesh_d_TetraMesh = TetraMesh;
-declare const mesh_d_TetraMesh: typeof TetraMesh;
-type mesh_d_TetraIndexMesh = TetraIndexMesh;
-declare const mesh_d_TetraIndexMesh: typeof TetraIndexMesh;
-type mesh_d_FaceMeshData = FaceMeshData;
-type mesh_d_FaceIndexMeshData = FaceIndexMeshData;
-type mesh_d_TetraMeshData = TetraMeshData;
-type mesh_d_TetraIndexMeshData = TetraIndexMeshData;
-type mesh_d_CWMesh = CWMesh;
-declare const mesh_d_CWMesh: typeof CWMesh;
-type mesh_d_CWMeshSelection = CWMeshSelection;
-declare const mesh_d_CWMeshSelection: typeof CWMeshSelection;
-type mesh_d_ObjFile = ObjFile;
-declare const mesh_d_ObjFile: typeof ObjFile;
-declare namespace mesh_d {
-  export {
-    face_d as face,
-    tetra_d as tetra,
-    mesh_d_FaceMesh as FaceMesh,
-    mesh_d_FaceIndexMesh as FaceIndexMesh,
-    mesh_d_TetraMesh as TetraMesh,
-    mesh_d_TetraIndexMesh as TetraIndexMesh,
-    mesh_d_FaceMeshData as FaceMeshData,
-    mesh_d_FaceIndexMeshData as FaceIndexMeshData,
-    mesh_d_TetraMeshData as TetraMeshData,
-    mesh_d_TetraIndexMeshData as TetraIndexMeshData,
-    mesh_d_CWMesh as CWMesh,
-    mesh_d_CWMeshSelection as CWMeshSelection,
-    geoms_d as cw,
-    mesh_d_ObjFile as ObjFile,
   };
 }
 

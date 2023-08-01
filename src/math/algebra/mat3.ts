@@ -44,6 +44,13 @@ export class Mat3 {
         );
     }
 
+    /** col vector */x_(): Vec3 { return new Vec3(this.elem[0], this.elem[3], this.elem[6]); }
+    /** col vector */y_(): Vec3 { return new Vec3(this.elem[1], this.elem[4], this.elem[7]); }
+    /** col vector */z_(): Vec3 { return new Vec3(this.elem[2], this.elem[5], this.elem[8]); }
+
+    /** row vector */_x(): Vec3 { return new Vec3(this.elem[0], this.elem[1], this.elem[2]); }
+    /** row vector */_y(): Vec3 { return new Vec3(this.elem[3], this.elem[4], this.elem[5]); }
+    /** row vector */_z(): Vec3 { return new Vec3(this.elem[6], this.elem[7], this.elem[8]); }
     copy(m2: Mat3): Mat3 {
         for (var i = 0; i < 4; i++) {
             this.elem[i] = m2.elem[i];

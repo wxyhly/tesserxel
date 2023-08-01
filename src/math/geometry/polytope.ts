@@ -6,6 +6,7 @@ export class Polytope {
     private rels: string[];
     private schlafli: number[];
     private fullgroupRepresentatives: number[][];
+    private fullgroupTable: CosetTable;
 
     // reflection directions: these dirs are sqrt(1/2) length for calc convenience
     // [b2[0], 0 ..]
@@ -131,8 +132,21 @@ export class Polytope {
         }
         return polytope;
     }
+    getStructures(subgroups:string[][]){
+        this.fullgroupTable ??= new CosetTable(this.gens, this.rels, []).enumerate();
+        this.fullgroupRepresentatives ??= this.fullgroupTable.getRepresentatives();
+        const table: { cosetTable: CosetTable, subGroupTable: number[] }[] = [];
+        return subgroups.map(subgroup=>{
+            const cosetTable = new CosetTable(this.gens, this.rels, subgroup).enumerate();
+            const subGroupTable = this.fullgroupRepresentatives.map(w => cosetTable.findCoset(w));
+            return { cosetTable, subGroupTable };
+        })
+    }
+
+    
     getFirstStructure() {
-        this.fullgroupRepresentatives ??= new CosetTable(this.gens, this.rels, []).enumerate().getRepresentatives();
+        this.fullgroupTable ??= new CosetTable(this.gens, this.rels, []).enumerate();
+        this.fullgroupRepresentatives ??= this.fullgroupTable.getRepresentatives();
         const table: { cosetTable: CosetTable, subGroupTable: number[] }[] = [];
         for (let i = 0; i < this.gens.length; i++) {
             // example: V: "b,c,d"  E: "a,c,d" F: "a,b,d" C: "a,b,c"
@@ -142,5 +156,20 @@ export class Polytope {
             table.push({ cosetTable, subGroupTable });
         }
         return table;
+    }
+
+    
+    getPolytope() {
+        if(this.gens.length === 1) return [];
+        // kface[0] : Vtable, kface[1] : Etable...
+        const kfaceTable = this.getFirstStructure();
+        let pqr = new Array(this.gens.length - 1);
+        pqr.fill(1/pqr.length);
+        const V = this.gens.length > 4 ? kfaceTable[0].cosetTable.cosets.map(() => new Array<number>()) : this.generateVertices(this.getInitVertex(pqr), kfaceTable[0].cosetTable);
+        let polytope: (Array<number>[] | Vec4[])[] = [V];
+        for (let i = 1; i < this.gens.length; i++) {
+            polytope.push(this.generateFaceLinkTable(kfaceTable[i].cosetTable.length, kfaceTable[i].subGroupTable, kfaceTable[i - 1].subGroupTable));
+        }
+        return polytope;
     }
 }

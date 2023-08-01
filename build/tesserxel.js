@@ -260,6 +260,12 @@ class Mat3 {
     t() {
         return new Mat3(this.elem[0], this.elem[3], this.elem[6], this.elem[1], this.elem[4], this.elem[7], this.elem[2], this.elem[5], this.elem[8]);
     }
+    /** col vector */ x_() { return new Vec3(this.elem[0], this.elem[3], this.elem[6]); }
+    /** col vector */ y_() { return new Vec3(this.elem[1], this.elem[4], this.elem[7]); }
+    /** col vector */ z_() { return new Vec3(this.elem[2], this.elem[5], this.elem[8]); }
+    /** row vector */ _x() { return new Vec3(this.elem[0], this.elem[1], this.elem[2]); }
+    /** row vector */ _y() { return new Vec3(this.elem[3], this.elem[4], this.elem[5]); }
+    /** row vector */ _z() { return new Vec3(this.elem[6], this.elem[7], this.elem[8]); }
     copy(m2) {
         for (var i = 0; i < 4; i++) {
             this.elem[i] = m2.elem[i];
@@ -892,8 +898,30 @@ class Quaternion {
         }
         return right.exp();
     }
+    setFromLookAt(from, to) {
+        let right = _vec3.wedgeset(from, to);
+        let s = right.norm();
+        let c = from.dot(to);
+        if (s > 0.000001) { // not aligned
+            right.mulfs(Math.atan2(s, c) / s);
+        }
+        else if (c < 0) { // almost n reversely aligned
+            let v = _vec3_1.wedgeset(from, Vec3.x);
+            if (v.norm1() < 0.01) {
+                v = _vec3_1.wedgeset(from, Vec3.y);
+            }
+            return this.expset(v.norms().mulfs(_180));
+        }
+        return this.expset(right);
+    }
     pushPool(pool = quaternionPool) {
         pool.push(this);
+    }
+    /** set rotor from a rotation matrix,
+         * i.e. m must be orthogonal with determinant 1.
+         * algorithm: iteratively aligne each axis. */
+    setFromMat3(m) {
+        return this.setFromLookAt(Vec3.x, m.x_()).mulsl(_Q.setFromLookAt(_vec3_2.copy(Vec3.y).rotates(this), m.y_()));
     }
 }
 let _Q = new Quaternion();
@@ -1095,9 +1123,6 @@ class Rotor {
     }
     pushPool(pool = rotorPool) {
         pool.push(this);
-    }
-    fromMat4(m) {
-        return Rotor.lookAt(Vec4.x, m.x_()).mulsl(_r$1.setFromLookAt(_vec4$1.copy(Vec4.y).rotates(this), m.y_())).mulsl(_r$1.setFromLookAt(_vec4$1.copy(Vec4.z).rotates(this), m.z_()));
     }
 }
 let _r$1 = new Rotor();
@@ -2853,15 +2878,19 @@ class Ray {
 class Plane {
     /** normal need to be normalized */
     normal;
+    /** halfspace n.v < offset */
     offset;
     constructor(normal, offset) {
         this.normal = normal;
         this.offset = offset;
     }
     distanceToPoint(p) {
+        return this.normal.dot(p) - this.offset;
     }
     /** regard r as an infinity line */
     distanceToLine(r) {
+    }
+    intersectRay(r) {
     }
 }
 class AABB {
@@ -3113,6 +3142,7 @@ class Polytope {
     rels;
     schlafli;
     fullgroupRepresentatives;
+    fullgroupTable;
     // reflection directions: these dirs are sqrt(1/2) length for calc convenience
     // [b2[0], 0 ..]
     // [b1[1],b2[1],0..]
@@ -3252,8 +3282,18 @@ class Polytope {
         }
         return polytope;
     }
+    getStructures(subgroups) {
+        this.fullgroupTable ??= new CosetTable(this.gens, this.rels, []).enumerate();
+        this.fullgroupRepresentatives ??= this.fullgroupTable.getRepresentatives();
+        return subgroups.map(subgroup => {
+            const cosetTable = new CosetTable(this.gens, this.rels, subgroup).enumerate();
+            const subGroupTable = this.fullgroupRepresentatives.map(w => cosetTable.findCoset(w));
+            return { cosetTable, subGroupTable };
+        });
+    }
     getFirstStructure() {
-        this.fullgroupRepresentatives ??= new CosetTable(this.gens, this.rels, []).enumerate().getRepresentatives();
+        this.fullgroupTable ??= new CosetTable(this.gens, this.rels, []).enumerate();
+        this.fullgroupRepresentatives ??= this.fullgroupTable.getRepresentatives();
         const table = [];
         for (let i = 0; i < this.gens.length; i++) {
             // example: V: "b,c,d"  E: "a,c,d" F: "a,b,d" C: "a,b,c"
@@ -3264,6 +3304,20 @@ class Polytope {
             table.push({ cosetTable, subGroupTable });
         }
         return table;
+    }
+    getPolytope() {
+        if (this.gens.length === 1)
+            return [];
+        // kface[0] : Vtable, kface[1] : Etable...
+        const kfaceTable = this.getFirstStructure();
+        let pqr = new Array(this.gens.length - 1);
+        pqr.fill(1 / pqr.length);
+        const V = this.gens.length > 4 ? kfaceTable[0].cosetTable.cosets.map(() => new Array()) : this.generateVertices(this.getInitVertex(pqr), kfaceTable[0].cosetTable);
+        let polytope = [V];
+        for (let i = 1; i < this.gens.length; i++) {
+            polytope.push(this.generateFaceLinkTable(kfaceTable[i].cosetTable.length, kfaceTable[i].subGroupTable, kfaceTable[i - 1].subGroupTable));
+        }
+        return polytope;
     }
 }
 
@@ -7271,6 +7325,60 @@ class TetraMesh {
             position: p, normal: n, uvw: u, count: newCount >> 4
         });
     }
+    generateNormal(splitThreshold) {
+        if (!this.normal) {
+            this.normal = new Float32Array(this.count << 4);
+            const v1 = new Vec4, v2 = new Vec4, v3 = new Vec4;
+            for (let i = 0, offset = 0; i < this.position.length;) {
+                const a0 = new Vec4(this.position[i++], this.position[i++], this.position[i++], this.position[i++]);
+                const a1 = new Vec4(this.position[i++], this.position[i++], this.position[i++], this.position[i++]);
+                const a2 = new Vec4(this.position[i++], this.position[i++], this.position[i++], this.position[i++]);
+                const a3 = new Vec4(this.position[i++], this.position[i++], this.position[i++], this.position[i++]);
+                const normal = v1.subset(a0, a1).wedge(v2.subset(a0, a2)).wedgev(v3.subset(a0, a3)).norms();
+                normal.writeBuffer(this.normal, offset);
+                offset += 4;
+                normal.writeBuffer(this.normal, offset);
+                offset += 4;
+                normal.writeBuffer(this.normal, offset);
+                offset += 4;
+                normal.writeBuffer(this.normal, offset);
+                offset += 4;
+            }
+        }
+        if (!splitThreshold)
+            return this; // shade flat, complete
+        // then for shade smooth
+        const threshold = Math.cos(splitThreshold);
+        let position = [];
+        let posIdx = [];
+        let point2clusterTable = [];
+        toIndexbuffer(this.position, position, posIdx, 4);
+        for (let i = 0; i < posIdx.length; i++) {
+            const a0 = posIdx[i];
+            point2clusterTable[a0] ??= [];
+            point2clusterTable[a0].push(i);
+        }
+        const newNormal = new Float32Array(this.count << 4);
+        const tempNormal = new Vec4;
+        for (let i = 0, i4 = 0; i < posIdx.length; i++, i4 += 4) {
+            const a0 = posIdx[i];
+            let thisNormal = new Vec4(this.normal[i4], this.normal[i4 + 1], this.normal[i4 + 2], this.normal[i4 + 3]);
+            let sum = thisNormal.clone();
+            for (const idx of point2clusterTable[a0]) {
+                if (i === idx)
+                    continue;
+                const idx4 = idx << 2;
+                tempNormal.set(this.normal[idx4], this.normal[idx4 + 1], this.normal[idx4 + 2], this.normal[idx4 + 3]);
+                if (thisNormal.dot(tempNormal) > threshold) {
+                    sum.adds(tempNormal);
+                }
+            }
+            sum.norms();
+            sum.writeBuffer(newNormal, i << 2);
+        }
+        this.normal = newNormal;
+        return this;
+    }
     inverseNormal() {
         let count = this.count ?? this.position.length >> 4;
         let temp;
@@ -10793,6 +10901,90 @@ class ObjFile {
     }
 }
 
+function polytope(schlafli) {
+    const m = new CWMesh();
+    if (!schlafli) {
+        m.data = [[new Vec4]];
+        return m;
+    }
+    if (schlafli.length === 0) {
+        m.data = [[Vec4.xNeg.clone(), Vec4.x.clone()], [[0, 1]]];
+        return m;
+    }
+    const dim = schlafli.length + 1;
+    m.data = new Polytope(schlafli).getRegularPolytope();
+    m.data.push([m.data[dim - 1].map((_, i) => i)]);
+    m.calculateOrientationInFace(dim, 0);
+    m.flipOrientation(dim - 1, Array.from(m.orientation[dim][0].entries()).filter(([idx, o]) => o === false).map(([idx, o]) => m.data[dim][0][idx]));
+    return m;
+}
+function path(points, closed) {
+    const mesh = new CWMesh;
+    let n;
+    if (typeof points === "number") {
+        // abstract cwmesh
+        mesh.data[0] = new Array(points).fill([]);
+        n = points;
+    }
+    else {
+        mesh.data[0] = points.slice(0);
+        n = points.length;
+    }
+    mesh.data[1] = [];
+    for (let i = 0; i < n - 1; i++) {
+        mesh.data[1].push([i, i + 1]);
+    }
+    if (closed)
+        mesh.data[1].push([n - 1, 0]);
+    // throw "not test yet";
+    return mesh;
+}
+function range$1(i) {
+    const arr = [];
+    for (let j = 0; j < i; j++) {
+        arr.push(j);
+    }
+    return arr;
+}
+function solidTorus(majorRadius, minorRadius, u, v) {
+    const circle = polytope([u]).apply(v => v.set(v.x * minorRadius + majorRadius, 0, v.y * minorRadius));
+    circle.makeRotatoid(Bivec.xy, v);
+    return circle;
+}
+function ball2(u, v) {
+    const arr = [];
+    const dangle = _180 / (v + 2);
+    for (let i = dangle, j = 0; j < v; i += dangle, j++) {
+        arr.push(new Vec4(0, Math.sin(i), Math.cos(i)));
+    }
+    // longitude without 2 polar points
+    const longitude = path(arr);
+    const info = longitude.makeRotatoid(Bivec.xy, u);
+    const northLines = new Set();
+    const southLines = new Set();
+    for (const [equatorLineId, subinfo] of info[1]) {
+        northLines.add(subinfo[0].get(0));
+        southLines.add(subinfo[0].get(v - 1));
+    }
+    longitude.makePyramid(new Vec4(0, 0, 1), new CWMeshSelection(longitude, [undefined, northLines]));
+    longitude.makePyramid(new Vec4(0, 0, -1), new CWMeshSelection(longitude, [undefined, southLines]));
+    longitude.data[3] = [range$1(longitude.data[2].length)];
+    longitude.calculateOrientationInFace(3, 0);
+    return longitude;
+}
+function ball3(u, v, w) {
+    // todo
+}
+
+var geoms = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    polytope: polytope,
+    path: path,
+    solidTorus: solidTorus,
+    ball2: ball2,
+    ball3: ball3
+});
+
 function range(i) {
     const arr = [];
     for (let j = 0; j < i; j++) {
@@ -10913,6 +11105,53 @@ class CWMesh {
             }
         }
     }
+    calculateOrientation(dim, faceIds) {
+        if (dim === 0)
+            return;
+        if (dim === 1)
+            return; // edge: [-1, 1]
+        faceIds ??= range(this.data[dim].length);
+        const d2ftable = new Map;
+        const faces = faceIds.map(faceId => this.data[dim][faceId]);
+        for (const [faceIdx, faceId] of faceIds.entries()) {
+            const face = faces[faceIdx];
+            // if face not oriented yet, deal with it first
+            if (dim !== 2) {
+                this.orientation[dim] ??= [];
+                if (!this.orientation[dim][faceId])
+                    this.calculateOrientationInFace(dim, faceId);
+            }
+            // get all d_face and its table
+            for (const [d_faceIdx, d_faceId] of face.entries()) {
+                if (!d2ftable.has(d_faceId))
+                    d2ftable.set(d_faceId, new Array());
+                d2ftable.get(d_faceId).push([d_faceIdx, faceIdx]);
+            }
+        }
+        let current_faceIdxs = [];
+        let current_faceIdx = 0;
+        const fOTable = this.orientation[dim];
+        const faceO = [];
+        while (current_faceIdx !== undefined) {
+            const currentFaceId = faceIds[current_faceIdx];
+            for (const [d_faceIdx, d_faceId] of faces[current_faceIdx].entries()) {
+                const ajacent_faceIdxs = d2ftable.get(d_faceId);
+                if (ajacent_faceIdxs.length > 2)
+                    throw "Non manifold structure found";
+                if (ajacent_faceIdxs.length === 1)
+                    continue;
+                let [next_d_faceIdx, next_faceIdx] = ajacent_faceIdxs[0][1] === current_faceIdx ? ajacent_faceIdxs[1] : ajacent_faceIdxs[0];
+                if (faceO[next_faceIdx] !== undefined)
+                    continue;
+                const d_faceOInCurrentFace = dim === 2 ? 1 === d_faceIdx : fOTable[currentFaceId][d_faceIdx];
+                const d_faceOInNextFace = dim === 2 ? 1 === next_d_faceIdx : fOTable[faceIds[next_faceIdx]][next_d_faceIdx];
+                faceO[next_faceIdx] = (faceO[current_faceIdx] === d_faceOInCurrentFace) !== d_faceOInNextFace;
+                current_faceIdxs.push(next_faceIdx);
+            }
+            current_faceIdx = current_faceIdxs.pop();
+        }
+        this.flipOrientation(dim, faceO.map((o, idx) => [o, faceIds[idx]]).filter(([o, id]) => !o).map(([o, id]) => id));
+    }
     calculateOrientationInFace(dim, faceId) {
         this.orientation ??= [];
         this.orientation[dim] ??= [];
@@ -10921,7 +11160,7 @@ class CWMesh {
         if (dim === 0)
             return;
         if (dim === 1)
-            return; // edge: [1, -1]
+            return; // edge: [-1, 1]
         const face = this.data[dim][faceId];
         // if d_face not oriented yet, deal with it first
         if (dim !== 2) {
@@ -10959,8 +11198,8 @@ class CWMesh {
                 let [next_dd_faceIdx, next_d_faceIdx] = ajacent_d_faceIdxs[0][1] === current_d_faceIdx ? ajacent_d_faceIdxs[1] : ajacent_d_faceIdxs[0];
                 if (faceO[next_d_faceIdx] !== undefined)
                     continue;
-                const dd_faceOInCurrentFace = dim === 2 ? 0 === dd_faceIdx : dfOTable[currentFaceId][dd_faceIdx];
-                const dd_faceOInNextFace = dim === 2 ? 0 === next_dd_faceIdx : dfOTable[face[next_d_faceIdx]][next_dd_faceIdx];
+                const dd_faceOInCurrentFace = dim === 2 ? 1 === dd_faceIdx : dfOTable[currentFaceId][dd_faceIdx];
+                const dd_faceOInNextFace = dim === 2 ? 1 === next_dd_faceIdx : dfOTable[face[next_d_faceIdx]][next_dd_faceIdx];
                 faceO[next_d_faceIdx] = (faceO[current_d_faceIdx] === dd_faceOInCurrentFace) !== dd_faceOInNextFace;
                 current_d_faceIdxs.push(next_d_faceIdx);
             }
@@ -11333,6 +11572,42 @@ class CWMesh {
         }
         return { cloneInfo, bridgeInfo };
     }
+    makeRotatoid(bivec, segment, angle) {
+        // throw "not test yet";
+        let pathcw;
+        const dangle = (angle ?? _360) / segment;
+        const ps = [];
+        for (let i = 0, j = 0; i < segment; i++, j += dangle) {
+            ps.push(new Vec4(Math.cos(j), Math.sin(j)));
+        }
+        if (angle === undefined) {
+            pathcw = path(ps, true);
+        }
+        else {
+            ps.push(new Vec4(Math.cos(angle), Math.sin(angle)));
+            pathcw = path(ps, false);
+        }
+        const R0 = Rotor.lookAtbb(Bivec.xy, bivec);
+        pathcw.apply(v => v.rotates(R0));
+        const v1s = this.data[0];
+        const info = this.topologicalProduct(pathcw);
+        const r0 = bivec.mulf(dangle).exp();
+        const r = r0.clone();
+        const rarr = [new Rotor, r.clone()];
+        for (let i = 2; i < pathcw.data[0].length; i++) {
+            rarr.push(r.mulsl(r0).clone());
+        }
+        for (const [v2Id, dim1List] of info[0]) {
+            for (const [v1Id, v1_x_v2Id] of dim1List[0]) {
+                if (v1Id === v1_x_v2Id)
+                    break;
+                if (v1Id !== v1_x_v2Id)
+                    v1s[v1_x_v2Id].copy(v1s[v1Id]).rotates(rarr[v2Id]);
+                r.mulsl(r0);
+            }
+        }
+        return info;
+    }
     makePyramid(point, sel) {
         const info = this.topologicalCone(sel);
         const vs = this.data[0];
@@ -11364,34 +11639,23 @@ class CWMesh {
     /// mesh must be closed manifold
     makeDual() {
         const d = (this.findBorder(this.dim()).size) ? this.dim() - 1 : this.dim();
-        this.getDualData(d);
-        // for(let nd=0,dim=d;)
+        const info = this.getDualData(d);
+        const mesh = new CWMesh;
+        for (let nd = d, dim = 0; nd > 0; nd--, dim++) {
+            mesh.data[nd] = [];
+            const nfaces = mesh.data[nd];
+            for (let [faceId, coDfaceId] of info[dim]) {
+                nfaces[faceId] = Array.from(coDfaceId);
+            }
+        }
+        mesh.data[0] = this.data[d].map((_, faceId) => {
+            const arr = Array.from(new CWMeshSelection(this).addFace(d, faceId).closure().selData[0]).map(vId => this.data[0][vId]);
+            return arr.reduce((a, b) => a.adds(b), new Vec4).divfs(arr.length);
+        });
+        mesh.calculateOrientation(3);
+        return mesh;
     }
 }
-
-function polytope(schlafli) {
-    const m = new CWMesh();
-    if (!schlafli) {
-        m.data = [[new Vec4]];
-        return m;
-    }
-    if (schlafli.length === 0) {
-        m.data = [[Vec4.xNeg.clone(), Vec4.x.clone()], [[0, 1]]];
-        return m;
-    }
-    const dim = schlafli.length + 1;
-    m.data = new Polytope(schlafli).getRegularPolytope();
-    m.data.push([m.data[dim - 1].map((_, i) => i)]);
-    m.calculateOrientationInFace(dim, 0);
-    m.flipOrientation(dim - 1, Array.from(m.orientation[dim][0].entries()).filter(([idx, o]) => o === false).map(([idx, o]) => m.data[dim][0][idx]));
-    return m;
-}
-// export function prism()
-
-var geoms = /*#__PURE__*/Object.freeze({
-    __proto__: null,
-    polytope: polytope
-});
 
 var mesh = /*#__PURE__*/Object.freeze({
     __proto__: null,
@@ -11452,6 +11716,11 @@ class ConvexHullGeometry extends Geometry {
         console.assert(false, "todo: need to generate normal");
     }
 }
+class CWMeshGeometry extends Geometry {
+    constructor(cwmesh$1) {
+        super(cwmesh(cwmesh$1).setUVWAsPosition());
+    }
+}
 
 var four = /*#__PURE__*/Object.freeze({
     __proto__: null,
@@ -11491,8 +11760,409 @@ var four = /*#__PURE__*/Object.freeze({
     TorisphereGeometry: TorisphereGeometry,
     SpherinderSideGeometry: SpherinderSideGeometry,
     TigerGeometry: TigerGeometry,
-    ConvexHullGeometry: ConvexHullGeometry
+    ConvexHullGeometry: ConvexHullGeometry,
+    CWMeshGeometry: CWMeshGeometry
 });
+
+class Matrix {
+    elem;
+    row;
+    col;
+    length;
+    constructor(r, c) {
+        c = c ?? r;
+        this.row = r;
+        this.col = c;
+        this.length = r * c;
+        this.elem = new Float32Array(this.length);
+    }
+    static diag(...arr) {
+        const n = arr.length;
+        const nplus1 = n + 1;
+        const m = new Matrix(n);
+        for (let i = 0; i < n; i += nplus1) {
+            m.elem[i] = arr[i];
+        }
+        return m;
+    }
+    diag() {
+        const arr = [];
+        let cplus1 = this.col + 1;
+        const r_c = Math.min(this.row, this.col);
+        for (let i = 0, l = 0; l < r_c && i < this.length; i += cplus1) {
+            arr.push(this.elem[i]);
+        }
+        return arr;
+    }
+    static fromArray(arr) {
+        let m = new Matrix(arr.length, arr[0] ? arr[0].length : 0);
+        m.elem.set(arr.flat());
+        return m;
+    }
+    static fromMat3(mat3) {
+        let m = new Matrix(3);
+        m.elem.set(mat3.elem);
+        return m;
+    }
+    static fromMat4(mat4) {
+        let m = new Matrix(4);
+        m.elem.set(mat4.elem);
+        return m;
+    }
+    static fromVec4(vec4) {
+        let m = new Matrix(1, 4);
+        m.elem.set([vec4.x, vec4.y, vec4.z, vec4.w]);
+        return m;
+    }
+    static fromVec3(vec3) {
+        let m = new Matrix(1, 3);
+        m.elem.set([vec3.x, vec3.y, vec3.z]);
+        return m;
+    }
+    static fill(value, r, c) {
+        let m = new Matrix(r, c);
+        m.elem.fill(value);
+        return m;
+    }
+    static id(r, c) {
+        c = c ?? r;
+        let m = new Matrix(r, c);
+        let cplus1 = c + 1;
+        const r_c = Math.min(r, c);
+        for (let i = 0, l = 0; l < r_c && i < m.length; i += cplus1) {
+            m.elem[i] = 1.0;
+        }
+        return m;
+    }
+    setElements(...args) {
+        this.elem.set(args);
+        return this;
+    }
+    copy(src) {
+        if (src.row !== this.row || src.col !== this.col)
+            throw "Matrix dimension disagree";
+        this.elem.set(src.elem);
+        return this;
+    }
+    clone() {
+        return new Matrix(this.row, this.col).copy(this);
+    }
+    toMat3() {
+        if (this.row !== 3 || this.col !== 3)
+            throw "Matrix dimension must be 3x3";
+        return new Mat3(...this.elem);
+    }
+    toMat4() {
+        if (this.row !== 4 || this.col !== 4)
+            throw "Matrix dimension must be 4x4";
+        return new Mat4(...this.elem);
+    }
+    toVec4() {
+        if (this.row === 4 && this.col === 1)
+            return new Vec4(...this.elem);
+        if (this.row === 1 && this.col === 4)
+            return new Vec4(...this.elem);
+        throw "Matrix dimension must be 1x4 or 4x1";
+    }
+    toVec3() {
+        if (this.row === 3 && this.col === 1)
+            return new Vec3(...this.elem);
+        if (this.row === 1 && this.col === 3)
+            return new Vec3(...this.elem);
+        throw "Matrix dimension must be 1x3 or 3x1";
+    }
+    to2DArray() {
+        let arr = [];
+        for (let i = 0, k = 0; i < this.row; i++) {
+            arr.push([]);
+            for (let j = 0; j < this.col; j++, k++) {
+                arr[i].push(this.elem[k]);
+            }
+        }
+        return arr;
+    }
+    ts() {
+        if (this.col === this.row) {
+            for (let i = 0, offI = 0; i < this.row; i++, offI += this.col) {
+                for (let j = i + 1, offJ = offI + this.col; j < this.col; j++, offJ += this.row) {
+                    const a = j + offI;
+                    const b = i + offJ;
+                    let temp = this.elem[a];
+                    this.elem[a] = this.elem[b];
+                    this.elem[b] = temp;
+                }
+            }
+        }
+        else {
+            throw "not implemented yet for non square matrice";
+        }
+        let temp = this.col;
+        this.col = this.row;
+        this.row = temp;
+        return this;
+    }
+    adds(m) {
+        for (let i = 0, l = m.length; i < l; i++) {
+            this.elem[i] += m.elem[i];
+        }
+        return this;
+    }
+    addmulfs(m, k) {
+        for (let i = 0, l = m.length; i < l; i++) {
+            this.elem[i] += m.elem[i] * k;
+        }
+        return this;
+    }
+    subs(m) {
+        for (let i = 0, l = m.length; i < l; i++) {
+            this.elem[i] -= m.elem[i];
+        }
+        return this;
+    }
+    mulfs(k) {
+        for (let i = 0, l = this.length; i < l; i++) {
+            this.elem[i] *= k;
+        }
+        return this;
+    }
+    mulset(m1, m2) {
+        if (m1 === this)
+            return this.mulsr(m2);
+        if (m2 === this)
+            return this.mulsl(m1);
+        const r1 = m1.row, r2 = m2.row;
+        const c1 = m1.col, c2 = m2.col;
+        if (c1 !== r2)
+            throw "Inconsist matrices dimension";
+        if (this.row !== r1 || this.col !== c2)
+            throw "Inconsist destination matrix dimension";
+        for (let r = 0, k = 0, offsetR1 = 0; r < r1; r++, offsetR1 += c1) {
+            for (let c = 0; c < c2; c++) {
+                let sum = 0;
+                for (let j = 0, offsetR2 = 0; j < r2; j++, offsetR2 += c2) {
+                    sum += m1.elem[offsetR1 + j] * m2.elem[offsetR2 + c];
+                }
+                this.elem[k++] = sum;
+            }
+        }
+        return this;
+    }
+    mul(m) {
+        const r1 = this.row, r2 = m.row;
+        const c1 = this.col, c2 = m.col;
+        if (c1 !== r2)
+            throw "Inconsist matrices dimension";
+        const R = new Matrix(r1, c2);
+        for (let r = 0, k = 0, offsetR1 = 0; r < r1; r++, offsetR1 += c1) {
+            for (let c = 0; c < c2; c++) {
+                let sum = 0;
+                for (let j = 0, offsetR2 = 0; j < r2; j++, offsetR2 += c2) {
+                    sum += this.elem[offsetR1 + j] * m.elem[offsetR2 + c];
+                }
+                R.elem[k++] = sum;
+            }
+        }
+        return R;
+    }
+    /// this = this * m
+    mulsr(m) {
+        const r1 = this.row, r2 = m.row;
+        const c1 = this.col, c2 = m.col;
+        if (c1 !== r2)
+            throw "Inconsist matrices dimension";
+        if (this.col !== c2)
+            throw "Inconsist destination matrix dimension";
+        const arr = new Float32Array(this.length);
+        for (let r = 0, k = 0, offsetR1 = 0; r < r1; r++, offsetR1 += c1) {
+            for (let c = 0; c < c2; c++) {
+                let sum = 0;
+                for (let j = 0, offsetR2 = 0; j < r2; j++, offsetR2 += c2) {
+                    sum += this.elem[offsetR1 + j] * m.elem[offsetR2 + c];
+                }
+                arr[k++] = sum;
+            }
+        }
+        this.elem = arr;
+        return this;
+    }
+    /// this = m * this
+    mulsl(m) {
+        const r1 = m.row, r2 = this.row;
+        const c1 = m.col, c2 = this.col;
+        if (c1 !== r2)
+            throw "Inconsist matrices dimension";
+        if (this.row !== r1)
+            throw "Inconsist destination matrix dimension";
+        const arr = new Float32Array(this.length);
+        for (let r = 0, k = 0, offsetR1 = 0; r < r1; r++, offsetR1 += c1) {
+            for (let c = 0; c < c2; c++) {
+                let sum = 0;
+                for (let j = 0, offsetR2 = 0; j < r2; j++, offsetR2 += c2) {
+                    sum += m.elem[offsetR1 + j] * this.elem[offsetR2 + c];
+                }
+                arr[k++] = sum;
+            }
+        }
+        this.elem = arr;
+        return this;
+    }
+    norm() {
+        let sum = 0;
+        for (let i = 0, l = this.length; i < l; i++) {
+            sum += this.elem[i] * this.elem[i];
+        }
+        return Math.sqrt(sum);
+    }
+    norm1() {
+        let sum = 0;
+        for (let i = 0, l = this.length; i < l; i++) {
+            sum += Math.abs(this.elem[i]);
+        }
+        return sum;
+    }
+    norms() {
+        return this.divfs(this.norm());
+    }
+    normSqr() {
+        let sum = 0;
+        for (let i = 0, l = this.length; i < l; i++) {
+            sum += this.elem[i] * this.elem[i];
+        }
+        return sum;
+    }
+    divfs(k) {
+        k = 1 / k;
+        for (let i = 0, l = this.length; i < l; i++) {
+            this.elem[i] *= k;
+        }
+        return this;
+    }
+    get(r, c) {
+        return this.elem[c + this.col * r];
+    }
+    set(r, c, value) {
+        this.elem[c + this.col * r] = value;
+        return this;
+    }
+    setFromSubMatrix(srcMat, rows, cols, srcRowOffset = 0, srcColOffset = 0, dstRowOffset = 0, dstColOffset = 0) {
+        const { row, col } = srcMat;
+        rows ??= row;
+        cols ??= col;
+        for (let i = srcRowOffset, srcOffset = srcRowOffset * col, dstOffset = dstRowOffset * this.col; i < srcRowOffset + rows; i++, srcOffset += col, dstOffset += this.col) {
+            for (let j = srcColOffset, k = dstColOffset; j < srcColOffset + cols; j++, k++) {
+                this.elem[k + dstOffset] = srcMat.elem[j + srcOffset];
+            }
+        }
+        return this;
+    }
+    colVector(k) {
+        return this.subMatrix(0, k, undefined, 1);
+    }
+    rowVector(k) {
+        return this.subMatrix(k, 0, 1);
+    }
+    subMatrix(rowOffset, colOffset, row, col) {
+        row ??= this.row;
+        col ??= this.col;
+        const A = new Matrix(row, col);
+        for (let i = rowOffset, offset = rowOffset * this.col, k = 0; i < rowOffset + row; i++, offset += this.col) {
+            for (let j = colOffset; j < colOffset + col; j++, k++) {
+                A.elem[k] = this.elem[j + offset];
+            }
+        }
+        return A;
+    }
+    det() {
+        if (this.row !== this.col)
+            throw "Square matrix expected";
+        if (this.row === 1)
+            return this.elem[0];
+        if (this.row === 2)
+            return this.elem[0] * this.elem[3] - this.elem[1] * this.elem[2];
+        let det = 0;
+        const elem = this.elem;
+        const n = this.row - 1;
+        const subMat = new Matrix(n);
+        for (let i = 0; i < this.col; i++) {
+            if (i)
+                subMat.setFromSubMatrix(this, n, i, 1, 0);
+            if (i !== n)
+                subMat.setFromSubMatrix(this, n, n - i, 1, i + 1, 0, i);
+            det += (i & 1) === 0 ? elem[i] * subMat.det() : -elem[i] * subMat.det();
+        }
+        return det;
+    }
+    QRdecompose() {
+        const m = this.row;
+        const n = this.col;
+        const qv = [];
+        // temp array
+        const z = this.clone();
+        let z1;
+        for (let k = 0; k < n && k < m - 1; k++) {
+            let e = new Matrix(m, 1), x;
+            let a;
+            z1 = Matrix.id(m, n);
+            z1.setFromSubMatrix(z, m - k, n - k, k, k, k, k);
+            x = z1.colVector(k);
+            a = x.norm();
+            if (this.get(k, k) > 0)
+                a = -a;
+            for (let i = 0; i < m; i++) {
+                e.elem[i] = (i == k) ? 1 : 0;
+            }
+            x.addmulfs(e, a);
+            e.copy(x);
+            const norm = e.norm();
+            if (norm > 0) {
+                e.divfs(norm);
+                // qv[k] = I - 2 *e*e^T
+                qv[k] = new Matrix(m);
+                for (let i = 0, kk = 0; i < m; i++) {
+                    for (let j = 0; j < m; j++, kk++) {
+                        qv[k].elem[kk] = -2 * e.elem[i] * e.elem[j];
+                        if (i === j)
+                            qv[k].elem[kk] += 1;
+                    }
+                }
+                z.mulset(qv[k], z1);
+            }
+        }
+        let Q = qv[0] ?? Matrix.id(m);
+        for (let i = 1; i < qv.length; i++) {
+            Q.mulsl(qv[i]);
+        }
+        const R = Q.mul(this);
+        Q.ts();
+        return { Q, R };
+    }
+    SVdecompose(iterations = 10) {
+        // m = O L O'
+        function OLOdecompose(m) {
+            const tempMat = m.clone();
+            let { Q, R } = tempMat.QRdecompose();
+            const qv = Q.clone();
+            for (let i = 0; i < iterations; i++) {
+                tempMat.mulset(R, Q);
+                const { Q: Q2, R: R2 } = tempMat.QRdecompose();
+                qv.mulsr(Q2);
+                Q = Q2;
+                R = R2;
+            }
+            return { O: qv, L: tempMat.clone() };
+        }
+        const pts = this.clone().ts();
+        const ppt = OLOdecompose(this.mul(pts));
+        const U = ppt.O;
+        for (let i = 0; i < ppt.L.length; i += ppt.L.row + 1) {
+            ppt.L.elem[i] = 1 / Math.sqrt(ppt.L.elem[i]);
+        }
+        const V = ppt.L.mul(U.clone().ts()).mul(this);
+        return {
+            U, V, L: U.clone().ts().mul(this).mulsr(V.clone().ts())
+        };
+    }
+}
 
 /** all properities hold by class Rigid should not be modified
  *  exceptions are position/rotation and (angular)velocity.
@@ -11679,8 +12349,77 @@ var rigid;
             }
             this.boundingGlome = Math.sqrt(this.boundingGlome);
         }
+        getPointsInertia(points, mass) {
+            const inertiaMat = new Matrix(6);
+            const tempMat = new Matrix(6);
+            for (const p of points) {
+                const r11 = p.x * p.x;
+                const r12 = p.x * p.y;
+                const r13 = p.x * p.z;
+                const r14 = p.x * p.w;
+                const r22 = p.y * p.y;
+                const r23 = p.y * p.z;
+                const r24 = p.y * p.w;
+                const r33 = p.z * p.z;
+                const r34 = p.z * p.w;
+                const r44 = p.w * p.w;
+                tempMat.setElements(r11 + r22, r23, r24, -r13, -r14, 0, r23, r11 + r33, r34, r12, 0, -r14, r24, r34, r44 + r11, 0, r12, r13, -r13, r12, 0, r22 + r33, r34, -r24, -r14, 0, r12, r34, r44 + r22, r23, 0, -r14, r13, -r24, r23, r33 + r44).ts();
+                inertiaMat.adds(tempMat);
+            }
+            return inertiaMat.mulfs(mass / points.length);
+        }
         initializeMassInertia(rigid) {
             // todo inertia calc
+            new Matrix(6);
+            // const Rt = Rotor.rand();
+            const clinicMat = Matrix.fromArray([
+                [1, 0, 0, 0, 0, 1],
+                [0, 1, 0, 0, -1, 0],
+                [0, 0, 1, 1, 0, 0],
+                [1, 0, 0, 0, 0, -1],
+                [0, 1, 0, 0, 1, 0],
+                [0, 0, 1, -1, 0, 0],
+            ]).mulfs(Math.SQRT1_2);
+            const clinicMats = clinicMat.clone().ts();
+            // calculate inertia matrix before rotation
+            // const inertiaMat0 = this.getPointsInertia((rigid.geometry as Convex).points, rigid.mass);
+            // (rigid.geometry as Convex).points.forEach(v => v.rotates(Rt));
+            // calculate inertia matrix after rotation
+            const inertiaMat = this.getPointsInertia(rigid.geometry.points, rigid.mass);
+            // console.log(inertiaMat0,RtMat.mul(inertiaMat).mul(RtMat.ts())); // ok
+            // convert to isoclinic basis
+            // const iClinicMat0 = clinicMat.mul(inertiaMat0).mul(clinicMats);
+            const iClinicMat = clinicMat.mul(inertiaMat).mul(clinicMats);
+            // console.log(iClinicMat0, iClinicMat);
+            // extract part P:
+            // [aId  P; P'  aId]
+            const p = iClinicMat.subMatrix(0, 3, 3, 3);
+            if (p.norm1() < 1e-5) {
+                rigid.inertiaIsotroy = true;
+                rigid.inertia.set(...inertiaMat.diag()).mulfs(rigid.mass * 0.2); // factor for solid
+                return;
+            }
+            const { U, V } = p.SVdecompose(24);
+            if (V.det() < 0) {
+                V.elem[6] = -V.elem[6];
+                V.elem[7] = -V.elem[7];
+                V.elem[8] = -V.elem[8];
+            }
+            // const newR = new Matrix(6);
+            // const L = Matrix.fromArray([[0, 0, 1], [0, 1, 0], [1, 0, 0]]);
+            // newR.setFromSubMatrix(U.clone().ts(), 3, 3);
+            // newR.setFromSubMatrix((V.clone()), 3, 3, 0, 0, 3, 3);
+            // console.log(newR.mul(iClinicMat).mul(newR.clone().ts()));
+            const rL = new Quaternion().setFromMat3(U.toMat3());
+            const rR = new Quaternion().setFromMat3(V.toMat3());
+            const rotor = new Rotor(rL, rR);
+            // console.log(newR, toBivecClinicMatrix(rotor));
+            rigid.geometry.points.forEach(v => v.rotatesconj(rotor));
+            // calculate inertia matrix
+            const inertiaMat2 = this.getPointsInertia(rigid.geometry.points, rigid.mass);
+            // console.log(inertiaMat2);
+            rigid.rotates(rotor);
+            rigid.inertia.set(...inertiaMat2.diag()).mulfs(rigid.mass * 0.2); // factor for solid
         }
     }
     rigid_1.Convex = Convex;
@@ -12102,80 +12841,6 @@ class BoundingGlomeTreeBroadPhase extends BroadPhase {
 class IgnoreAllBroadPhase extends BroadPhase {
     run(world) {
         this.clearCheckList();
-    }
-}
-
-class Matrix {
-    elem;
-    row;
-    col;
-    length;
-    constructor(r, c) {
-        c = c ?? r;
-        this.row = r;
-        this.col = c;
-        this.length = r * c;
-        this.elem = new Float32Array(this.length);
-    }
-    static id(r) {
-        let m = new Matrix(r);
-        let rplus1 = r + 1;
-        for (let i = 0, l = m.length; i < l; i += rplus1) {
-            m.elem[i] = 1.0;
-        }
-        return m;
-    }
-    set(...args) {
-        this.elem.set(args);
-        return this;
-    }
-    copy(src) {
-        this.elem.set(src.elem);
-        return this;
-    }
-    // setsubmat( // todo
-    //     src: Matrix, srcRow: number, srcCol: number, srcRowCount: number, srcColCount: number,
-    //     dstRow: number, dstCol: number
-    // ) {
-    //     this.elem.set(m.elem); return this;
-    // }
-    clone(m) {
-        return new Matrix(this.row, this.col).copy(this);
-    }
-    adds(m) {
-        for (let i = 0, l = m.length; i < l; i++) {
-            this.elem[i] += m.elem[i];
-        }
-        return this;
-    }
-    subs(m) {
-        for (let i = 0, l = m.length; i < l; i++) {
-            this.elem[i] -= m.elem[i];
-        }
-        return this;
-    }
-    mulfs(k) {
-        for (let i = 0, l = this.length; i < l; i++) {
-            this.elem[i] *= k;
-        }
-        return this;
-    }
-    divfs(k) {
-        k = 1 / k;
-        for (let i = 0, l = this.length; i < l; i++) {
-            this.elem[i] *= k;
-        }
-        return this;
-    }
-    at(r, c) {
-        return this.elem[r + this.row * c];
-    }
-    setAt(value, r, c) {
-        this.elem[r + this.row * c] = value;
-        return this;
-    }
-    static subMatrix(startRow, startCol, rowCount, colCout) {
-        new Matrix(rowCount, colCout);
     }
 }
 
@@ -12679,7 +13344,7 @@ class MaxWell extends Force {
         let kxy_y = kxy * y, kxz_y = kxz * y, kxw_y = kxw * y, kyz_y = kyz * y, kyw_y = kyw * y, kzw_y = kzw * y;
         let kxy_z = kxy * z, kxz_z = kxz * z, kxw_z = kxw * z, kyz_z = kyz * z, kyw_z = kyw * z, kzw_z = kzw * z;
         let kxy_w = kxy * w, kxz_w = kxz * w, kxw_w = kxw * w, kyz_w = kyz * w, kyw_w = kyw * w, kzw_w = kzw * w;
-        dB.adds(new Matrix(4, 6).set((xy * (kyz_w - kyw_z) + 2 * kzw_x * (xx + yy - 2 * (zz + ww)) + (kxw_z - kxz_w) * (r2m6xx)), (xy * (kxz_w - kxw_z) + 2 * kzw_y * (xx + yy - 2 * (zz + ww)) + (kyw_z - kyz_w) * (r2m6yy)), (zw * (kxz_x + kyz_y) - 2 * kzw_z * (zz + ww - 2 * (xx + yy)) + (kxw_x + kyw_y) * (r2m6zz)), -(zw * (kxw_x + kyw_y) + 2 * kzw_w * (zz + ww - 2 * (xx + yy)) + (kxz_x + kyz_y) * (r2m6ww)), -(xz * (-kyz_w - kzw_y) + 2 * kyw_x * (xx + zz - 2 * (yy + ww)) + (kxw_y - kxy_w) * (r2m6xx)), -(yw * (kxy_x - kyz_z) - 2 * kyw_y * (yy + ww - 2 * (xx + zz)) + (kxw_x + kzw_z) * (r2m6yy)), -(xz * (kxy_w - kxw_y) + 2 * kyw_z * (xx + zz - 2 * (yy + ww)) + (kzw_y + kyz_w) * (r2m6zz)), (yw * (kxw_x + kzw_z) + 2 * kyw_w * (yy + ww - 2 * (xx + zz)) + (kxy_x - kyz_z) * (r2m6ww)), -(xw * (-kzw_y + kyw_z) - 2 * kyz_x * (xx + ww - 2 * (zz + yy)) + (kxy_z - kxz_y) * (r2m6xx)), (yz * (kxy_x - kyw_w) - 2 * kyz_y * (zz + yy - 2 * (xx + ww)) + (kxz_x - kzw_w) * (r2m6yy)), -(yz * (kxz_x - kzw_w) + 2 * kyz_z * (zz + yy - 2 * (xx + ww)) + (kxy_x - kyw_w) * (r2m6zz)), -(xw * (kxz_y - kxy_z) - 2 * kyz_w * (xx + ww - 2 * (zz + yy)) + (-kyw_z + kzw_y) * (r2m6ww)), (xw * (-kxy_y - kxz_z) - 2 * kxw_x * (xx + ww - 2 * (yy + zz)) + (kyw_y + kzw_z) * (r2m6xx)), (yz * (-kxz_w - kzw_x) + 2 * kxw_y * (yy + zz - 2 * (xx + ww)) + (kyw_x + kxy_w) * (r2m6yy)), (yz * (-kxy_w - kyw_x) + 2 * kxw_z * (yy + zz - 2 * (xx + ww)) + (kzw_x + kxz_w) * (r2m6zz)), -(xw * (kyw_y + kzw_z) + 2 * kxw_w * (xx + ww - 2 * (yy + zz)) + (-kxy_y - kxz_z) * (r2m6ww)), -(xz * (-kxy_y - kxw_w) - 2 * kxz_x * (xx + zz - 2 * (yy + ww)) + (kyz_y - kzw_w) * (r2m6xx)), -(yw * (-kxw_z + kzw_x) + 2 * kxz_y * (yy + ww - 2 * (xx + zz)) + (kyz_x + kxy_z) * (r2m6yy)), (xz * (kyz_y - kzw_w) + 2 * kxz_z * (xx + zz - 2 * (yy + ww)) + (-kxy_y - kxw_w) * (r2m6zz)), -(yw * (-kxy_z - kyz_x) + 2 * kxz_w * (yy + ww - 2 * (xx + zz)) + (-kzw_x + kxw_z) * (r2m6ww)), (xy * (-kxz_z - kxw_w) - 2 * kxy_x * (xx + yy - 2 * (zz + ww)) + (-kyz_z - kyw_w) * (r2m6xx)), -(xy * (-kyz_z - kyw_w) + 2 * kxy_y * (xx + yy - 2 * (zz + ww)) + (-kxz_z - kxw_w) * (r2m6yy)), (zw * (-kxw_y + kyw_x) + 2 * kxy_z * (zz + ww - 2 * (xx + yy)) + (-kyz_x + kxz_y) * (r2m6zz)), (zw * (-kxz_y + kyz_x) + 2 * kxy_w * (zz + ww - 2 * (xx + yy)) + (-kyw_x + kxw_y) * (r2m6ww))));
+        dB.adds(new Matrix(4, 6).setElements((xy * (kyz_w - kyw_z) + 2 * kzw_x * (xx + yy - 2 * (zz + ww)) + (kxw_z - kxz_w) * (r2m6xx)), (xy * (kxz_w - kxw_z) + 2 * kzw_y * (xx + yy - 2 * (zz + ww)) + (kyw_z - kyz_w) * (r2m6yy)), (zw * (kxz_x + kyz_y) - 2 * kzw_z * (zz + ww - 2 * (xx + yy)) + (kxw_x + kyw_y) * (r2m6zz)), -(zw * (kxw_x + kyw_y) + 2 * kzw_w * (zz + ww - 2 * (xx + yy)) + (kxz_x + kyz_y) * (r2m6ww)), -(xz * (-kyz_w - kzw_y) + 2 * kyw_x * (xx + zz - 2 * (yy + ww)) + (kxw_y - kxy_w) * (r2m6xx)), -(yw * (kxy_x - kyz_z) - 2 * kyw_y * (yy + ww - 2 * (xx + zz)) + (kxw_x + kzw_z) * (r2m6yy)), -(xz * (kxy_w - kxw_y) + 2 * kyw_z * (xx + zz - 2 * (yy + ww)) + (kzw_y + kyz_w) * (r2m6zz)), (yw * (kxw_x + kzw_z) + 2 * kyw_w * (yy + ww - 2 * (xx + zz)) + (kxy_x - kyz_z) * (r2m6ww)), -(xw * (-kzw_y + kyw_z) - 2 * kyz_x * (xx + ww - 2 * (zz + yy)) + (kxy_z - kxz_y) * (r2m6xx)), (yz * (kxy_x - kyw_w) - 2 * kyz_y * (zz + yy - 2 * (xx + ww)) + (kxz_x - kzw_w) * (r2m6yy)), -(yz * (kxz_x - kzw_w) + 2 * kyz_z * (zz + yy - 2 * (xx + ww)) + (kxy_x - kyw_w) * (r2m6zz)), -(xw * (kxz_y - kxy_z) - 2 * kyz_w * (xx + ww - 2 * (zz + yy)) + (-kyw_z + kzw_y) * (r2m6ww)), (xw * (-kxy_y - kxz_z) - 2 * kxw_x * (xx + ww - 2 * (yy + zz)) + (kyw_y + kzw_z) * (r2m6xx)), (yz * (-kxz_w - kzw_x) + 2 * kxw_y * (yy + zz - 2 * (xx + ww)) + (kyw_x + kxy_w) * (r2m6yy)), (yz * (-kxy_w - kyw_x) + 2 * kxw_z * (yy + zz - 2 * (xx + ww)) + (kzw_x + kxz_w) * (r2m6zz)), -(xw * (kyw_y + kzw_z) + 2 * kxw_w * (xx + ww - 2 * (yy + zz)) + (-kxy_y - kxz_z) * (r2m6ww)), -(xz * (-kxy_y - kxw_w) - 2 * kxz_x * (xx + zz - 2 * (yy + ww)) + (kyz_y - kzw_w) * (r2m6xx)), -(yw * (-kxw_z + kzw_x) + 2 * kxz_y * (yy + ww - 2 * (xx + zz)) + (kyz_x + kxy_z) * (r2m6yy)), (xz * (kyz_y - kzw_w) + 2 * kxz_z * (xx + zz - 2 * (yy + ww)) + (-kxy_y - kxw_w) * (r2m6zz)), -(yw * (-kxy_z - kyz_x) + 2 * kxz_w * (yy + ww - 2 * (xx + zz)) + (-kzw_x + kxw_z) * (r2m6ww)), (xy * (-kxz_z - kxw_w) - 2 * kxy_x * (xx + yy - 2 * (zz + ww)) + (-kyz_z - kyw_w) * (r2m6xx)), -(xy * (-kyz_z - kyw_w) + 2 * kxy_y * (xx + yy - 2 * (zz + ww)) + (-kxz_z - kxw_w) * (r2m6yy)), (zw * (-kxw_y + kyw_x) + 2 * kxy_z * (zz + ww - 2 * (xx + yy)) + (-kyz_x + kxz_y) * (r2m6zz)), (zw * (-kxz_y + kyz_x) + 2 * kxy_w * (zz + ww - 2 * (xx + yy)) + (-kyw_x + kxw_y) * (r2m6ww))));
     }
     addEOfElectricDipole(vecE, dE, pos, s) {
         let r = vec4Pool.pop().subset(pos, s.worldPos);
