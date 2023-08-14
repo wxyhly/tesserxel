@@ -1,4 +1,4 @@
-import { SliceRenderer, TetraSlicePipeline } from "../render/slice";
+import { SliceRenderer, TetraSlicePipeline } from "../render/slice/slice";
 import { GPU } from "../render/gpu";
 import { AmbientLight, DirectionalLight, PointLight, SpotLight, _initLightShader, _updateWorldLight } from "./light";
 import { Camera, Mesh, Object, Scene } from "./scene";
@@ -24,25 +24,28 @@ export class Renderer {
     private safeTetraNumInOnePass: number;
     private tetraNumOccupancyRatio: number = 0.08;
     private maxTetraNumInOnePass: number;
-    constructor(canvas: HTMLCanvasElement) {
+    private context: GPUCanvasContext;
+    constructor(canvas: HTMLCanvasElement, config?: RendererConfig) {
         this.canvas = canvas;
-        this.core = new SliceRenderer();
+        this.lightShaderInfomation = _initLightShader(config);
     }
     setBackgroudColor(color: GPUColor) {
-        this.core.setScreenClearColor(color);
+        this.core.setDisplayConfig({ screenBackgroundColor: color });
     }
-    async init(config?: RendererConfig) {
+    async init() {
         this.gpu = await new GPU().init();
         if (!this.gpu) {
             console.error("No availiable GPU device found. Please check whether WebGPU is enabled on your browser.");
             return null;
         }
-        await this.core.init(this.gpu, this.gpu.getContext(this.canvas));
-        this.lightShaderInfomation = _initLightShader(config);
+        this.context = this.gpu.getContext(this.canvas);
+        this.core = new SliceRenderer(this.gpu);
         this.uCamMatBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, (4 * 5 * 2) * 4, "uCamMat");
         this.uWorldLightBuffer = this.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, this.lightShaderInfomation.uWorldLightBufferSize, "uWorldLight");
-        this.core.setSize({ width: this.canvas.width * devicePixelRatio, height: this.canvas.height * devicePixelRatio });
+        this.core.setDisplayConfig({ canvasSize: { width: this.canvas.width * devicePixelRatio, height: this.canvas.height * devicePixelRatio } });
         this.safeTetraNumInOnePass = this.core.getSafeTetraNumInOnePass();
+
+        await this.core.init();
         return this;
     }
     // todo: add computePipeLinePool
@@ -198,7 +201,7 @@ export class Renderer {
         if (m.visible) this.addToDrawList(m);
     }
     updateScene(scene: Scene) {
-        this.core.setWorldClearColor(scene.backGroundColor);
+        this.core.setDisplayConfig({ retinaClearColor: scene.backGroundColor });
         this.cameraInScene = false;
         this.maxTetraNumInOnePass = this.safeTetraNumInOnePass / this.tetraNumOccupancyRatio;
         for (let c of scene.child) {
@@ -240,7 +243,7 @@ export class Renderer {
     activeCamera: Camera;
     setCamera(camera: Camera) {
         if (camera.needsUpdate) {
-            this.core.setCameraProjectMatrix(camera);
+            this.core.setDisplayConfig({ camera4D: camera });
             camera.needsUpdate = false;
         }
         this.activeCamera = camera;
@@ -249,7 +252,7 @@ export class Renderer {
         this.clearState();
         this.setCamera(camera);
         this.updateScene(scene);
-        this.core.render(() => {
+        this.core.render(this.context, (renderState) => {
             for (let { pipeline, meshes, bindGroup } of globalThis.Object.values(this.drawList)) {
                 if (!meshes.length) continue; // skip empty (may caused by safe tetranum check)
                 let tetraState = false;
@@ -259,26 +262,26 @@ export class Renderer {
                     bindGroup
                 ];
                 for (let mesh of meshes) {
-                    if (!this.core.testWithFrustumData(mesh.geometry.obb, this.activeCamera.worldCoord, mesh.worldCoord)) continue;
+                    if (!renderState.testWithFrustumData(mesh.geometry.obb, this.activeCamera.worldCoord, mesh.worldCoord)) continue;
                     if (tetraState === false) {
-                        this.core.beginTetras(pipeline);
+                        renderState.beginTetras(pipeline);
                         tetraCount = 0;
                         tetraState = true;
                     }
-                    this.core.sliceTetras(mesh.bindGroup, mesh.geometry.jsBuffer.count);
+                    renderState.sliceTetras(mesh.bindGroup, mesh.geometry.jsBuffer.count);
                     tetraCount += mesh.geometry.jsBuffer.count;
                     if (tetraCount > this.maxTetraNumInOnePass) {
-                        this.core.drawTetras(binding);
+                        renderState.drawTetras(binding);
                         tetraState = false;
                         tetraCount = 0;
                     }
                 }
                 if (tetraState === true) {
-                    this.core.drawTetras(binding);
+                    renderState.drawTetras(binding);
                 }
             }
             if (scene.skyBox?.bindGroups) {
-                this.core.drawRaytracing(scene.skyBox.pipeline, scene.skyBox.bindGroups);
+                renderState.drawRaytracing(scene.skyBox.pipeline, scene.skyBox.bindGroups);
             }
         });
     }
@@ -290,7 +293,7 @@ export class Renderer {
             this.canvas.width = size[0];
             this.canvas.height = size[1];
         }
-        this.core.setSize(size);
+        this.core.setDisplayConfig({ canvasSize: size });
     }
     private clearState() {
         this.ambientLightDensity.set();

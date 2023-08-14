@@ -5,7 +5,7 @@ export var hello_tetra1;
         const gpu = await new tesserxel.render.GPU().init();
         const canvas = document.getElementById("gpu-canvas");
         const context = gpu.getContext(canvas);
-        const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
+        const renderer = new tesserxel.render.SliceRenderer(gpu);
         const vertexShaderCode = `
             @tetra fn main() -> @builtin(position) mat4x4<f32> {
                 return mat4x4<f32> (
@@ -35,11 +35,11 @@ export var hello_tetra1;
         const height = window.innerHeight * window.devicePixelRatio;
         canvas.width = width;
         canvas.height = height;
-        renderer.setSize({ width, height });
-        renderer.render(() => {
-            renderer.beginTetras(pipeline);
-            renderer.sliceTetras(null, 1);
-            renderer.drawTetras();
+        await renderer.init();
+        renderer.render(context, (renderState) => {
+            renderState.beginTetras(pipeline);
+            renderState.sliceTetras(null, 1);
+            renderState.drawTetras();
         });
     }
     hello_tetra1.load = load;
@@ -50,7 +50,7 @@ export var hello_tetra2;
         const gpu = await new tesserxel.render.GPU().init();
         const canvas = document.getElementById("gpu-canvas");
         const context = gpu.getContext(canvas);
-        const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
+        const renderer = new tesserxel.render.SliceRenderer(gpu);
         const vertexShaderCode = `
             struct TetraOutput{
                 @builtin(position) position: mat4x4<f32>,
@@ -92,11 +92,11 @@ export var hello_tetra2;
         const height = window.innerHeight * window.devicePixelRatio;
         canvas.width = width;
         canvas.height = height;
-        renderer.setSize({ width, height });
-        renderer.render(() => {
-            renderer.beginTetras(pipeline);
-            renderer.sliceTetras(null, 1);
-            renderer.drawTetras();
+        await renderer.init();
+        renderer.render(context, (renderState) => {
+            renderState.beginTetras(pipeline);
+            renderState.sliceTetras(null, 1);
+            renderState.drawTetras();
         });
     }
     hello_tetra2.load = load;
@@ -107,7 +107,7 @@ export var hello_tetra3;
         const gpu = await new tesserxel.render.GPU().init();
         const canvas = document.getElementById("gpu-canvas");
         const context = gpu.getContext(canvas);
-        const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
+        const renderer = new tesserxel.render.SliceRenderer(gpu);
         const vertexShaderCode = `
             @group(1) @binding(0) var<uniform> viewMat: mat4x4<f32>;
             struct TetraOutput{
@@ -153,8 +153,8 @@ export var hello_tetra3;
         const height = window.innerHeight * window.devicePixelRatio;
         canvas.width = width;
         canvas.height = height;
-        renderer.setSize({ width, height });
         let angle = 0;
+        await renderer.init();
         function loop() {
             angle += 0.01;
             let s = Math.sin(angle), c = Math.cos(angle);
@@ -165,10 +165,10 @@ export var hello_tetra3;
                 0, 0, 0, 1
             ]);
             gpu.device.queue.writeBuffer(viewMatGpuBuffer, 0, viewMatJsBuffer);
-            renderer.render(() => {
-                renderer.beginTetras(pipeline);
-                renderer.sliceTetras(viewMatBindGroup, 1);
-                renderer.drawTetras();
+            renderer.render(context, (renderState) => {
+                renderState.beginTetras(pipeline);
+                renderState.sliceTetras(viewMatBindGroup, 1);
+                renderState.drawTetras();
             });
             window.requestAnimationFrame(loop);
         }

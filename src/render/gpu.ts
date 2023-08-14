@@ -1,4 +1,3 @@
-/// <reference types="@webgpu/types" />
 export class GPU {
     adapter: GPUAdapter;
     device: GPUDevice;
@@ -30,7 +29,7 @@ export class GPU {
     createBuffer(usage: number, buffer_or_size: (ArrayLike<number> & ArrayBuffer) | number, label?: string) {
         let gpuBuffer = this.device.createBuffer({
             size: (buffer_or_size as ArrayLike<number> & ArrayBuffer)?.byteLength ?? (buffer_or_size as number),
-            usage,
+            usage, label,
             mappedAtCreation: typeof buffer_or_size != "number"
         });
         if (typeof buffer_or_size != "number") {

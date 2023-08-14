@@ -103,13 +103,12 @@ class MandelApp {
         let gpu = await new tesserxel.render.GPU().init();
         let canvas = document.getElementById("gpu-canvas");
         let context = gpu.getContext(canvas);
-        let renderer = await new tesserxel.render.SliceRenderer().init(gpu, context, {
+        let renderer = await new tesserxel.render.SliceRenderer(gpu, {
             enableFloat16Blend: false,
             sliceGroupSize: 8
         });
         this.renderer = renderer;
-        renderer.setScreenClearColor({ r: 1, g: 1, b: 1, a: 1 });
-        renderer.setSliceConfig({ retinaResolution: 64 });
+        renderer.setDisplayConfig({ screenBackgroundColor: { r: 1, g: 1, b: 1, a: 1 }, retinaResolution: 64 });
         let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
         let camController = new tesserxel.util.ctrl.FreeFlyController();
         camController.object.position.set(0.001, 0.00141, 0.00172, 3);
@@ -123,6 +122,7 @@ class MandelApp {
             rayEntryPoint: "mainRay",
             fragmentEntryPoint: "mainFragment"
         });
+        await renderer.init();
         let bindgroups = [renderer.createVertexShaderBindGroup(pipeline, 1, [camBuffer])];
         this.run = () => {
             let de = fnDE(camController.object.position);
@@ -131,8 +131,8 @@ class MandelApp {
             ctrlreg.update();
             camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
             gpu.device.queue.writeBuffer(camBuffer, 0, matModelViewJSBuffer);
-            renderer.render(() => {
-                renderer.drawRaytracing(pipeline, bindgroups);
+            renderer.render(context, (rs) => {
+                rs.drawRaytracing(pipeline, bindgroups);
             });
             window.requestAnimationFrame(this.run);
         };
@@ -141,7 +141,7 @@ class MandelApp {
             let height = window.innerHeight * window.devicePixelRatio;
             canvas.width = width;
             canvas.height = height;
-            renderer.setSize({ width, height });
+            renderer.setDisplayConfig({ canvasSize: { width, height } });
         }
         setSize();
         window.addEventListener("resize", setSize);

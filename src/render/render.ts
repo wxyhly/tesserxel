@@ -1,3 +1,3 @@
 export { GPU } from "./gpu";
-export * from "./slice";
-export * from "./voxel";
+export * from "./slice/slice";
+export * from "./voxel/buffer";

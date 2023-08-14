@@ -41,7 +41,7 @@ export var spring_rope;
             let height = window.innerHeight * window.devicePixelRatio;
             renderer.setSize({ width, height });
         }
-        renderer.core.setOpacity(10);
+        renderer.core.setDisplayConfig({ opacity: 10 });
         setSize();
         window.addEventListener("resize", setSize);
         // init physic scene

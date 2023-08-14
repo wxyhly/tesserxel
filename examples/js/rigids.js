@@ -205,9 +205,11 @@ export var st_pile;
         scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
         const canvas = document.getElementById("gpu-canvas");
         const renderer = await new FOUR.Renderer(canvas).init();
-        renderer.core.setScreenClearColor([1, 1, 1, 1]);
-        renderer.core.setEyeOffset(0.5);
-        renderer.core.setOpacity(10);
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
         // controllers
         const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
         camCtrl.keyMoveSpeed = 0.003;
@@ -279,9 +281,11 @@ export var rigid_test;
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
         const renderer = await new FOUR.Renderer(canvas).init();
-        renderer.core.setScreenClearColor([1, 1, 1, 1]);
-        renderer.core.setEyeOffset(0.5);
-        renderer.core.setOpacity(10);
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
         // controllers
         const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
         camCtrl.keyMoveSpeed = 0.01;
@@ -385,9 +389,11 @@ export var st_ts_chain;
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
         const renderer = await new FOUR.Renderer(canvas).init();
-        renderer.core.setScreenClearColor([1, 1, 1, 1]);
-        renderer.core.setEyeOffset(0.5);
-        renderer.core.setOpacity(20);
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
         // controllers
         const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
         camCtrl.keyMoveSpeed = 0.01;
@@ -553,9 +559,11 @@ export var tg_tg_chain;
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
         const renderer = await new FOUR.Renderer(canvas).init();
-        renderer.core.setScreenClearColor([1, 1, 1, 1]);
-        renderer.core.setEyeOffset(0.5);
-        renderer.core.setOpacity(20);
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
         // controllers
         const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
         camCtrl.keyMoveSpeed = 0.01;
@@ -707,9 +715,11 @@ export var dzhanibekov;
         scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
         const canvas = document.getElementById("gpu-canvas");
         const renderer = await new FOUR.Renderer(canvas).init();
-        renderer.core.setScreenClearColor([1, 1, 1, 1]);
-        renderer.core.setEyeOffset(0.5);
-        renderer.core.setOpacity(20);
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
         // controllers
         const camCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
         const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
@@ -769,9 +779,11 @@ async function loadGyroScene(cwmesh, material) {
     rigidsInSceneLists.push([gyroDisplay, gyroLogic]);
     const canvas = document.getElementById("gpu-canvas");
     const renderer = await new FOUR.Renderer(canvas).init();
-    renderer.core.setScreenClearColor([1, 1, 1, 1]);
-    renderer.core.setEyeOffset(0.5);
-    renderer.core.setOpacity(20);
+    renderer.core.setDisplayConfig({
+        screenBackgroundColor: [1, 1, 1, 1],
+        sectionStereoEyeOffset: 0.5,
+        opacity: 20
+    });
     const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
     const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
     const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
@@ -986,9 +998,11 @@ export var thermo_stats;
         scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
         const canvas = document.getElementById("gpu-canvas");
         const renderer = await new FOUR.Renderer(canvas).init();
-        renderer.core.setScreenClearColor([1, 1, 1, 1]);
-        renderer.core.setEyeOffset(0.5);
-        renderer.core.setOpacity(20);
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
         // controllers
         const camCtrl = new tesserxel.util.ctrl.TrackBallController(camera);
         const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
@@ -1114,9 +1128,11 @@ export var mix_chain;
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
         const renderer = await new FOUR.Renderer(canvas).init();
-        renderer.core.setScreenClearColor([1, 1, 1, 1]);
-        renderer.core.setEyeOffset(0.5);
-        renderer.core.setOpacity(20);
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
         // controllers
         const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
         camCtrl.keyMoveSpeed = 0.01;
@@ -1177,9 +1193,11 @@ async function loadMaxwell(cb) {
     initScene(scene);
     scene.skyBox = null; // delete skyBox in initScene() to save resources, because sky can't be seen
     await renderer.compileMaterials(scene);
-    renderer.core.setScreenClearColor([1, 1, 1, 1]);
-    renderer.core.setEyeOffset(0.5);
-    renderer.core.setOpacity(20);
+    renderer.core.setDisplayConfig({
+        screenBackgroundColor: [1, 1, 1, 1],
+        sectionStereoEyeOffset: 0.5,
+        opacity: 20
+    });
     // controllers
     const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
     camCtrl.keyMoveSpeed = 0.01;

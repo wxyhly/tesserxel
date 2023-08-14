@@ -1,4 +1,4 @@
-import { GPU } from "./gpu";
+import { GPU } from "../gpu";
 export type Size3DDict = { width: number, height: number, depth: number };
 function toSize3DDict(size: GPUExtent3D): Size3DDict {
     let width: number, height: number, depth: number;
@@ -21,7 +21,7 @@ export interface VoxelBuffer {
 export function createVoxelBuffer(
     gpu: GPU, size: GPUExtent3D, formatSize: number,
     header?: ArrayBuffer, headerSize?: number
-) {
+): VoxelBuffer {
     let device = gpu.device;
     let { width, height, depth } = toSize3DDict(size);
     let length = width * height * depth;

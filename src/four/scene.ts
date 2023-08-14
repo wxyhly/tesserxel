@@ -5,7 +5,7 @@ import { PerspectiveCamera } from "../math/geometry/camera";
 import { AABB } from "../math/geometry/primitive";
 import { tetra } from "../mesh/mesh";
 import { TetraMesh, TetraMeshData } from "../mesh/tetra";
-import { RaytracingPipeline, RaytracingPipelineDescriptor } from "../render/slice";
+import { RaytracingPipeline, RaytracingPipelineDescriptor } from "../render/slice/slice";
 import { Material } from "./material";
 import { Renderer } from "./renderer";
 

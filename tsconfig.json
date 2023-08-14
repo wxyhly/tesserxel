@@ -5,9 +5,12 @@
             "DOM"
         ],
         "target": "ES2022",
-        "sourceMap":true,
+        "sourceMap": true,
         "declaration": true,
-        "declarationDir": "build/dts"
+        "declarationDir": "build/dts",
+        "types": ["@webgpu/types"]
     },
-    "include":["./src/**/*"]
+    "include": [
+        "./src/**/*"
+    ],
 }

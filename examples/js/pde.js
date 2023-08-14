@@ -1,5 +1,4 @@
 import * as tesserxel from "../../build/tesserxel.js";
-// namespace examples {
 export var wave_eq;
 (function (wave_eq) {
     async function load() {
@@ -127,8 +126,8 @@ export var wave_eq;
         ]);
         const canvas = document.getElementById("gpu-canvas");
         const context = gpu.getContext(canvas);
-        const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
-        renderer.setOpacity(12);
+        const renderer = new tesserxel.render.SliceRenderer(gpu);
+        renderer.setDisplayConfig({ opacity: 12 });
         const pipeline = await renderer.createRaytracingPipeline({
             code: raytracingShaderCode,
             rayEntryPoint: "mainRay",
@@ -145,8 +144,9 @@ export var wave_eq;
             const height = window.innerHeight * window.devicePixelRatio;
             canvas.width = width;
             canvas.height = height;
-            renderer.setSize({ width, height });
+            renderer.setDisplayConfig({ canvasSize: { width, height } });
         }
+        await renderer.init();
         setSize();
         window.addEventListener("resize", setSize);
         let t = 0;
@@ -172,8 +172,8 @@ export var wave_eq;
         function loop() {
             ctrlReg.update();
             dispatch();
-            renderer.render(() => {
-                renderer.drawRaytracing(pipeline, [renderBindgroup]);
+            renderer.render(context, (rs) => {
+                rs.drawRaytracing(pipeline, [renderBindgroup]);
             });
             window.requestAnimationFrame(loop);
         }
@@ -728,9 +728,8 @@ async function simulateTerrain(erosionRate, coriolis) {
     const computeBindgroup4 = gpu.createBindGroup(computePipeline4, 0, bufferlist, "g4");
     const canvas = document.getElementById("gpu-canvas");
     const context = gpu.getContext(canvas);
-    const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
-    renderer.setOpacity(20);
-    renderer.setSliceConfig({ layers: 96 });
+    const renderer = new tesserxel.render.SliceRenderer(gpu);
+    renderer.setDisplayConfig({ opacity: 20, retinaLayers: 96 });
     const pipeline = await renderer.createRaytracingPipeline({
         code: raytracingShaderCode,
         rayEntryPoint: "mainRay",
@@ -751,12 +750,13 @@ async function simulateTerrain(erosionRate, coriolis) {
     let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
         retinaCtrl, displayCtrl, viewCtrl
     ], { enablePointerLock: true });
+    await renderer.init();
     function setSize() {
         const width = window.innerWidth * window.devicePixelRatio;
         const height = window.innerHeight * window.devicePixelRatio;
         canvas.width = width;
         canvas.height = height;
-        renderer.setSize({ width, height });
+        renderer.setDisplayConfig({ canvasSize: { width, height } });
     }
     setSize();
     window.addEventListener("resize", setSize);
@@ -800,13 +800,12 @@ async function simulateTerrain(erosionRate, coriolis) {
         ctrlReg.update();
         dispatch();
         step++;
-        renderer.render(() => {
-            renderer.drawRaytracing(pipeline, [renderBindgroup]);
+        renderer.render(context, (rs) => {
+            rs.drawRaytracing(pipeline, [renderBindgroup]);
         });
         // if(step > 100) return;
         window.requestAnimationFrame(loop);
     }
     loop();
 }
-// }
 //# sourceMappingURL=pde.js.map

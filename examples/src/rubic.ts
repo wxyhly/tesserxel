@@ -509,7 +509,7 @@ export namespace rubic {
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const renderer = await new four.Renderer(canvas).init();
-        renderer.core.setOpacity(30);
+        renderer.core.setDisplayConfig({ opacity: 30 });
         const retinaController = new util.ctrl.RetinaController(renderer.core);
         const camController = new util.ctrl.TrackBallController(cubeGroup);
         const rubicMgr = new RubicMgr(posHash);

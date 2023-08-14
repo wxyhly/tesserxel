@@ -1,11 +1,11 @@
 import * as tesserxel from "../../build/tesserxel.js"
 // namespace examples {
-    class MandelApp {
+class MandelApp {
 
-        renderer: tesserxel.render.SliceRenderer;
-        camController: tesserxel.util.ctrl.FreeFlyController;
-        retinaController: tesserxel.util.ctrl.RetinaController;
-        headercode = `
+    renderer: tesserxel.render.SliceRenderer;
+    camController: tesserxel.util.ctrl.FreeFlyController;
+    retinaController: tesserxel.util.ctrl.RetinaController;
+    headercode = `
         struct rayOut{
             @location(0) o: vec4<f32>,
             @location(1) d: vec4<f32>
@@ -100,63 +100,63 @@ import * as tesserxel from "../../build/tesserxel.js"
         return render(rayOrigin, rayDir);
         }
         `
-        async load(code: string, fnDE: (pos: tesserxel.math.Vec4) => number) {
-            let gpu = await new tesserxel.render.GPU().init();
-            let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-            let context = gpu.getContext(canvas);
-            let renderer = await new tesserxel.render.SliceRenderer().init(gpu, context, {
-                enableFloat16Blend: false,
-                sliceGroupSize: 8
-            });
-            this.renderer = renderer;
-            renderer.setScreenClearColor({ r: 1, g: 1, b: 1, a: 1 });
-            renderer.setSliceConfig({retinaResolution: 64});
-            let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
-            let camController = new tesserxel.util.ctrl.FreeFlyController();
-            camController.object.position.set(0.001, 0.00141, 0.00172, 3);
-            this.camController = camController;
-            let retinaController = new tesserxel.util.ctrl.RetinaController(renderer);
-            this.retinaController = retinaController;
-            let ctrlreg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
-            let matModelViewJSBuffer = new Float32Array(20);
-            let pipeline = await renderer.createRaytracingPipeline({
-                code: this.headercode.replace(/\{replace\}/g, code),
-                rayEntryPoint: "mainRay",
-                fragmentEntryPoint: "mainFragment"
-            });
-            let bindgroups = [renderer.createVertexShaderBindGroup(pipeline, 1, [camBuffer])];
-            this.run = () => {
-                let de = fnDE(
-                    camController.object.position
-                );
-                camController.keyMoveSpeed = de * 0.001;
-                retinaController.setSectionEyeOffset(de * 0.2);
-                ctrlreg.update();
-                camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
-                gpu.device.queue.writeBuffer(camBuffer, 0, matModelViewJSBuffer);
+    async load(code: string, fnDE: (pos: tesserxel.math.Vec4) => number) {
+        let gpu = await new tesserxel.render.GPU().init();
+        let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+        let context = gpu.getContext(canvas);
+        let renderer = await new tesserxel.render.SliceRenderer(gpu, {
+            enableFloat16Blend: false,
+            sliceGroupSize: 8
+        });
+        this.renderer = renderer;
+        renderer.setDisplayConfig({ screenBackgroundColor: { r: 1, g: 1, b: 1, a: 1 }, retinaResolution: 64 });
+        let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
+        let camController = new tesserxel.util.ctrl.FreeFlyController();
+        camController.object.position.set(0.001, 0.00141, 0.00172, 3);
+        this.camController = camController;
+        let retinaController = new tesserxel.util.ctrl.RetinaController(renderer);
+        this.retinaController = retinaController;
+        let ctrlreg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
+        let matModelViewJSBuffer = new Float32Array(20);
+        let pipeline = await renderer.createRaytracingPipeline({
+            code: this.headercode.replace(/\{replace\}/g, code),
+            rayEntryPoint: "mainRay",
+            fragmentEntryPoint: "mainFragment"
+        });
+        await renderer.init();
+        let bindgroups = [renderer.createVertexShaderBindGroup(pipeline, 1, [camBuffer])];
+        this.run = () => {
+            let de = fnDE(
+                camController.object.position
+            );
+            camController.keyMoveSpeed = de * 0.001;
+            retinaController.setSectionEyeOffset(de * 0.2);
+            ctrlreg.update();
+            camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
+            gpu.device.queue.writeBuffer(camBuffer, 0, matModelViewJSBuffer);
 
-                renderer.render(() => {
-                    renderer.drawRaytracing(pipeline, bindgroups);
-                });
-                window.requestAnimationFrame(this.run);
-            }
-            function setSize() {
-                let width = window.innerWidth * window.devicePixelRatio;
-                let height = window.innerHeight * window.devicePixelRatio;
-                canvas.width = width;
-                canvas.height = height;
-                renderer.setSize({ width, height });
-            }
-            setSize();
-            window.addEventListener("resize", setSize);
-            return this;
+            renderer.render(context, (rs) => {
+                rs.drawRaytracing(pipeline, bindgroups);
+            });
+            window.requestAnimationFrame(this.run);
         }
-        run: () => void;
+        function setSize() {
+            let width = window.innerWidth * window.devicePixelRatio;
+            let height = window.innerHeight * window.devicePixelRatio;
+            canvas.width = width;
+            canvas.height = height;
+            renderer.setDisplayConfig({ canvasSize: { width, height } });
+        }
+        setSize();
+        window.addEventListener("resize", setSize);
+        return this;
     }
-    export namespace mandelbulb_hopf {
-        export async function load() {
-            let app = await new MandelApp().load(
-                `
+    run: () => void;
+}
+export namespace mandelbulb_hopf {
+    export async function load() {
+        let app = await new MandelApp().load(
+            `
                 dr =  pow(r, Power - 1.0)*Power*dr + 1.0;
                 // convert to hopf coordinates
                 var theta: f32 = acos(length(z.zw)/r);
@@ -173,42 +173,42 @@ import * as tesserxel from "../../build/tesserxel.js"
                 z = zr*vec4<f32>(st*cos(phi1), st*sin(phi1), ct*cos(phi2), ct*sin(phi2));
                 z += pos;
             `,
-                (pos: tesserxel.math.Vec4) => {
-                    const MAXMANDELBROTDIST = 1.5;
-                    const MANDELBROTSTEPS = 32;
-                    const Power = 10;
+            (pos: tesserxel.math.Vec4) => {
+                const MAXMANDELBROTDIST = 1.5;
+                const MANDELBROTSTEPS = 32;
+                const Power = 10;
 
-                    let z = pos.clone();
-                    let dr = 1.0;
-                    let r = 0.0;
-                    for (let i = 0; i < MANDELBROTSTEPS; i++) {
-                        r = z.norm();
-                        if (r > MAXMANDELBROTDIST) { break; }
-                        // convert to hopf coordinates
-                        let theta = Math.acos(Math.hypot(z.z, z.w) / r);
-                        let phi1 = Math.atan2(z.y, z.x);
-                        let phi2 = Math.atan2(z.w, z.z);
-                        dr = Math.pow(r, Power - 1.0) * Power * dr + 1.0;
-                        // scale and rotate the point
-                        let zr = Math.pow(r, Power);
-                        theta = theta * Power;
-                        phi1 = phi1 * Power;
-                        phi2 = phi2 * Power;
-                        let st = Math.sin(theta);
-                        let ct = Math.cos(theta);
-                        // convert back to cartesian coordinates
-                        z.set(st * Math.cos(phi1), st * Math.sin(phi1), ct * Math.cos(phi2), ct * Math.sin(phi2));
-                        z.mulfs(zr).adds(pos);
-                    }
-                    return 0.5 * Math.log(r) * r / dr;
-                });
-            app.run();
-        }
+                let z = pos.clone();
+                let dr = 1.0;
+                let r = 0.0;
+                for (let i = 0; i < MANDELBROTSTEPS; i++) {
+                    r = z.norm();
+                    if (r > MAXMANDELBROTDIST) { break; }
+                    // convert to hopf coordinates
+                    let theta = Math.acos(Math.hypot(z.z, z.w) / r);
+                    let phi1 = Math.atan2(z.y, z.x);
+                    let phi2 = Math.atan2(z.w, z.z);
+                    dr = Math.pow(r, Power - 1.0) * Power * dr + 1.0;
+                    // scale and rotate the point
+                    let zr = Math.pow(r, Power);
+                    theta = theta * Power;
+                    phi1 = phi1 * Power;
+                    phi2 = phi2 * Power;
+                    let st = Math.sin(theta);
+                    let ct = Math.cos(theta);
+                    // convert back to cartesian coordinates
+                    z.set(st * Math.cos(phi1), st * Math.sin(phi1), ct * Math.cos(phi2), ct * Math.sin(phi2));
+                    z.mulfs(zr).adds(pos);
+                }
+                return 0.5 * Math.log(r) * r / dr;
+            });
+        app.run();
     }
-    export namespace mandelbulb_spherical {
-        export async function load() {
-            let app = await new MandelApp().load(
-                `
+}
+export namespace mandelbulb_spherical {
+    export async function load() {
+        let app = await new MandelApp().load(
+            `
                 dr =  pow(r, Power - 1.0)*Power*dr + 1.0;
                 // convert to spherical coordinates
                 var theta1: f32 = acos(z.w/r);
@@ -226,44 +226,44 @@ import * as tesserxel from "../../build/tesserxel.js"
                 z = zr*vec4<f32>(st1*st2*cos(phi), st1*st2*sin(phi), st1*cos(theta2), cos(theta1));
                 z += pos;
             `, (pos: tesserxel.math.Vec4) => {
-                const DISTANCE = 3.0;
-                const MAXMANDELBROTDIST = 1.5;
-                const MANDELBROTSTEPS = 32;
-                const Power = 10;
+            const DISTANCE = 3.0;
+            const MAXMANDELBROTDIST = 1.5;
+            const MANDELBROTSTEPS = 32;
+            const Power = 10;
 
-                let z = pos.clone();
-                let dr = 1.0;
-                let r = 0.0;
-                for (let i = 0; i < MANDELBROTSTEPS; i++) {
-                    r = z.norm();
-                    if (r > MAXMANDELBROTDIST) { break; }
-                    // convert to hopf coordinates
-                    let theta1 = Math.acos(z.w / r);
-                    let theta2 = Math.acos(z.z / z.xyz().norm());
-                    let phi = Math.atan2(z.y, z.x);
-                    dr = Math.pow(r, Power - 1.0) * Power * dr + 1.0;
-                    // scale and rotate the point
-                    let zr = Math.pow(r, Power);
-                    theta1 = theta1 * Power;
-                    theta2 = theta2 * Power;
-                    phi = phi * Power;
-                    let st1 = Math.sin(theta1);
-                    let st2 = Math.sin(theta2);
-                    // convert back to cartesian coordinates
-                    z.set(st1 * st2 * Math.cos(phi), st1 * st2 * Math.sin(phi), st1 * Math.cos(theta2), Math.cos(theta1));
-                    z.mulfs(zr).adds(pos);
-                }
-                return 0.5 * Math.log(r) * r / dr;
-            });
-            app.run();
-        }
+            let z = pos.clone();
+            let dr = 1.0;
+            let r = 0.0;
+            for (let i = 0; i < MANDELBROTSTEPS; i++) {
+                r = z.norm();
+                if (r > MAXMANDELBROTDIST) { break; }
+                // convert to hopf coordinates
+                let theta1 = Math.acos(z.w / r);
+                let theta2 = Math.acos(z.z / z.xyz().norm());
+                let phi = Math.atan2(z.y, z.x);
+                dr = Math.pow(r, Power - 1.0) * Power * dr + 1.0;
+                // scale and rotate the point
+                let zr = Math.pow(r, Power);
+                theta1 = theta1 * Power;
+                theta2 = theta2 * Power;
+                phi = phi * Power;
+                let st1 = Math.sin(theta1);
+                let st2 = Math.sin(theta2);
+                // convert back to cartesian coordinates
+                z.set(st1 * st2 * Math.cos(phi), st1 * st2 * Math.sin(phi), st1 * Math.cos(theta2), Math.cos(theta1));
+                z.mulfs(zr).adds(pos);
+            }
+            return 0.5 * Math.log(r) * r / dr;
+        });
+        app.run();
     }
+}
 
-    export namespace julia_quaternion {
-        export async function load() {
-            let _Q = new tesserxel.math.Quaternion();
-            let app = await new MandelApp().load(
-                `
+export namespace julia_quaternion {
+    export async function load() {
+        let _Q = new tesserxel.math.Quaternion();
+        let app = await new MandelApp().load(
+            `
                 dr =  pow(r, Power - 1.0)*Power*dr;
                 let q = z / r;
                 let s = acos(q.x) * Power;
@@ -271,30 +271,30 @@ import * as tesserxel from "../../build/tesserxel.js"
                 z = zr*vec4<f32>(cos(s),normalize(q.yzw)*sin(s));
                 z += vec4<f32>(-0.125,-0.256,0.847,0.0895);
             `, (pos: tesserxel.math.Vec4) => {
-                const DISTANCE = 3.0;
-                const MAXMANDELBROTDIST = 1.5;
-                const MANDELBROTSTEPS = 32;
-                const Power = 2;
-                const c = new tesserxel.math.Vec4(-0.125,-0.256,0.847,0.0895);
+            const DISTANCE = 3.0;
+            const MAXMANDELBROTDIST = 1.5;
+            const MANDELBROTSTEPS = 32;
+            const Power = 2;
+            const c = new tesserxel.math.Vec4(-0.125, -0.256, 0.847, 0.0895);
 
-                let z = pos.clone();
-                let dr = 1.0;
-                let r = 0.0;
-                for (let i = 0; i < MANDELBROTSTEPS; i++) {
-                    r = z.norm();
-                    if (r > MAXMANDELBROTDIST) { break; }
-                    // convert to hopf coordinates
-                    let q = z.divf(r);
-                    z.copy(_Q.expset(_Q.copy(q).log().mulfs(Power)));
-                    dr = Math.pow(r, Power - 1.0) * Power * dr;
-                    // scale and rotate the point
-                    let zr = Math.pow(r, Power);
-                     z.mulfs(zr).adds(c);
-                }
-                return 0.5 * Math.log(r) * r / dr;
-            });
-            app.run();
-        }
+            let z = pos.clone();
+            let dr = 1.0;
+            let r = 0.0;
+            for (let i = 0; i < MANDELBROTSTEPS; i++) {
+                r = z.norm();
+                if (r > MAXMANDELBROTDIST) { break; }
+                // convert to hopf coordinates
+                let q = z.divf(r);
+                z.copy(_Q.expset(_Q.copy(q).log().mulfs(Power)));
+                dr = Math.pow(r, Power - 1.0) * Power * dr;
+                // scale and rotate the point
+                let zr = Math.pow(r, Power);
+                z.mulfs(zr).adds(c);
+            }
+            return 0.5 * Math.log(r) * r / dr;
+        });
+        app.run();
     }
+}
 // }
 

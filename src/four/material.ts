@@ -1,7 +1,7 @@
 import { AffineMat4, Obj4 } from "../math/algebra/affine";
 import { Vec4 } from "../math/algebra/vec4";
 import { generateUUID } from "../math/random";
-import { TetraSlicePipeline } from "../render/slice";
+import { TetraSlicePipeline } from "../render/slice/slice";
 import { Renderer } from "./renderer";
 import { Geometry } from "./scene";
 import { _generateVertShader } from "./vertexshader";

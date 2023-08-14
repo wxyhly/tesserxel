@@ -1,11 +1,11 @@
-import {render, util} from "../../build/tesserxel.js";
+import { render, util } from "../../build/tesserxel.js";
 // export namespace examples {
-    class MengerApp {
+class MengerApp {
 
-        renderer: render.SliceRenderer;
-        camController: util.ctrl.FreeFlyController;
-        retinaController: util.ctrl.RetinaController;
-        headercode = `
+    renderer: render.SliceRenderer;
+    camController: util.ctrl.FreeFlyController;
+    retinaController: util.ctrl.RetinaController;
+    headercode = `
 struct rayOut{
     @location(0) o: vec4<f32>,
     @location(1) d: vec4<f32>
@@ -150,57 +150,58 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
     return render(rayOrigin, rayDir);
 }
         `
-        async load(code: string) {
-            let gpu = await new render.GPU().init();
-            let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-            let context = gpu.getContext(canvas);
-            let renderer = await new render.SliceRenderer().init(gpu, context, {
-                enableFloat16Blend: false,
-                sliceGroupSize: 8
-            });
-            this.renderer = renderer;
-            renderer.setScreenClearColor({ r: 1, g: 1, b: 1, a: 1 });
-            let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
-            let camController = new util.ctrl.FreeFlyController();
-            camController.object.position.set(0, 0, 0, 3);
-            this.camController = camController;
-            let retinaController = new util.ctrl.RetinaController(renderer);
-            this.retinaController = retinaController;
-            let ctrlreg = new util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
-            let matModelViewJSBuffer = new Float32Array(20);
-            let pipeline = await renderer.createRaytracingPipeline({
-                code: this.headercode.replace(/\{replace\}/g, code),
-                rayEntryPoint: "mainRay",
-                fragmentEntryPoint: "mainFragment"
-            });
-            let bindgroups = [renderer.createVertexShaderBindGroup(pipeline, 1, [camBuffer])];
-            this.run = () => {
-                ctrlreg.update();
-                camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
-                gpu.device.queue.writeBuffer(camBuffer, 0, matModelViewJSBuffer);
+    async load(code: string) {
+        let gpu = await new render.GPU().init();
+        let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+        let context = gpu.getContext(canvas);
+        let renderer = new render.SliceRenderer(gpu, {
+            enableFloat16Blend: false,
+            sliceGroupSize: 8
+        });
+        this.renderer = renderer;
+        renderer.setDisplayConfig({ screenBackgroundColor: { r: 1, g: 1, b: 1, a: 1 } });
+        let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
+        let camController = new util.ctrl.FreeFlyController();
+        camController.object.position.set(0, 0, 0, 3);
+        this.camController = camController;
+        let retinaController = new util.ctrl.RetinaController(renderer);
+        this.retinaController = retinaController;
+        let ctrlreg = new util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
+        let matModelViewJSBuffer = new Float32Array(20);
+        let pipeline = await renderer.createRaytracingPipeline({
+            code: this.headercode.replace(/\{replace\}/g, code),
+            rayEntryPoint: "mainRay",
+            fragmentEntryPoint: "mainFragment"
+        });
+        await renderer.init();
+        let bindgroups = [renderer.createVertexShaderBindGroup(pipeline, 1, [camBuffer])];
+        this.run = () => {
+            ctrlreg.update();
+            camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
+            gpu.device.queue.writeBuffer(camBuffer, 0, matModelViewJSBuffer);
 
-                renderer.render(() => {
-                    renderer.drawRaytracing(pipeline, bindgroups);
-                });
-                window.requestAnimationFrame(this.run);
-            }
-            function setSize() {
-                let width = window.innerWidth * window.devicePixelRatio;
-                let height = window.innerHeight * window.devicePixelRatio;
-                canvas.width = width;
-                canvas.height = height;
-                renderer.setSize({ width, height });
-            }
-            setSize();
-            window.addEventListener("resize", setSize);
-            return this;
+            renderer.render(context, (rs) => {
+                rs.drawRaytracing(pipeline, bindgroups);
+            });
+            window.requestAnimationFrame(this.run);
         }
-        run: () => void;
+        function setSize() {
+            let width = window.innerWidth * window.devicePixelRatio;
+            let height = window.innerHeight * window.devicePixelRatio;
+            canvas.width = width;
+            canvas.height = height;
+            renderer.setDisplayConfig({ canvasSize: { width, height } });
+        }
+        setSize();
+        window.addEventListener("resize", setSize);
+        return this;
     }
+    run: () => void;
+}
 
-    export namespace menger_sponge1 {
-        export async function load() {
-            let app = await new MengerApp().load(`
+export namespace menger_sponge1 {
+    export async function load() {
+        let app = await new MengerApp().load(`
             let da = max(max(r.x,r.y),r.z);
             let db = max(max(r.x,r.y),r.w);
             let dc = max(max(r.x,r.w),r.z);
@@ -212,16 +213,16 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
                 d = c;
                 res = vec4<f32>( d, res.y, (1.0+f32(m))/4.0, 0.0 );
             }`);
-            app.retinaController.setOpacity(6);
-            app.run();
-        }
+        app.retinaController.setOpacity(6);
+        app.run();
     }
+}
 
 
 
-    export namespace menger_sponge2 {
-        export async function load() {
-            let app = await new MengerApp().load(`
+export namespace menger_sponge2 {
+    export async function load() {
+        let app = await new MengerApp().load(`
         let da = max(r.x,r.y);
         let db = max(r.x,r.z);
         let dc = max(r.x,r.w);
@@ -235,9 +236,9 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
             d = c;
             res = vec4<f32>( d, res.y, (1.0+f32(m))/4.0, 0.0 );
         }`);
-            app.retinaController.setOpacity(2);
-            app.run();
-        }
+        app.retinaController.setOpacity(2);
+        app.run();
     }
+}
 // }
 

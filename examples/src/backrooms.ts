@@ -28,7 +28,7 @@ export namespace backrooms {
 
         const camera = new four.Camera();
         camera.rotatesb(math.Bivec.xw.mulf(2.8));
-        camera.position.set(1.4,0,1.6,1.3);
+        camera.position.set(1.4, 0, 1.6, 1.3);
         const materials = {
             wall: new four.LambertMaterial([0.8, 0.7, 0.1]),
             carpet: new four.LambertMaterial(new CarpetTexture(new four.WorldCoordVec4Input)),
@@ -55,7 +55,7 @@ export namespace backrooms {
         // scene.add(new four.DirectionalLight([0.02, 0.017, 0.01], new math.Vec4(-1, 2, -0.2, -0.5).norms()));
         scene.add(new four.AmbientLight(0.05));
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-        const renderer = await new four.Renderer(canvas).init({ posdirLightsNumber: 7 * 2 * 3, spotLightsNumber: 1 });
+        const renderer = await new four.Renderer(canvas, { posdirLightsNumber: 7 * 2 * 3, spotLightsNumber: 1 }).init();
 
         const retinaController = new util.ctrl.RetinaController(renderer.core);
         const camController = new util.ctrl.KeepUpController(camera);

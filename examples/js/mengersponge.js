@@ -153,12 +153,12 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
         let gpu = await new render.GPU().init();
         let canvas = document.getElementById("gpu-canvas");
         let context = gpu.getContext(canvas);
-        let renderer = await new render.SliceRenderer().init(gpu, context, {
+        let renderer = new render.SliceRenderer(gpu, {
             enableFloat16Blend: false,
             sliceGroupSize: 8
         });
         this.renderer = renderer;
-        renderer.setScreenClearColor({ r: 1, g: 1, b: 1, a: 1 });
+        renderer.setDisplayConfig({ screenBackgroundColor: { r: 1, g: 1, b: 1, a: 1 } });
         let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
         let camController = new util.ctrl.FreeFlyController();
         camController.object.position.set(0, 0, 0, 3);
@@ -172,13 +172,14 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
             rayEntryPoint: "mainRay",
             fragmentEntryPoint: "mainFragment"
         });
+        await renderer.init();
         let bindgroups = [renderer.createVertexShaderBindGroup(pipeline, 1, [camBuffer])];
         this.run = () => {
             ctrlreg.update();
             camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
             gpu.device.queue.writeBuffer(camBuffer, 0, matModelViewJSBuffer);
-            renderer.render(() => {
-                renderer.drawRaytracing(pipeline, bindgroups);
+            renderer.render(context, (rs) => {
+                rs.drawRaytracing(pipeline, bindgroups);
             });
             window.requestAnimationFrame(this.run);
         };
@@ -187,7 +188,7 @@ fn render( ro:vec4<f32>, rd:vec4<f32> )->vec4<f32>
             let height = window.innerHeight * window.devicePixelRatio;
             canvas.width = width;
             canvas.height = height;
-            renderer.setSize({ width, height });
+            renderer.setDisplayConfig({ canvasSize: { width, height } });
         }
         setSize();
         window.addEventListener("resize", setSize);

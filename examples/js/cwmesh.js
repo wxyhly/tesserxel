@@ -96,7 +96,7 @@ async function loadPolytope0123dFacesScene(mesh) {
     const canvas = document.getElementById("gpu-canvas");
     /** This is a asycn function wait for request WebGPU adapter and do initiations */
     let renderer = await new FOUR.Renderer(canvas).init();
-    renderer.core.setOpacity(15);
+    renderer.core.setDisplayConfig({ opacity: 15 });
     let scene = new FOUR.Scene();
     scene.setBackgroudColor({ r: 1.0, g: 1.0, b: 1.0, a: 0.08 });
     let camera = new FOUR.Camera();

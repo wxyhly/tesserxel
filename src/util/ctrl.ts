@@ -6,12 +6,12 @@ import { Rotor } from "../math/algebra/rotor";
 import { Vec2 } from "../math/algebra/vec2";
 import { Vec3 } from "../math/algebra/vec3";
 import { Vec4 } from "../math/algebra/vec4";
-import { _360, _DEG2RAD } from "../math/const";
-import { EyeOffset, SectionConfig, SliceConfig, SliceFacing, SliceRenderer } from "../render/slice";
+import { _360, _DEG2RAD, _SQRT_3 } from "../math/const";
+import { EyeStereo, SectionConfig, DisplayConfig, RetinaSliceFacing, SliceRenderer, RetinaRenderPass, RetinaRenderPassDescriptor } from "../render/slice/slice";
 
 export interface IController {
     update(state: ControllerState): void;
-    enabled: boolean;
+    enabled?: boolean;
 }
 interface ControllerConfig {
     preventDefault?: boolean;
@@ -600,7 +600,7 @@ export namespace sliceconfig {
         let resolution = screenSize.height;
         return [{
             slicePos: 0,
-            facing: SliceFacing.POSZ,
+            facing: RetinaSliceFacing.POSZ,
             viewport: { x: 0, y: 0, width: 1 / aspect, height: 1.0 },
             resolution
         }];
@@ -611,14 +611,14 @@ export namespace sliceconfig {
         let resolution = screenSize.height * 0.8;
         return [{
             slicePos: 0,
-            facing: SliceFacing.POSZ,
-            eyeOffset: EyeOffset.LeftEye,
+            facing: RetinaSliceFacing.POSZ,
+            eyeStereo: EyeStereo.LeftEye,
             viewport: { x: -0.5, y: 0, width: 0.5 / aspect, height: 0.8 },
             resolution
         }, {
             slicePos: 0,
-            facing: SliceFacing.POSZ,
-            eyeOffset: EyeOffset.RightEye,
+            facing: RetinaSliceFacing.POSZ,
+            eyeStereo: EyeStereo.RightEye,
             viewport: { x: 0.5, y: 0, width: 0.5 / aspect, height: 0.8 },
             resolution
         }];
@@ -628,7 +628,7 @@ export namespace sliceconfig {
         let resolution = screenSize.height;
         return [{
             slicePos: 0,
-            facing: SliceFacing.NEGY,
+            facing: RetinaSliceFacing.NEGY,
             viewport: { x: 0, y: 0, width: 1 / aspect, height: 1.0 },
             resolution
         }];
@@ -638,14 +638,14 @@ export namespace sliceconfig {
         let resolution = screenSize.height * 0.8;
         return [{
             slicePos: 0,
-            facing: SliceFacing.NEGY,
-            eyeOffset: EyeOffset.LeftEye,
+            facing: RetinaSliceFacing.NEGY,
+            eyeStereo: EyeStereo.LeftEye,
             viewport: { x: -0.5, y: 0, width: 0.5 / aspect, height: 0.8 },
             resolution
         }, {
             slicePos: 0,
-            facing: SliceFacing.NEGY,
-            eyeOffset: EyeOffset.RightEye,
+            facing: RetinaSliceFacing.NEGY,
+            eyeStereo: EyeStereo.RightEye,
             viewport: { x: 0.5, y: 0, width: 0.5 / aspect, height: 0.8 },
             resolution
         }];
@@ -665,7 +665,7 @@ export namespace sliceconfig {
         let resolution = screenSize.height * size;
         return arr.map(pos => ({
             slicePos: pos[0],
-            facing: SliceFacing.POSZ,
+            facing: RetinaSliceFacing.POSZ,
             viewport: { x: pos[1] * half, y: size - 1, width: size, height: size },
             resolution
         }));
@@ -686,15 +686,15 @@ export namespace sliceconfig {
         let resolution = screenSize.height * size;
         return arr.map(pos => ({
             slicePos: pos[0],
-            facing: SliceFacing.POSZ,
-            eyeOffset: EyeOffset.LeftEye,
+            facing: RetinaSliceFacing.POSZ,
+            eyeStereo: EyeStereo.LeftEye,
             viewport: { x: (pos[1] * half) - 0.5, y: size - 1, width: size, height: size },
             resolution
         })).concat(
             arr.map(pos => ({
                 slicePos: pos[0],
-                facing: SliceFacing.POSZ,
-                eyeOffset: EyeOffset.RightEye,
+                facing: RetinaSliceFacing.POSZ,
+                eyeStereo: EyeStereo.RightEye,
                 viewport: { x: (pos[1] * half) + 0.5, y: size - 1, width: size, height: size },
                 resolution
             }))
@@ -716,7 +716,7 @@ export namespace sliceconfig {
         let resolution = screenSize.height * size;
         return arr.map(pos => ({
             slicePos: pos[0],
-            facing: SliceFacing.NEGY,
+            facing: RetinaSliceFacing.NEGY,
             viewport: { x: pos[1] * half, y: size - 1, width: size, height: size },
             resolution
         }));
@@ -737,15 +737,15 @@ export namespace sliceconfig {
         let resolution = screenSize.height * size;
         return arr.map(pos => ({
             slicePos: pos[0],
-            facing: SliceFacing.NEGY,
-            eyeOffset: EyeOffset.LeftEye,
+            facing: RetinaSliceFacing.NEGY,
+            eyeStereo: EyeStereo.LeftEye,
             viewport: { x: (pos[1] * half) - 0.5, y: size - 1, width: size, height: size },
             resolution
         })).concat(
             arr.map(pos => ({
                 slicePos: pos[0],
-                facing: SliceFacing.NEGY,
-                eyeOffset: EyeOffset.RightEye,
+                facing: RetinaSliceFacing.NEGY,
+                eyeStereo: EyeStereo.RightEye,
                 viewport: { x: (pos[1] * half) + 0.5, y: size - 1, width: size, height: size },
                 resolution
             }))
@@ -768,38 +768,38 @@ export namespace sliceconfig {
         }
         return [
             {
-                facing: SliceFacing.NEGX,
-                eyeOffset: EyeOffset.LeftEye,
+                facing: RetinaSliceFacing.NEGX,
+                eyeStereo: EyeStereo.LeftEye,
                 viewport: { x: -size_aspect, y: size - 1, width: wsize, height: size },
                 resolution
             },
             {
-                facing: SliceFacing.NEGX,
-                eyeOffset: EyeOffset.RightEye,
+                facing: RetinaSliceFacing.NEGX,
+                eyeStereo: EyeStereo.RightEye,
                 viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size },
                 resolution
             },
             {
-                facing: SliceFacing.NEGY,
-                eyeOffset: EyeOffset.LeftEye,
+                facing: RetinaSliceFacing.NEGY,
+                eyeStereo: EyeStereo.LeftEye,
                 viewport: { x: -size_aspect, y: 1 - size, width: wsize, height: size },
                 resolution
             },
             {
-                facing: SliceFacing.NEGY,
-                eyeOffset: EyeOffset.RightEye,
+                facing: RetinaSliceFacing.NEGY,
+                eyeStereo: EyeStereo.RightEye,
                 viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size },
                 resolution
             },
             {
-                facing: SliceFacing.POSZ,
-                eyeOffset: EyeOffset.LeftEye,
+                facing: RetinaSliceFacing.POSZ,
+                eyeStereo: EyeStereo.LeftEye,
                 viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size },
                 resolution
             },
             {
-                facing: SliceFacing.POSZ,
-                eyeOffset: EyeOffset.RightEye,
+                facing: RetinaSliceFacing.POSZ,
+                eyeStereo: EyeStereo.RightEye,
                 viewport: { x: size_aspect, y: size - 1, width: wsize, height: size },
                 resolution
             },
@@ -820,23 +820,49 @@ export namespace sliceconfig {
         }
         return [
             {
-                facing: SliceFacing.NEGX,
+                facing: RetinaSliceFacing.NEGX,
                 viewport: { x: 1 - size_aspect, y: size - 1, width: wsize, height: size },
                 resolution
             },
             {
-                facing: SliceFacing.NEGY,
+                facing: RetinaSliceFacing.NEGY,
                 viewport: { x: 1 - size_aspect, y: 1 - size, width: wsize, height: size },
                 resolution
             },
             {
-                facing: SliceFacing.POSZ,
+                facing: RetinaSliceFacing.POSZ,
                 viewport: { x: size_aspect - 1, y: size - 1, width: wsize, height: size },
                 resolution
             }
         ];
     }
+
 }
+const retinaRenderPassDescriptors: RetinaRenderPassDescriptor[] = [
+    {},
+    {
+        alphaShader: {
+            code: `@group(1) @binding(0) var<uniform> alphaParams : vec4<f32>;
+            fn main(color:vec4<f32>, coord: vec3<f32>)->f32{
+                return color.a * (1.0 - smoothstep(alphaParams.x,alphaParams.y,dot(coord,coord))) * alphaParams.z;
+            }`, entryPoint: 'main'
+        }
+    }, {
+        alphaShader: {
+            code: `@group(1) @binding(0) var<uniform> alphaParams : vec4<f32>;
+            fn main(color:vec4<f32>, coord  : vec3<f32>)->f32{
+                return color.a * max(step(abs(coord.x),alphaParams.x)*step(abs(coord.y),alphaParams.x)*step(abs(coord.z),alphaParams.x)* alphaParams.y,alphaParams.z);
+            }`, entryPoint: 'main'
+        }
+    }, {
+        alphaShader: {
+            code: `@group(1) @binding(0) var<uniform> alphaParams : vec4<f32>;
+            fn main(color:vec4<f32>, coord: vec3<f32>)->f32{ 
+                return color.a * max(step(dot(coord,alphaParams.xyz),0.0),alphaParams.w); 
+            }`, entryPoint: 'main'
+        }
+    },
+];
 export class RetinaController implements IController {
     enabled = true;
     renderer: SliceRenderer;
@@ -848,15 +874,17 @@ export class RetinaController implements IController {
     fovKeySpeed = 1;
     damp = 0.02;
     mouseButton = 0;
+    retinaAlphaMouseButton = 2;
     retinaEyeOffset = 0.1;
     sectionEyeOffset = 0.2;
     maxSectionEyeOffset = 1;
     minSectionEyeOffset = 0.01;
     size: GPUExtent3DStrict;
-    sectionPresets: (screenSize: { width: number, height: number }) => { [label: string]: SectionPreset };
+    sectionPresets: (screenSize: GPUExtent3DStrict) => { [label: string]: SectionPreset };
     private currentSectionConfig: string = "retina+sections";
     private rembemerLastLayers: number;
     private needResize: boolean = true;
+    private currentRetinaRenderPassIndex = -1;
     keyConfig = {
         enable: "AltLeft",
         disable: "",
@@ -880,6 +908,7 @@ export class RetinaController implements IController {
         rotateUp: "ArrowUp",
         rotateDown: "ArrowDown",
         refaceFront: ".KeyR",
+        toggleRetinaAlpha: ".KeyF",
         sectionConfigs: {
             "retina+sections": ".Digit1",
             "retina+bigsections": ".Digit2",
@@ -891,12 +920,37 @@ export class RetinaController implements IController {
             "retina+yslices": ".Digit8",
         },
     }
+    private alphaBuffer: GPUBuffer;
     constructor(r: SliceRenderer) {
         this.renderer = r;
-        this.sectionPresets = (screenSize: {
-            width: number;
-            height: number;
-        }) => ({
+        this.defaultRetinaRenderPass = r.getCurrentRetinaRenderPass();
+        this.alphaBuffer = r.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 16, "RetinaController's Retina Alpha Uniform Buffer");
+        this.retinaRenderPasses = retinaRenderPassDescriptors.map((desc, index) => {
+            if (desc?.alphaShader?.code && desc.alphaShader.code.indexOf("@group(1)") !== -1) desc.alphaShaderBindingResources = [{ buffer: this.alphaBuffer }];
+            // this jsBuffer uses first 4 elements to write to GPU, other elems are used for js state storage
+            const jsBuffer = new Float32Array(8);
+            switch (index) {
+                case 1:
+                    jsBuffer[4] = 1;
+                    jsBuffer[5] = 1;
+                    const r2 = jsBuffer[4] * jsBuffer[4];
+                    jsBuffer[0] = r2 / jsBuffer[5];
+                    jsBuffer[1] = r2 * jsBuffer[5];
+                    jsBuffer[2] = 4 / (1 + r2);
+                    break;
+                case 2:
+                    jsBuffer[0] = 0.5;
+                    jsBuffer[5] = 0;
+                    jsBuffer[1] = 2 - jsBuffer[0];
+                    jsBuffer[2] = jsBuffer[5];
+                    break;
+                case 3:
+                    jsBuffer[2] = 1;
+                    jsBuffer[3] = 0.01;
+            }
+            return { promise: r.createRetinaRenderPass(desc).init(), jsBuffer };
+        });
+        this.sectionPresets = (screenSize: { width: number; height: number; }) => ({
             "retina+sections": {
                 eye1: sliceconfig.default1eye(0.3, screenSize),
                 eye2: sliceconfig.default2eye(0.2, screenSize),
@@ -951,97 +1005,123 @@ export class RetinaController implements IController {
     private retinaSize = 1.8;
     private retinaZDistance = 5;
     private crossHairSize = 0.03;
+    private tempDisplayConfig: DisplayConfig = {};
+    private displayConfigChanged = false;
     maxRetinaResolution = 1024;
+    private retinaRenderPasses: { promise: Promise<RetinaRenderPass>, jsBuffer: Float32Array }[];
+    private defaultRetinaRenderPass: RetinaRenderPass;
+    toggleRetinaAlpha(idx: number) {
+        const { promise, jsBuffer } = this.retinaRenderPasses[idx];
+        if (promise) {
+            promise.then(pass => {
+                this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer, 0, 4);
+                this.renderer.setRetinaRenderPass(pass);
+                this.currentRetinaRenderPassIndex = idx;
+            });
+        } else {
+            this.renderer.setRetinaRenderPass(this.defaultRetinaRenderPass);
+            this.currentRetinaRenderPassIndex = -1;
+        }
+    }
     update(state: ControllerState): void {
         let disabled = state.queryDisabled(this.keyConfig);
         let on = state.isKeyHold;
         let key = this.keyConfig;
         let delta: number;
-        let sliceConfig: SliceConfig = {};
+        let displayConfig: DisplayConfig = this.tempDisplayConfig;
+        if (this.displayConfigChanged) this.tempDisplayConfig = {};
+        this.displayConfigChanged = false;
+        let stereo = this.renderer.getStereoMode();
         if (!disabled && state.isKeyHold(this.keyConfig.toggle3D)) {
-            let stereo = this.renderer.getStereoMode();
             if (stereo) {
-                this.renderer.setEyeOffset(0, 0);
+                displayConfig.retinaStereoEyeOffset = 0;
+                displayConfig.sectionStereoEyeOffset = 0;
             } else {
-                this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
+                displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
+                displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            sliceConfig.sections = this.sectionPresets(this.renderer.getSize())[this.currentSectionConfig][(
+            displayConfig.sections = this.sectionPresets(this.renderer.getDisplayConfig("canvasSize"))[this.currentSectionConfig][(
                 !stereo ? "eye2" : "eye1"
             )];
         } else if (this.needResize) {
-            sliceConfig.sections = this.sectionPresets(this.renderer.getSize())[this.currentSectionConfig][(
-                this.renderer.getStereoMode() ? "eye2" : "eye1"
+            displayConfig.sections = this.sectionPresets(this.renderer.getDisplayConfig("canvasSize"))[this.currentSectionConfig][(
+                stereo ? "eye2" : "eye1"
             )];
         }
         if (!disabled) {
             this.needResize = false;
-            if (this.renderer.getStereoMode()) {
+            if (stereo) {
                 if (state.isKeyHold(this.keyConfig.addEyes3dGap)) {
                     this.retinaEyeOffset *= 1.05;
                     if (this.retinaEyeOffset > 0.4) this.retinaEyeOffset = 0.4;
                     if (this.retinaEyeOffset < -0.4) this.retinaEyeOffset = -0.4;
-                    this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
+                    displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
+                    displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
                 }
                 if (state.isKeyHold(this.keyConfig.subEyes3dGap)) {
                     this.retinaEyeOffset /= 1.05;
                     if (this.retinaEyeOffset > 0 && this.retinaEyeOffset < 0.03) this.retinaEyeOffset = 0.03;
                     if (this.retinaEyeOffset < 0 && this.retinaEyeOffset > -0.03) this.retinaEyeOffset = -0.03;
-                    this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
+                    displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
+                    displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
                 }
                 if (state.isKeyHold(this.keyConfig.addEyes4dGap)) {
                     this.sectionEyeOffset *= 1.05;
                     if (this.sectionEyeOffset > this.maxSectionEyeOffset) this.sectionEyeOffset = this.maxSectionEyeOffset;
                     if (this.sectionEyeOffset < -this.maxSectionEyeOffset) this.sectionEyeOffset = -this.maxSectionEyeOffset;
-                    this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
+                    displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
+                    displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
                 }
                 if (state.isKeyHold(this.keyConfig.subEyes4dGap)) {
                     this.sectionEyeOffset /= 1.05;
                     if (this.sectionEyeOffset > 0 && this.sectionEyeOffset < this.minSectionEyeOffset) this.sectionEyeOffset = this.minSectionEyeOffset;
                     if (this.sectionEyeOffset < 0 && this.sectionEyeOffset > -this.minSectionEyeOffset) this.sectionEyeOffset = -this.minSectionEyeOffset;
-                    this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
+                    displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
+                    displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
                 }
                 if (state.isKeyHold(this.keyConfig.negEyesGap)) {
                     this.sectionEyeOffset = -this.sectionEyeOffset;
                     this.retinaEyeOffset = -this.retinaEyeOffset;
-                    this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
+                    displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
+                    displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
                 }
             }
             if (state.isKeyHold(this.keyConfig.toggleCrosshair)) {
-                let crossHair = this.renderer.getCrosshair();
-                this.renderer.setCrosshair(crossHair === 0 ? this.crossHairSize : 0);
+                let crossHair = this.renderer.getDisplayConfig('crosshair');
+                displayConfig.crosshair = crossHair === 0 ? this.crossHairSize : 0;
             }
             if (state.isKeyHold(this.keyConfig.addOpacity)) {
-                this.renderer.setOpacity(this.renderer.getOpacity() * (1 + this.opacityKeySpeed));
+                displayConfig.opacity = this.renderer.getDisplayConfig("opacity") * (1 + this.opacityKeySpeed);
             }
             if (state.isKeyHold(this.keyConfig.subOpacity)) {
-                this.renderer.setOpacity(this.renderer.getOpacity() / (1 + this.opacityKeySpeed));
+                displayConfig.opacity = this.renderer.getDisplayConfig("opacity") / (1 + this.opacityKeySpeed);
             }
             if (state.isKeyHold(this.keyConfig.addLayer)) {
-                let layers = this.renderer.getLayers();
+                let layers = this.renderer.getDisplayConfig('retinaLayers');
                 if (layers > 32 || ((state.updateCount & 3) && (layers > 16 || (state.updateCount & 7)))) {
                     layers++;
                 }
                 if (layers > 512) layers = 512;
-                sliceConfig.layers = layers;
+                displayConfig.retinaLayers = layers;
             }
             if (state.isKeyHold(this.keyConfig.subLayer)) {
                 // when < 32, we slow down layer speed
-                let layers = this.renderer.getLayers();
+                let layers = this.renderer.getDisplayConfig('retinaLayers');
                 if (layers > 32 || ((state.updateCount & 3) && (layers > 16 || (state.updateCount & 7)))) {
                     if (layers > 0) layers--;
 
-                    sliceConfig.layers = layers;
+                    displayConfig.retinaLayers = layers;
                 }
             }
             if (state.isKeyHold(this.keyConfig.addRetinaResolution)) {
-                let res = this.renderer.getRetinaResolution();
+                let res = this.renderer.getDisplayConfig('retinaResolution');
                 res += this.renderer.getMinResolutionMultiple();
-                if (res <= this.maxRetinaResolution) sliceConfig.retinaResolution = res;
+                if (res <= this.maxRetinaResolution) displayConfig.retinaResolution = res;
             }
             if (state.isKeyHold(this.keyConfig.subRetinaResolution)) {
-                let res = this.renderer.getRetinaResolution();
+                let res = this.renderer.getDisplayConfig('retinaResolution');
                 res -= this.renderer.getMinResolutionMultiple();
-                if (res > 0) sliceConfig.retinaResolution = res;
+                if (res > 0) displayConfig.retinaResolution = res;
             }
             if (state.isKeyHold(this.keyConfig.addFov)) {
                 this.retinaFov += this.fovKeySpeed;
@@ -1052,6 +1132,39 @@ export class RetinaController implements IController {
                 this.retinaFov -= this.fovKeySpeed;
                 if (this.retinaFov < 0.1) this.retinaFov = 0;
                 this.needsUpdateRetinaCamera = true;
+            }
+            if (state.isKeyHold(this.keyConfig.toggleRetinaAlpha)) {
+                this.currentRetinaRenderPassIndex++;
+                if (this.currentRetinaRenderPassIndex >= retinaRenderPassDescriptors.length) this.currentRetinaRenderPassIndex = 0;
+                this.toggleRetinaAlpha(this.currentRetinaRenderPassIndex);
+            }
+            if (state.currentBtn === this.retinaAlphaMouseButton && this.currentRetinaRenderPassIndex > 0) {
+                const { jsBuffer } = this.retinaRenderPasses[this.currentRetinaRenderPassIndex];
+                switch (this.currentRetinaRenderPassIndex) {
+                    case 1:
+                        jsBuffer[4] += state.moveY * 0.01;
+                        jsBuffer[5] += state.moveX * 0.01;
+                        jsBuffer[4] = Math.max(0.01, Math.min(jsBuffer[4], _SQRT_3));
+                        jsBuffer[5] = Math.max(1, Math.min(jsBuffer[5], 5));
+                        const r2 = jsBuffer[4] * jsBuffer[4];
+                        jsBuffer[0] = r2 / jsBuffer[5];
+                        jsBuffer[1] = r2 * jsBuffer[5];
+                        jsBuffer[2] = 4 / (1 + r2);
+                        break;
+                    case 2:
+                        jsBuffer[0] += state.moveY * 0.01;
+                        jsBuffer[5] += state.moveX * 0.01;
+                        jsBuffer[0] = Math.max(0.01, Math.min(jsBuffer[0], 1));
+                        jsBuffer[5] = Math.max(0, Math.min(jsBuffer[5], 0.1));
+                        jsBuffer[1] = 2 - jsBuffer[0];
+                        jsBuffer[2] = jsBuffer[5];
+                        break;
+                    case 3:
+                        let n = new Vec3(jsBuffer[0], jsBuffer[1], jsBuffer[2]).norms();
+                        n.rotates(new Vec3(state.moveY, state.moveX).mulfs(0.01).exp());
+                        n.writeBuffer(jsBuffer);
+                }
+                this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer, 0, 4);
             }
             for (let [label, keyCode] of Object.entries(this.keyConfig.sectionConfigs)) {
                 if (state.isKeyHold(keyCode)) {
@@ -1083,18 +1196,18 @@ export class RetinaController implements IController {
             if (this.needsUpdateRetinaCamera) {
                 if (this.retinaFov > 0) {
                     this.retinaZDistance = this.retinaSize / Math.tan(this.retinaFov / 2 * _DEG2RAD);
-                    this.renderer.setRetinaProjectMatrix({
+                    displayConfig.camera3D = {
                         fov: this.retinaFov,
                         near: Math.max(0.01, this.retinaZDistance - 4),
                         far: this.retinaZDistance + 4
-                    });
+                    };
                 } else {
                     this.retinaZDistance = 4;
-                    this.renderer.setRetinaProjectMatrix({
+                    displayConfig.camera3D = {
                         size: this.retinaSize,
                         near: 2,
                         far: 8
-                    });
+                    };
                 }
             }
             this.needsUpdateRetinaCamera = false;
@@ -1110,42 +1223,51 @@ export class RetinaController implements IController {
                 this._q2.expset(this._vec3.set(this._vec2euler.y, 0, 0))
             ).conjs());
             mat.elem[11] = -this.retinaZDistance;
-            this.renderer.setRetinaViewMatrix(mat);
+            displayConfig.retinaViewMatrix = mat;
             this._vec2damp.mulfs(dampFactor);
         }
-        this.renderer.setSliceConfig(sliceConfig);
+        this.renderer.setDisplayConfig(displayConfig);
     }
     setStereo(stereo: boolean) {
         if (!stereo) {
-            this.renderer.setEyeOffset(0, 0);
+            this.tempDisplayConfig.retinaStereoEyeOffset = 0;
+            this.tempDisplayConfig.sectionStereoEyeOffset = 0;
         } else {
-            this.renderer.setEyeOffset(this.sectionEyeOffset, this.retinaEyeOffset);
+            this.tempDisplayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
+            this.tempDisplayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
         }
-        let sections = this.sectionPresets(this.renderer.getSize())[this.currentSectionConfig][(
+        let sections = this.sectionPresets(this.renderer.getDisplayConfig("canvasSize"))[this.currentSectionConfig][(
             !stereo ? "eye2" : "eye1"
         )];
-        this.renderer.setSliceConfig({ sections });
+        this.tempDisplayConfig.sections = sections;
+        this.displayConfigChanged = true;
     }
     setSectionEyeOffset(offset: number) {
+        let stereo = this.renderer.getStereoMode();
         this.sectionEyeOffset = offset;
-        if (this.renderer.getStereoMode()) this.renderer.setEyeOffset(offset);
+        if (stereo) { this.tempDisplayConfig.sectionStereoEyeOffset = offset; this.displayConfigChanged = true; }
     }
     setRetinaEyeOffset(offset: number) {
+        let stereo = this.renderer.getStereoMode();
         this.retinaEyeOffset = offset;
-        if (this.renderer.getStereoMode()) this.renderer.setEyeOffset(null, offset);
+        if (stereo) { this.tempDisplayConfig.retinaStereoEyeOffset = offset; this.displayConfigChanged = true; }
     }
     setLayers(layers: number) {
-        this.renderer.setSliceConfig({ layers });
+        this.tempDisplayConfig.retinaLayers = layers;
+        this.displayConfigChanged = true;
     }
     setOpacity(opacity: number) {
-        this.renderer.setOpacity(opacity);
+        this.tempDisplayConfig.opacity = opacity;
+        this.displayConfigChanged = true;
     }
     setCrosshairSize(size: number) {
-        this.renderer.setCrosshair(size);
+        this.tempDisplayConfig.crosshair = size;
+        this.displayConfigChanged = true;
         this.crossHairSize = size;
     }
     setRetinaResolution(retinaResolution: number) {
-        this.renderer.setSliceConfig({ retinaResolution });
+        this.tempDisplayConfig.retinaResolution = retinaResolution;
+        this.displayConfigChanged = true;
     }
     setRetinaSize(size: number) {
         this.retinaSize = size;
@@ -1157,9 +1279,9 @@ export class RetinaController implements IController {
     }
     toggleSectionConfig(index: string) {
         if (this.currentSectionConfig === index) return;
-        let preset = this.sectionPresets(this.renderer.getSize())[index];
+        let preset = this.sectionPresets(this.renderer.getDisplayConfig("canvasSize"))[index];
         if (!preset) console.error(`Section Configuration "${index}" does not exsit.`);
-        let layers = this.renderer.getLayers();
+        let layers = this.renderer.getDisplayConfig("retinaLayers");
         if (preset.retina === false && layers > 0) {
             this.rembemerLastLayers = layers;
             layers = 0;
@@ -1167,14 +1289,18 @@ export class RetinaController implements IController {
             layers = this.rembemerLastLayers;
             this.rembemerLastLayers = null;
         }
+        let stereo = this.renderer.getStereoMode();
         let sections = preset[(
-            this.renderer.getStereoMode() ? "eye2" : "eye1"
+            stereo ? "eye2" : "eye1"
         )];
-        this.renderer.setSliceConfig({ layers, sections });
+        this.displayConfigChanged = true;
+        this.tempDisplayConfig.retinaLayers = layers;
+        this.tempDisplayConfig.sections = sections;
         this.currentSectionConfig = index;
     }
     setSize(size: GPUExtent3DStrict) {
-        this.renderer.setSize(size);
+        this.tempDisplayConfig.canvasSize = size;
+        this.displayConfigChanged = true;
         this.needResize = true;
     }
 }

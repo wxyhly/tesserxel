@@ -43,7 +43,7 @@ export var backrooms;
         // scene.add(new four.DirectionalLight([0.02, 0.017, 0.01], new math.Vec4(-1, 2, -0.2, -0.5).norms()));
         scene.add(new four.AmbientLight(0.05));
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = await new four.Renderer(canvas).init({ posdirLightsNumber: 7 * 2 * 3, spotLightsNumber: 1 });
+        const renderer = await new four.Renderer(canvas, { posdirLightsNumber: 7 * 2 * 3, spotLightsNumber: 1 }).init();
         const retinaController = new util.ctrl.RetinaController(renderer.core);
         const camController = new util.ctrl.KeepUpController(camera);
         const controllerRegistry = new util.ctrl.ControllerRegistry(canvas, [retinaController, camController], { preventDefault: true, enablePointerLock: true });

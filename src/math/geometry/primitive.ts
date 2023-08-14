@@ -4,21 +4,27 @@ export class Ray {
     origin: Vec4;
     direction: Vec4;
 }
+
 export class Plane {
     /** normal need to be normalized */
     normal: Vec4;
+    /** halfspace n.v < offset */
     offset: number;
     constructor(normal: Vec4, offset: number) {
         this.normal = normal;
         this.offset = offset;
     }
     distanceToPoint(p: Vec4) {
-
+        return this.normal.dot(p) - this.offset;
     }
     /** regard r as an infinity line */
     distanceToLine(r: Ray) {
-
+        
     }
+    intersectRay(r:Ray){
+        
+    }
+    
 }
 export class AABB {
     min: Vec4;

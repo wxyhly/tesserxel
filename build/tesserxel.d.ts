@@ -8,6 +8,7 @@ declare const _120: number;
 declare const _360: number;
 declare const _DEG2RAD: number;
 declare const _RAD2DEG: number;
+declare const _SQRT_3: number;
 declare const _COS30: number;
 declare const _TAN30: number;
 declare const _GOLDRATIO: number;
@@ -904,6 +905,7 @@ declare const math_d__120: typeof _120;
 declare const math_d__360: typeof _360;
 declare const math_d__DEG2RAD: typeof _DEG2RAD;
 declare const math_d__RAD2DEG: typeof _RAD2DEG;
+declare const math_d__SQRT_3: typeof _SQRT_3;
 declare const math_d__COS30: typeof _COS30;
 declare const math_d__TAN30: typeof _TAN30;
 declare const math_d__GOLDRATIO: typeof _GOLDRATIO;
@@ -958,6 +960,7 @@ declare namespace math_d {
     math_d__360 as _360,
     math_d__DEG2RAD as _DEG2RAD,
     math_d__RAD2DEG as _RAD2DEG,
+    math_d__SQRT_3 as _SQRT_3,
     math_d__COS30 as _COS30,
     math_d__TAN30 as _TAN30,
     math_d__GOLDRATIO as _GOLDRATIO,
@@ -982,20 +985,143 @@ interface GPUContextConfig {
     colorSpace?: PredefinedColorSpace;
 }
 
-interface SliceRendererOption {
-    /** Caution: must be 2^n, this includes cross section thumbnails */
+/** Internal use for SliceRenderer's Display Configs */
+interface InternalDisplayConfig extends DisplayConfig {
+    opacity: number;
+    paddedSliceNum: number;
+    sliceGroupNum: number;
+    totalGroupNum: number;
+    enableStereo: boolean;
+}
+/** Internal use for SliceRenderer's Base Configs */
+interface InternalSliceRendererConfig extends SliceRendererConfig {
+    /** log2 of sliceGroupSize in SliceRendererConfig */
+    sliceGroupSizeBit: number;
+    /** A gpu device limit to set textures as large as possible */
+    maxTextureSize: number;
+    /** viewport data is compressed in gpu buffer, this gives the amount */
+    viewportCompressShift: number;
+    /** SliceTexture is a big 2d texuture containing all slices within a slice group*/
+    sliceTextureWidth: number;
+    sliceTextureHeight: number;
+}
+declare class SliceRenderer {
+    gpu: GPU;
+    private tetraBuffers;
+    private sliceBuffers;
+    private crossRenderPass;
+    private retinaRenderPass;
+    private screenRenderPass;
+    private rendererConfig;
+    private displayConfig;
+    constructor(gpu: GPU, config?: SliceRendererConfig);
+    init(): Promise<this>;
+    createRetinaRenderPass(descriptor: RetinaRenderPassDescriptor): RetinaRenderPass;
+    setRetinaRenderPass(retinaRenderPass: RetinaRenderPass): void;
+    getCurrentRetinaRenderPass(): RetinaRenderPass;
+    setDisplayConfig(config: DisplayConfig): void;
+    getSafeTetraNumInOnePass(): number;
+    getStereoMode(): boolean;
+    getMinResolutionMultiple(): number;
+    getDisplayConfig(configNames: 'canvasSize'): GPUExtent3DStrict;
+    getDisplayConfig(configNames: 'sections'): SectionConfig[];
+    getDisplayConfig(configNames: 'retinaViewMatrix'): Mat4;
+    getDisplayConfig(configNames: 'camera3D' | 'camera4D'): PerspectiveCamera | OrthographicCamera;
+    getDisplayConfig(configNames: "screenBackgroundColor" | "retinaClearColor"): GPUColor;
+    getDisplayConfig(configNames: 'retinaLayers' | 'retinaResolution' | 'opacity' | 'sectionStereoEyeOffset' | 'retinaStereoEyeOffset' | 'crosshair'): number;
+    render(context: GPUCanvasContext, drawCall: (rs: RenderState) => void): void;
+    createTetraSlicePipeline(descriptor: TetraSlicePipelineDescriptor): Promise<TetraSlicePipeline>;
+    createRaytracingPipeline(descriptor: RaytracingPipelineDescriptor): Promise<RaytracingPipeline>;
+    /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
+     *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
+     */
+    createVertexShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[], label?: string): GPUBindGroup;
+    /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
+     *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
+     */
+    createFragmentShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[], label?: string): GPUBindGroup;
+}
+declare class RetinaSliceBufferMgr {
+    private queue;
+    private rendererConfig;
+    currentRetinaFacing: RetinaSliceFacing;
+    retinaMVMatChanged: boolean;
+    retinaFacingOrSlicesChanged: boolean;
+    uniformsBuffer: GPUBuffer;
+    thumbnailViewportBuffer: GPUBuffer;
+    retinaProjectJsBuffer: Float32Array;
+    retinaMVMatJsBuffer: Float32Array;
+    camProjJsBuffer: Float32Array;
+    slicesJsBuffer: Float32Array;
+    sliceGroupOffsetBuffer: GPUBuffer;
+    emitIndexSliceBuffer: GPUBuffer;
+    constructor(gpu: GPU, config: InternalSliceRendererConfig);
+    updateBuffers(sliceGroupNum: number): void;
+    deepCopySectionConfigs(sectionConfigs: SectionConfig[], defaultRetinaResolution?: number): SectionConfig[];
+    setSlicesAndSections(internalDisplayConfig: InternalDisplayConfig, displayConfig: DisplayConfig): void;
+    setRetinaProjectMatrix(camera: PerspectiveCamera | OrthographicCamera): void;
+    setRetinaViewMatrix(m: Mat4): void;
+    getRetinaCamera(): PerspectiveCamera | OrthographicCamera;
+    setCameraProjectMatrix(camera: PerspectiveCamera | OrthographicCamera): void;
+    getFacing(x: number, y: number, z: number): RetinaSliceFacing;
+}
+declare class TetraSliceBufferMgr {
+    maxCrossSectionBufferSize: number;
+    gpu: GPU;
+    outputVaryBufferPool: Array<GPUBuffer>;
+    private indicesInOutputBufferPool;
+    buffers: {
+        buffer: GPUBuffer;
+    }[];
+    constructor(gpu: GPU, config: InternalSliceRendererConfig, sliceBuffers: RetinaSliceBufferMgr);
+    init(): void;
+    prepareNewPipeline(): GPUBuffer[];
+    destroy(): void;
+    requireOutputBuffer(id: number, size: number, outBuffers: GPUBuffer[]): GPUBuffer;
+}
+
+declare class TetraSlicePipeline {
+    computePipeline: GPUComputePipeline;
+    computeBindGroup0: GPUBindGroup;
+    renderPipeline: GPURenderPipeline;
+    outputVaryBuffer: GPUBuffer[];
+    vertexOutNum: number;
+    private reflect;
+    private gpu;
+    private device;
+    descriptor: TetraSlicePipelineDescriptor;
+    init(gpu: GPU, config: InternalSliceRendererConfig, descriptor: TetraSlicePipelineDescriptor, tetrasliceBufferMgr: TetraSliceBufferMgr): Promise<this>;
+    private getBindGroupLayout;
+}
+declare class RaytracingPipeline {
+    pipeline: GPURenderPipeline;
+    bindGroup0: GPUBindGroup;
+    init(gpu: GPU, config: InternalSliceRendererConfig, descriptor: RaytracingPipelineDescriptor, sliceBuffers: RetinaSliceBufferMgr): Promise<this>;
+}
+
+/** Base Configs for SliceRenderer, This can't be changed after renderer creation */
+interface SliceRendererConfig {
+    /** Must be power of 2, this includes retina slices and cross sections */
     maxSlicesNumber?: number;
-    /** Caution: must be 2^n, large number can waste lots GPU memory;
-     *  Used to preallocate gpumemory for intermediate data of cross section
+    /** Must be power of 2, large number can waste lots GPU memory;
+     *  Used to preallocate gpu memory for intermediate data of cross section
      */
     maxCrossSectionBufferSize?: number;
+    /** Size for one parallel unit to calculate retina slices and cross sections
+     */
     sliceGroupSize?: number;
-    /** Caution: enable this may cause performance issue */
-    enableFloat16Blend: boolean;
-    /** whether initiate default confiuration like sliceconfigs and retina configs */
-    defaultConfigs?: boolean;
+    /** Enable this to improve retina render quality, but this may cause performance issue */
+    enableFloat16Blend?: boolean;
+    /** Use this default value when workgroup size is not specified within a tetraslice pipeline */
+    defaultWorkGroupSize?: number;
 }
-declare enum SliceFacing {
+/** An enum for stereo's eye option */
+declare enum EyeStereo {
+    LeftEye = 0,
+    None = 1,
+    RightEye = 2
+}
+declare enum RetinaSliceFacing {
     POSZ = 0,
     NEGZ = 1,
     POSY = 2,
@@ -1003,16 +1129,84 @@ declare enum SliceFacing {
     POSX = 4,
     NEGX = 5
 }
-declare enum EyeOffset {
-    LeftEye = 0,
-    None = 1,
-    RightEye = 2
+/** Config for displaying one cross section */
+interface SectionConfig {
+    /** Cross section's offset from origin, default is 0 */
+    slicePos?: number;
+    /** Cross section's direction */
+    facing: RetinaSliceFacing;
+    /** Wether this cross section enables stereo eye offset, default is None */
+    eyeStereo?: EyeStereo;
+    /** A viewport to draw cross section on 2D screen */
+    viewport: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    };
+    /** cross section's horizontal resolution in pixel */
+    resolution?: number;
 }
-interface TetraSlicePipelineDescriptor {
-    vertex: TetraVertexState;
-    fragment: GeneralShaderState;
-    cullMode?: GPUCullMode;
-    layout?: SlicePipelineLayout;
+interface DisplayConfig {
+    /** canvas size for render destination */
+    canvasSize?: GPUExtent3DStrict;
+    /** An array representing all cross sections for rendering */
+    sections?: Array<SectionConfig>;
+    /** Number of Slice Layers for rendering retina voxel */
+    retinaLayers?: number;
+    /** Resolution in pixel for each slice layers of retina */
+    retinaResolution?: number;
+    /** Opacity for retina voxel */
+    opacity?: number;
+    /** Retina 3D depth stereo. if one stereo eye offset is not zero, stereo mode will turn on */
+    retinaStereoEyeOffset?: number;
+    /** Cross section 4D depth stereo. if one stereo eye offset is not zero, stereo mode will turn on */
+    sectionStereoEyeOffset?: number;
+    /** size of center crosshair in the retina, non-zero value to enable it */
+    crosshair?: number;
+    /** background color for rendering transparent retina */
+    screenBackgroundColor?: GPUColor;
+    /** clear color for retina's voxel */
+    retinaClearColor?: GPUColor;
+    /** camera4d is in 4d scene */
+    camera4D?: PerspectiveCamera | OrthographicCamera;
+    /** camera3D is for rendering 3d retina */
+    camera3D?: PerspectiveCamera | OrthographicCamera;
+    /** this matrix determine camera's position and rotation for rendering 3d retina */
+    retinaViewMatrix?: Mat4;
+}
+declare const DefaultDisplayConfig: DisplayConfig;
+declare type DisplayConfigName = keyof DisplayConfig;
+interface RenderState {
+    /** Set TetraSlicePipeline and prepare GPU resources.
+     *  Next calls should be function sliceTetras or setBindGroup.
+     */
+    beginTetras(pipeline: TetraSlicePipeline): void;
+    setBindGroup(index: number, bindGroup: GPUBindGroup): void;
+    /** Compute slice of given bindgroup attribute data.
+     *  beginTetras should be called at first to specify a tetraSlicePipeline
+     *  Next calls should be function sliceTetras, setBindGroup or drawTetras.
+     */
+    sliceTetras(vertexBindGroup: GPUBindGroup, tetraCount: number, instanceCount?: number): void;
+    /** This function draw slices on a internal framebuffer
+     *  Every beginTetras call should be end with drawTetras call
+     */
+    drawTetras(bindGroups?: {
+        group: number;
+        binding: GPUBindGroup;
+    }[]): void;
+    drawRaytracing(pipeline: RaytracingPipeline, bindGroups?: GPUBindGroup[]): void;
+    testWithFrustumData(obb: AABB, camMat: AffineMat4 | Obj4, modelMat?: AffineMat4 | Obj4): boolean;
+    getFrustumRange(camMat: AffineMat4 | Obj4): Vec4[];
+}
+interface RetinaRenderPass {
+    /**
+   * Nominal type branding.
+   * https://github.com/microsoft/TypeScript/pull/33038
+   * @internal
+   */
+    readonly __brand: "RetinaRenderPass";
+    init(): Promise<this>;
 }
 interface RaytracingPipelineDescriptor {
     code: string;
@@ -1026,158 +1220,22 @@ interface GeneralShaderState {
 interface TetraVertexState extends GeneralShaderState {
     workgroupSize?: number;
 }
-interface TetraSlicePipeline {
-    computePipeline: GPUComputePipeline;
-    computeBindGroup0: GPUBindGroup;
-    renderPipeline: GPURenderPipeline;
-    outputVaryBuffer: GPUBuffer[];
-    vertexOutNum: number;
-    descriptor: TetraSlicePipelineDescriptor;
-}
-interface RaytracingPipeline {
-    pipeline: GPURenderPipeline;
-    bindGroup0: GPUBindGroup;
-}
-interface SectionConfig {
-    slicePos?: number;
-    facing: SliceFacing;
-    eyeOffset?: EyeOffset;
-    viewport: {
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-    };
-    resolution?: number;
-}
-interface SliceConfig {
-    layers?: number;
-    sections?: Array<SectionConfig>;
-    retinaResolution?: number;
-}
-declare class SliceRenderer {
-    getSafeTetraNumInOnePass(): number;
-    private maxSlicesNumber;
-    private maxCrossSectionBufferSize;
-    /** On each computeshader slice calling numbers, should be 2^n */
-    private sliceGroupSize;
-    private sliceGroupSizeBit;
-    private screenSize;
-    private outputBufferStride;
-    private viewportCompressShift;
-    private blendFormat;
-    private displayConfig;
-    private sliceTextureSize;
-    private gpu;
-    private context;
-    private crossRenderVertexShaderModule;
-    private screenTexture;
-    private screenView;
-    private linearTextureSampler;
-    private nearestTextureSampler;
-    private crossRenderPassDescClear;
-    private crossRenderPassDescLoad;
-    private clearRenderPipeline;
-    private retinaRenderPipeline;
-    private screenRenderPipeline;
-    private retinaBindGroup;
-    private screenBindGroup;
-    private sliceView;
-    private depthView;
-    private outputVaryBufferPool;
-    private sliceOffsetBuffer;
-    private emitIndexSliceBuffer;
-    private refacingBuffer;
-    private eyeCrossBuffer;
-    private thumbnailViewportBuffer;
-    private sliceGroupOffsetBuffer;
-    private retinaMVBuffer;
-    private retinaPBuffer;
-    private screenAspectBuffer;
-    private layerOpacityBuffer;
-    private camProjBuffer;
-    static readonly outputAttributeUsage: number;
-    private slicesJsBuffer;
-    private camProjJsBuffer;
-    private retinaProjecJsBuffer;
-    private retinaMVMatJsBuffer;
-    private currentRetinaFacing;
-    private retinaMatrixChanged;
-    private retinaFacingChanged;
-    private screenClearColor;
-    private renderState;
-    private enableEye3D;
-    private refacingMatsCode;
-    private crossHairSize;
-    private totalGroupNum;
-    private sliceGroupNum;
-    init(gpu: GPU, context: GPUCanvasContext, options?: SliceRendererOption): Promise<this>;
-    /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
-     *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
-     */
-    createVertexShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[], label?: string): GPUBindGroup;
-    /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
-     *  for RaytracingPipeline, vertex shader and fragment shader are in one traditional render pipeline, they share bindgroups.
-     */
-    createFragmentShaderBindGroup(pipeline: TetraSlicePipeline | RaytracingPipeline, index: number, buffers: GPUBuffer[], label?: string): GPUBindGroup;
-    createTetraSlicePipeline(desc: TetraSlicePipelineDescriptor): Promise<TetraSlicePipeline>;
-    setSize(size: GPUExtent3DStrict): void;
-    setCameraProjectMatrix(camera: PerspectiveCamera | OrthographicCamera): void;
-    setRetinaProjectMatrix(camera: PerspectiveCamera | OrthographicCamera): void;
-    setRetinaViewMatrix(m: Mat4): void;
-    getOpacity(): number;
-    getSectionEyeOffset(): number;
-    getRetinaEyeOffset(): number;
-    getLayers(): number;
-    getRetinaResolution(): number;
-    getMinResolutionMultiple(): number;
-    getStereoMode(): boolean;
-    getCamera(): PerspectiveCamera | OrthographicCamera;
-    getRetinaCamera(): PerspectiveCamera | OrthographicCamera;
-    getSize(): {
-        width: number;
-        height: number;
-    };
-    setOpacity(opacity: number): void;
-    setEyeOffset(sectionEyeOffset?: number, retinaEyeOffset?: number): void;
-    setCrosshair(size: number): void;
-    getCrosshair(): number;
-    setSliceConfig(sliceConfig: SliceConfig): void;
-    render(drawCall: () => void): void;
-    /** Set TetraSlicePipeline and prepare GPU resources.
-     *  Next calls should be function sliceTetras or setBindGroup.
-     */
-    beginTetras(pipeline: TetraSlicePipeline): void;
-    private _vec4;
-    private _vec42;
-    testWithFrustumData(obb: AABB, camMat: AffineMat4 | Obj4, modelMat?: AffineMat4 | Obj4): boolean;
-    getFrustumRange(camMat: AffineMat4 | Obj4): Vec4[];
-    setBindGroup(index: number, bindGroup: GPUBindGroup): void;
-    /** Compute slice of given bindgroup attribute data.
-     *  beginTetras should be called at first to specify a tetraSlicePipeline
-     *  Next calls should be function sliceTetras, setBindGroup or drawTetras.
-     */
-    sliceTetras(vertexBindGroup: GPUBindGroup, tetraCount: number, instanceCount?: number): void;
-    setWorldClearColor(color: GPUColor): void;
-    setScreenClearColor(color: GPUColor): void;
-    /** This function draw slices on a internal framebuffer
-     *  Every beginTetras call should be end with drawTetras call
-     */
-    drawTetras(bindGroups?: {
-        group: number;
-        binding: GPUBindGroup;
-    }[]): void;
-    createRaytracingPipeline(desc: RaytracingPipelineDescriptor): Promise<{
-        pipeline: GPURenderPipeline;
-        bindGroup0: GPUBindGroup;
-    }>;
-    drawRaytracing(pipeline: RaytracingPipeline, bindGroups?: GPUBindGroup[]): void;
-}
 declare type SinglePipelineLayout = GPUPipelineLayout | GPUAutoLayoutMode | GPUBindGroupLayoutDescriptor[];
 declare type SlicePipelineLayout = GPUAutoLayoutMode | {
     computeLayout: SinglePipelineLayout;
     renderLayout: SinglePipelineLayout;
 };
+interface TetraSlicePipelineDescriptor {
+    vertex: TetraVertexState;
+    fragment: GeneralShaderState;
+    cullMode?: GPUCullMode;
+    layout?: SlicePipelineLayout;
+}
+interface RetinaRenderPassDescriptor {
+    /** here only bindgroup(1) is avaliable */
+    alphaShader?: GeneralShaderState;
+    alphaShaderBindingResources?: GPUBindingResource[];
+}
 
 /** Tetramesh store 4D mesh as tetrahedral list
  *  Each tetrahedral uses four vertices in the position list
@@ -1788,9 +1846,10 @@ declare class Renderer {
     private safeTetraNumInOnePass;
     private tetraNumOccupancyRatio;
     private maxTetraNumInOnePass;
-    constructor(canvas: HTMLCanvasElement);
+    private context;
+    constructor(canvas: HTMLCanvasElement, config?: RendererConfig);
     setBackgroudColor(color: GPUColor): void;
-    init(config?: RendererConfig): Promise<this>;
+    init(): Promise<this>;
     fetchPipelineName(identifier: string): string;
     fetchPipeline(identifier: string): TetraSlicePipeline | "compiling";
     pullPipeline(identifier: string, pipeline: TetraSlicePipeline | "compiling"): void;
@@ -2525,41 +2584,53 @@ declare function createVoxelBuffer(gpu: GPU, size: GPUExtent3D, formatSize: numb
 
 type render_d_GPU = GPU;
 declare const render_d_GPU: typeof GPU;
-type render_d_SliceRendererOption = SliceRendererOption;
-type render_d_SliceFacing = SliceFacing;
-declare const render_d_SliceFacing: typeof SliceFacing;
-type render_d_EyeOffset = EyeOffset;
-declare const render_d_EyeOffset: typeof EyeOffset;
-type render_d_TetraSlicePipelineDescriptor = TetraSlicePipelineDescriptor;
+type render_d_SliceRenderer = SliceRenderer;
+declare const render_d_SliceRenderer: typeof SliceRenderer;
+type render_d_TetraSlicePipeline = TetraSlicePipeline;
+declare const render_d_TetraSlicePipeline: typeof TetraSlicePipeline;
+type render_d_RaytracingPipeline = RaytracingPipeline;
+declare const render_d_RaytracingPipeline: typeof RaytracingPipeline;
+type render_d_SliceRendererConfig = SliceRendererConfig;
+type render_d_EyeStereo = EyeStereo;
+declare const render_d_EyeStereo: typeof EyeStereo;
+type render_d_RetinaSliceFacing = RetinaSliceFacing;
+declare const render_d_RetinaSliceFacing: typeof RetinaSliceFacing;
+type render_d_SectionConfig = SectionConfig;
+type render_d_DisplayConfig = DisplayConfig;
+declare const render_d_DefaultDisplayConfig: typeof DefaultDisplayConfig;
+type render_d_DisplayConfigName = DisplayConfigName;
+type render_d_RenderState = RenderState;
+type render_d_RetinaRenderPass = RetinaRenderPass;
 type render_d_RaytracingPipelineDescriptor = RaytracingPipelineDescriptor;
 type render_d_GeneralShaderState = GeneralShaderState;
 type render_d_TetraVertexState = TetraVertexState;
-type render_d_TetraSlicePipeline = TetraSlicePipeline;
-type render_d_RaytracingPipeline = RaytracingPipeline;
-type render_d_SectionConfig = SectionConfig;
-type render_d_SliceConfig = SliceConfig;
-type render_d_SliceRenderer = SliceRenderer;
-declare const render_d_SliceRenderer: typeof SliceRenderer;
 type render_d_SlicePipelineLayout = SlicePipelineLayout;
+type render_d_TetraSlicePipelineDescriptor = TetraSlicePipelineDescriptor;
+type render_d_RetinaRenderPassDescriptor = RetinaRenderPassDescriptor;
 type render_d_Size3DDict = Size3DDict;
 type render_d_VoxelBuffer = VoxelBuffer;
 declare const render_d_createVoxelBuffer: typeof createVoxelBuffer;
 declare namespace render_d {
   export {
     render_d_GPU as GPU,
-    render_d_SliceRendererOption as SliceRendererOption,
-    render_d_SliceFacing as SliceFacing,
-    render_d_EyeOffset as EyeOffset,
-    render_d_TetraSlicePipelineDescriptor as TetraSlicePipelineDescriptor,
+    render_d_SliceRenderer as SliceRenderer,
+    render_d_TetraSlicePipeline as TetraSlicePipeline,
+    render_d_RaytracingPipeline as RaytracingPipeline,
+    render_d_SliceRendererConfig as SliceRendererConfig,
+    render_d_EyeStereo as EyeStereo,
+    render_d_RetinaSliceFacing as RetinaSliceFacing,
+    render_d_SectionConfig as SectionConfig,
+    render_d_DisplayConfig as DisplayConfig,
+    render_d_DefaultDisplayConfig as DefaultDisplayConfig,
+    render_d_DisplayConfigName as DisplayConfigName,
+    render_d_RenderState as RenderState,
+    render_d_RetinaRenderPass as RetinaRenderPass,
     render_d_RaytracingPipelineDescriptor as RaytracingPipelineDescriptor,
     render_d_GeneralShaderState as GeneralShaderState,
     render_d_TetraVertexState as TetraVertexState,
-    render_d_TetraSlicePipeline as TetraSlicePipeline,
-    render_d_RaytracingPipeline as RaytracingPipeline,
-    render_d_SectionConfig as SectionConfig,
-    render_d_SliceConfig as SliceConfig,
-    render_d_SliceRenderer as SliceRenderer,
     render_d_SlicePipelineLayout as SlicePipelineLayout,
+    render_d_TetraSlicePipelineDescriptor as TetraSlicePipelineDescriptor,
+    render_d_RetinaRenderPassDescriptor as RetinaRenderPassDescriptor,
     render_d_Size3DDict as Size3DDict,
     render_d_VoxelBuffer as VoxelBuffer,
     render_d_createVoxelBuffer as createVoxelBuffer,
@@ -2568,7 +2639,7 @@ declare namespace render_d {
 
 interface IController {
     update(state: ControllerState): void;
-    enabled: boolean;
+    enabled?: boolean;
 }
 interface ControllerConfig {
     preventDefault?: boolean;
@@ -2821,20 +2892,19 @@ declare class RetinaController implements IController {
     fovKeySpeed: number;
     damp: number;
     mouseButton: number;
+    retinaAlphaMouseButton: number;
     retinaEyeOffset: number;
     sectionEyeOffset: number;
     maxSectionEyeOffset: number;
     minSectionEyeOffset: number;
     size: GPUExtent3DStrict;
-    sectionPresets: (screenSize: {
-        width: number;
-        height: number;
-    }) => {
+    sectionPresets: (screenSize: GPUExtent3DStrict) => {
         [label: string]: SectionPreset;
     };
     private currentSectionConfig;
     private rembemerLastLayers;
     private needResize;
+    private currentRetinaRenderPassIndex;
     keyConfig: {
         enable: string;
         disable: string;
@@ -2858,6 +2928,7 @@ declare class RetinaController implements IController {
         rotateUp: string;
         rotateDown: string;
         refaceFront: string;
+        toggleRetinaAlpha: string;
         sectionConfigs: {
             "retina+sections": string;
             "retina+bigsections": string;
@@ -2869,6 +2940,7 @@ declare class RetinaController implements IController {
             "retina+yslices": string;
         };
     };
+    private alphaBuffer;
     constructor(r: SliceRenderer);
     private _vec2damp;
     private _vec2euler;
@@ -2882,7 +2954,12 @@ declare class RetinaController implements IController {
     private retinaSize;
     private retinaZDistance;
     private crossHairSize;
+    private tempDisplayConfig;
+    private displayConfigChanged;
     maxRetinaResolution: number;
+    private retinaRenderPasses;
+    private defaultRetinaRenderPass;
+    toggleRetinaAlpha(idx: number): void;
     update(state: ControllerState): void;
     setStereo(stereo: boolean): void;
     setSectionEyeOffset(offset: number): void;

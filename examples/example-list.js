@@ -20,7 +20,6 @@ let examples = [
                     { target: "cwmesh::prpy5", zh: "正5棱柱锥", en: "Pentagonal Prism Pyramid" },
                     { target: "cwmesh::pypr5", zh: "正5棱锥柱", en: "Pentagonal Pyramidal Prism" },
                     { target: "cwmesh::pypy5", zh: "正5棱锥锥", en: "Pentagonal Pyramidal Pyramid" },
-                    { target: "cwmesh::test", zh: "test", en: "test" },
                     // {
                     //     group: "uniform_polytopes", zh: "半正多胞体", en: "Uniform Polytopes",
                     //     child: [

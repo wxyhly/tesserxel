@@ -65,7 +65,7 @@ struct fInputType{
         let gpu = await new tesserxel.render.GPU().init();
         let canvas = document.getElementById("gpu-canvas");
         let context = gpu.getContext(canvas);
-        let renderer = await new tesserxel.render.SliceRenderer().init(gpu, context, {
+        let renderer = new tesserxel.render.SliceRenderer(gpu, {
             enableFloat16Blend: false,
             sliceGroupSize: 8
         });
@@ -87,10 +87,12 @@ struct fInputType{
         }
         let modelBuffer = gpu.createBuffer(GPUBufferUsage.STORAGE, jsbuffer);
         let vertBindGroup = renderer.createVertexShaderBindGroup(pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, camMat, modelBuffer]);
-        renderer.setOpacity(30.0);
-        renderer.setCameraProjectMatrix({
-            fov: 100, near: 0.02, far: 50
+        renderer.setDisplayConfig({
+            opacity: 30.0, camera4D: {
+                fov: 100, near: 0.02, far: 50
+            }
         });
+        await renderer.init();
         let retinaController = new tesserxel.util.ctrl.RetinaController(renderer);
         retinaController.toggleSectionConfig("retina");
         retinaController.mouseButton = null;
@@ -106,10 +108,10 @@ struct fInputType{
             let t = ctrlreg.states.updateCount * 0.1;
             new tesserxel.math.Obj4(new tesserxel.math.Vec4(Math.sin(t * factor1), Math.cos(t * factor2), Math.sin(t * factor2), Math.cos(t * factor2)).mulfs(5), new tesserxel.math.Bivec(t, 0, 0, 0, 0, 1.414 * t).exp()).getAffineMat4().writeBuffer(camMatJSBuffer, 20);
             gpu.device.queue.writeBuffer(camMat, 0, camMatJSBuffer);
-            renderer.render(() => {
-                renderer.beginTetras(pipeline);
-                renderer.sliceTetras(vertBindGroup, mesh.count, cubeCount);
-                renderer.drawTetras();
+            renderer.render(context, (rs) => {
+                rs.beginTetras(pipeline);
+                rs.sliceTetras(vertBindGroup, mesh.count, cubeCount);
+                rs.drawTetras();
             });
             window.requestAnimationFrame(run);
         };

@@ -204,9 +204,11 @@ export namespace st_pile {
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const renderer = await new FOUR.Renderer(canvas).init();
-        renderer.core.setScreenClearColor([1, 1, 1, 1]);
-        renderer.core.setEyeOffset(0.5);
-        renderer.core.setOpacity(10);
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
 
         // controllers
 
@@ -288,10 +290,11 @@ export namespace rigid_test {
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const renderer = await new FOUR.Renderer(canvas).init();
-        renderer.core.setScreenClearColor([1, 1, 1, 1]);
-        renderer.core.setEyeOffset(0.5);
-        renderer.core.setOpacity(10);
-
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
         // controllers
 
         const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
@@ -403,9 +406,11 @@ export namespace st_ts_chain {
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const renderer = await new FOUR.Renderer(canvas).init();
-        renderer.core.setScreenClearColor([1, 1, 1, 1]);
-        renderer.core.setEyeOffset(0.5);
-        renderer.core.setOpacity(20);
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
 
         // controllers
 
@@ -587,9 +592,11 @@ export namespace tg_tg_chain {
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const renderer = await new FOUR.Renderer(canvas).init();
-        renderer.core.setScreenClearColor([1, 1, 1, 1]);
-        renderer.core.setEyeOffset(0.5);
-        renderer.core.setOpacity(20);
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
 
         // controllers
 
@@ -750,9 +757,11 @@ export namespace dzhanibekov {
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const renderer = await new FOUR.Renderer(canvas).init();
-        renderer.core.setScreenClearColor([1, 1, 1, 1]);
-        renderer.core.setEyeOffset(0.5);
-        renderer.core.setOpacity(20);
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
         // controllers
 
         const camCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
@@ -808,7 +817,7 @@ async function loadGyroScene(cwmesh: tesserxel.mesh.CWMesh, material: tesserxel.
         material: new phy.Material(0.6, 0.4)
     });
     let gyroDisplay = new FOUR.Mesh(new FOUR.CWMeshGeometry(cwmesh), material);
-    gyroDisplay.geometry.jsBuffer.generateNormal(Math.PI/3);
+    gyroDisplay.geometry.jsBuffer.generateNormal(Math.PI / 3);
     scene.add(gyroDisplay);
     gyroDisplay.alwaysUpdateCoord = true;
     world.add(gyroLogic);
@@ -816,9 +825,11 @@ async function loadGyroScene(cwmesh: tesserxel.mesh.CWMesh, material: tesserxel.
     rigidsInSceneLists.push([gyroDisplay, gyroLogic]);
     const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
     const renderer = await new FOUR.Renderer(canvas).init();
-    renderer.core.setScreenClearColor([1, 1, 1, 1]);
-    renderer.core.setEyeOffset(0.5);
-    renderer.core.setOpacity(20);
+    renderer.core.setDisplayConfig({
+        screenBackgroundColor: [1, 1, 1, 1],
+        sectionStereoEyeOffset: 0.5,
+        opacity: 20
+    });
     const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
     const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
     const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
@@ -1038,9 +1049,11 @@ export namespace thermo_stats {
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const renderer = await new FOUR.Renderer(canvas).init();
-        renderer.core.setScreenClearColor([1, 1, 1, 1]);
-        renderer.core.setEyeOffset(0.5);
-        renderer.core.setOpacity(20);
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
         // controllers
 
         const camCtrl = new tesserxel.util.ctrl.TrackBallController(camera);
@@ -1174,9 +1187,11 @@ export namespace mix_chain {
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const renderer = await new FOUR.Renderer(canvas).init();
-        renderer.core.setScreenClearColor([1, 1, 1, 1]);
-        renderer.core.setEyeOffset(0.5);
-        renderer.core.setOpacity(20);
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
 
         // controllers
 
@@ -1249,9 +1264,11 @@ async function loadMaxwell(cb: (
     initScene(scene);
     scene.skyBox = null; // delete skyBox in initScene() to save resources, because sky can't be seen
     await renderer.compileMaterials(scene);
-    renderer.core.setScreenClearColor([1, 1, 1, 1]);
-    renderer.core.setEyeOffset(0.5);
-    renderer.core.setOpacity(20);
+    renderer.core.setDisplayConfig({
+        screenBackgroundColor: [1, 1, 1, 1],
+        sectionStereoEyeOffset: 0.5,
+        opacity: 20
+    });
 
     // controllers
 

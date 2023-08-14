@@ -88,7 +88,7 @@ export async function load() {
 
     const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
     const context = gpu.getContext(canvas);
-    const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
+    const renderer = new tesserxel.render.SliceRenderer(gpu);
     const RaytracingShaderCode = `
             
             struct Vec4Attachment{
@@ -126,13 +126,13 @@ export async function load() {
     let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
     retinaCtrl.keyConfig.enable = "";
     let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
-
+    await renderer.init();
     function setSize() {
         const width = window.innerWidth * window.devicePixelRatio;
         const height = window.innerHeight * window.devicePixelRatio;
         canvas.width = width;
         canvas.height = height;
-        renderer.setSize({ width, height });
+        renderer.setDisplayConfig({ canvasSize: { width, height } });
     }
     setSize();
     window.addEventListener("resize", setSize);
@@ -143,8 +143,8 @@ export async function load() {
         uSizeJsBuffer[0] = (Math.sin(t) * 0.5 + 0.5);
         device.queue.writeBuffer(uSizeBuffer, 0, uSizeJsBuffer);
         dispatch();
-        renderer.render(() => {
-            renderer.drawRaytracing(pipeline, [renderBindgroup]);
+        renderer.render(context, (rs) => {
+            rs.drawRaytracing(pipeline, [renderBindgroup]);
         });
         window.requestAnimationFrame(loop);
     }
@@ -156,7 +156,7 @@ export namespace voxel_shadertoy {
         const gpu = await new tesserxel.render.GPU().init();
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const context = gpu.getContext(canvas);
-        const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
+        const renderer = new tesserxel.render.SliceRenderer(gpu);
         const RaytracingShaderCode = `
             struct RayOutput{
                 @location(0) position: vec3<f32>
@@ -176,20 +176,20 @@ export namespace voxel_shadertoy {
         let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
         retinaCtrl.keyConfig.enable = "";
         let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
-
+        await renderer.init();
         function setSize() {
             const width = window.innerWidth * window.devicePixelRatio;
             const height = window.innerHeight * window.devicePixelRatio;
             canvas.width = width;
             canvas.height = height;
-            renderer.setSize({ width, height });
+            renderer.setDisplayConfig({ canvasSize: { width, height } });
         }
         setSize();
         window.addEventListener("resize", setSize);
         function loop() {
             ctrlReg.update();
-            renderer.render(() => {
-                renderer.drawRaytracing(pipeline);
+            renderer.render(context, (rs) => {
+                rs.drawRaytracing(pipeline);
             });
             window.requestAnimationFrame(loop);
         }
@@ -571,8 +571,8 @@ export namespace rasterizer {
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const context = gpu.getContext(canvas);
-        const renderer = await new tesserxel.render.SliceRenderer().init(gpu, context);
-        renderer.setOpacity(2);
+        const renderer = new tesserxel.render.SliceRenderer(gpu);
+        renderer.setDisplayConfig({ opacity: 2 });
         const RaytracingShaderCode = `
             
             struct Vec4Attachment{
@@ -612,13 +612,13 @@ export namespace rasterizer {
         let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
         retinaCtrl.keyConfig.enable = "";
         let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
-
+        await renderer.init();
         function setSize() {
             const width = window.innerWidth * window.devicePixelRatio;
             const height = window.innerHeight * window.devicePixelRatio;
             canvas.width = width;
             canvas.height = height;
-            renderer.setSize({ width, height });
+            renderer.setDisplayConfig({ canvasSize: { width, height } });
         }
         setSize();
         window.addEventListener("resize", setSize);
@@ -649,8 +649,8 @@ export namespace rasterizer {
                 passEncoder.end();
                 device.queue.submit([commandEncoder.finish()]);
             }
-            renderer.render(() => {
-                renderer.drawRaytracing(pipeline, [renderBindgroup]);
+            renderer.render(context, (rs) => {
+                rs.drawRaytracing(pipeline, [renderBindgroup]);
             });
             window.requestAnimationFrame(loop);
         }

@@ -666,4 +666,32 @@ export class NarrowPhase {
             })
         }
     }
+
+    private detectDitorusGlome(a: rigid.Ditorus, b: rigid.Glome) {
+        // convert glome to dt's coord
+        let p = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+        let xy = p.x * p.x + p.y * p.y;
+        let sqrtxy = Math.sqrt(xy);
+        let d1 = sqrtxy - a.majorRadius;
+        let d2 = Math.sqrt(d1 * d1 + p.z * p.z);
+        let ko = a.majorRadius / sqrtxy;
+        
+        // let d2 = Math.sqrt(d1);
+
+        // let zw = p.z * p.z + p.w * p.w;
+        // let sqrtzw = Math.sqrt(zw);
+        // let distance = Math.sqrt(
+        //     a.majorRadius1 * a.majorRadius1 + a.majorRadius2 * a.majorRadius2
+        //     + xy + zw - 2 * (sqrtxy * a.majorRadius1 + sqrtzw * a.majorRadius2)
+        // );
+        // let depth = a.minorRadius + b.radius - distance;
+        // if (depth < 0) return;
+        // // find support of circle along normal
+        // let k1 = sqrtxy ? a.majorRadius1 / sqrtxy : 0;
+        // let k2 = sqrtzw ? a.majorRadius2 / sqrtzw : 0;
+        // let point = new Vec4(p.x * k1, p.y * k1, p.z * k2, p.w * k2).rotates(a.rigid.rotation);
+        // let normal = point.adds(a.rigid.position).sub(b.rigid.position).norms().negs();
+        // point.addmulfs(normal, a.minorRadius - depth * 0.5);
+        // this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
+    }
 }

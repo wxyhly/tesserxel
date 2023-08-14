@@ -77,7 +77,7 @@ export var navigation;
         camera.position.y = planetRadius + 0.3;
         const canvas = document.getElementById("gpu-canvas");
         const renderer = await new four.Renderer(canvas).init();
-        renderer.core.setOpacity(20);
+        renderer.core.setDisplayConfig({ opacity: 20 });
         const skyBox = new NishitaPlanetSkyBox();
         scene.skyBox = skyBox;
         renderer.setBackgroudColor([1, 1, 1, 1]);

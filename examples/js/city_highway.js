@@ -426,18 +426,9 @@ export var city_highway;
         let gpu = await new tesserxel.render.GPU().init();
         let canvas = document.getElementById("gpu-canvas");
         let context = gpu.getContext(canvas);
-        let renderer = await new tesserxel.render.SliceRenderer().init(gpu, context, {
+        let renderer = new tesserxel.render.SliceRenderer(gpu, {
             enableFloat16Blend: true,
             sliceGroupSize: 8
-        });
-        renderer.setCameraProjectMatrix({ fov: 100, near: 0.1, far: 500 });
-        let roadpipeline = await renderer.createTetraSlicePipeline({
-            vertex: { code: roadvertCode, entryPoint: "main" },
-            fragment: {
-                code: roadfragCode,
-                entryPoint: "main"
-            },
-            cullMode: "none"
         });
         let buildingPipeline = await renderer.createTetraSlicePipeline({
             vertex: { code: buildingVertCode, entryPoint: "main" },
@@ -446,6 +437,14 @@ export var city_highway;
                 entryPoint: "main"
             },
             cullMode: "front"
+        });
+        let roadpipeline = await renderer.createTetraSlicePipeline({
+            vertex: { code: roadvertCode, entryPoint: "main" },
+            fragment: {
+                code: roadfragCode,
+                entryPoint: "main"
+            },
+            cullMode: "none"
         });
         let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
         let roadmeshBindGroup = renderer.createVertexShaderBindGroup(roadpipeline, 1, [
@@ -481,29 +480,33 @@ export var city_highway;
             rayEntryPoint: "mainRay",
             fragmentEntryPoint: "mainFragment"
         });
+        await renderer.init();
         let rtBindGroup = [renderer.createVertexShaderBindGroup(rtPipeline, 1, [camBuffer])];
         let camController = new tesserxel.util.ctrl.KeepUpController();
         camController.object.position.set(0.5, 0.5, 0.5, 3);
         camController.keyMoveSpeed *= 5;
         let retinaController = new tesserxel.util.ctrl.RetinaController(renderer);
         let ctrlreg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
-        renderer.setOpacity(5);
         let camMatJSBuffer = new Float32Array(20);
-        renderer.setScreenClearColor({ r: 1.0, g: 1.0, b: 1.0, a: 1.0 });
-        renderer.setWorldClearColor({ r: 0.7, g: 0.85, b: 1.0, a: 0.1 });
+        renderer.setDisplayConfig({
+            opacity: 5,
+            screenBackgroundColor: { r: 1.0, g: 1.0, b: 1.0, a: 1.0 },
+            retinaClearColor: { r: 0.7, g: 0.85, b: 1.0, a: 0.1 },
+            camera4D: { fov: 100, near: 0.1, far: 500 }
+        });
         let run = () => {
             ctrlreg.update();
             camController.object.getAffineMat4inv().writeBuffer(camMatJSBuffer);
             gpu.device.queue.writeBuffer(camBuffer, 0, camMatJSBuffer);
-            renderer.render(() => {
-                renderer.beginTetras(roadpipeline);
-                renderer.sliceTetras(roadmeshBindGroup, roadmesh.count);
-                renderer.drawTetras();
-                renderer.beginTetras(buildingPipeline);
-                renderer.sliceTetras(buildingBindGroup, buildingMesh.count - 5, buildingCount);
-                renderer.sliceTetras(terrainBindGroup, 5);
-                renderer.drawTetras();
-                renderer.drawRaytracing(rtPipeline, rtBindGroup);
+            renderer.render(context, (rs) => {
+                rs.beginTetras(roadpipeline);
+                rs.sliceTetras(roadmeshBindGroup, roadmesh.count);
+                rs.drawTetras();
+                rs.beginTetras(buildingPipeline);
+                rs.sliceTetras(buildingBindGroup, buildingMesh.count - 5, buildingCount);
+                rs.sliceTetras(terrainBindGroup, 5);
+                rs.drawTetras();
+                rs.drawRaytracing(rtPipeline, rtBindGroup);
             });
             window.requestAnimationFrame(run);
         };
@@ -512,7 +515,7 @@ export var city_highway;
             let height = window.innerHeight * window.devicePixelRatio;
             canvas.width = width;
             canvas.height = height;
-            renderer.setSize({ width, height });
+            renderer.setDisplayConfig({ canvasSize: { width, height } });
         }
         setSize();
         window.addEventListener("resize", setSize);

@@ -167,7 +167,7 @@ export namespace rail2d {
 
 
         const renderer = await new four.Renderer(canvas).init();
-        renderer.core.setOpacity(5);
+        renderer.core.setDisplayConfig({ opacity: 5 });
         const retinaController = new util.ctrl.RetinaController(renderer.core);
         const camController = new util.ctrl.KeepUpController(camera);
         camController.keyMoveSpeed *= 4.0;
@@ -537,7 +537,7 @@ export namespace rail1d {
         train.add(voiture1, voiture2, voiture3);
 
         const renderer = await new four.Renderer(canvas).init();
-        renderer.core.setOpacity(5);
+        renderer.core.setDisplayConfig({ opacity: 5 });
         const retinaController = new util.ctrl.RetinaController(renderer.core);
         const camController = new util.ctrl.KeepUpController(camera);
         camController.keyMoveSpeed *= 5.0;
