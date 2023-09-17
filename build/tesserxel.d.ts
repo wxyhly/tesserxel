@@ -2572,15 +2572,7 @@ interface VoxelBuffer {
     length: number;
     formatSize: number;
 }
-declare function createVoxelBuffer(gpu: GPU, size: GPUExtent3D, formatSize: number, header?: ArrayBuffer, headerSize?: number): {
-    buffer: GPUBuffer;
-    width: number;
-    height: number;
-    depth: number;
-    length: number;
-    formatSize: number;
-    header: ArrayBuffer;
-};
+declare function createVoxelBuffer(gpu: GPU, size: GPUExtent3D, formatSize: number, header?: ArrayBuffer, headerSize?: number): VoxelBuffer;
 
 type render_d_GPU = GPU;
 declare const render_d_GPU: typeof GPU;
@@ -2639,15 +2631,10 @@ declare namespace render_d {
 
 interface IController {
     update(state: ControllerState): void;
-    enabled?: boolean;
 }
 interface ControllerConfig {
     preventDefault?: boolean;
     enablePointerLock?: boolean;
-}
-interface KeyConfig {
-    enable?: string;
-    disable?: string;
 }
 interface ControllerState {
     currentKeys: Map<String, KeyState>;
@@ -2675,8 +2662,6 @@ interface ControllerState {
      *  '.KeyA' for pressing Key A
      *  'ControlLeft+.KeyA' for press A while holding CtrlLeft*/
     isKeyHold: (code: string) => boolean;
-    /** query whether controller disabled by config, disable / enable keys */
-    queryDisabled: (config: KeyConfig) => boolean;
     isPointerLocked: () => boolean;
     exitPointerLock: () => void;
 }
@@ -2941,6 +2926,7 @@ declare class RetinaController implements IController {
         };
     };
     private alphaBuffer;
+    guiMouseOperation: string;
     constructor(r: SliceRenderer);
     private _vec2damp;
     private _vec2euler;
@@ -2954,14 +2940,21 @@ declare class RetinaController implements IController {
     private retinaSize;
     private retinaZDistance;
     private crossHairSize;
+    /** Store displayconfig temporal changes between frames */
     private tempDisplayConfig;
     private displayConfigChanged;
     maxRetinaResolution: number;
     private retinaRenderPasses;
     private defaultRetinaRenderPass;
+    private gui;
     toggleRetinaAlpha(idx: number): void;
+    getSubLayersNumber(updateCount?: number): number;
+    getAddLayersNumber(updateCount?: number): number;
     update(state: ControllerState): void;
-    setStereo(stereo: boolean): void;
+    private writeConfigToggleStereoMode;
+    toggleStereo(stereo?: boolean): void;
+    private writeConfigToggleCrosshair;
+    toggleCrosshair(): void;
     setSectionEyeOffset(offset: number): void;
     setRetinaEyeOffset(offset: number): void;
     setLayers(layers: number): void;
@@ -2972,6 +2965,17 @@ declare class RetinaController implements IController {
     setRetinaFov(fov: number): void;
     toggleSectionConfig(index: string): void;
     setSize(size: GPUExtent3DStrict): void;
+}
+declare class RetinaCtrlGui {
+    controller: RetinaController;
+    dom: HTMLDivElement;
+    iconSize: number;
+    refresh: (param: any) => void;
+    createToggleDiv(CtrlBtn: HTMLButtonElement, display?: string): HTMLDivElement;
+    createDropBox(CtrlBtn: HTMLButtonElement, offset: number, width?: number): HTMLDivElement;
+    toggle(): void;
+    constructor(retinaCtrl: RetinaController);
+    addBtn(svgIcon: string): HTMLButtonElement;
 }
 
 type ctrl_d_IController = IController;
@@ -2991,6 +2995,8 @@ declare const ctrl_d_VoxelViewerController: typeof VoxelViewerController;
 declare const ctrl_d_sliceconfig: typeof sliceconfig;
 type ctrl_d_RetinaController = RetinaController;
 declare const ctrl_d_RetinaController: typeof RetinaController;
+type ctrl_d_RetinaCtrlGui = RetinaCtrlGui;
+declare const ctrl_d_RetinaCtrlGui: typeof RetinaCtrlGui;
 declare namespace ctrl_d {
   export {
     ctrl_d_IController as IController,
@@ -3003,6 +3009,7 @@ declare namespace ctrl_d {
     ctrl_d_VoxelViewerController as VoxelViewerController,
     ctrl_d_sliceconfig as sliceconfig,
     ctrl_d_RetinaController as RetinaController,
+    ctrl_d_RetinaCtrlGui as RetinaCtrlGui,
   };
 }
 

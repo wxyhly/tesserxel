@@ -2,13 +2,20 @@
 
 ### An Engine All About 4D World: Modeling, Rendering, Physics...
 
-Tesserxel is a project aimed for providing 4D scenes rendering and interacting library on web. This project uses experimental WebGPU API to provide a WebGPU based 4D render engine.
+Tesserxel is a project aimed for providing 4D scenes rendering and interacting library on web. This project uses new WebGPU API to provide a WebGPU based 4D render engine.
 
 ### Examples
 - [Online example browser](https://wxyhly.github.io/tesserxel/examples/)
 
 ![scree snapshots in example browser](https://wxyhly.github.io/img/tsx001.jpg)
-Attention: Examples should be opened by a WebGPU supported browser (e.g. Google Chrome Canary), and experimental WebGPU should be enabled in the browser's settings.
+Attention: Examples should be opened by a WebGPU supported browser (e.g. Google Chrome 113 and above), and WebGPU should be enabled in the browser's settings.
+
+### Usage (TODO)
+- Option 1: Download packed js file `/build/tesserxel.js`, then add following code in your html file:
+- Option 2: Use npm to install tesserxel (TODO). 
+You can also download typescript declaration file `/build/tesserxel.d.ts` to use typescript features. 
+
+See more in [Documentation](/tesserxel/docs/) (TODO).
 
 #### Appendix: Introduction to fourth spatial dimension
 Here "4D space" is not "spacetime" in physics! If you count time, our journey with tesserxel is in 5d spacetime world.

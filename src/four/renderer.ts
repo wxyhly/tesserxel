@@ -35,7 +35,7 @@ export class Renderer {
     async init() {
         this.gpu = await new GPU().init();
         if (!this.gpu) {
-            console.error("No availiable GPU device found. Please check whether WebGPU is enabled on your browser.");
+            throw "No availiable GPU device found. Please check whether WebGPU is enabled on your browser.";
             return null;
         }
         this.context = this.gpu.getContext(this.canvas);
@@ -57,7 +57,7 @@ export class Renderer {
     }
     pullPipeline(identifier: string, pipeline: TetraSlicePipeline | "compiling") {
         if (this.pipelines[identifier] && this.pipelines[identifier] !== "compiling")
-            console.error("FOUR Renderer: Repetitive material pipeline creation occured.");
+            throw "FOUR Renderer: Repetitive material pipeline creation occured.";
         this.pipelines[identifier] = pipeline;
     }
     updateObject(o: Object) {

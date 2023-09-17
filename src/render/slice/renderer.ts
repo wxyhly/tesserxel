@@ -57,7 +57,7 @@ export class SliceRenderer {
     private displayConfig: InternalDisplayConfig;
 
     constructor(gpu: GPU, config?: SliceRendererConfig) {
-
+        if (!gpu.device) throw "GPU is not initialized yet.";
         config ??= {};
         config.maxSlicesNumber ??= DefaultMaxSlicesNumber;
         config.enableFloat16Blend ??= DefaultEnableFloat16Blend;
@@ -85,7 +85,7 @@ export class SliceRenderer {
         });
         this.displayConfig = {
             sections: [], retinaResolution: 0, retinaLayers: 0,
-            retinaStereoEyeOffset: 0, sectionStereoEyeOffset: 0,
+            retinaStereoEyeOffset: 0, sectionStereoEyeOffset: 0, crosshair: 0,
             opacity: 1, paddedSliceNum: 0, sliceGroupNum: 0, totalGroupNum: 0, enableStereo: false
         };
         this.setDisplayConfig(DefaultDisplayConfig);
@@ -118,6 +118,7 @@ export class SliceRenderer {
         }
         config.retinaLayers ??= this.displayConfig.retinaLayers ?? 0;
         config.opacity ??= this.displayConfig.opacity ?? 1;
+        config.crosshair ??= this.displayConfig.crosshair ?? 0;
         config.retinaStereoEyeOffset ??= this.displayConfig.retinaStereoEyeOffset;
         config.sectionStereoEyeOffset ??= this.displayConfig.sectionStereoEyeOffset;
 
@@ -676,7 +677,7 @@ class RetinaRenderPass implements IRetinaRenderPass {
         this.sliceBuffers = sliceBuffers;
         this.crossRenderPass = crossRenderPass;
         let retinaRenderCode = refacingMatsCode + StructDefSliceInfo + StructDefUniformBuffer + `
-struct vOutputType{
+struct tsxvOutputType{
     @builtin(position) position : vec4<f32>,
     @location(0) relativeFragPosition : vec3<f32>,
     @location(1) crossHair : f32,
@@ -684,18 +685,18 @@ struct vOutputType{
     @location(3) retinaCoord : vec3<f32>,
     @location(4) normalForCalOpacity : vec4<f32>,
 }
-struct fInputType{
+struct tsxfInputType{
     @location(0) relativeFragPosition : vec3<f32>,
     @location(1) crossHair : f32,
     @location(2) rayForCalOpacity : vec4<f32>,
     @location(3) retinaCoord : vec3<f32>,
     @location(4) normalForCalOpacity : vec4<f32>,
 }
-@group(0) @binding(0) var<storage,read> slice : array<_SliceInfo,${this.config.maxSlicesNumber}>;
-@group(0) @binding(1) var<uniform> _uniforms : _UniformBuffer;
+@group(0) @binding(0) var<storage,read> slice : array<tsxSliceInfo,${this.config.maxSlicesNumber}>;
+@group(0) @binding(1) var<uniform> tsx_uniforms : tsxUniformBuffer;
 @group(0) @binding(2) var<uniform> thumbnailViewport : array<vec4<f32>,16>;
 
-@vertex fn mainVertex(@builtin(vertex_index) vindex : u32, @builtin(instance_index) iindex : u32) -> vOutputType {
+@vertex fn mainVertex(@builtin(vertex_index) vindex : u32, @builtin(instance_index) iindex : u32) -> tsxvOutputType {
     const pos = array<vec2<f32>, 4>(
         vec2<f32>(-1.0, -1.0),
         vec2<f32>(-1.0, 1.0),
@@ -705,10 +706,10 @@ struct fInputType{
     var sindex = iindex;
     var pos2d = pos[vindex];
     let stereoLR = f32(iindex & 1) - 0.5;
-    if (slice[_uniforms.sliceOffset].flag == 0 && _uniforms.eyeCross.y != 0.0){
+    if (slice[tsx_uniforms.sliceOffset].flag == 0 && tsx_uniforms.eyeCross.y != 0.0){
         sindex = iindex >> 1;
     }
-    let s = slice[sindex + _uniforms.sliceOffset];
+    let s = slice[sindex + tsx_uniforms.sliceOffset];
     // let coord = vec2<f32>(pos2d.x, -pos2d.y) * 0.5 + 0.5;
     let ray = vec4<f32>(pos2d, s.slicePos, 1.0);
     var retinaCoord: vec4<f32>;
@@ -720,33 +721,33 @@ struct fInputType{
     let w = f32(((s.viewport >> 8 ) & 0xFF) << ${this.config.viewportCompressShift}) * ${1 / this.config.sliceTextureWidth};
     let h = f32((s.viewport & 0xFF) << ${this.config.viewportCompressShift}) * ${1 / this.config.sliceTextureHeight};
     var crossHair : f32;
-    if (slice[_uniforms.sliceOffset].flag == 0){
+    if (slice[tsx_uniforms.sliceOffset].flag == 0){
         crossHair = 0.0;
-        let stereoLR_offset = -stereoLR * _uniforms.eyeCross.y;
+        let stereoLR_offset = -stereoLR * tsx_uniforms.eyeCross.y;
         let se = sin(stereoLR_offset);
         let ce = cos(stereoLR_offset);
-        var pureRotationMvMat = _uniforms.retinaMV;
+        var pureRotationMvMat = tsx_uniforms.retinaMV;
         pureRotationMvMat[3].z = 0.0;
         let eyeMat = mat4x4<f32>(
             ce,0,se,0,
             0,1,0,0,
             -se,0,ce,0,
-            0,0,_uniforms.retinaMV[3].z,1
+            0,0,tsx_uniforms.retinaMV[3].z,1
         );
-        let omat = eyeMat * pureRotationMvMat * refacingMats[_uniforms.refacing & 7];
+        let omat = eyeMat * pureRotationMvMat * tsx_refacingMats[tsx_uniforms.refacing & 7];
         camRay = omat * ray;
-        retinaCoord = refacingMats[_uniforms.refacing & 7] * ray;
-        glPosition = _uniforms.retinaP * camRay;
-        if(_uniforms.retinaP[3].w > 0){ // Orthographic
+        retinaCoord = tsx_refacingMats[tsx_uniforms.refacing & 7] * ray;
+        glPosition = tsx_uniforms.retinaP * camRay;
+        if(tsx_uniforms.retinaP[3].w > 0){ // Orthographic
             camRay = vec4<f32>(0.0,0.0,-1.0,1.0);
         }
         normal = omat[2];
         // todo: viewport of retina slices
-        glPosition.x = (glPosition.x) * _uniforms.screenAspect + step(0.0001, abs(_uniforms.eyeCross.y)) * stereoLR * glPosition.w;
+        glPosition.x = (glPosition.x) * tsx_uniforms.screenAspect + step(0.0001, abs(tsx_uniforms.eyeCross.y)) * stereoLR * glPosition.w;
     }else{
-        let vp = thumbnailViewport[sindex + _uniforms.sliceOffset - (_uniforms.refacing >> 5)];
-        crossHair = _uniforms.eyeCross.z / vp.w * step(abs(s.slicePos),0.1);
-        glPosition = vec4<f32>(ray.x * vp.z * _uniforms.screenAspect + vp.x, ray.y * vp.w + vp.y,0.5,1.0);
+        let vp = thumbnailViewport[sindex + tsx_uniforms.sliceOffset - (tsx_uniforms.refacing >> 5)];
+        crossHair = tsx_uniforms.eyeCross.z / vp.w * step(abs(s.slicePos),0.1);
+        glPosition = vec4<f32>(ray.x * vp.z * tsx_uniforms.screenAspect + vp.x, ray.y * vp.w + vp.y,0.5,1.0);
         camRay = vec4<f32>(pos[vindex].x * vp.z / vp.w,pos[vindex].y,0.0,1.0); // for rendering crosshair
     }
     
@@ -756,7 +757,7 @@ struct fInputType{
         vec2<f32>( x+w, y+h),
         vec2<f32>( x+w, y),
     );
-    return vOutputType(
+    return tsxvOutputType(
         glPosition,
         vec3<f32>(texelCoord[vindex], s.slicePos),
         crossHair,
@@ -766,20 +767,20 @@ struct fInputType{
     );
 }
 
-@group(0) @binding(3) var txt: texture_2d<f32>;
-@group(0) @binding(4) var splr: sampler;
+@group(0) @binding(3) var tsx_txt: texture_2d<f32>;
+@group(0) @binding(4) var tsx_splr: sampler;
 ${descriptor?.alphaShader?.code ?? `
 fn mainAlpha(color: vec4<f32>, retinaCoord: vec3<f32>) -> f32{
     return color.a;
 }
 `}
-@fragment fn mainFragment(input : fInputType) -> @location(0) vec4<f32> {
-    let color = textureSample(txt, splr, input.relativeFragPosition.xy);
+@fragment fn mainFragment(input : tsxfInputType) -> @location(0) vec4<f32> {
+    let color = textureSample(tsx_txt, tsx_splr, input.relativeFragPosition.xy);
     var alpha: f32 = 1.0;
     var factor = 0.0;
-    if (slice[_uniforms.sliceOffset].flag == 0){
+    if (slice[tsx_uniforms.sliceOffset].flag == 0){
         let dotvalue = dot(normalize(input.rayForCalOpacity.xyz), input.normalForCalOpacity.xyz);
-        let factor = _uniforms.layerOpacity / (clamp(-dotvalue,0.0,1.0));
+        let factor = tsx_uniforms.layerOpacity / (clamp(-dotvalue,0.0,1.0));
         alpha = clamp(${descriptor?.alphaShader?.entryPoint ?? "mainAlpha"}(color, input.retinaCoord) * factor,0.0,1.0);
     }else if (input.crossHair > 0.0) {
     let cross = abs(input.rayForCalOpacity.xy);
@@ -840,17 +841,17 @@ return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1
  * ---------------------------------
  *  */
 const screenRenderCode = StructDefUniformBuffer + `
-@group(0) @binding(0) var txt: texture_2d<f32>;
-@group(0) @binding(1) var splr: sampler;
-@group(0) @binding(2) var<uniform>_uniforms : _UniformBuffer;
-struct vOutputType{
+@group(0) @binding(0) var tsx_txt: texture_2d<f32>;
+@group(0) @binding(1) var tsx_splr: sampler;
+@group(0) @binding(2) var<uniform>tsx_uniforms : tsxUniformBuffer;
+struct tsxvOutputType{
     @builtin(position) position: vec4<f32>,
         @location(0) fragPosition: vec2<f32>,
 }
-struct fInputType{
+struct tsxfInputType{
     @location(0) fragPosition: vec2<f32>,
 }
-@vertex fn mainVertex(@builtin(vertex_index) index : u32) -> vOutputType {
+@vertex fn mainVertex(@builtin(vertex_index) index : u32) -> tsxvOutputType {
     const pos = array<vec2<f32>, 4>(
         vec2<f32>(-1.0, -1.0),
         vec2<f32>(-1.0, 1.0),
@@ -863,22 +864,22 @@ struct fInputType{
         vec2<f32>(1.0, 1.0),
         vec2<f32>(1.0, 0.0),
     );
-    return vOutputType(vec4<f32>(pos[index], 0.0, 1.0), uv[index]);
+    return tsxvOutputType(vec4<f32>(pos[index], 0.0, 1.0), uv[index]);
 }
-@fragment fn mainFragment(input: fInputType) -> @location(0) vec4 < f32 > {
-    let color = textureSample(txt, splr, input.fragPosition);
+@fragment fn mainFragment(input: tsxfInputType) -> @location(0) vec4 < f32 > {
+    let color = textureSample(tsx_txt, tsx_splr, input.fragPosition);
     var factor = 0.0;
-    if(_uniforms.eyeCross.z > 0.0 && _uniforms.layerOpacity > 0.0){
-    let aspectedCross = _uniforms.eyeCross.z * _uniforms.screenAspect;
-    if (_uniforms.eyeCross.x != 0.0) {
+    if(tsx_uniforms.eyeCross.z > 0.0 && tsx_uniforms.layerOpacity > 0.0){
+    let aspectedCross = tsx_uniforms.eyeCross.z * tsx_uniforms.screenAspect;
+    if (tsx_uniforms.eyeCross.x != 0.0) {
         let cross1 = abs(input.fragPosition - vec2<f32>(0.25, 0.5)) * 2.0;
         let cross2 = abs(input.fragPosition - vec2<f32>(0.75, 0.5)) * 2.0;
-        factor = step(cross1.x, 0.05 * aspectedCross) + step(cross2.x, 0.05 * aspectedCross) + step(cross1.y, _uniforms.eyeCross.z * 0.05);
-        factor *= step(cross1.y, _uniforms.eyeCross.z) * (step(cross1.x, aspectedCross) + step(cross2.x, aspectedCross));
+        factor = step(cross1.x, 0.05 * aspectedCross) + step(cross2.x, 0.05 * aspectedCross) + step(cross1.y, tsx_uniforms.eyeCross.z * 0.05);
+        factor *= step(cross1.y, tsx_uniforms.eyeCross.z) * (step(cross1.x, aspectedCross) + step(cross2.x, aspectedCross));
     } else {
         let cross = abs(input.fragPosition - vec2<f32>(0.5, 0.5)) * 2.0;
-        factor = step(cross.x, 0.05 * aspectedCross) + step(cross.y, _uniforms.eyeCross.z * 0.05);
-        factor *= step(cross.y, _uniforms.eyeCross.z) * step(cross.x, aspectedCross);
+        factor = step(cross.x, 0.05 * aspectedCross) + step(cross.y, tsx_uniforms.eyeCross.z * 0.05);
+        factor *= step(cross.y, tsx_uniforms.eyeCross.z) * step(cross.x, aspectedCross);
     }
 }
 return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1.0)), 1.0);

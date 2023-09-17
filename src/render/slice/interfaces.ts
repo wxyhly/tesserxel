@@ -85,8 +85,8 @@ export const DefaultDisplayConfig: DisplayConfig = {
     retinaResolution: 512,
     opacity: 1,
     canvasSize: {
-        width: window ? window.innerWidth * window.devicePixelRatio : 1024,
-        height: window ? window.innerHeight * window.devicePixelRatio : 512
+        width: typeof window !== "undefined" ? window.innerWidth * window.devicePixelRatio : 1024,
+        height: typeof window !== "undefined" ? window.innerHeight * window.devicePixelRatio : 512
     },
     camera3D: { fov: 40, near: 0.2, far: 20 },
     camera4D: { fov: 90, near: 0.01, far: 10 },

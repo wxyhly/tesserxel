@@ -10,7 +10,7 @@ class MandelApp {
             @location(0) o: vec4<f32>,
             @location(1) d: vec4<f32>
         }
-        @group(1) @binding(0) var<uniform> camMat: AffineMat;
+        @group(1) @binding(0) var<uniform> camMat: tsxAffineMat;
         @ray fn mainRay(
             @builtin(ray_direction) rd: vec4<f32>,
             @builtin(ray_origin) ro: vec4<f32>

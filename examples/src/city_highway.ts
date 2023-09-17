@@ -345,7 +345,7 @@ export namespace city_highway {
         return { buildingFragCode, buildingVertCode, buildingTransformBuffer, buildingCount };
     }
     let rtCode = `
-        @group(1) @binding(0) var<uniform> camMat: AffineMat;
+        @group(1) @binding(0) var<uniform> camMat: tsxAffineMat;
 
         struct rayOut{
             @location(0) out: vec4<f32>,

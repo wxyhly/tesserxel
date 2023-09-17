@@ -195,7 +195,7 @@ export class SimpleSkyBox extends SkyBox {
             sunDir: vec4<f32>,
             opacity: f32
         }
-        @group(1) @binding(0) var<uniform> camMat: AffineMat;
+        @group(1) @binding(0) var<uniform> camMat: tsxAffineMat;
         @group(1) @binding(1) var<uniform> uIn: UIn;
         ${SkyBox.commonCode}
         const betaR = vec3<f32>(1.95e-2, 1.1e-1, 2.94e-1); 

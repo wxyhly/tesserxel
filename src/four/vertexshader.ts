@@ -1,11 +1,11 @@
 //  tetra vertex shaders
 let commonHeader = `
-struct AffineMat{
+struct tsxAffineMat{
     matrix: mat4x4<f32>,
     vector: vec4<f32>,
 }
 struct UObjMats{
-    pos: AffineMat,
+    pos: tsxAffineMat,
     normal: mat4x4<f32>,
 }
 struct fourInputType{
@@ -16,8 +16,8 @@ struct fourOutputType{
     {fourOutputType}
 }
 @group(1) @binding({0}) var<uniform> uObjMat: UObjMats;
-@group(1) @binding({1}) var<uniform> uCamMat: AffineMat;
-fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
+@group(1) @binding({1}) var<uniform> uCamMat: tsxAffineMat;
+fn apply(afmat: tsxAffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
     let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
     return afmat.matrix * points + biais;
 }

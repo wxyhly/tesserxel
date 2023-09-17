@@ -20,6 +20,14 @@
             overflow: hidden;
         }
 
+        div#loading div {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
         div.default {
             display: none;
             position: absolute;
@@ -30,6 +38,25 @@
 </head>
 
 <body>
+    <div id="loading">
+        <div><svg width="200" height="80" version="1.1" xmlns="http://www.w3.org/2000/svg"
+                xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 100 100" enable-background="new 0 0 0 0"
+                xml:space="preserve">
+                <circle fill="#000" stroke="none" cx="6" cy="50" r="6">
+                    <animate attributeName="opacity" dur="1s" values="0;1;0" repeatCount="indefinite" begin="0.1">
+                    </animate>
+                </circle>
+                <circle fill="#000" stroke="none" cx="26" cy="50" r="6">
+                    <animate attributeName="opacity" dur="1s" values="0;1;0" repeatCount="indefinite" begin="0.2">
+                    </animate>
+                </circle>
+                <circle fill="#000" stroke="none" cx="46" cy="50" r="6">
+                    <animate attributeName="opacity" dur="1s" values="0;1;0" repeatCount="indefinite" begin="0.3">
+                    </animate>
+                </circle>
+            </svg>
+        </div>
+    </div>
     <canvas id="gpu-canvas"></canvas>
     <div class="default" lang="zh">
         <h1>欢迎来到由Tesserxel引擎驱动的四维世界</h1>
@@ -46,10 +73,10 @@
     }
     async function load() {
         let params = new URLSearchParams(window.location.search.slice(1));
-        let target = params.get("target")
+        let target = params.get("target");
         if (target) target = target.split("::");
         let lang = params.get("lang");
-        if (!lang) lang = "zh";
+        if (!lang) lang = navigator.languages.join(",").includes("zh") ? "zh" : "en";
         if (target) {
             let aa = (await importExamples(target[0]));
             aa[target[1] ? target[1] : target[0]].load(lang);
@@ -60,6 +87,7 @@
                 e.style.display = navigator.gpu ? "none" : "block";
             }
         }
+        document.getElementById("loading").className = "default";
     }
     load();
 </script>

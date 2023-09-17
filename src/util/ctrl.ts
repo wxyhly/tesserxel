@@ -11,15 +11,13 @@ import { EyeStereo, SectionConfig, DisplayConfig, RetinaSliceFacing, SliceRender
 
 export interface IController {
     update(state: ControllerState): void;
-    enabled?: boolean;
 }
 interface ControllerConfig {
     preventDefault?: boolean;
     enablePointerLock?: boolean;
 }
 interface KeyConfig {
-    enable?: string;
-    disable?: string;
+    [fn: string]: string;
 }
 export interface ControllerState {
     currentKeys: Map<String, KeyState>;
@@ -47,8 +45,6 @@ export interface ControllerState {
      *  '.KeyA' for pressing Key A 
      *  'ControlLeft+.KeyA' for press A while holding CtrlLeft*/
     isKeyHold: (code: string) => boolean;
-    /** query whether controller disabled by config, disable / enable keys */
-    queryDisabled: (config: KeyConfig) => boolean;
     isPointerLocked: () => boolean;
     exitPointerLock: () => void;
 }
@@ -77,7 +73,6 @@ export class ControllerRegistry {
         mspf: -1,
 
         isKeyHold: (_) => false,
-        queryDisabled: (_) => false,
         requestPointerLock: () => false,
         isPointerLocked: () => false,
         exitPointerLock: () => { }
@@ -114,9 +109,6 @@ export class ControllerRegistry {
                 }
             }
             return true;
-        }
-        this.states.queryDisabled = (config) => {
-            return this.states.isKeyHold(config.disable) || (config.enable && !this.states.isKeyHold(config.enable));
         }
         this.states.isPointerLocked = () => {
             return ((!this.states.isPointerLockedMouseDown) && document.pointerLockElement === this.dom);
@@ -188,12 +180,14 @@ export class ControllerRegistry {
             this.states.wheelX = ev.deltaX;
             this.states.wheelY = ev.deltaY;
         };
+        // mouse events are restricted in dom (canvas)
         dom.addEventListener("mousedown", this.evMouseDown);
         dom.addEventListener("mousemove", this.evMouseMove);
         dom.addEventListener("mouseup", this.evMouseUp);
-        dom.addEventListener("keydown", this.evKeyDown);
-        dom.addEventListener("keyup", this.evKeyUp);
-        dom.addEventListener("wheel", this.evWheel);
+        // but wheel and key event do not require focus on dom(canvas)
+        document.body.addEventListener("keydown", this.evKeyDown);
+        document.body.addEventListener("keyup", this.evKeyUp);
+        document.body.addEventListener("wheel", this.evWheel);
         if (config?.preventDefault === true) {
             this.evContextMenu = (ev) => {
                 if (!this.disableDefaultEvent) {
@@ -226,7 +220,7 @@ export class ControllerRegistry {
             this.states.lastUpdateTime = now;
         }
         for (let c of this.ctrls) {
-            if (c.enabled) c.update(this.states);
+            c.update(this.states);
         }
         this.states.mouseDown = -1;
         this.states.mouseUp = -1;
@@ -271,7 +265,7 @@ export class TrackBallController implements IController {
         this.cameraMode = cameraMode ?? false;
     }
     update(state: ControllerState) {
-        let disabled = state.queryDisabled(this.keyConfig);
+        let disabled = state.isKeyHold(this.keyConfig.disable) || !this.enabled;
         let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
         if (!disabled) {
             let dx = state.moveX * this.mouseSpeed;
@@ -359,7 +353,7 @@ export class FreeFlyController implements IController {
         let key = this.keyConfig;
         let delta: number;
         let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
-        let disabled = state.queryDisabled(this.keyConfig);
+        let disabled = state.isKeyHold(this.keyConfig.disable) || !this.enabled;
         if (!disabled) {
 
             let keyRotateSpeed = this.keyRotateSpeed * state.mspf;
@@ -475,7 +469,7 @@ export class KeepUpController implements IController {
         let key = this.keyConfig;
         let delta: number;
         let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
-        let disabled = state.queryDisabled(this.keyConfig);
+        let disabled = state.isKeyHold(this.keyConfig.disable) || !this.enabled;
         if (!disabled) {
 
             let keyRotateSpeed = this.keyRotateSpeed * state.mspf;
@@ -551,7 +545,7 @@ export class VoxelViewerController implements IController {
         if (object) this.object = object;
     }
     update(state: ControllerState) {
-        let disabled = state.queryDisabled(this.keyConfig);
+        let disabled = state.isKeyHold(this.keyConfig.disable) || !this.enabled;
         let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
         if (!disabled) {
             let dx = state.moveX * this.mouseSpeed;
@@ -921,8 +915,12 @@ export class RetinaController implements IController {
         },
     }
     private alphaBuffer: GPUBuffer;
+    guiMouseOperation = "";
     constructor(r: SliceRenderer) {
         this.renderer = r;
+        const gui = new RetinaCtrlGui(this);
+        this.gui = gui;
+        document.body.appendChild(gui.dom);
         this.defaultRetinaRenderPass = r.getCurrentRetinaRenderPass();
         this.alphaBuffer = r.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 16, "RetinaController's Retina Alpha Uniform Buffer");
         this.retinaRenderPasses = retinaRenderPassDescriptors.map((desc, index) => {
@@ -1005,177 +1003,186 @@ export class RetinaController implements IController {
     private retinaSize = 1.8;
     private retinaZDistance = 5;
     private crossHairSize = 0.03;
+    /** Store displayconfig temporal changes between frames */
     private tempDisplayConfig: DisplayConfig = {};
     private displayConfigChanged = false;
     maxRetinaResolution = 1024;
     private retinaRenderPasses: { promise: Promise<RetinaRenderPass>, jsBuffer: Float32Array }[];
     private defaultRetinaRenderPass: RetinaRenderPass;
+    private gui: RetinaCtrlGui;
+
     toggleRetinaAlpha(idx: number) {
         const { promise, jsBuffer } = this.retinaRenderPasses[idx];
         if (promise) {
             promise.then(pass => {
                 this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer, 0, 4);
                 this.renderer.setRetinaRenderPass(pass);
+                this.gui?.refresh({ "toggleRetinaAlpha": idx });
                 this.currentRetinaRenderPassIndex = idx;
             });
         } else {
             this.renderer.setRetinaRenderPass(this.defaultRetinaRenderPass);
+            this.gui?.refresh({ "toggleRetinaAlpha": idx });
             this.currentRetinaRenderPassIndex = -1;
         }
     }
+    getSubLayersNumber(updateCount?: number) {
+        // when < 32, we slow down layer speed
+        let layers = this.renderer.getDisplayConfig('retinaLayers');
+        if (layers > 32 || ((updateCount & 3) && (layers > 16 || (updateCount & 7)))) {
+            if (layers > 0) layers--;
+        }
+        return layers;
+    }
+    getAddLayersNumber(updateCount?: number) {
+        let layers = this.renderer.getDisplayConfig('retinaLayers');
+        if (updateCount === undefined) return Math.min(512, layers + 1);
+        if (layers > 32 || ((updateCount & 3) && (layers > 16 || (updateCount & 7)))) {
+            layers++;
+        }
+        return Math.min(512, layers);
+    }
     update(state: ControllerState): void {
-        let disabled = state.queryDisabled(this.keyConfig);
-        let on = state.isKeyHold;
+        let enabled = !this.keyConfig.enable || state.isKeyHold(this.keyConfig.enable);
+        const on = (k: string) => state.isKeyHold(k) && enabled;
         let key = this.keyConfig;
         let delta: number;
+
+        // retreive all temporal changes before this frame
         let displayConfig: DisplayConfig = this.tempDisplayConfig;
         if (this.displayConfigChanged) this.tempDisplayConfig = {};
         this.displayConfigChanged = false;
+
         let stereo = this.renderer.getStereoMode();
-        if (!disabled && state.isKeyHold(this.keyConfig.toggle3D)) {
-            if (stereo) {
-                displayConfig.retinaStereoEyeOffset = 0;
-                displayConfig.sectionStereoEyeOffset = 0;
-            } else {
-                displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
-                displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
-            }
-            displayConfig.sections = this.sectionPresets(this.renderer.getDisplayConfig("canvasSize"))[this.currentSectionConfig][(
-                !stereo ? "eye2" : "eye1"
-            )];
+        if (on(this.keyConfig.toggle3D)) {
+            this.writeConfigToggleStereoMode(displayConfig, !stereo);
         } else if (this.needResize) {
             displayConfig.sections = this.sectionPresets(this.renderer.getDisplayConfig("canvasSize"))[this.currentSectionConfig][(
                 stereo ? "eye2" : "eye1"
             )];
         }
-        if (!disabled) {
-            this.needResize = false;
-            if (stereo) {
-                if (state.isKeyHold(this.keyConfig.addEyes3dGap)) {
-                    this.retinaEyeOffset *= 1.05;
-                    if (this.retinaEyeOffset > 0.4) this.retinaEyeOffset = 0.4;
-                    if (this.retinaEyeOffset < -0.4) this.retinaEyeOffset = -0.4;
-                    displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
-                    displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
-                }
-                if (state.isKeyHold(this.keyConfig.subEyes3dGap)) {
-                    this.retinaEyeOffset /= 1.05;
-                    if (this.retinaEyeOffset > 0 && this.retinaEyeOffset < 0.03) this.retinaEyeOffset = 0.03;
-                    if (this.retinaEyeOffset < 0 && this.retinaEyeOffset > -0.03) this.retinaEyeOffset = -0.03;
-                    displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
-                    displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
-                }
-                if (state.isKeyHold(this.keyConfig.addEyes4dGap)) {
-                    this.sectionEyeOffset *= 1.05;
-                    if (this.sectionEyeOffset > this.maxSectionEyeOffset) this.sectionEyeOffset = this.maxSectionEyeOffset;
-                    if (this.sectionEyeOffset < -this.maxSectionEyeOffset) this.sectionEyeOffset = -this.maxSectionEyeOffset;
-                    displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
-                    displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
-                }
-                if (state.isKeyHold(this.keyConfig.subEyes4dGap)) {
-                    this.sectionEyeOffset /= 1.05;
-                    if (this.sectionEyeOffset > 0 && this.sectionEyeOffset < this.minSectionEyeOffset) this.sectionEyeOffset = this.minSectionEyeOffset;
-                    if (this.sectionEyeOffset < 0 && this.sectionEyeOffset > -this.minSectionEyeOffset) this.sectionEyeOffset = -this.minSectionEyeOffset;
-                    displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
-                    displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
-                }
-                if (state.isKeyHold(this.keyConfig.negEyesGap)) {
-                    this.sectionEyeOffset = -this.sectionEyeOffset;
-                    this.retinaEyeOffset = -this.retinaEyeOffset;
-                    displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
-                    displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
-                }
+        this.needResize = false;
+        if (stereo) {
+            if (state.isKeyHold(this.keyConfig.addEyes3dGap)) {
+                this.retinaEyeOffset *= 1.05;
+                if (this.retinaEyeOffset > 0.4) this.retinaEyeOffset = 0.4;
+                if (this.retinaEyeOffset < -0.4) this.retinaEyeOffset = -0.4;
+                displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
+                displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (state.isKeyHold(this.keyConfig.toggleCrosshair)) {
-                let crossHair = this.renderer.getDisplayConfig('crosshair');
-                displayConfig.crosshair = crossHair === 0 ? this.crossHairSize : 0;
+            if (state.isKeyHold(this.keyConfig.subEyes3dGap)) {
+                this.retinaEyeOffset /= 1.05;
+                if (this.retinaEyeOffset > 0 && this.retinaEyeOffset < 0.03) this.retinaEyeOffset = 0.03;
+                if (this.retinaEyeOffset < 0 && this.retinaEyeOffset > -0.03) this.retinaEyeOffset = -0.03;
+                displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
+                displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (state.isKeyHold(this.keyConfig.addOpacity)) {
-                displayConfig.opacity = this.renderer.getDisplayConfig("opacity") * (1 + this.opacityKeySpeed);
+            if (state.isKeyHold(this.keyConfig.addEyes4dGap)) {
+                this.sectionEyeOffset *= 1.05;
+                if (this.sectionEyeOffset > this.maxSectionEyeOffset) this.sectionEyeOffset = this.maxSectionEyeOffset;
+                if (this.sectionEyeOffset < -this.maxSectionEyeOffset) this.sectionEyeOffset = -this.maxSectionEyeOffset;
+                displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
+                displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (state.isKeyHold(this.keyConfig.subOpacity)) {
-                displayConfig.opacity = this.renderer.getDisplayConfig("opacity") / (1 + this.opacityKeySpeed);
+            if (state.isKeyHold(this.keyConfig.subEyes4dGap)) {
+                this.sectionEyeOffset /= 1.05;
+                if (this.sectionEyeOffset > 0 && this.sectionEyeOffset < this.minSectionEyeOffset) this.sectionEyeOffset = this.minSectionEyeOffset;
+                if (this.sectionEyeOffset < 0 && this.sectionEyeOffset > -this.minSectionEyeOffset) this.sectionEyeOffset = -this.minSectionEyeOffset;
+                displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
+                displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (state.isKeyHold(this.keyConfig.addLayer)) {
-                let layers = this.renderer.getDisplayConfig('retinaLayers');
-                if (layers > 32 || ((state.updateCount & 3) && (layers > 16 || (state.updateCount & 7)))) {
-                    layers++;
-                }
-                if (layers > 512) layers = 512;
-                displayConfig.retinaLayers = layers;
+            if (state.isKeyHold(this.keyConfig.negEyesGap)) {
+                this.sectionEyeOffset = -this.sectionEyeOffset;
+                this.retinaEyeOffset = -this.retinaEyeOffset;
+                displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
+                displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (state.isKeyHold(this.keyConfig.subLayer)) {
-                // when < 32, we slow down layer speed
-                let layers = this.renderer.getDisplayConfig('retinaLayers');
-                if (layers > 32 || ((state.updateCount & 3) && (layers > 16 || (state.updateCount & 7)))) {
-                    if (layers > 0) layers--;
-
-                    displayConfig.retinaLayers = layers;
-                }
+        }
+        if (on(this.keyConfig.toggleCrosshair)) {
+            this.writeConfigToggleCrosshair(displayConfig);
+        }
+        if (this.guiMouseOperation === "opacitypBtn" || on(this.keyConfig.addOpacity)) {
+            displayConfig.opacity = this.renderer.getDisplayConfig("opacity") * (1 + this.opacityKeySpeed);
+        }
+        if (this.guiMouseOperation === "opacitymBtn" || on(this.keyConfig.subOpacity)) {
+            displayConfig.opacity = this.renderer.getDisplayConfig("opacity") / (1 + this.opacityKeySpeed);
+        }
+        if (this.guiMouseOperation === "layerpBtn" || on(this.keyConfig.addLayer)) {
+            displayConfig.retinaLayers = this.getAddLayersNumber(state.updateCount);
+        }
+        if (this.guiMouseOperation === "layermBtn" || on(this.keyConfig.subLayer)) {
+            displayConfig.retinaLayers = this.getSubLayersNumber(state.updateCount);
+        }
+        if (this.guiMouseOperation === "respBtn" || on(this.keyConfig.addRetinaResolution)) {
+            this.guiMouseOperation = "";
+            let res = this.renderer.getDisplayConfig('retinaResolution');
+            res += this.renderer.getMinResolutionMultiple();
+            if (res <= this.maxRetinaResolution) displayConfig.retinaResolution = res;
+        }
+        if (this.guiMouseOperation === "resmBtn" || on(this.keyConfig.subRetinaResolution)) {
+            this.guiMouseOperation = "";
+            let res = this.renderer.getDisplayConfig('retinaResolution');
+            res -= this.renderer.getMinResolutionMultiple();
+            if (res > 0) displayConfig.retinaResolution = res;
+        }
+        if (this.guiMouseOperation === "fovpBtn" || on(this.keyConfig.addFov)) {
+            this.retinaFov += this.fovKeySpeed;
+            if (this.retinaFov > 120) this.retinaFov = 120;
+            this.needsUpdateRetinaCamera = true;
+        }
+        if (this.guiMouseOperation === "fovmBtn" || on(this.keyConfig.subFov)) {
+            this.retinaFov -= this.fovKeySpeed;
+            if (this.retinaFov < 0.1) this.retinaFov = 0;
+            this.needsUpdateRetinaCamera = true;
+        }
+        if (on(this.keyConfig.toggleRetinaAlpha)) {
+            this.currentRetinaRenderPassIndex++;
+            if (this.currentRetinaRenderPassIndex >= retinaRenderPassDescriptors.length) this.currentRetinaRenderPassIndex = 0;
+            this.toggleRetinaAlpha(this.currentRetinaRenderPassIndex);
+        }
+        if (enabled && state.currentBtn === this.retinaAlphaMouseButton && this.currentRetinaRenderPassIndex > 0) {
+            const { jsBuffer } = this.retinaRenderPasses[this.currentRetinaRenderPassIndex];
+            switch (this.currentRetinaRenderPassIndex) {
+                case 1:
+                    jsBuffer[4] += state.moveY * 0.01;
+                    jsBuffer[5] += state.moveX * 0.01;
+                    jsBuffer[4] = Math.max(0.01, Math.min(jsBuffer[4], _SQRT_3));
+                    jsBuffer[5] = Math.max(1, Math.min(jsBuffer[5], 5));
+                    const r2 = jsBuffer[4] * jsBuffer[4];
+                    jsBuffer[0] = r2 / jsBuffer[5];
+                    jsBuffer[1] = r2 * jsBuffer[5];
+                    jsBuffer[2] = 4 / (1 + r2);
+                    break;
+                case 2:
+                    jsBuffer[0] += state.moveY * 0.01;
+                    jsBuffer[5] += state.moveX * 0.01;
+                    jsBuffer[0] = Math.max(0.01, Math.min(jsBuffer[0], 1));
+                    jsBuffer[5] = Math.max(0, Math.min(jsBuffer[5], 0.1));
+                    jsBuffer[1] = 2 - jsBuffer[0];
+                    jsBuffer[2] = jsBuffer[5];
+                    break;
+                case 3:
+                    let n = new Vec3(jsBuffer[0], jsBuffer[1], jsBuffer[2]).norms();
+                    // n.rotates(new Vec3(state.moveY, state.moveX).mulfs(0.01).exp());
+                    let y = Math.acos(n.y) + state.moveX * 0.01;
+                    let x = Math.atan2(n.z, n.x) + state.moveY * 0.01;
+                    const sy = Math.sin(y);
+                    n.set(Math.cos(x) * sy, Math.cos(y), Math.sin(x) * sy);
+                    n.writeBuffer(jsBuffer);
             }
-            if (state.isKeyHold(this.keyConfig.addRetinaResolution)) {
-                let res = this.renderer.getDisplayConfig('retinaResolution');
-                res += this.renderer.getMinResolutionMultiple();
-                if (res <= this.maxRetinaResolution) displayConfig.retinaResolution = res;
+            this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer, 0, 4);
+        }
+        for (let [label, keyCode] of Object.entries(this.keyConfig.sectionConfigs)) {
+            if (on(keyCode)) {
+                this.toggleSectionConfig(label);
             }
-            if (state.isKeyHold(this.keyConfig.subRetinaResolution)) {
-                let res = this.renderer.getDisplayConfig('retinaResolution');
-                res -= this.renderer.getMinResolutionMultiple();
-                if (res > 0) displayConfig.retinaResolution = res;
-            }
-            if (state.isKeyHold(this.keyConfig.addFov)) {
-                this.retinaFov += this.fovKeySpeed;
-                if (this.retinaFov > 120) this.retinaFov = 120;
-                this.needsUpdateRetinaCamera = true;
-            }
-            if (state.isKeyHold(this.keyConfig.subFov)) {
-                this.retinaFov -= this.fovKeySpeed;
-                if (this.retinaFov < 0.1) this.retinaFov = 0;
-                this.needsUpdateRetinaCamera = true;
-            }
-            if (state.isKeyHold(this.keyConfig.toggleRetinaAlpha)) {
-                this.currentRetinaRenderPassIndex++;
-                if (this.currentRetinaRenderPassIndex >= retinaRenderPassDescriptors.length) this.currentRetinaRenderPassIndex = 0;
-                this.toggleRetinaAlpha(this.currentRetinaRenderPassIndex);
-            }
-            if (state.currentBtn === this.retinaAlphaMouseButton && this.currentRetinaRenderPassIndex > 0) {
-                const { jsBuffer } = this.retinaRenderPasses[this.currentRetinaRenderPassIndex];
-                switch (this.currentRetinaRenderPassIndex) {
-                    case 1:
-                        jsBuffer[4] += state.moveY * 0.01;
-                        jsBuffer[5] += state.moveX * 0.01;
-                        jsBuffer[4] = Math.max(0.01, Math.min(jsBuffer[4], _SQRT_3));
-                        jsBuffer[5] = Math.max(1, Math.min(jsBuffer[5], 5));
-                        const r2 = jsBuffer[4] * jsBuffer[4];
-                        jsBuffer[0] = r2 / jsBuffer[5];
-                        jsBuffer[1] = r2 * jsBuffer[5];
-                        jsBuffer[2] = 4 / (1 + r2);
-                        break;
-                    case 2:
-                        jsBuffer[0] += state.moveY * 0.01;
-                        jsBuffer[5] += state.moveX * 0.01;
-                        jsBuffer[0] = Math.max(0.01, Math.min(jsBuffer[0], 1));
-                        jsBuffer[5] = Math.max(0, Math.min(jsBuffer[5], 0.1));
-                        jsBuffer[1] = 2 - jsBuffer[0];
-                        jsBuffer[2] = jsBuffer[5];
-                        break;
-                    case 3:
-                        let n = new Vec3(jsBuffer[0], jsBuffer[1], jsBuffer[2]).norms();
-                        n.rotates(new Vec3(state.moveY, state.moveX).mulfs(0.01).exp());
-                        n.writeBuffer(jsBuffer);
-                }
-                this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer, 0, 4);
-            }
-            for (let [label, keyCode] of Object.entries(this.keyConfig.sectionConfigs)) {
-                if (state.isKeyHold(keyCode)) {
-                    this.toggleSectionConfig(label);
-                }
-            }
-            delta = (on(key.rotateDown) ? -1 : 0) + (on(key.rotateUp) ? 1 : 0);
-            let keyRotateSpeed = this.keyRotateSpeed * state.mspf;
-            if (delta) this._vec2damp.y = delta * keyRotateSpeed;
-            delta = (on(key.rotateLeft) ? 1 : 0) + (on(key.rotateRight) ? -1 : 0);
-            if (delta) this._vec2damp.x = delta * keyRotateSpeed;
+        }
+        delta = (on(key.rotateDown) ? -1 : 0) + (on(key.rotateUp) ? 1 : 0);
+        let keyRotateSpeed = this.keyRotateSpeed * state.mspf;
+        if (delta) this._vec2damp.y = delta * keyRotateSpeed;
+        delta = (on(key.rotateLeft) ? 1 : 0) + (on(key.rotateRight) ? -1 : 0);
+        if (delta) this._vec2damp.x = delta * keyRotateSpeed;
+        if (enabled) {
             if (state.currentBtn === this.mouseButton) {
                 this.refacingFront = false;
                 if (state.moveX) this._vec2damp.x = state.moveX * this.mouseSpeed;
@@ -1185,10 +1192,11 @@ export class RetinaController implements IController {
                 this.needsUpdateRetinaCamera = true;
                 this.retinaSize += state.wheelY * this.wheelSpeed;
             }
-            if (on(key.refaceFront)) {
-                this.refacingFront = true;
-            }
         }
+        if (on(key.refaceFront)) {
+            this.refacingFront = true;
+        }
+
         if (this._vec2damp.norm1() < 1e-3 || this.refacingFront) {
             this._vec2damp.set(0, 0);
         }
@@ -1228,18 +1236,34 @@ export class RetinaController implements IController {
         }
         this.renderer.setDisplayConfig(displayConfig);
     }
-    setStereo(stereo: boolean) {
+    private writeConfigToggleStereoMode(dstConfig: DisplayConfig, stereo?: boolean) {
+        stereo ??= !this.renderer.getStereoMode();
         if (!stereo) {
-            this.tempDisplayConfig.retinaStereoEyeOffset = 0;
-            this.tempDisplayConfig.sectionStereoEyeOffset = 0;
+            dstConfig.retinaStereoEyeOffset = 0;
+            dstConfig.sectionStereoEyeOffset = 0;
         } else {
-            this.tempDisplayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
-            this.tempDisplayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
+            dstConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
+            dstConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
         }
-        let sections = this.sectionPresets(this.renderer.getDisplayConfig("canvasSize"))[this.currentSectionConfig][(
-            !stereo ? "eye2" : "eye1"
+        dstConfig.sections = this.sectionPresets(this.renderer.getDisplayConfig("canvasSize"))[this.currentSectionConfig][(
+            stereo ? "eye2" : "eye1"
         )];
-        this.tempDisplayConfig.sections = sections;
+    }
+    toggleStereo(stereo?: boolean) {
+        this.writeConfigToggleStereoMode(this.tempDisplayConfig, stereo);
+        this.displayConfigChanged = true;
+    }
+    private writeConfigToggleCrosshair(dstConfig: DisplayConfig, size?: number) {
+        if (!size) {
+            let crossHair = this.renderer.getDisplayConfig('crosshair');
+            dstConfig.crosshair = crossHair === 0 ? this.crossHairSize : 0;
+        } else {
+            dstConfig.crosshair = size;
+            this.crossHairSize = size;
+        }
+    }
+    toggleCrosshair() {
+        this.writeConfigToggleCrosshair(this.tempDisplayConfig);
         this.displayConfigChanged = true;
     }
     setSectionEyeOffset(offset: number) {
@@ -1262,8 +1286,8 @@ export class RetinaController implements IController {
     }
     setCrosshairSize(size: number) {
         this.tempDisplayConfig.crosshair = size;
-        this.displayConfigChanged = true;
         this.crossHairSize = size;
+        this.displayConfigChanged = true;
     }
     setRetinaResolution(retinaResolution: number) {
         this.tempDisplayConfig.retinaResolution = retinaResolution;
@@ -1297,10 +1321,347 @@ export class RetinaController implements IController {
         this.tempDisplayConfig.retinaLayers = layers;
         this.tempDisplayConfig.sections = sections;
         this.currentSectionConfig = index;
+        this.gui?.refresh({ "toggleSectionConfig": index });
     }
     setSize(size: GPUExtent3DStrict) {
         this.tempDisplayConfig.canvasSize = size;
         this.displayConfigChanged = true;
         this.needResize = true;
+    }
+}
+
+export class RetinaCtrlGui {
+    controller: RetinaController;
+    dom: HTMLDivElement;
+    iconSize = 32;
+    refresh: (param: any) => void;
+    createToggleDiv(CtrlBtn: HTMLButtonElement, display: string = "") {
+        const div = document.createElement("div");
+        div.style.display = "none";
+        CtrlBtn.addEventListener("click", () => {
+            div.style.display = div.style.display === "none" ? display : "none";
+        });
+        return div;
+    }
+    createDropBox(CtrlBtn: HTMLButtonElement, offset: number, width: number = 1) {
+        const div = this.createToggleDiv(CtrlBtn);
+        div.style.position = "absolute";
+        div.className = "retina-ctrl-gui"
+        div.style.width = this.iconSize * width + "px";
+        div.style.top = this.iconSize + "px";
+        div.style.left = this.iconSize * offset + "px";
+        return div;
+    }
+    toggle() {
+        this.dom.style.display = this.dom.style.display === "none" ? "" : "none";
+    }
+    constructor(retinaCtrl: RetinaController) {
+        this.controller = retinaCtrl;
+        this.dom = document.createElement("div");
+        this.dom.style.position = "fixed";
+        this.dom.style.top = "50vh";
+        this.dom.style.right = "0";
+        document.body.appendChild(this.dom);
+
+        // write gui and set size event
+
+        const SVG_HEADER = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='`;
+        const SVG_LINE = `style="fill:none;stroke:#FFF;stroke-width:0.25;"`;
+        const SVG_PLUS = `<text x="1.5" y="3.5" stroke="#F00" style="font-size:3px">+</text>`;
+        const SVG_MINUS = `<text x="2" y="3.5" stroke="#F00" style="font-size:3px">-</text>`;
+        const SVG_RETINA = `<path d="M 1.3,3.3 2.5,4 4.1,3.6 V 2 L 2.9,1.3 1.3,1.7 Z"/>`;
+        const SVG_CHECKER = `${SVG_HEADER}0 0 5 5'><g style="fill:#FFF"><rect width="1" height="1" x="0.5" y="0.5"/><rect width="1" height="1" x="2.5" y="0.5"/><rect width="1" height="1" x="1.5" y="1.5"/><rect width="1" height="1" x="3.5" y="1.5"/><rect width="1" height="1" x="0.5" y="2.5"/><rect width="1" height="1" x="2.5" y="2.5"/><rect width="1" height="1" x="1.5" y="3.5"/><rect width="1" height="1" x="3.5" y="3.5"/>`;
+        const SVG_CAM = `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><circle cx="0.77" cy="1.57" r="0.4"/><rect width="2.36" height="1.6" x="0.39" y="2.15"/><circle cx="1.9" cy="1.35" r="0.66"/><path d="M 2.74,2.48 4.89,1"/><path d="m 2.77,3.27 2.16,1.4"/><path d="m 4.46,1.9 c 0.23,0.65 0.28,1.3 0.03,1.9"/><path d="M 4.24,2.4 4.36,1.7 4.9,2.18"/><path d="M 4.23,3.2 4.41,3.9 5,3.4"/>`;
+        const mainBtn = this.addBtn(`${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><path d="M 1.9,4.53 1.4,4.24 1.51,3.73 C 1.43,3.65 1.36,3.56 1.3,3.46 L 0.77,3.43 0.62,2.87 1.07,2.58 C 1.07,2.47 1.08,2.36 1.11,2.25 L 0.76,1.84 1.05,1.34 1.56,1.45 C 1.64,1.37 1.73,1.3 1.83,1.24 L 1.86,0.71 2.42,0.56 2.71,1 c 0.11,0 0.23,0.02 0.34,0.04 L 3.45,0.7 3.95,0.99 3.84,1.5 c 0.08,0.08 0.15,0.17 0.21,0.27 l 0.53,0.03 0.15,0.56 -0.44,0.3 c 0,0.11 -0.02,0.23 -0.04,0.34 L 4.59,3.37 4.3,3.88 3.79,3.77 C 3.7,3.85 3.61,3.91 3.52,3.97 L 3.48,4.5 2.92,4.65 2.63,4.21 C 2.53,4.2 2.41,4.19 2.3,4.16 Z"/><circle cx="2.67" cy="2.62" r="1"/></g></svg>`);
+        const crossppl1Btn = this.addBtn(`${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><path d="M 1.22,1.68 V 3.764 L 2.83,4.644 4.472,3.715 V 1.715 L 2.81,0.8 Z M 1.55,1.86 2.86,2.61 V 4.31 M 2.86,2.61 4.16,1.86"/></g></svg>`);
+        const crossppl2Btn = this.addBtn(`${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><circle cx="2.69" cy="2.6" r="2"/><path d="m 0.69,2.6 c 0.002,1.28 4,1.28 4,0.014"/><path style="stroke-dasharray:0.2, 0.2;" d="M 0.68,2.6 C 0.71,1.45 4.68,1.5 4.7,2.63"/></g></svg>`);
+        const crossppl3Btn = this.addBtn(`${SVG_HEADER}0.6 0.5 4.5 4.5'><g style="fill:none;stroke:#FFF;stroke-width:0.4;"><path transform="scale(0.6) translate(1.8,1.8)" d="M 1.22,1.68 V 3.764 L 2.83,4.644 4.472,3.715 V 1.715 L 2.81,0.8 Z M 1.55,1.86 2.86,2.61 V 4.31 M 2.86,2.61 4.16,1.86"/></g></svg>`);
+        const crossppl4Btn = this.addBtn(`${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><path d="M 1.19,3.49 2.85,4.45 4.42,3.55 V 1.57 L 2.77,0.63 1.19,1.52 Z M 2,1.12 3.45,1.05 4.4,2.62 3.65,3.94 1.98,3.92 1.23,2.74 1.95,1.1"/></g></svg>`);
+        const crosshairBtn = this.addBtn(`${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><path d="m 2.62,1 v 3.37 M 1.56,4 3.56,1.47 M 0.9,2.7 H 4.23"/></g></svg>`);
+        const stereoBtn = this.addBtn(`${SVG_HEADER}0.5 0.3 4.5 4.5'><g ${SVG_LINE}><path d="M 0.563,2.636 C 2.33,1 3.24,1.22 4.74,2.76 2.99,3.96 1.676,3.73 0.564,2.637 Z"/><circle cx="2.6" cy="2.5" r="0.9"/><circle cx="2.6" cy="2.5" r="0.54"/></g></svg>`);
+        const settingBtn = this.addBtn(`${SVG_HEADER}0.5 0.3 4.5 4.5'><g id="g1" ${SVG_LINE}><path d="M 1.3,3.4 V 4.8 M 1.77,3.4 V 4.8 M 1.3,0.4 V 2.8 M 1.77,0.4 V 2.8"/><rect width="1.7" height="0.4" x="0.63" y="3.04"/></g><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#g1" transform="rotate(180,2.65,2.59)"/></svg>`);
+        const slicecfg1Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}<rect width="1.2" height="1.2" x="0.6" y="3.6"/><rect width="1.2" height="1.2" x="3.5" y="3.6"/><rect width="1.2" height="1.2" x="3.5" y="0.5"/></g></svg>`);
+        const slicecfg2Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}<rect width="1.7" height="1.7" x="0.6" y="2.8"/><rect width="1.7" height="1.7" x="2.9" y="2.8"/><rect width="1.7" height="1.7" x="2.9" y="0.5"/></g></svg>`);
+        const slicecfg3Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}</g></svg>`);
+        const slicecfg4Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="2" height="2" x="0.6" y="2.5"/><rect width="2" height="2" x="2.6" y="2.5"/><rect width="2" height="2" x="2.6" y="0.5"/></g></svg>`);
+        const slicecfg5Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="4" height="4" x="0.6" y="0.6"/><text x="1.5" y="3.5" stroke="#0F0" style="font-size:3px">Y</text></g></svg>`);
+        const slicecfg6Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="4" height="4" x="0.6" y="0.6"/><text x="1.5" y="3.5" stroke="#00F" style="font-size:3px">Z</text></g></svg>`);
+        const slicecfg7Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}<rect width="1" height="1" x="0.6" y="3"/><rect width="1" height="1" x="1.6" y="3"/><rect width="1" height="1" x="2.6" y="3"/><rect width="1" height="1" x="3.6" y="3"/><text x="1.5" y="3.5" stroke="#0F0" style="font-size:3px">Y</text></g></svg>`);
+        const slicecfg8Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}<rect width="1" height="1" x="0.6" y="3"/><rect width="1" height="1" x="1.6" y="3"/><rect width="1" height="1" x="2.6" y="3"/><rect width="1" height="1" x="3.6" y="3"/><text x="1.5" y="3.5" stroke="#00F" style="font-size:3px">Z</text></g></svg>`);
+        const layerpBtn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect id="r" width="1.8" height="2.3" x="2.7" y="2.94" transform="matrix(0.95,-0.3,0,1,0,0)"/><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#r" id="u" transform="translate(-0.6,-0.4)"/><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#u" transform="translate(-0.6,-0.4)"/>${SVG_PLUS}</g></svg>`);
+        const layermBtn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect id="r" width="1.8" height="2.3" x="2.7" y="2.94" transform="matrix(0.95,-0.3,0,1,0,0)"/><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#r" id="u" transform="translate(-0.6,-0.4)"/><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#u" transform="translate(-0.6,-0.4)"/>${SVG_MINUS}</g></svg>`);
+        const opacitypBtn = this.addBtn(`${SVG_CHECKER}<text x="1.5" y="3.5" style="font-size:3px;stroke:#F00;stroke-width:0.25">+</text></g></svg>`);
+        const opacitymBtn = this.addBtn(`${SVG_CHECKER}<text x="2" y="3.5" style="font-size:3px;stroke:#F00;stroke-width:0.25">-</text></g></svg>`);
+        const fovpBtn = this.addBtn(`${SVG_CAM}${SVG_PLUS}</g></svg>`);
+        const fovmBtn = this.addBtn(`${SVG_CAM}${SVG_MINUS}</g></svg>`);
+        const respBtn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="4.6" height="2.93" x="0.33" y="0.9"/><path d="M 2.44,3.844 1.62,4.78 H 3.77 L 3.03,3.84"/><circle cx="1.86" cy="2.4" r="1.05"/><rect width="1.63" height="0.48" x="3.38" y="1.7" transform="rotate(12.5)"/><path d="M 1.075,1.825H 1.6 V 2.1 H 1.9 V 2.5 H 2.3 V 3.07 H 2.5"/>${SVG_PLUS}</g></svg>`);
+        const resmBtn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="4.6" height="2.93" x="0.33" y="0.9"/><path d="M 2.44,3.844 1.62,4.78 H 3.77 L 3.03,3.84"/><circle cx="1.86" cy="2.4" r="1.05"/><rect width="1.63" height="0.48" x="3.38" y="1.7" transform="rotate(12.5)"/><path d="M 1.075,1.825H 1.6 V 2.1 H 1.9 V 2.5 H 2.3 V 3.07 H 2.5"/>${SVG_MINUS}</g></svg>`);
+
+        const mainBar = this.createToggleDiv(mainBtn, "inline-block");
+        let drag = NaN;
+        let startPos: number;
+        let enableKeycode: string;
+        mainBtn.addEventListener('mousedown', (e) => {
+            drag = e.clientY;
+            startPos = Number(this.dom.style.top.replace("vh", "")) / 100 * window.innerHeight;
+        });
+        mainBtn.addEventListener('mouseenter',()=>{
+            if (enableKeycode != retinaCtrl.keyConfig.enable) {
+                this.refresh({ "enableKeyCode": retinaCtrl.keyConfig.enable });
+            }
+        });
+        mainBtn.addEventListener('mousemove', (e) => {
+            if (!drag) return;
+
+            const currPos = startPos + e.clientY - drag;
+            this.dom.style.top = currPos / window.innerHeight * 100 + "vh";
+        });
+        mainBtn.addEventListener('mouseup', () => { drag = NaN; });
+        mainBtn.addEventListener('mouseout', () => { drag = NaN; });
+
+
+        this.dom.appendChild(mainBar);
+        stereoBtn.addEventListener('click', () => retinaCtrl.toggleStereo()); mainBar.appendChild(stereoBtn);
+
+        const slicecfgPlaceholder = document.createElement("span");
+        slicecfgPlaceholder.className = "slicecfg";
+        mainBar.appendChild(slicecfgPlaceholder);
+        let slicecfgPlaceholderBtn = slicecfg1Btn.cloneNode(true) as HTMLButtonElement;
+        slicecfgPlaceholder.appendChild(slicecfgPlaceholderBtn);
+        const slicecfgBar = this.createDropBox(slicecfgPlaceholderBtn, 1);
+        slicecfgPlaceholder.appendChild(slicecfgBar);
+        slicecfgBar.appendChild(slicecfg1Btn);
+        slicecfgBar.appendChild(slicecfg2Btn);
+        slicecfgBar.appendChild(slicecfg3Btn);
+        slicecfgBar.appendChild(slicecfg4Btn);
+        slicecfgBar.appendChild(slicecfg5Btn);
+        slicecfgBar.appendChild(slicecfg6Btn);
+        slicecfgBar.appendChild(slicecfg7Btn);
+        slicecfgBar.appendChild(slicecfg8Btn);
+        const slicecfgBtnFn = function () {
+            slicecfgPlaceholderBtn.style.backgroundImage = this.style.backgroundImage;
+            retinaCtrl.toggleSectionConfig(this.name);
+        }
+        slicecfg1Btn.addEventListener('click', slicecfgBtnFn); slicecfg1Btn.name = "retina+sections";
+        slicecfg2Btn.addEventListener('click', slicecfgBtnFn); slicecfg2Btn.name = "retina+bigsections"
+        slicecfg3Btn.addEventListener('click', slicecfgBtnFn); slicecfg3Btn.name = "retina";
+        slicecfg4Btn.addEventListener('click', slicecfgBtnFn); slicecfg4Btn.name = "sections";
+        slicecfg5Btn.addEventListener('click', slicecfgBtnFn); slicecfg5Btn.name = "zsection";
+        slicecfg6Btn.addEventListener('click', slicecfgBtnFn); slicecfg6Btn.name = "ysection";
+        slicecfg7Btn.addEventListener('click', slicecfgBtnFn); slicecfg7Btn.name = "retina+zslices";
+        slicecfg8Btn.addEventListener('click', slicecfgBtnFn); slicecfg8Btn.name = "retina+yslices";
+        const settingBarPlaceHolder = document.createElement("span");
+        settingBarPlaceHolder.appendChild(settingBtn);
+        const settingBar = this.createDropBox(settingBtn, 2, 2);
+        settingBarPlaceHolder.className = "settingbar";
+        settingBarPlaceHolder.appendChild(settingBar);
+        mainBar.appendChild(settingBarPlaceHolder);
+        settingBar.appendChild(layerpBtn);
+        layerpBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "layerpBtn");
+        settingBar.appendChild(layermBtn);
+        layermBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "layermBtn");
+        settingBar.appendChild(opacitypBtn);
+        opacitypBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "opacitypBtn");
+        settingBar.appendChild(opacitymBtn);
+        opacitymBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "opacitymBtn");
+        settingBar.appendChild(fovpBtn);
+        fovpBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "fovpBtn");
+        settingBar.appendChild(fovmBtn);
+        fovmBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "fovmBtn");
+        settingBar.appendChild(respBtn);
+        respBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "respBtn");
+        settingBar.appendChild(resmBtn);
+        resmBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "resmBtn");
+
+        mainBar.appendChild(crosshairBtn);
+        crosshairBtn.addEventListener("click", () => retinaCtrl.toggleCrosshair());
+
+        const crosspplPlaceholder = document.createElement("span");
+        mainBar.appendChild(crosspplPlaceholder);
+        let crosspplPlaceholderBtn = crossppl1Btn.cloneNode(true) as HTMLButtonElement;
+        crosspplPlaceholder.appendChild(crosspplPlaceholderBtn);
+        crosspplPlaceholder.className = "crossppl";
+        const crosspplBar = this.createDropBox(crosspplPlaceholderBtn, 4);
+        crosspplPlaceholder.appendChild(crosspplBar);
+
+        const crosspplBtnFn = function () {
+            crosspplPlaceholderBtn.style.backgroundImage = this.style.backgroundImage;
+            retinaCtrl.toggleRetinaAlpha(Number(this.name));
+        }
+        crosspplBar.appendChild(crossppl1Btn); crossppl1Btn.addEventListener('click', crosspplBtnFn); crossppl1Btn.name = "0";
+        crosspplBar.appendChild(crossppl2Btn); crossppl2Btn.addEventListener('click', crosspplBtnFn); crossppl2Btn.name = "1";
+        crosspplBar.appendChild(crossppl3Btn); crossppl3Btn.addEventListener('click', crosspplBtnFn); crossppl3Btn.name = "2";
+        crosspplBar.appendChild(crossppl4Btn); crossppl4Btn.addEventListener('click', crosspplBtnFn); crossppl4Btn.name = "3";
+
+        this.refresh = (param: any) => {
+            let crosspplBtn: HTMLButtonElement;
+            switch (param["toggleRetinaAlpha"]) {
+                case 0: crosspplBtn = crossppl1Btn; break;
+                case 1: crosspplBtn = crossppl2Btn; break;
+                case 2: crosspplBtn = crossppl3Btn; break;
+                case 3: crosspplBtn = crossppl4Btn; break;
+            }
+            if (crosspplBtn) crosspplPlaceholderBtn.style.backgroundImage = crosspplBtn.style.backgroundImage;
+            switch (param["toggleSectionConfig"]) {
+                case "retina+sections": slicecfg1Btn.click(); break;
+                case "retina+bigsections": slicecfg2Btn.click(); break;
+                case "retina": slicecfg3Btn.click(); break;
+                case "sections": slicecfg4Btn.click(); break;
+                case "zsection": slicecfg5Btn.click(); break;
+                case "ysection": slicecfg6Btn.click(); break;
+                case "retina+zslices": slicecfg7Btn.click(); break;
+                case "retina+yslices": slicecfg8Btn.click(); break;
+            }
+            if (param["enableKeyCode"] !== undefined) {
+                enableKeycode = param["enableKeyCode"];
+                const BtnHint = {
+                    "zh": {
+                        "mouseBtn0": "鼠标左键",
+                        "mouseBtn1": "鼠标中键",
+                        "mouseBtn2": "鼠标右键",
+                        "left": "左",
+                        "right": "右",
+                        "digit": "大键盘数字",
+                        "mainBtn": "显示/隐藏体素渲染设置",
+                        "crosspplPlaceholderBtn": "显示/隐藏选择截面形状",
+                        "crossppl1Btn": "截面形状：默认立方体",
+                        "crossppl2Btn": "截面形状：球",
+                        "crossppl3Btn": "截面形状：小立方体",
+                        "crossppl4Btn": "截面形状：平面",
+                        "crossppl2BtnDesc": "拖动以改变球半径(垂直)\n和羽化量(水平)",
+                        "crossppl3BtnDesc": "拖动以改变立方体大小(垂直)\n和剩余部分透明度(水平)",
+                        "crossppl4BtnDesc": "拖动以改变截平面方向",
+                        "stereoBtn": "切换裸眼3D模式",
+                        "slicecfgPlaceholderBtn": "显示/隐藏选择视图配置",
+                        "slicecfg1Btn": "视图配置：体素+三个截面",
+                        "slicecfg2Btn": "视图配置：体素+三个大截面",
+                        "slicecfg3Btn": "视图配置：体素",
+                        "slicecfg4Btn": "视图配置：三个截面",
+                        "slicecfg5Btn": "视图配置：Y轴截面",
+                        "slicecfg6Btn": "视图配置：Z轴截面",
+                        "slicecfg7Btn": "视图配置：体素+平行Y轴截面",
+                        "slicecfg8Btn": "视图配置：体素+平行Z轴截面",
+                        "layerpBtn": "增加体素渲染层数",
+                        "layermBtn": "减少体素渲染层数",
+                        "opacitypBtn": "增加体素不透明度",
+                        "opacitymBtn": "减少体素不透明度",
+                        "fovpBtn": "增大体素显示视场角",
+                        "fovmBtn": "降低体素显示视场角",
+                        "respBtn": "增大每层体素分辨率",
+                        "resmBtn": "降低每层体素分辨率",
+                        "settingBtn": "显示/隐藏体素渲染参数调节",
+                        "crosshairBtn": "显示/隐藏十字准心",
+                    },
+                    "en": {
+                        "mouseBtn0": "Left Mouse Button",
+                        "mouseBtn1": "Middle Mouse Button",
+                        "mouseBtn2": "Right Mouse Button",
+                        "left": "Left",
+                        "right": "Right",
+                        "mainBtn": "Show / Hide Voxel Render Settings",
+                        "crosspplPlaceholderBtn": "Show / Hide Choose CrossSection Shape",
+                        "crossppl1Btn": "CrossSection Shape: Default Cube",
+                        "crossppl2Btn": "CrossSection Shape: Ball",
+                        "crossppl3Btn": "CrossSection Shape: Small Cube",
+                        "crossppl4Btn": "CrossSection Shape: Plane",
+                        "crossppl2BtnDesc": " Drag to Change Ball Radius(Vertically)\nand Feathering Amount(Horizontally)",
+                        "crossppl3BtnDesc": " Drag to Change Cube Size(Vertically)\nand Remained Opacity(Horizontally)",
+                        "crossppl4BtnDesc": " Drag to Change Section Plane's Orientation",
+                        "stereoBtn": "Toggle Naked Eye Stereo Mode",
+                        "slicecfgPlaceholderBtn": "Show / Hide Choose View Configuration",
+                        "slicecfg1Btn": "View Configuration: Voxel + Sections",
+                        "slicecfg2Btn": "View Configuration: Voxel + Big Sections",
+                        "slicecfg3Btn": "View Configuration: Voxel Only",
+                        "slicecfg4Btn": "View Configuration: 3 Sections",
+                        "slicecfg5Btn": "View Configuration: Y axis Section",
+                        "slicecfg6Btn": "View Configuration: Z axis Section",
+                        "slicecfg7Btn": "View Configuration: Voxel + Y axis Parallel Sections",
+                        "slicecfg8Btn": "View Configuration: Voxel + Z axis Parallel Sections",
+                        "layerpBtn": "Increase Voxel Layers",
+                        "layermBtn": "Decrease Voxel Layers",
+                        "opacitypBtn": "Increase Voxel Opacity",
+                        "opacitymBtn": "Decrease Voxel Opacity",
+                        "fovpBtn": "Increase Field Of Voxel View",
+                        "fovmBtn": "Decrease Voxel Field Of Voxel View",
+                        "respBtn": "Increase Resolution Per Voxel Layer",
+                        "resmBtn": "Decrease Resolution Per Voxel Layer",
+                        "settingBtn": "Show / Hide Voxel Render Params",
+                        "crosshairBtn": "Toggle Crosshair",
+                    },
+                }
+                let params = new URLSearchParams(window.location.search.slice(1));
+                let tr = BtnHint[params.get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en")];
+
+                const keyName = (cfg: string, config?: any) => `\n(${retinaCtrl.keyConfig.enable ? retinaCtrl.keyConfig.enable.replace("Key", "").replace("Left", tr["left"]).replace("Right", tr["right"]).replace("Digit", tr["digit"]) + " + " : ""
+                    }${(config ?? retinaCtrl.keyConfig)[cfg].replace(/(Key)|(Left)|(Right)|(\.)/g, "").replace("Digit", tr["digit"])})`;
+
+                mainBtn.title = tr["mainBtn"];
+                crosspplPlaceholderBtn.title = tr["crosspplPlaceholderBtn"];
+                const getCrosspplBtnTitle = (btnName: string, noDragDesc?: boolean) => tr[btnName] + keyName("toggleRetinaAlpha") + (
+                    !noDragDesc ? "\n----" + keyName("", { "": "" }).replace(/[\(\})]/g, "") + tr["mouseBtn" + retinaCtrl.retinaAlphaMouseButton] + tr[btnName + "Desc"] : ""
+                );
+                crossppl1Btn.title = getCrosspplBtnTitle("crossppl1Btn", true);
+                crossppl2Btn.title = getCrosspplBtnTitle("crossppl2Btn");
+                crossppl3Btn.title = getCrosspplBtnTitle("crossppl3Btn");
+                crossppl4Btn.title = getCrosspplBtnTitle("crossppl4Btn");
+                stereoBtn.title = tr["stereoBtn"] + keyName("toggle3D");
+                slicecfgPlaceholderBtn.title = tr["slicecfgPlaceholderBtn"];
+                slicecfg1Btn.title = tr["slicecfg1Btn"] + keyName("retina+sections", retinaCtrl.keyConfig.sectionConfigs);
+                slicecfg2Btn.title = tr["slicecfg2Btn"] + keyName("retina+bigsections", retinaCtrl.keyConfig.sectionConfigs);
+                slicecfg3Btn.title = tr["slicecfg3Btn"] + keyName("retina", retinaCtrl.keyConfig.sectionConfigs);
+                slicecfg4Btn.title = tr["slicecfg4Btn"] + keyName("sections", retinaCtrl.keyConfig.sectionConfigs);
+                slicecfg5Btn.title = tr["slicecfg5Btn"] + keyName("zsection", retinaCtrl.keyConfig.sectionConfigs);
+                slicecfg6Btn.title = tr["slicecfg6Btn"] + keyName("ysection", retinaCtrl.keyConfig.sectionConfigs);
+                slicecfg7Btn.title = tr["slicecfg7Btn"] + keyName("retina+zslices", retinaCtrl.keyConfig.sectionConfigs);
+                slicecfg8Btn.title = tr["slicecfg8Btn"] + keyName("retina+yslices", retinaCtrl.keyConfig.sectionConfigs);
+                layerpBtn.title = tr["layerpBtn"] + keyName("addLayer");
+                layermBtn.title = tr["layermBtn"] + keyName("subLayer");
+                opacitypBtn.title = tr["opacitypBtn"] + keyName("addOpacity");
+                opacitymBtn.title = tr["opacitymBtn"] + keyName("subOpacity");
+                fovpBtn.title = tr["fovpBtn"] + keyName("addFov");
+                fovmBtn.title = tr["fovmBtn"] + keyName("subFov");
+                respBtn.title = tr["respBtn"] + keyName("addRetinaResolution");
+                resmBtn.title = tr["resmBtn"] + keyName("subRetinaResolution");
+                settingBtn.title = tr["settingBtn"];
+                crosshairBtn.title = tr["crosshairBtn"] + keyName("toggleCrosshair");
+            }
+        }
+
+        const css = document.createElement("style");
+        css.appendChild(document.createTextNode(`
+        button.retina-ctrl-gui{
+            background: #999;
+        }
+        .slicecfg button.retina-ctrl-gui{
+            background: #B77;
+        }
+        .settingbar button.retina-ctrl-gui{
+            background: #7B7;
+        }
+        .crossppl button.retina-ctrl-gui{
+            background: #BB7;
+        }
+        button.retina-ctrl-gui[title]:hover::after{
+            white-space: pre-line; width: max-content;
+            content:attr(title);position:absolute;bottom:100%;right:0%; font-size:0.5em;z-index:100;background:#000;color:#FFF; padding:0;margin:0;
+        }
+        div.retina-ctrl-gui button.retina-ctrl-gui[title]:hover::after{
+            bottom:calc(100% + ${this.iconSize}px);
+        }
+        `));
+        this.dom.appendChild(mainBtn);
+        this.dom.appendChild(css);
+    }
+    addBtn(svgIcon: string) {
+        const btn = document.createElement("button");
+        btn.className = "retina-ctrl-gui";
+        btn.innerHTML = "&nbsp;";
+        btn.style.width = this.iconSize + "px";
+        btn.style.height = this.iconSize + "px";
+        btn.style.borderRadius = this.iconSize * 0.25 + "px";
+        btn.style.backgroundImage = `url('data:image/svg+xml,${escape(svgIcon)}')`;
+        const cancelFn = () => this.controller.guiMouseOperation = "";
+        btn.addEventListener('mouseup', cancelFn); btn.addEventListener('mouseout', cancelFn);
+        return btn;
     }
 }

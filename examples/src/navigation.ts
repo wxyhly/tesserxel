@@ -287,7 +287,7 @@ export namespace navigation {
             const MIE_EXTINCTION_MUL = 1.1;
             return {
                 code: `
-        @group(1) @binding(0) var<uniform> camMat: AffineMat;
+        @group(1) @binding(0) var<uniform> camMat: tsxAffineMat;
         @group(1) @binding(1) var<uniform> sunDir: vec4<f32>;
         ${four.SkyBox.commonCode}
 

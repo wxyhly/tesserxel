@@ -121,7 +121,7 @@ export class Material extends MaterialNode {
         // if no uniform at group0, then bind lights on 0, or 1
         if (this.declUniformLocation === 0) { lightCode = lightCode.replace("@group(1)", "@group(0)") }
         let header = headers + lightCode + `
-    struct AffineMat{
+    struct tsxAffineMat{
         matrix: mat4x4<f32>,
         vector: vec4<f32>,
     }
@@ -187,7 +187,7 @@ class TransformConstValue extends ConstValue {
         let afmat = v.getAffineMat4();
         let matEntries = afmat.mat.ts().elem.map(n => n.toFixed(MaterialNode.constFractionDigits)).join(",");
         let vecEntries = afmat.vec.flat().map(n => n.toFixed(MaterialNode.constFractionDigits)).join(",");
-        super(`AffineMat(mat4x4<f32>(${matEntries}),vec4<f32>(${vecEntries}))`);
+        super(`tsxAffineMat(mat4x4<f32>(${matEntries}),vec4<f32>(${vecEntries}))`);
     }
 }
 
@@ -265,7 +265,7 @@ export class FloatUniformValue extends UniformValue {
 }
 export class TransformUniformValue extends UniformValue {
     declare output: "affineMat4";
-    type = "AffineMat";
+    type = "tsxAffineMat";
     gpuBufferSize = 20 * 4;
     value: Obj4;
     private affineMatValue = new AffineMat4();
@@ -356,7 +356,7 @@ export class PhongMaterial extends Material {
     getCode(r: Renderer, root: Material, outputToken: string) {
         root.addVary("normal");
         root.addVary("pos");
-        root.addUniform("array<AffineMat,2>", "uCamMat", r.uCamMatBuffer);
+        root.addUniform("array<tsxAffineMat,2>", "uCamMat", r.uCamMatBuffer);
         let { code } = this.getInputCode(r, root, outputToken);
         return code + `
                 var radiance = ambientLightDensity;

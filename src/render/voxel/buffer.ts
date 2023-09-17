@@ -30,7 +30,7 @@ export function createVoxelBuffer(
         size: (4 + length * formatSize) * 4 + headerSize,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         mappedAtCreation: true,
-        label: `VoxelBuffer<${width},${height},${depth},${formatSize}`
+        label: `VoxelBuffer<${width},${height},${depth},${formatSize}>`
     });
     let gpuBuffer = buffer.getMappedRange(0, headerSize + 16);
     let jsBuffer = new Uint32Array(gpuBuffer);

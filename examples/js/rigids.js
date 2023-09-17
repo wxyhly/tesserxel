@@ -122,7 +122,7 @@ class EmitGlomeController {
         renderer.compileMaterials([this.glomeMaterial]);
     }
     update(state) {
-        if (state.queryDisabled({ disable: "AltLeft" }))
+        if (state.isKeyHold("AltLeft"))
             return;
         if (state.isPointerLocked() && state.mouseDown === 0) {
             let g = createGlome(this.glomeRadius, 5);
@@ -1141,7 +1141,6 @@ export var mix_chain;
         emitCtrl.glomeRadius = 2;
         emitCtrl.maximumBulletDistance = 70;
         emitCtrl.initialSpeed = 10;
-        await emitCtrl.glomeMaterial.compile(renderer);
         const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
             retinaCtrl,
             camCtrl,

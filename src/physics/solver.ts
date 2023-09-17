@@ -49,7 +49,7 @@ export class IterativeImpulseSolver extends Solver {
             // after got material, we solve union regardless of it's collision parts
             if ((a as SubRigid).parent) collision.a = (a as SubRigid).parent!;
             if ((b as SubRigid).parent) collision.b = (b as SubRigid).parent!;
-            collision.relativeVelocity = collision.b!.getlinearVelocity(vec4Pool.pop(), point).subs(
+            collision.relativeVelocity = collision.b.getlinearVelocity(vec4Pool.pop(), point).subs(
                 collision.a.getlinearVelocity(this._vec41, point)
             );
             collision.separateSpeed = collision.relativeVelocity.dot(normal);
@@ -109,6 +109,8 @@ export class IterativeImpulseSolver extends Solver {
             // newVn = Vn * -restitution;
             // newVt = Vt * tangentFactor;
             // when slide: deltaVt === friction * deltaVn => solve tangentFactor
+            // convert f = mu * N to delta(tangentSpeed) = mu * delta(normalVelocity)
+            // then calculate friction reduce how many tangentSpeed, result is presented by a tangentFactor
             // tangentFactor must > 0, otherwise it's still friction
             let tangentFactor = tangentSpeed > 0 ? Math.max(
                 1 + friction * (1 + restitution) * separateSpeed / tangentSpeed, 0
@@ -116,13 +118,13 @@ export class IterativeImpulseSolver extends Solver {
             let targetDeltaVelocityByImpulse = tangentVelocity.mulfs(tangentFactor - 1).addmulfs(normalVelocity, -restitution - 1);
             let pointInA: Vec4, pointInB: Vec4;
             let matA = mat4Pool.pop(), matB = mat4Pool.pop()
-            if (a.mass! > 0) {
+            if (a.mass > 0) {
                 pointInA = vec4Pool.pop().subset(point, a.position).rotatesconj(a.rotation);
                 calcImpulseResponseMat(matA, a, pointInA, pointInA);
             } else { matA.set(); }
-            if (b?.mass! > 0) {
-                pointInB = vec4Pool.pop().subset(point, b!.position).rotatesconj(b!.rotation);
-                calcImpulseResponseMat(matB, b!, pointInB, pointInB);
+            if (b?.mass > 0) {
+                pointInB = vec4Pool.pop().subset(point, b.position).rotatesconj(b.rotation);
+                calcImpulseResponseMat(matB, b, pointInB, pointInB);
             } else { matB.set(); }
             // dv = dvb(Ib) - dva(Ia) == dvb(I) + dva(I) since I = -Ia = Ib
             let impulse = targetDeltaVelocityByImpulse.mulmatls(matA.adds(matB).invs());
@@ -130,37 +132,37 @@ export class IterativeImpulseSolver extends Solver {
                 console.log("hq");
             }
             // if (impulse.norm1() === 0) continue;
-            console.assert(isFinite(impulse.norm1()));
-            console.assert(isFinite(normal.norm1()));
+            // console.assert(isFinite(impulse.norm1()));
+            // console.assert(isFinite(normal.norm1()));
             mat4Pool.push(matA, matB);
             // resolve velocity by applying final impulse
-            if (b?.mass! > 0) {
+            if (b?.mass > 0) {
                 collision.dvB = vec4Pool.pop();
                 collision.dwB = bivecPool.pop();
-                applyImpulseAndGetDeltaVW(collision.dvB, collision.dwB, b!, pointInB!, impulse);
+                applyImpulseAndGetDeltaVW(collision.dvB, collision.dwB, b, pointInB, impulse);
             }
-            if (a.mass! > 0) {
+            if (a.mass > 0) {
                 collision.dvA = vec4Pool.pop();
                 collision.dwA = bivecPool.pop();
-                applyImpulseAndGetDeltaVW(collision.dvA, collision.dwA, a, pointInA!, impulse.negs());
+                applyImpulseAndGetDeltaVW(collision.dvA, collision.dwA, a, pointInA, impulse.negs());
             }
             this.updateSeparateSpeeds(collision);
         }
     }
     updateSeparateSpeeds(collision: PreparedCollision) {
         for (let c of this.collisionList) {
-            if (collision.a.mass! > 0) {
+            if (collision.a.mass > 0) {
                 if (c.a === collision.a) {
-                    this.updateSeparateSpeed(c, true, c.a, collision.dvA!, collision.dwA!);
+                    this.updateSeparateSpeed(c, true, c.a, collision.dvA, collision.dwA);
                 } else if (c.b === collision.a) {
-                    this.updateSeparateSpeed(c, false, c.b, collision.dvA!, collision.dwA!);
+                    this.updateSeparateSpeed(c, false, c.b, collision.dvA, collision.dwA);
                 }
             }
-            if (collision.b?.mass! > 0) {
+            if (collision.b?.mass > 0) {
                 if (c.a === collision.b) {
-                    this.updateSeparateSpeed(c, true, c.a, collision.dvB!, collision.dwB!);
+                    this.updateSeparateSpeed(c, true, c.a, collision.dvB, collision.dwB);
                 } else if (c.b === collision.b) {
-                    this.updateSeparateSpeed(c, false, c.b!, collision.dvB!, collision.dwB!);
+                    this.updateSeparateSpeed(c, false, c.b, collision.dvB, collision.dwB);
                 }
             }
         }
@@ -190,26 +192,26 @@ export class IterativeImpulseSolver extends Solver {
                 console.error("Depth direction error in resolvePosition");
             }
             let invInertiaA = 0, invInertiaB = 0;
-            if (a.mass! > 0) {
+            if (a.mass > 0) {
                 let pA = vec4Pool.pop().subset(point, a.position);
                 let torqueA = bivecPool.pop().wedgevvset(normal, pA);
                 if (a.inertiaIsotroy) {
-                    collision.dwA = torqueA.mulfs(a.invInertia!.xy);
+                    collision.dwA = torqueA.mulfs(a.invInertia.xy);
                 } else {
                     torqueA.rotatesconj(a.rotation);
-                    collision.dwA = mulBivec(torqueA, a.invInertia!, torqueA).rotates(a.rotation);
+                    collision.dwA = mulBivec(torqueA, a.invInertia, torqueA).rotates(a.rotation);
                 }
                 invInertiaA = -pA.dotbset(pA, collision.dwA).dot(normal);
                 pA.pushPool();
             }
-            if (b?.mass! > 0) {
-                let pB = vec4Pool.pop().subset(point, b!.position);
+            if (b?.mass > 0) {
+                let pB = vec4Pool.pop().subset(point, b.position);
                 let torqueB = bivecPool.pop().wedgevvset(pB, normal);
-                if (b!.inertiaIsotroy) {
-                    collision.dwB = torqueB.mulfs(b!.invInertia!.xy);
+                if (b.inertiaIsotroy) {
+                    collision.dwB = torqueB.mulfs(b.invInertia.xy);
                 } else {
-                    torqueB.rotatesconj(b!.rotation);
-                    collision.dwB = mulBivec(torqueB, b!.invInertia!, torqueB).rotates(b!.rotation);
+                    torqueB.rotatesconj(b.rotation);
+                    collision.dwB = mulBivec(torqueB, b.invInertia, torqueB).rotates(b.rotation);
                 }
                 invInertiaB = pB.dotbset(pB, collision.dwB).dot(normal);
                 pB.pushPool();
@@ -220,16 +222,16 @@ export class IterativeImpulseSolver extends Solver {
             if (!isFinite(depthDivTotalInvs)) {
                 console.error("A numeric error occured in Rigid collision solver: depthDivTotalInvs in resolvePosition");
             }
-            if (a.mass! > 0) {
+            if (a.mass > 0) {
                 // here can't mul invInertiaA since dwA is by unit impulse, and linear part is already invInertiaA
-                collision.dwA!.mulfs(depthDivTotalInvs);
+                collision.dwA.mulfs(depthDivTotalInvs);
                 // clamp rotation
-                let angle = collision.dwA!.norm();
+                let angle = collision.dwA.norm();
                 if (angle > this.maxResolveRotationAngle) {
-                    collision.dwA!.mulfs(this.maxResolveRotationAngle / angle);
+                    collision.dwA.mulfs(this.maxResolveRotationAngle / angle);
                 }
                 collision.dvA = vec4Pool.pop().copy(normal).mulfs(-depthDivTotalInvs * a.invMass);
-                if (!isFinite(angle + collision.dvA.norm1() + collision.dwA!.norm1() + a.position.norm1())) {
+                if (!isFinite(angle + collision.dvA.norm1() + collision.dwA.norm1() + a.position.norm1())) {
                     console.error("A numeric error occured in Rigid collision solver: dvA,dwA in resolvePosition");
                 }
                 a.position.adds(collision.dvA);
@@ -239,21 +241,21 @@ export class IterativeImpulseSolver extends Solver {
                     console.error("A numeric error occured in Rigid collision solver: dvA,dwA in resolvePosition");
                 }
             }
-            if (b?.mass! > 0) {
-                collision.dwB!.mulfs(depthDivTotalInvs);
+            if (b?.mass > 0) {
+                collision.dwB.mulfs(depthDivTotalInvs);
                 // clamp rotation
-                let angle = collision.dwB!.norm();
+                let angle = collision.dwB.norm();
                 if (angle > this.maxResolveRotationAngle) {
-                    collision.dwB!.mulfs(this.maxResolveRotationAngle / angle);
+                    collision.dwB.mulfs(this.maxResolveRotationAngle / angle);
                 }
-                collision.dvB = vec4Pool.pop().copy(normal).mulfs(depthDivTotalInvs * b!.invMass);
-                if (!isFinite(angle + collision.dvB.norm1() + collision.dwB!.norm1() + b!.position.norm1())) {
+                collision.dvB = vec4Pool.pop().copy(normal).mulfs(depthDivTotalInvs * b.invMass);
+                if (!isFinite(angle + collision.dvB.norm1() + collision.dwB.norm1() + b.position.norm1())) {
                     console.error("A numeric error occured in Rigid collision solver: dvB,dwB in resolvePosition");
                 }
-                b!.position.adds(collision.dvB);
+                b.position.adds(collision.dvB);
                 let r = rotorPool.pop().expset(collision.dwB!);
-                b!.rotation.mulsl(r); r.pushPool();
-                if (!isFinite(b!.rotation.l.norm() + b!.rotation.r.norm() + b!.position.norm1())) {
+                b.rotation.mulsl(r); r.pushPool();
+                if (!isFinite(b.rotation.l.norm() + b.rotation.r.norm() + b.position.norm1())) {
                     console.error("A numeric error occured in Rigid collision solver: dvB,dwB in resolvePosition");
                 }
             }
@@ -263,18 +265,18 @@ export class IterativeImpulseSolver extends Solver {
     }
     updateDepths(collision: PreparedCollision) {
         for (let c of this.collisionList) {
-            if (collision.a.mass! > 0) {
+            if (collision.a.mass > 0) {
                 if (c.a === collision.a) {
-                    this.updateDepth(c, true, c.a, collision.dvA!, collision.dwA!);
+                    this.updateDepth(c, true, c.a, collision.dvA, collision.dwA!);
                 } else if (c.b === collision.a) {
-                    this.updateDepth(c, false, c.b, collision.dvA!, collision.dwA!);
+                    this.updateDepth(c, false, c.b, collision.dvA, collision.dwA!);
                 }
             }
-            if (collision.b?.mass! > 0) {
+            if (collision.b?.mass > 0) {
                 if (c.a === collision.b) {
-                    this.updateDepth(c, true, c.a, collision.dvB!, collision.dwB!);
+                    this.updateDepth(c, true, c.a, collision.dvB, collision.dwB!);
                 } else if (c.b === collision.b) {
-                    this.updateDepth(c, false, c.b!, collision.dvB!, collision.dwB!);
+                    this.updateDepth(c, false, c.b, collision.dvB, collision.dwB!);
                 }
             }
         }
