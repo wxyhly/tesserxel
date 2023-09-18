@@ -1063,35 +1063,35 @@ export class RetinaController implements IController {
         }
         this.needResize = false;
         if (stereo) {
-            if (state.isKeyHold(this.keyConfig.addEyes3dGap)) {
+            if (on(this.keyConfig.addEyes3dGap)) {
                 this.retinaEyeOffset *= 1.05;
                 if (this.retinaEyeOffset > 0.4) this.retinaEyeOffset = 0.4;
                 if (this.retinaEyeOffset < -0.4) this.retinaEyeOffset = -0.4;
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
                 displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (state.isKeyHold(this.keyConfig.subEyes3dGap)) {
+            if (on(this.keyConfig.subEyes3dGap)) {
                 this.retinaEyeOffset /= 1.05;
                 if (this.retinaEyeOffset > 0 && this.retinaEyeOffset < 0.03) this.retinaEyeOffset = 0.03;
                 if (this.retinaEyeOffset < 0 && this.retinaEyeOffset > -0.03) this.retinaEyeOffset = -0.03;
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
                 displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (state.isKeyHold(this.keyConfig.addEyes4dGap)) {
+            if (on(this.keyConfig.addEyes4dGap)) {
                 this.sectionEyeOffset *= 1.05;
                 if (this.sectionEyeOffset > this.maxSectionEyeOffset) this.sectionEyeOffset = this.maxSectionEyeOffset;
                 if (this.sectionEyeOffset < -this.maxSectionEyeOffset) this.sectionEyeOffset = -this.maxSectionEyeOffset;
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
                 displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (state.isKeyHold(this.keyConfig.subEyes4dGap)) {
+            if (on(this.keyConfig.subEyes4dGap)) {
                 this.sectionEyeOffset /= 1.05;
                 if (this.sectionEyeOffset > 0 && this.sectionEyeOffset < this.minSectionEyeOffset) this.sectionEyeOffset = this.minSectionEyeOffset;
                 if (this.sectionEyeOffset < 0 && this.sectionEyeOffset > -this.minSectionEyeOffset) this.sectionEyeOffset = -this.minSectionEyeOffset;
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
                 displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (state.isKeyHold(this.keyConfig.negEyesGap)) {
+            if (on(this.keyConfig.negEyesGap)) {
                 this.sectionEyeOffset = -this.sectionEyeOffset;
                 this.retinaEyeOffset = -this.retinaEyeOffset;
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
