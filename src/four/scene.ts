@@ -8,11 +8,13 @@ import { TetraMesh, TetraMeshData } from "../mesh/tetra";
 import { RaytracingPipeline, RaytracingPipelineDescriptor } from "../render/slice/slice";
 import { Material } from "./material";
 import { Renderer } from "./renderer";
+import { WireFrameScene } from "./wireframe";
 
 export class Scene {
     child: Object[] = [];
     backGroundColor: GPUColor;
     skyBox?: SkyBox;
+    wireframe?: WireFrameScene;
     add(...obj: Object[]) {
         this.child.push(...obj);
     }

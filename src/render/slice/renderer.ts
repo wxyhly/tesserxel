@@ -5,7 +5,7 @@ import { _RAD2DEG } from "../../math/const";
 import { OrthographicCamera, PerspectiveCamera, getOrthographicProjectionMatrix, getPerspectiveProjectionMatrix } from "../../math/geometry/camera";
 import { AABB, Plane } from "../../math/geometry/primitive";
 import { GPU } from "../gpu";
-import { DefaultDisplayConfig, DisplayConfig, DisplayConfigName, EyeStereo, RaytracingPipelineDescriptor, RetinaRenderPassDescriptor, RetinaSliceFacing, SectionConfig, SliceRendererConfig, TetraSlicePipelineDescriptor } from "./interfaces";
+import { DefaultDisplayConfig, DisplayConfig, DisplayConfigName, EyeStereo, IWireframeRenderState, RaytracingPipelineDescriptor, RetinaRenderPassDescriptor, RetinaSliceFacing, SectionConfig, SliceRendererConfig, TetraSlicePipelineDescriptor } from "./interfaces";
 import { RaytracingPipeline, StructDefSliceInfo, StructDefUniformBuffer, TetraSlicePipeline, refacingMatsCode } from "./pipeline";
 import { RenderState as IRenderState, RetinaRenderPass as IRetinaRenderPass } from "./interfaces";
 /** Internal use for SliceRenderer's Display Configs */
@@ -55,6 +55,7 @@ export class SliceRenderer {
     private screenRenderPass: ScreenRenderPass;
     private rendererConfig: InternalSliceRendererConfig;
     private displayConfig: InternalDisplayConfig;
+    private wireframeRenderPass: WireFrameRenderPass;
 
     constructor(gpu: GPU, config?: SliceRendererConfig) {
         if (!gpu.device) throw "GPU is not initialized yet.";
@@ -74,6 +75,7 @@ export class SliceRenderer {
         // viewport is compressed in gpu buffer by four u8s, therefore shift amount is maxSize >> 8
         this.rendererConfig.viewportCompressShift = power2arr.indexOf(this.rendererConfig.maxTextureSize >> 8);
         this.gpu = gpu;
+        this.wireframeRenderPass = new WireFrameRenderPass(gpu, this.rendererConfig);
         this.sliceBuffers = new RetinaSliceBufferMgr(gpu, this.rendererConfig);
         this.tetraBuffers = new TetraSliceBufferMgr(gpu, this.rendererConfig, this.sliceBuffers);
         this.crossRenderPass = new CrossRenderPass(gpu);
@@ -91,7 +93,7 @@ export class SliceRenderer {
         this.setDisplayConfig(DefaultDisplayConfig);
     }
     async init() {
-        await Promise.all([this.crossRenderPass.init(), this.retinaRenderPass.init(), this.screenRenderPass.init()]);
+        await Promise.all([this.crossRenderPass.init(), this.retinaRenderPass.init(), this.screenRenderPass.init(), this.wireframeRenderPass.init()]);
         return this;
     }
     createRetinaRenderPass(descriptor: RetinaRenderPassDescriptor): IRetinaRenderPass {
@@ -198,17 +200,39 @@ export class SliceRenderer {
         }
         return configNames.map(name => name === 'sections' ? this.sliceBuffers.deepCopySectionConfigs(cfg.sections) : cfg[name]);
     }
-    render(context: GPUCanvasContext, drawCall: (rs: IRenderState) => void) {
+    render(context: GPUCanvasContext, drawCall: (rs: IRenderState) => void, wireFrameDrawCall?: (rs: IWireframeRenderState) => void) {
         this.sliceBuffers.updateBuffers(this.displayConfig.sliceGroupNum);
+
         const gpu = this.gpu;
         if (!this.crossRenderPass.clearRenderPipeline) throw "SliceRenderer is not initailzed, forget to call 'await SliceRenderer.init()' ?";
         if (!this.retinaRenderPass.pipeline) throw "SliceRenderer's current retinaRenderPass is not initailzed, forget to call 'await RetinaRenderPass.init()' ?";
         let canvasView = context.getCurrentTexture().createView();
         const renderState = new RenderState(this.gpu, this.rendererConfig, this.sliceBuffers, this.tetraBuffers, this.crossRenderPass);
         const commandEncoder = renderState.commandEncoder;
+        // todo: disable depth first, then add it
+        if (wireFrameDrawCall) {
+            this.wireframeRenderPass.renderPassDesc = {
+                colorAttachments: [{
+                    clearValue: this.displayConfig.screenBackgroundColor,
+                    view: this.screenRenderPass.view,
+                    loadOp: "clear" as GPULoadOp,
+                    storeOp: 'store' as GPUStoreOp
+                }],
+                depthStencilAttachment: {
+                    view: this.screenRenderPass.depthView,
+                    depthClearValue: 1.0,
+                    depthLoadOp: 'clear' as GPULoadOp,
+                    depthStoreOp: 'store' as GPUStoreOp,
+                }
+            };
+            this.wireframeRenderPass.renderState = renderState;
+            wireFrameDrawCall(this.wireframeRenderPass);
+            this.wireframeRenderPass.renderState = undefined;
+        }
+
         for (let sliceIndex = 0; sliceIndex < this.displayConfig.totalGroupNum; sliceIndex++) {
-            renderState.sliceIndex = sliceIndex;
             renderState.needClear = true;
+            renderState.sliceIndex = sliceIndex;
             renderState.frustumRange = undefined;
             // set new slicegroup offset
             commandEncoder.copyBufferToBuffer(this.sliceBuffers.sliceGroupOffsetBuffer, sliceIndex << 2, this.sliceBuffers.uniformsBuffer, sliceOffsetBufferOffset, 4);
@@ -220,13 +244,21 @@ export class SliceRenderer {
                 clearPassEncoder.draw(0);
                 clearPassEncoder.end();
             }
+            const loadOp = (!wireFrameDrawCall) && sliceIndex === 0 ? 'clear' : "load" as GPULoadOp;
             let retinaPassEncoder = commandEncoder.beginRenderPass({
                 colorAttachments: [{
                     view: this.screenRenderPass.view,
                     clearValue: this.displayConfig.screenBackgroundColor,
-                    loadOp: sliceIndex === 0 ? 'clear' : "load" as GPULoadOp,
+                    loadOp,
                     storeOp: 'store' as GPUStoreOp
-                }]
+                }],
+
+                depthStencilAttachment: {
+                    view: this.screenRenderPass.depthView,
+                    depthClearValue: 1.0,
+                    depthLoadOp: loadOp,
+                    depthStoreOp: 'store' as GPUStoreOp,
+                }
             });
             retinaPassEncoder.setPipeline(this.retinaRenderPass.pipeline);
             retinaPassEncoder.setBindGroup(0, this.retinaRenderPass.bindgroup);
@@ -244,6 +276,7 @@ export class SliceRenderer {
             retinaPassEncoder.draw(4, count, 0, 0);
             retinaPassEncoder.end();
         }
+
         let screenPassEncoder = commandEncoder.beginRenderPass({
             colorAttachments: [{
                 view: canvasView,
@@ -814,6 +847,11 @@ return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1
                     }
                 }],
             },
+            depthStencil: {
+                depthWriteEnabled: true,
+                depthCompare: 'less',
+                format: 'depth24plus',
+            },
             primitive: { topology: 'triangle-strip' }
         });
     }
@@ -846,7 +884,7 @@ const screenRenderCode = StructDefUniformBuffer + `
 @group(0) @binding(2) var<uniform>tsx_uniforms : tsxUniformBuffer;
 struct tsxvOutputType{
     @builtin(position) position: vec4<f32>,
-        @location(0) fragPosition: vec2<f32>,
+    @location(0) fragPosition: vec2<f32>,
 }
 struct tsxfInputType{
     @location(0) fragPosition: vec2<f32>,
@@ -867,9 +905,9 @@ struct tsxfInputType{
     return tsxvOutputType(vec4<f32>(pos[index], 0.0, 1.0), uv[index]);
 }
 @fragment fn mainFragment(input: tsxfInputType) -> @location(0) vec4 < f32 > {
-    let color = textureSample(tsx_txt, tsx_splr, input.fragPosition);
-    var factor = 0.0;
-    if(tsx_uniforms.eyeCross.z > 0.0 && tsx_uniforms.layerOpacity > 0.0){
+let color = textureSample(tsx_txt, tsx_splr, input.fragPosition);
+var factor = 0.0;
+if(tsx_uniforms.eyeCross.z > 0.0 && tsx_uniforms.layerOpacity > 0.0){
     let aspectedCross = tsx_uniforms.eyeCross.z * tsx_uniforms.screenAspect;
     if (tsx_uniforms.eyeCross.x != 0.0) {
         let cross1 = abs(input.fragPosition - vec2<f32>(0.25, 0.5)) * 2.0;
@@ -887,10 +925,12 @@ return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1
 `;
 class ScreenRenderPass {
     view: GPUTextureView;
+    depthView: GPUTextureView;
     pipeline: GPURenderPipeline;
     pipelinePromise: Promise<GPURenderPipeline>;
     bindgroup: GPUBindGroup;
     texture: GPUTexture;
+    depthTexture: GPUTexture;
     private gpu: GPU;
     private config: InternalSliceRendererConfig;
     private sliceBuffers: RetinaSliceBufferMgr;
@@ -918,15 +958,21 @@ class ScreenRenderPass {
         });
     }
     setSize(size: GPUExtent3DStrict) {
-        if (this.texture) {
-            this.texture.destroy();
-        }
+        if (this.texture) this.texture.destroy();
+        if (this.depthTexture) this.depthTexture.destroy();
+
         // if (!this.pipeline) throw "TetraSliceRenderer: ScreenRenderPipeline is not initialized.";
         this.texture = this.gpu.device.createTexture({
             size, format: this.config.enableFloat16Blend ? 'rgba16float' : this.gpu.preferredFormat,
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
         });
+        this.depthTexture = this.gpu.device.createTexture({
+            size, format: 'depth24plus',
+            usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        });
         this.view = this.texture.createView();
+        this.depthView = this.depthTexture.createView();
+
         if (this.pipeline) {
             this.bindgroup = this.gpu.createBindGroup(this.pipeline, 0, [
                 this.view,
@@ -953,6 +999,96 @@ class ScreenRenderPass {
 }
 const _vec4 = new Vec4;
 const _vec42 = new Vec4;
+
+export class WireFrameRenderPass {
+    private pipeline: GPURenderPipeline;
+    private pipelinePromise: Promise<GPURenderPipeline>;
+    dataBuffer: GPUBuffer;
+    private bindGroup: GPUBindGroup;
+    gpu: GPU;
+    private config: InternalSliceRendererConfig;
+    renderState: RenderState;
+    renderPassDesc: GPURenderPassDescriptor;
+    constructor(gpu: GPU, config: InternalSliceRendererConfig) {
+        this.gpu = gpu;
+        this.config = config;
+        const shaderModule = gpu.device.createShaderModule({
+            code: StructDefUniformBuffer + `
+@group(0) @binding(0) var<uniform> tsx_uniforms : tsxUniformBuffer;
+@vertex fn tsxVMain(@location(0) inPos: vec4<f32>, @builtin(instance_index) idx: u32) -> @builtin(position) vec4<f32>{
+    let stereoLR = f32(idx & 1) - 0.5;
+    let stereoLR_offset = -stereoLR * tsx_uniforms.eyeCross.y;
+    let se = sin(stereoLR_offset);
+    let ce = cos(stereoLR_offset);
+    var pureRotationMvMat = tsx_uniforms.retinaMV;
+    pureRotationMvMat[3].z = 0.0;
+    let eyeMat = mat4x4<f32>(
+        ce,0,se,0,
+        0,1,0,0,
+        -se,0,ce,0,
+        0,0,tsx_uniforms.retinaMV[3].z,1
+    );
+    var glPosition = tsx_uniforms.retinaP * eyeMat * pureRotationMvMat * vec4(inPos.xyz, 1.0);
+    glPosition.x = (glPosition.x) * tsx_uniforms.screenAspect + step(0.0001, abs(tsx_uniforms.eyeCross.y)) * stereoLR * glPosition.w;
+    return glPosition;
+}
+@fragment fn tsxFMain()->@location(0) vec4<f32>{
+    return vec4<f32>(1.0,0.0,0.0,1.0);
+}`,
+        });
+        this.pipelinePromise = gpu.device.createRenderPipelineAsync({
+            layout: 'auto',
+            vertex: {
+                module: shaderModule,
+                entryPoint: "tsxVMain",
+                buffers: [
+                    {
+                        attributes: [
+                            {
+                                shaderLocation: 0,
+                                offset: 0,
+                                format: "float32x4",
+                            }
+                        ],
+                        arrayStride: 4 * 4,
+                    }
+                ]
+            },
+            primitive: {
+                topology: "line-list"
+            },
+            fragment: {
+                targets: [
+                    { format: this.config.enableFloat16Blend ? 'rgba16float' : this.gpu.preferredFormat },
+                ],
+                module: shaderModule,
+                entryPoint: "tsxFMain"
+            },
+            depthStencil: {
+                depthWriteEnabled: true,
+                depthCompare: 'less',
+                format: 'depth24plus',
+            }
+        });
+
+    }
+    async init() {
+        this.pipeline = await this.pipelinePromise;
+    }
+    render(buffer: GPUBuffer, vertices: number) {
+        if (!this.pipeline) return;
+        this.bindGroup ??= this.gpu.createBindGroup(this.pipeline, 0, [{
+            buffer: this.renderState.sliceBuffers.uniformsBuffer
+        }]);
+        const renderPassEncoder = this.renderState.commandEncoder.beginRenderPass(this.renderPassDesc);
+        renderPassEncoder.setPipeline(this.pipeline);
+        renderPassEncoder.setVertexBuffer(0, buffer);
+        renderPassEncoder.setBindGroup(0, this.bindGroup);
+        // todo: deal with no retina voxel / non stero mode
+        renderPassEncoder.draw(vertices, 2);
+        renderPassEncoder.end();
+    }
+}
 
 class RenderState {
     commandEncoder: GPUCommandEncoder;
@@ -1065,19 +1201,20 @@ class RenderState {
             }
         } else {
             for (let f of this.frustumRange) {
-                if (obb.testPlane(new Plane(_vec42.rotatesconj((modelMat as Obj4).rotation), f.dot(relP))) === 1) return false;
+                if (obb.testPlane(new Plane(_vec42.copy(f).rotatesconj((modelMat as Obj4).rotation), f.dot(relP))) === 1) return false;
             }
         }
         return true;
     }
-    getFrustumRange(camMat: AffineMat4 | Obj4) {
+    getFrustumRange(camMat: AffineMat4 | Obj4, allRange?: boolean) {
         let minslice = this.sliceIndex << this.config.sliceGroupSizeBit;
         let maxslice = minslice + this.config.sliceGroupSize - 1;
         let isRetinaGroup = this.sliceBuffers.slicesJsBuffer[(minslice << 2) + 1];
         let frustum: number[];
-        // let refacing;
         let camProj = 1 / this.sliceBuffers.camProjJsBuffer[1];
-        if (isRetinaGroup === 0) {
+        if (allRange) {
+            frustum = [-camProj, camProj, -camProj, camProj, -camProj, camProj];
+        } else if (isRetinaGroup === 0) {
             minslice = this.sliceBuffers.slicesJsBuffer[minslice << 2] * camProj;
             maxslice = this.sliceBuffers.slicesJsBuffer[maxslice << 2] * camProj;
             switch (this.sliceBuffers.currentRetinaFacing) {

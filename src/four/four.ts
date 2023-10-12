@@ -3,3 +3,4 @@ export { PointLight, DirectionalLight, SpotLight, Light, AmbientLight } from "./
 export * from "./scene"
 export * from "./material"
 export * from "./geom"
+export * from "./wireframe"

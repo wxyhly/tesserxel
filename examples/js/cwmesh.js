@@ -98,6 +98,8 @@ async function loadPolytope0123dFacesScene(mesh) {
     let renderer = await new FOUR.Renderer(canvas).init();
     renderer.core.setDisplayConfig({ opacity: 15 });
     let scene = new FOUR.Scene();
+    scene.wireframe = new FOUR.WireFrameScene;
+    scene.wireframe.add(new FOUR.WireFrameConvexPolytope(mesh));
     scene.setBackgroudColor({ r: 1.0, g: 1.0, b: 1.0, a: 0.08 });
     let camera = new FOUR.Camera();
     const mesh0 = cwmesh0dframe(mesh, 0.07, 1);

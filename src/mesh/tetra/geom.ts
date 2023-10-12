@@ -441,6 +441,34 @@ export function tiger(xyRadius: number, xySegment: number, zwRadius: number, zwS
         );
     }, xySegment, zwSegment, secondarySegment);
 }
+
+export function ditorus(majorRadius: number, majorSegment: number, middleRadius: number, middleSegment: number, minorRadius: number, minorSegment: number) {
+    if (majorSegment < 3) majorSegment = 3;
+    if (middleSegment < 3) middleSegment = 3;
+    if (minorSegment < 3) minorSegment = 3;
+    return parametricSurface((uvw, pos, norm) => {
+
+        let u = uvw.x * _360;
+        let v = uvw.y * _360;
+        let w = uvw.z * _360;
+        let cw = Math.cos(w);
+        const R2 = middleRadius + minorRadius * cw;
+        const R1 = majorRadius + R2 * Math.cos(v);
+        pos.set(
+            R1 * Math.cos(u),
+            R1 * Math.sin(u),
+            R2 * Math.sin(v),
+            minorRadius * Math.sin(w),
+        );
+        norm.set(
+            cw * Math.cos(v) * Math.cos(u),
+            cw * Math.cos(v) * Math.sin(u),
+            cw * Math.sin(v),
+            Math.sin(w),
+        );
+    }, majorSegment, middleSegment, minorSegment);
+}
+
 export function parametricSurface(
     fn: (inputUVW: Vec3, outputPosition: Vec4, outputNormal: Vec4) => void,
     uSegment: number, vSegment: number, wSegment: number
@@ -651,25 +679,6 @@ export function convexhull(points: Vec4[]) {
         position,
         count
     });
-}
-export function duocone(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number) {
-    // let ps = [];
-    // for (let i = 0; i < xySegment; i++) {
-    //     let ii = i * _360 / xySegment;
-    //     ps.push(new Vec4(xyRadius * Math.cos(ii), xyRadius * Math.sin(ii)));
-    // }
-    // for (let i = 0; i < zwSegment; i++) {
-    //     let ii = i * _360 / zwSegment;
-    //     ps.push(new Vec4(0, 0, zwRadius * Math.cos(ii), zwRadius * Math.sin(ii)));
-    // }
-    // return convexhull(ps);
-    const len = xySegment * 12;
-    const position = new Float32Array(len);
-    // return rotatoid(Bivec.xz,new face.FaceIndexMesh({
-    //     position,
-    //     normal,
-    //     uvw
-    // }),xySegment);
 }
 
 export function duocylinder(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number) {
@@ -1174,7 +1183,7 @@ export function cwmesh(cwmesh: CWMesh, notClosed?: boolean) {
     const borders = cwmesh.findBorder(4);
     if (!borders) notClosed = true;
     if (!notClosed) {
-        // closed 4d objecgt's surface
+        // closed 4d object's surface
         const cells = [];
         const cellsO = [];
         for (const [cellId, border] of borders.entries()) {

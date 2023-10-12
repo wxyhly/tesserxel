@@ -123,6 +123,8 @@ export class CWMesh {
             }
         }
     }
+    /** tested with bug here (for examples/#cwmesh::duopy5 ), some faces orientations are not consisted */
+    // now, makeDual doesn't use this function anymore
     calculateOrientation(dim: number, faceIds?: FaceId[]) {
         if (dim === 0) return;
         if (dim === 1) return; // edge: [-1, 1]
@@ -647,7 +649,8 @@ export class CWMesh {
             );
             return arr.reduce((a: Vec4, b: Vec4) => a.adds(b), new Vec4).divfs(arr.length);
         });
-        mesh.calculateOrientation(3);
+        mesh.data[4] = [range(mesh.data[3].length)];
+        mesh.calculateOrientationInFace(4, 0);
         return mesh;
     }
 

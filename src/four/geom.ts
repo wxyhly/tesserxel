@@ -45,6 +45,11 @@ export class TigerGeometry extends Geometry {
         super(tetra.tiger(radius1, detail * 8, radius2, detail * 8, circleRadius, detail * 6));
     }
 }
+export class DitorusGeometry extends Geometry {
+    constructor(circleRadius: number = 0.2, radius1: number = 0.8, radius2: number = 0.4, detail: number = 2) {
+        super(tetra.ditorus(radius1, detail * 8, radius2, detail * 8, circleRadius, detail * 6));
+    }
+}
 export class ConvexHullGeometry extends Geometry {
     constructor(points: Vec4[]) {
         super(tetra.convexhull(points));

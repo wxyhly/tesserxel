@@ -1,3 +1,4 @@
+import { Obj4 } from "../algebra/affine";
 import { Vec4 } from "../algebra/vec4";
 
 export class Ray {
@@ -13,6 +14,15 @@ export class Plane {
     constructor(normal: Vec4, offset: number) {
         this.normal = normal;
         this.offset = offset;
+    }
+    clone(){
+        return new Plane(this.normal.clone(),this.offset);
+    }
+    applyObj4(o:Obj4){
+        if(o.scale) throw "scaling plane is not implemented yet";
+        this.normal.rotates(o.rotation);
+        this.offset += this.normal.dot(o.position);
+        return this;
     }
     distanceToPoint(p: Vec4) {
         return this.normal.dot(p) - this.offset;

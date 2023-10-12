@@ -251,6 +251,7 @@ export class Renderer {
     render(scene: Scene, camera: Camera) {
         this.clearState();
         this.setCamera(camera);
+        scene.wireframe?.camera?.copyObj4(camera);
         this.updateScene(scene);
         this.core.render(this.context, (renderState) => {
             for (let { pipeline, meshes, bindGroup } of globalThis.Object.values(this.drawList)) {
@@ -283,7 +284,7 @@ export class Renderer {
             if (scene.skyBox?.bindGroups) {
                 renderState.drawRaytracing(scene.skyBox.pipeline, scene.skyBox.bindGroups);
             }
-        });
+        }, scene.wireframe ? rs => scene.wireframe.render(rs) : undefined);
     }
     setSize(size: GPUExtent3DStrict) {
         if ((size as GPUExtent3DDict).height) {

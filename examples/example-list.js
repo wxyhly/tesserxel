@@ -45,6 +45,7 @@ let examples = [
                     { target: "shapes::torisphere", zh: "环球", en: "Torisphere" },
                     { target: "shapes::torinder", zh: "圆环柱", en: "Torinder" },
                     { target: "shapes::tiger", zh: "双圆环", en: "Tiger (Duotorus)" },
+                    { target: "shapes::ditorus", zh: "圆圆环", en: "Ditorus" },
                     { target: "shapes::glome", zh: "超球", en: "Glome (Hyphersphere)" },
                     { target: "shapes::suzanne3d", zh: "猴头旋转体", en: "Suzanne Rotatoid" }
                 ]
@@ -81,6 +82,7 @@ let examples = [
                     { target: "rigids::st_ts_chain", zh: "环球球环链", en: "ST-TS Chain" },
                     { target: "rigids::tg_tg_chain", zh: "双圆环链", en: "Tiger(Duotorus) Chain" },
                     { target: "rigids::mix_chain", zh: "杂环链", en: "Mixed Chain" },
+                    { target: "rigids::ditorus", zh: "圆环环", en: "Ditorus" },
                 ]
             },
             {
@@ -227,8 +229,8 @@ let info = {
         "en": "Seting up uniform with binding group in WebGPU. In each frame, update rotation matrix to uniform. Attention that one must start with group(1), because group(0) is occupied by internal usage with Tesserxel."
     },
     "rigids::st_pile": {
-        "zh": "<b>控制：保持竖直模式</b><br>超立方体房间中将不断掉下许多球环。使用鼠标左键发射超球轰击它们。",
-        "en": "<b>Control: Keep up mode</b><br>Spheritori are dropped in the tesseract shaped room. Click left mouse button to fire glomes and hit them."
+        "zh": "<b>控制：保持竖直模式</b><br>超立方体房间中将不断掉下许多球环（偶尔还会掉其它图形哦）。使用鼠标左键发射超球轰击它们。",
+        "en": "<b>Control: Keep up mode</b><br>Spheritori are dropped in the tesseract shaped room. (There are small chances to drop other shapes too!) Click left mouse button to fire glomes and hit them."
     },
     "rigids::st_ts_chain": {
         "zh": "<b>控制：保持竖直模式</b><br>球环与环球交错组成的链。使用鼠标左键发射超球轰击它们。",
@@ -241,6 +243,10 @@ let info = {
     "rigids::mix_chain": {
         "zh": "<b>控制：保持竖直模式</b><br>双圆环可以同时匹配球环与环球的孔，它可以作为锁链的“万能”连接部件。使用鼠标左键发射超球轰击它们。",
         "en": "<b>Control: Keep up mode</b><br>Tigers (doutorus) can match both holes of spheritorus and torisphere, hence they can be used as universal components for constructing chains. Click left mouse button to fire glomes and hit them."
+    },
+    "rigids::ditorus": {
+        "zh": "<b>控制：保持竖直模式</b><br>圆环环（灰色）不仅可以与环球（黄色）串成链，它的孔还可以与环球（红色与蓝色）的孔匹配，但这种紧密匹配的方式几乎无法延伸成链。使用鼠标左键发射超球轰击它们。",
+        "en": "<b>Control: Keep up mode</b><br>Ditorus (in gray) and spheritorus(in yellow) can make a chain. The hole of ditorus can also match the hole of torisphere, but this tightly matched pattern can hardly be extended to make chains. Click left mouse button to fire glomes and hit them."
     },
     "rigids::rigid_test": {
         "zh": "<b>控制：保持竖直模式</b><br>三维的地面上将不断掉下超立方体。使用鼠标左键发射超球轰击它们。",
@@ -274,7 +280,34 @@ let info = {
         "zh": "<b>控制：保持竖直模式</b><br>对偶磁偶极子为两个绝对垂直的等大环形电流的磁场叠加。对偶磁偶极子按手性可分为互为镜像的自对偶与反自对偶磁偶极子。同种对偶磁偶极子之间因两个线圈受力抵消，因而无相互作用力。使用键盘G开启/关闭重力。",
         "en": "<b>Control: Keep up mode</b><br>Dual magnetic dipole is constructed by two perpendicular current loop with same amount. It can be categorized into two different chiral class: self-dual and anti-self-dual dipole. dipoles with the same chirality have no interactions since force applied by perpendicular current loops exactly cancel each other. Use keyboard G to turn on/off the gravity."
     },
-
+    "rigids::gyro_conic_prism":{
+        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆锥柱陀螺。使用鼠标左键发射超球轰击它可以看到该陀螺具有一定的稳定性。",
+        "en": "<b>Control: Keep up mode</b><br>Spinning conic prismatical gyro. Click left mouse button to fire glomes and hit it, which can be shown that this gyro is stable while spinning."
+    },
+    "rigids::gyro_dicone":{
+        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆锥锥陀螺。使用鼠标左键发射超球轰击它可以看到该陀螺具有一定的稳定性。",
+        "en": "<b>Control: Keep up mode</b><br>Spinning diconic gyro. Click left mouse button to fire glomes and hit it, which can be shown that this gyro is stable while spinning."
+    },
+    "rigids::gyro_duocone":{
+        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的双圆锥陀螺，可以看到它不能保持稳定旋转。使用鼠标左键发射超球轰击它。",
+        "en": "<b>Control: Keep up mode</b><br>Spinning duoconic gyro. It can be seen that this gyro is not stable. Click left mouse button to fire glomes and hit it."
+    },
+    "rigids::gyro_sphericone":{
+        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的球锥陀螺，可以看到它不能保持稳定旋转。使用鼠标左键发射超球轰击它。",
+        "en": "<b>Control: Keep up mode</b><br>Spinning sphericonic gyro. It can be seen that this gyro is not stable. Click left mouse button to fire glomes and hit it."
+    },
+    "rigids::gyro_cylindral_cone":{
+        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆柱锥陀螺，可以看到它不能保持稳定旋转。使用鼠标左键发射超球轰击它。",
+        "en": "<b>Control: Keep up mode</b><br>Spinning conic prismatical gyro. It can be seen that this gyro is not stable. Click left mouse button to fire glomes and hit it."
+    },
+    "rigids::dzhanibekov":{
+        "zh": "<b>控制：轨迹球模式</b><br>4D dzhanibekov effect (or Tennis racket theorem). In 3d, a freely rotating cuboid will periodically inverse it's rotating direction, In 4d the inversion has two periods for two different axes. This was firstly proposed in Marc ten bosch's paper, but with wrong simulation result. ",
+        "en": "<b>Control: Trackball mode</b><br>4D 贾尼别科夫效应（亦称网球拍定理）。 三维下，自由旋转的长方体会周期性翻转旋转方向，四维情况则对应超长方体有对应着两个方向的两个翻转周期。 4D贾尼别科夫效应首先在Marc Ten Bosch的论文中提出，但其模拟给出的结论有误。",
+    },
+    "voxeltest::rasterizer":{
+        "zh": "<b>控制：轨迹球模式</b><br>该示例为使用计算着色器对四面体进行体素光栅化，渲染双圆环的深度缓冲区。",
+        "en": "<b>Control: Trackball mode</b><br>This example renders depth buffer of a tiger (i.e. duotorus), which use compute shader to rasterize tetrahedra.",
+    }
 };
 examples.find(v => v.group === "geoms").child.find(v => v.group === "polytopes").child.filter(
     v => v.target ? v.target.startsWith("cwmesh::") : false

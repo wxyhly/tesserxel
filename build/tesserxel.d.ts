@@ -771,6 +771,8 @@ declare class Plane {
     /** halfspace n.v < offset */
     offset: number;
     constructor(normal: Vec4, offset: number);
+    clone(): Plane;
+    applyObj4(o: Obj4): this;
     distanceToPoint(p: Vec4): number;
     /** regard r as an infinity line */
     distanceToLine(r: Ray): void;
@@ -1014,6 +1016,7 @@ declare class SliceRenderer {
     private screenRenderPass;
     private rendererConfig;
     private displayConfig;
+    private wireframeRenderPass;
     constructor(gpu: GPU, config?: SliceRendererConfig);
     init(): Promise<this>;
     createRetinaRenderPass(descriptor: RetinaRenderPassDescriptor): RetinaRenderPass;
@@ -1029,7 +1032,7 @@ declare class SliceRenderer {
     getDisplayConfig(configNames: 'camera3D' | 'camera4D'): PerspectiveCamera | OrthographicCamera;
     getDisplayConfig(configNames: "screenBackgroundColor" | "retinaClearColor"): GPUColor;
     getDisplayConfig(configNames: 'retinaLayers' | 'retinaResolution' | 'opacity' | 'sectionStereoEyeOffset' | 'retinaStereoEyeOffset' | 'crosshair'): number;
-    render(context: GPUCanvasContext, drawCall: (rs: RenderState) => void): void;
+    render(context: GPUCanvasContext, drawCall: (rs: RenderState) => void, wireFrameDrawCall?: (rs: IWireframeRenderState) => void): void;
     createTetraSlicePipeline(descriptor: TetraSlicePipelineDescriptor): Promise<TetraSlicePipeline>;
     createRaytracingPipeline(descriptor: RaytracingPipelineDescriptor): Promise<RaytracingPipeline>;
     /** for TetraSlicePipeline, vertex shader is internally a compute shader, so it doesn't share bindgroups with fragment shader.
@@ -1197,7 +1200,7 @@ interface RenderState {
     }[]): void;
     drawRaytracing(pipeline: RaytracingPipeline, bindGroups?: GPUBindGroup[]): void;
     testWithFrustumData(obb: AABB, camMat: AffineMat4 | Obj4, modelMat?: AffineMat4 | Obj4): boolean;
-    getFrustumRange(camMat: AffineMat4 | Obj4): Vec4[];
+    getFrustumRange(camMat: AffineMat4 | Obj4, allRange?: boolean): Vec4[];
 }
 interface RetinaRenderPass {
     /**
@@ -1235,6 +1238,9 @@ interface RetinaRenderPassDescriptor {
     /** here only bindgroup(1) is avaliable */
     alphaShader?: GeneralShaderState;
     alphaShaderBindingResources?: GPUBindingResource[];
+}
+interface IWireframeRenderState {
+    render(buffer: GPUBuffer, vertices: number): void;
 }
 
 /** Tetramesh store 4D mesh as tetrahedral list
@@ -1423,6 +1429,7 @@ declare class CWMesh {
     clone(): CWMesh;
     sort2DFace(): void;
     flipOrientation(dim: number, faceIds?: FaceId[]): void;
+    /** tested with bug here (for examples/#cwmesh::duopy5 ), some faces orientations are not consisted */
     calculateOrientation(dim: number, faceIds?: FaceId[]): void;
     calculateOrientationInFace(dim: number, faceId: FaceId): void;
     deleteSelection(sel: CWMeshSelection): RankedCWMap;
@@ -1465,9 +1472,9 @@ declare function torisphere(circleRadius: number, circleSegment: number, sphereR
 declare function spherinderSide(radius1: number, radius2: number, longitudeSegment: number, latitudeSegment: number, height: number, heightSegment?: number): TetraMesh;
 declare function sphere(radius: number, u: number, v: number): TetraMesh;
 declare function tiger(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number, secondaryRadius: number, secondarySegment: number): TetraMesh;
+declare function ditorus(majorRadius: number, majorSegment: number, middleRadius: number, middleSegment: number, minorRadius: number, minorSegment: number): TetraMesh;
 declare function parametricSurface(fn: (inputUVW: Vec3, outputPosition: Vec4, outputNormal: Vec4) => void, uSegment: number, vSegment: number, wSegment: number): TetraMesh;
 declare function convexhull(points: Vec4[]): TetraMesh;
-declare function duocone(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number): void;
 declare function duocylinder(xyRadius: number, xySegment: number, zwRadius: number, zwSegment: number): TetraMesh;
 declare function loft(sp: Spline, section: FaceMeshData, step: number): TetraMesh;
 declare function rotatoid(bv: Bivec, section: FaceMeshData, step: number, angle?: number): TetraMesh;
@@ -1490,9 +1497,9 @@ declare const tetra_d_torisphere: typeof torisphere;
 declare const tetra_d_spherinderSide: typeof spherinderSide;
 declare const tetra_d_sphere: typeof sphere;
 declare const tetra_d_tiger: typeof tiger;
+declare const tetra_d_ditorus: typeof ditorus;
 declare const tetra_d_parametricSurface: typeof parametricSurface;
 declare const tetra_d_convexhull: typeof convexhull;
-declare const tetra_d_duocone: typeof duocone;
 declare const tetra_d_duocylinder: typeof duocylinder;
 declare const tetra_d_loft: typeof loft;
 declare const tetra_d_rotatoid: typeof rotatoid;
@@ -1514,9 +1521,9 @@ declare namespace tetra_d {
     tetra_d_spherinderSide as spherinderSide,
     tetra_d_sphere as sphere,
     tetra_d_tiger as tiger,
+    tetra_d_ditorus as ditorus,
     tetra_d_parametricSurface as parametricSurface,
     tetra_d_convexhull as convexhull,
-    tetra_d_duocone as duocone,
     tetra_d_duocylinder as duocylinder,
     tetra_d_loft as loft,
     tetra_d_rotatoid as rotatoid,
@@ -1719,10 +1726,131 @@ declare class NoiseTexture extends MaterialNode {
     constructor(uvw?: Vec4OutputNode);
 }
 
+interface IndexMesh extends FaceIndexMeshData {
+    positionIndex?: Uint32Array;
+    normalIndex?: Uint32Array;
+    uvwIndex?: Uint32Array;
+    count?: number;
+}
+declare class ObjFile {
+    data: string;
+    constructor(data: string | TetraIndexMesh | FaceIndexMesh);
+    private stringify;
+    parse(): IndexMesh;
+}
+
+declare function polytope(schlafli: number[]): CWMesh;
+declare function path(points: Vec4[] | number, closed?: boolean): CWMesh;
+declare function solidTorus(majorRadius: number, minorRadius: number, u: number, v: number): CWMesh;
+declare function ball2(u: number, v: number): CWMesh;
+declare function ball3(u: number, v: number, w: number): void;
+
+declare const geoms_d_polytope: typeof polytope;
+declare const geoms_d_path: typeof path;
+declare const geoms_d_solidTorus: typeof solidTorus;
+declare const geoms_d_ball2: typeof ball2;
+declare const geoms_d_ball3: typeof ball3;
+declare namespace geoms_d {
+  export {
+    geoms_d_polytope as polytope,
+    geoms_d_path as path,
+    geoms_d_solidTorus as solidTorus,
+    geoms_d_ball2 as ball2,
+    geoms_d_ball3 as ball3,
+  };
+}
+
+type mesh_d_FaceMesh = FaceMesh;
+declare const mesh_d_FaceMesh: typeof FaceMesh;
+type mesh_d_FaceIndexMesh = FaceIndexMesh;
+declare const mesh_d_FaceIndexMesh: typeof FaceIndexMesh;
+type mesh_d_TetraMesh = TetraMesh;
+declare const mesh_d_TetraMesh: typeof TetraMesh;
+type mesh_d_TetraIndexMesh = TetraIndexMesh;
+declare const mesh_d_TetraIndexMesh: typeof TetraIndexMesh;
+type mesh_d_FaceMeshData = FaceMeshData;
+type mesh_d_FaceIndexMeshData = FaceIndexMeshData;
+type mesh_d_TetraMeshData = TetraMeshData;
+type mesh_d_TetraIndexMeshData = TetraIndexMeshData;
+type mesh_d_CWMesh = CWMesh;
+declare const mesh_d_CWMesh: typeof CWMesh;
+type mesh_d_CWMeshSelection = CWMeshSelection;
+declare const mesh_d_CWMeshSelection: typeof CWMeshSelection;
+type mesh_d_ObjFile = ObjFile;
+declare const mesh_d_ObjFile: typeof ObjFile;
+declare namespace mesh_d {
+  export {
+    face_d as face,
+    tetra_d as tetra,
+    mesh_d_FaceMesh as FaceMesh,
+    mesh_d_FaceIndexMesh as FaceIndexMesh,
+    mesh_d_TetraMesh as TetraMesh,
+    mesh_d_TetraIndexMesh as TetraIndexMesh,
+    mesh_d_FaceMeshData as FaceMeshData,
+    mesh_d_FaceIndexMeshData as FaceIndexMeshData,
+    mesh_d_TetraMeshData as TetraMeshData,
+    mesh_d_TetraIndexMeshData as TetraIndexMeshData,
+    mesh_d_CWMesh as CWMesh,
+    mesh_d_CWMeshSelection as CWMeshSelection,
+    geoms_d as cw,
+    mesh_d_ObjFile as ObjFile,
+  };
+}
+
+interface WireFrameObject extends Obj4 {
+    lines: [Vec4, Vec4][];
+    visible?: boolean;
+    _jsBuffer?: [Vec4, Vec4][];
+    obb?: AABB;
+}
+declare class WireFrameTesseractoid extends Obj4 implements WireFrameObject, WireFrameOccluder {
+    lines: [Vec4, Vec4][];
+    cells: Plane[];
+    subCells: [number, number][];
+    obb: AABB;
+    visible: boolean;
+    transparent: boolean;
+    constructor(size: Vec4);
+}
+declare class WireFrameConvexPolytope extends Obj4 implements WireFrameObject, WireFrameOccluder {
+    lines: [Vec4, Vec4][];
+    cells: Plane[];
+    subCells: [number, number][];
+    obb: AABB;
+    visible: boolean;
+    transparent: boolean;
+    constructor(cwmesh: CWMesh);
+}
+declare class WireFrameScene {
+    occluders: WireFrameOccluder[];
+    objects: WireFrameObject[];
+    camera: Camera;
+    jsBuffer: Float32Array;
+    gpuBuffer: GPUBuffer;
+    maxGpuBufferSize: number;
+    clipEpsilon: number;
+    add(...o: (WireFrameObject | WireFrameOccluder)[]): void;
+    private occludeFrustum;
+    private calcViewBoundary;
+    private occludeOccluders;
+    private clipLine;
+    render(rs: IWireframeRenderState, objs?: WireFrameObject[]): void;
+}
+interface WireFrameOccluder extends Obj4 {
+    obb?: AABB;
+    cells: Plane[];
+    /** if transparent is true, this occluder will be disabled */
+    transparent?: boolean;
+    subCells: [number, number][];
+    _inside?: boolean;
+    _worldBorders?: Plane[];
+}
+
 declare class Scene {
     child: Object$1[];
     backGroundColor: GPUColor;
     skyBox?: SkyBox;
+    wireframe?: WireFrameScene;
     add(...obj: Object$1[]): void;
     removeChild(obj: Object$1): void;
     setBackgroudColor(color: GPUColor): void;
@@ -1883,77 +2011,6 @@ interface DrawList {
     };
 }
 
-interface IndexMesh extends FaceIndexMeshData {
-    positionIndex?: Uint32Array;
-    normalIndex?: Uint32Array;
-    uvwIndex?: Uint32Array;
-    count?: number;
-}
-declare class ObjFile {
-    data: string;
-    constructor(data: string | TetraIndexMesh | FaceIndexMesh);
-    private stringify;
-    parse(): IndexMesh;
-}
-
-declare function polytope(schlafli: number[]): CWMesh;
-declare function path(points: Vec4[] | number, closed?: boolean): CWMesh;
-declare function solidTorus(majorRadius: number, minorRadius: number, u: number, v: number): CWMesh;
-declare function ball2(u: number, v: number): CWMesh;
-declare function ball3(u: number, v: number, w: number): void;
-
-declare const geoms_d_polytope: typeof polytope;
-declare const geoms_d_path: typeof path;
-declare const geoms_d_solidTorus: typeof solidTorus;
-declare const geoms_d_ball2: typeof ball2;
-declare const geoms_d_ball3: typeof ball3;
-declare namespace geoms_d {
-  export {
-    geoms_d_polytope as polytope,
-    geoms_d_path as path,
-    geoms_d_solidTorus as solidTorus,
-    geoms_d_ball2 as ball2,
-    geoms_d_ball3 as ball3,
-  };
-}
-
-type mesh_d_FaceMesh = FaceMesh;
-declare const mesh_d_FaceMesh: typeof FaceMesh;
-type mesh_d_FaceIndexMesh = FaceIndexMesh;
-declare const mesh_d_FaceIndexMesh: typeof FaceIndexMesh;
-type mesh_d_TetraMesh = TetraMesh;
-declare const mesh_d_TetraMesh: typeof TetraMesh;
-type mesh_d_TetraIndexMesh = TetraIndexMesh;
-declare const mesh_d_TetraIndexMesh: typeof TetraIndexMesh;
-type mesh_d_FaceMeshData = FaceMeshData;
-type mesh_d_FaceIndexMeshData = FaceIndexMeshData;
-type mesh_d_TetraMeshData = TetraMeshData;
-type mesh_d_TetraIndexMeshData = TetraIndexMeshData;
-type mesh_d_CWMesh = CWMesh;
-declare const mesh_d_CWMesh: typeof CWMesh;
-type mesh_d_CWMeshSelection = CWMeshSelection;
-declare const mesh_d_CWMeshSelection: typeof CWMeshSelection;
-type mesh_d_ObjFile = ObjFile;
-declare const mesh_d_ObjFile: typeof ObjFile;
-declare namespace mesh_d {
-  export {
-    face_d as face,
-    tetra_d as tetra,
-    mesh_d_FaceMesh as FaceMesh,
-    mesh_d_FaceIndexMesh as FaceIndexMesh,
-    mesh_d_TetraMesh as TetraMesh,
-    mesh_d_TetraIndexMesh as TetraIndexMesh,
-    mesh_d_FaceMeshData as FaceMeshData,
-    mesh_d_FaceIndexMeshData as FaceIndexMeshData,
-    mesh_d_TetraMeshData as TetraMeshData,
-    mesh_d_TetraIndexMeshData as TetraIndexMeshData,
-    mesh_d_CWMesh as CWMesh,
-    mesh_d_CWMeshSelection as CWMeshSelection,
-    geoms_d as cw,
-    mesh_d_ObjFile as ObjFile,
-  };
-}
-
 declare class TesseractGeometry extends Geometry {
     constructor(size?: number | Vec4);
 }
@@ -1973,6 +2030,9 @@ declare class SpherinderSideGeometry extends Geometry {
     constructor(sphereRadius1?: number, sphereRadius2?: number, height?: number, detail?: number);
 }
 declare class TigerGeometry extends Geometry {
+    constructor(circleRadius?: number, radius1?: number, radius2?: number, detail?: number);
+}
+declare class DitorusGeometry extends Geometry {
     constructor(circleRadius?: number, radius1?: number, radius2?: number, detail?: number);
 }
 declare class ConvexHullGeometry extends Geometry {
@@ -2056,10 +2116,20 @@ type four_d_SpherinderSideGeometry = SpherinderSideGeometry;
 declare const four_d_SpherinderSideGeometry: typeof SpherinderSideGeometry;
 type four_d_TigerGeometry = TigerGeometry;
 declare const four_d_TigerGeometry: typeof TigerGeometry;
+type four_d_DitorusGeometry = DitorusGeometry;
+declare const four_d_DitorusGeometry: typeof DitorusGeometry;
 type four_d_ConvexHullGeometry = ConvexHullGeometry;
 declare const four_d_ConvexHullGeometry: typeof ConvexHullGeometry;
 type four_d_CWMeshGeometry = CWMeshGeometry;
 declare const four_d_CWMeshGeometry: typeof CWMeshGeometry;
+type four_d_WireFrameObject = WireFrameObject;
+type four_d_WireFrameTesseractoid = WireFrameTesseractoid;
+declare const four_d_WireFrameTesseractoid: typeof WireFrameTesseractoid;
+type four_d_WireFrameConvexPolytope = WireFrameConvexPolytope;
+declare const four_d_WireFrameConvexPolytope: typeof WireFrameConvexPolytope;
+type four_d_WireFrameScene = WireFrameScene;
+declare const four_d_WireFrameScene: typeof WireFrameScene;
+type four_d_WireFrameOccluder = WireFrameOccluder;
 declare namespace four_d {
   export {
     four_d_PointLight as PointLight,
@@ -2105,8 +2175,14 @@ declare namespace four_d {
     four_d_TorisphereGeometry as TorisphereGeometry,
     four_d_SpherinderSideGeometry as SpherinderSideGeometry,
     four_d_TigerGeometry as TigerGeometry,
+    four_d_DitorusGeometry as DitorusGeometry,
     four_d_ConvexHullGeometry as ConvexHullGeometry,
     four_d_CWMeshGeometry as CWMeshGeometry,
+    four_d_WireFrameObject as WireFrameObject,
+    four_d_WireFrameTesseractoid as WireFrameTesseractoid,
+    four_d_WireFrameConvexPolytope as WireFrameConvexPolytope,
+    four_d_WireFrameScene as WireFrameScene,
+    four_d_WireFrameOccluder as WireFrameOccluder,
   };
 }
 
@@ -2231,10 +2307,10 @@ declare namespace rigid {
     /** default orientation: (xy-z)-w */
     class Ditorus extends RigidGeometry {
         majorRadius: number;
+        middleRadius: number;
         minorRadius: number;
-        minorRadius2: number;
         /** majorRadius, minorRadius: torus's radius, minorRadius: cirle's radius */
-        constructor(majorRadius: number, minorRadius: number, minorRadius2: number);
+        constructor(majorRadius: number, middleRadius: number, minorRadius: number);
         initializeMassInertia(rigid: Rigid): void;
     }
     class ThickHexahedronGrid extends RigidGeometry {
@@ -2432,7 +2508,12 @@ declare class NarrowPhase {
     private detectTigerTiger;
     private detectTigerTorisphere;
     private detectTigerSpheritorus;
+    private detectDitorusPlane;
     private detectDitorusGlome;
+    private detectDitorusSpheritorus;
+    private detectDitorusTorisphere;
+    private detectDitorusTiger;
+    private detectDitorusDitorus;
 }
 
 interface SolverConstructor {
@@ -2599,6 +2680,7 @@ type render_d_TetraVertexState = TetraVertexState;
 type render_d_SlicePipelineLayout = SlicePipelineLayout;
 type render_d_TetraSlicePipelineDescriptor = TetraSlicePipelineDescriptor;
 type render_d_RetinaRenderPassDescriptor = RetinaRenderPassDescriptor;
+type render_d_IWireframeRenderState = IWireframeRenderState;
 type render_d_Size3DDict = Size3DDict;
 type render_d_VoxelBuffer = VoxelBuffer;
 declare const render_d_createVoxelBuffer: typeof createVoxelBuffer;
@@ -2623,6 +2705,7 @@ declare namespace render_d {
     render_d_SlicePipelineLayout as SlicePipelineLayout,
     render_d_TetraSlicePipelineDescriptor as TetraSlicePipelineDescriptor,
     render_d_RetinaRenderPassDescriptor as RetinaRenderPassDescriptor,
+    render_d_IWireframeRenderState as IWireframeRenderState,
     render_d_Size3DDict as Size3DDict,
     render_d_VoxelBuffer as VoxelBuffer,
     render_d_createVoxelBuffer as createVoxelBuffer,

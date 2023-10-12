@@ -453,15 +453,15 @@ export namespace rigid {
     /** default orientation: (xy-z)-w */
     export class Ditorus extends RigidGeometry {
         majorRadius: number;
+        middleRadius: number;
         minorRadius: number;
-        minorRadius2: number;
         /** majorRadius, minorRadius: torus's radius, minorRadius: cirle's radius */
-        constructor(majorRadius: number, minorRadius: number, minorRadius2: number) {
+        constructor(majorRadius: number, middleRadius: number, minorRadius: number) {
             super();
             this.majorRadius = majorRadius;
             this.minorRadius = minorRadius;
-            this.minorRadius2 = minorRadius2;
-            let minorRadius12 = minorRadius + minorRadius2;
+            this.middleRadius = middleRadius;
+            let minorRadius12 = minorRadius + middleRadius;
             this.obb = new AABB(
                 new Vec4(-majorRadius - minorRadius12, -majorRadius - minorRadius12, -minorRadius12, -minorRadius),
                 new Vec4(majorRadius + minorRadius12, majorRadius + minorRadius12, minorRadius12, minorRadius)
@@ -472,11 +472,11 @@ export namespace rigid {
         initializeMassInertia(rigid: Rigid) {
             rigid.inertiaIsotroy = false;
             let maj1 = this.majorRadius * this.majorRadius;
-            let maj2 = this.majorRadius * this.minorRadius;
-            let min = this.minorRadius * this.minorRadius;
-            let min2 = this.minorRadius2 * this.minorRadius2;
+            let maj2 = this.majorRadius * this.middleRadius;
+            let min = this.middleRadius * this.middleRadius;
+            let min2 = this.minorRadius * this.middleRadius;
             let half = maj1 + maj2 + min * 6;
-            rigid.inertia.set(2 * maj1 + min * 5, maj1 + min * 6 + min2, maj1 + min2, maj1 + min * 6 + min2, maj1 + min2, 2 * min + min2).mulfs(rigid.mass! * 0.5);
+            rigid.inertia.set(2 * maj1 + min * 5, maj1 + min * 6 + min2, maj1 + min2, maj1 + min * 6 + min2, maj1 + min2, 2 * min + min2).mulfs(rigid.mass * 0.2);
         }
     }
     // todo

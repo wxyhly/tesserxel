@@ -65,7 +65,9 @@ class ShapesApp {
     context: GPUCanvasContext;
     vertBindGroup: GPUBindGroup;
     camBuffer: GPUBuffer;
-    async init(fragmentShaderCode: string, mesh: tesserxel.mesh.TetraMesh) {
+    lineBuffer: GPUBuffer;
+    wireFrameScene: tesserxel.four.WireFrameScene;
+    async init(fragmentShaderCode: string, mesh: tesserxel.mesh.TetraMesh, wireFrameScene?: tesserxel.four.WireFrameScene) {
         this.gpu = await new tesserxel.render.GPU().init();
         this.canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         this.context = this.gpu.getContext(this.canvas);
@@ -116,6 +118,7 @@ class ShapesApp {
         this.mesh = mesh;
         window.addEventListener("resize", this.setSize.bind(this));
         await this.renderer.init();
+        this.wireFrameScene = wireFrameScene;
         return this;
     }
     setSize() {
@@ -130,11 +133,16 @@ class ShapesApp {
         this.ctrlRegistry.update();
         this.trackBallController.object.getAffineMat4().writeBuffer(this.camMatJSBuffer);
         this.gpu.device.queue.writeBuffer(this.camBuffer, 0, this.camMatJSBuffer);
+        this.wireFrameScene?.objects[0]?.copyObj4(this.trackBallController.object);
+        // const vertices = this.wireFrameScene.render() >> 2;
+        // this.gpu.device.queue.writeBuffer(this.lineBuffer, 0, this.wireFrameScene.jsBuffer, 0, vertices << 2);
         this.renderer.render(this.context, (rs) => {
             rs.beginTetras(this.pipeline);
             rs.sliceTetras(this.vertBindGroup, this.mesh.count);
             rs.drawTetras();
-        });
+        }, this.wireFrameScene ? (rs) => {
+            this.wireFrameScene.render(rs);
+        } : undefined);
         window.requestAnimationFrame(this.run.bind(this));
     }
 }
@@ -157,6 +165,14 @@ let commonFragCode = `
 export namespace tiger {
     export async function load() {
         let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.tiger(0.3 + Math.random() * 0.05, 32, 0.5, 32, 0.14 + Math.random() * 0.03, 16));
+        app.retinaController.toggleSectionConfig("retina+zslices");
+        app.run();
+        app.retinaController.setOpacity(2.0);
+    }
+}
+export namespace ditorus {
+    export async function load() {
+        let app = await new ShapesApp().init(commonFragCode, tesserxel.mesh.tetra.ditorus(0.6 + Math.random() * 0.05, 32, 0.3, 24, 0.15 + Math.random() * 0.01, 16));
         app.retinaController.toggleSectionConfig("retina+zslices");
         app.run();
         app.retinaController.setOpacity(2.0);
@@ -257,7 +273,9 @@ let HypercubeFragCode = `
     }`;
 export namespace tesseract {
     export async function load() {
-        let app = await new ShapesApp().init(HypercubeFragCode.replace("{discard}", "").replace("{radius}", "0.8").replace("{count}", "").replaceAll("{edge}", "0.8"), tesserxel.mesh.tetra.tesseract());
+        const wfs = new tesserxel.four.WireFrameScene();
+        wfs.add(new tesserxel.four.WireFrameTesseractoid(new tesserxel.math.Vec4(1, 1, 1, 1)));
+        let app = await new ShapesApp().init(HypercubeFragCode.replace("{discard}", "").replace("{radius}", "0.8").replace("{count}", "").replaceAll("{edge}", "0.8"), tesserxel.mesh.tetra.tesseract(), wfs);
         app.retinaController.setOpacity(10.0);
         app.renderer.setDisplayConfig({ camera4D: { fov: 110, near: 0.01, far: 10.0 } });
         app.trackBallController.object.rotation.l.set();

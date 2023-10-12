@@ -1046,7 +1046,7 @@ class Rotor {
      * i.e. m must be orthogonal with determinant 1.
      * algorithm: iteratively aligne each axis. */
     setFromMat4(m) {
-        return this.setFromLookAt(Vec4.x, m.x_()).mulsl(_r$1.setFromLookAt(_vec4$2.copy(Vec4.y).rotates(this), m.y_())).mulsl(_r$1.setFromLookAt(_vec4$2.copy(Vec4.z).rotates(this), m.z_()));
+        return this.setFromLookAt(Vec4.x, m.x_()).mulsl(_r$1.setFromLookAt(_vec4$3.copy(Vec4.y).rotates(this), m.y_())).mulsl(_r$1.setFromLookAt(_vec4$3.copy(Vec4.z).rotates(this), m.z_()));
     }
     /** Rotor: rotate from plane1 to plane2
      *  Bivectors must be simple and normalised */
@@ -1086,7 +1086,7 @@ class Rotor {
     }
     // todo: lookAtvb(from: Vec4, to: Bivec): Rotor dir to plane or reverse
     static lookAtvb(from, to) {
-        let toVect = _vec4$2.copy(from).projbs(to).norms();
+        let toVect = _vec4$3.copy(from).projbs(to).norms();
         return Rotor.lookAt(from, toVect);
     }
     /** "from" and "to" must be normalized vectors */
@@ -1815,7 +1815,7 @@ class Vec4 {
         pool.push(this);
     }
 }
-let _vec4$2 = new Vec4();
+let _vec4$3 = new Vec4();
 let _vec4_1 = new Vec4();
 
 class Vec3Pool extends Pool {
@@ -2578,7 +2578,7 @@ class Obj4 {
         return this;
     }
     lookAt(direction, target) {
-        let dir = _vec4$2.subset(target, this.position);
+        let dir = _vec4$3.subset(target, this.position);
         this.rotates(_r$1.setFromLookAt(_vec4_1.copy(direction).rotates(this.rotation), dir.norms()));
         return this;
     }
@@ -2884,6 +2884,16 @@ class Plane {
     constructor(normal, offset) {
         this.normal = normal;
         this.offset = offset;
+    }
+    clone() {
+        return new Plane(this.normal.clone(), this.offset);
+    }
+    applyObj4(o) {
+        if (o.scale)
+            throw "scaling plane is not implemented yet";
+        this.normal.rotates(o.rotation);
+        this.offset += this.normal.dot(o.position);
+        return this;
     }
     distanceToPoint(p) {
         return this.normal.dot(p) - this.offset;
@@ -6128,6 +6138,7 @@ class SliceRenderer {
     screenRenderPass;
     rendererConfig;
     displayConfig;
+    wireframeRenderPass;
     constructor(gpu, config) {
         if (!gpu.device)
             throw "GPU is not initialized yet.";
@@ -6146,6 +6157,7 @@ class SliceRenderer {
         // viewport is compressed in gpu buffer by four u8s, therefore shift amount is maxSize >> 8
         this.rendererConfig.viewportCompressShift = power2arr.indexOf(this.rendererConfig.maxTextureSize >> 8);
         this.gpu = gpu;
+        this.wireframeRenderPass = new WireFrameRenderPass(gpu, this.rendererConfig);
         this.sliceBuffers = new RetinaSliceBufferMgr(gpu, this.rendererConfig);
         this.tetraBuffers = new TetraSliceBufferMgr(gpu, this.rendererConfig, this.sliceBuffers);
         this.crossRenderPass = new CrossRenderPass(gpu);
@@ -6163,7 +6175,7 @@ class SliceRenderer {
         this.setDisplayConfig(DefaultDisplayConfig);
     }
     async init() {
-        await Promise.all([this.crossRenderPass.init(), this.retinaRenderPass.init(), this.screenRenderPass.init()]);
+        await Promise.all([this.crossRenderPass.init(), this.retinaRenderPass.init(), this.screenRenderPass.init(), this.wireframeRenderPass.init()]);
         return this;
     }
     createRetinaRenderPass(descriptor) {
@@ -6257,7 +6269,7 @@ class SliceRenderer {
         }
         return configNames.map(name => name === 'sections' ? this.sliceBuffers.deepCopySectionConfigs(cfg.sections) : cfg[name]);
     }
-    render(context, drawCall) {
+    render(context, drawCall, wireFrameDrawCall) {
         this.sliceBuffers.updateBuffers(this.displayConfig.sliceGroupNum);
         const gpu = this.gpu;
         if (!this.crossRenderPass.clearRenderPipeline)
@@ -6267,9 +6279,29 @@ class SliceRenderer {
         let canvasView = context.getCurrentTexture().createView();
         const renderState = new RenderState(this.gpu, this.rendererConfig, this.sliceBuffers, this.tetraBuffers, this.crossRenderPass);
         const commandEncoder = renderState.commandEncoder;
+        // todo: disable depth first, then add it
+        if (wireFrameDrawCall) {
+            this.wireframeRenderPass.renderPassDesc = {
+                colorAttachments: [{
+                        clearValue: this.displayConfig.screenBackgroundColor,
+                        view: this.screenRenderPass.view,
+                        loadOp: "clear",
+                        storeOp: 'store'
+                    }],
+                depthStencilAttachment: {
+                    view: this.screenRenderPass.depthView,
+                    depthClearValue: 1.0,
+                    depthLoadOp: 'clear',
+                    depthStoreOp: 'store',
+                }
+            };
+            this.wireframeRenderPass.renderState = renderState;
+            wireFrameDrawCall(this.wireframeRenderPass);
+            this.wireframeRenderPass.renderState = undefined;
+        }
         for (let sliceIndex = 0; sliceIndex < this.displayConfig.totalGroupNum; sliceIndex++) {
-            renderState.sliceIndex = sliceIndex;
             renderState.needClear = true;
+            renderState.sliceIndex = sliceIndex;
             renderState.frustumRange = undefined;
             // set new slicegroup offset
             commandEncoder.copyBufferToBuffer(this.sliceBuffers.sliceGroupOffsetBuffer, sliceIndex << 2, this.sliceBuffers.uniformsBuffer, sliceOffsetBufferOffset, 4);
@@ -6281,13 +6313,20 @@ class SliceRenderer {
                 clearPassEncoder.draw(0);
                 clearPassEncoder.end();
             }
+            const loadOp = (!wireFrameDrawCall) && sliceIndex === 0 ? 'clear' : "load";
             let retinaPassEncoder = commandEncoder.beginRenderPass({
                 colorAttachments: [{
                         view: this.screenRenderPass.view,
                         clearValue: this.displayConfig.screenBackgroundColor,
-                        loadOp: sliceIndex === 0 ? 'clear' : "load",
+                        loadOp,
                         storeOp: 'store'
-                    }]
+                    }],
+                depthStencilAttachment: {
+                    view: this.screenRenderPass.depthView,
+                    depthClearValue: 1.0,
+                    depthLoadOp: loadOp,
+                    depthStoreOp: 'store',
+                }
             });
             retinaPassEncoder.setPipeline(this.retinaRenderPass.pipeline);
             retinaPassEncoder.setBindGroup(0, this.retinaRenderPass.bindgroup);
@@ -6850,6 +6889,11 @@ return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1
                         }
                     }],
             },
+            depthStencil: {
+                depthWriteEnabled: true,
+                depthCompare: 'less',
+                format: 'depth24plus',
+            },
             primitive: { topology: 'triangle-strip' }
         });
     }
@@ -6880,7 +6924,7 @@ const screenRenderCode = StructDefUniformBuffer + `
 @group(0) @binding(2) var<uniform>tsx_uniforms : tsxUniformBuffer;
 struct tsxvOutputType{
     @builtin(position) position: vec4<f32>,
-        @location(0) fragPosition: vec2<f32>,
+    @location(0) fragPosition: vec2<f32>,
 }
 struct tsxfInputType{
     @location(0) fragPosition: vec2<f32>,
@@ -6901,9 +6945,9 @@ struct tsxfInputType{
     return tsxvOutputType(vec4<f32>(pos[index], 0.0, 1.0), uv[index]);
 }
 @fragment fn mainFragment(input: tsxfInputType) -> @location(0) vec4 < f32 > {
-    let color = textureSample(tsx_txt, tsx_splr, input.fragPosition);
-    var factor = 0.0;
-    if(tsx_uniforms.eyeCross.z > 0.0 && tsx_uniforms.layerOpacity > 0.0){
+let color = textureSample(tsx_txt, tsx_splr, input.fragPosition);
+var factor = 0.0;
+if(tsx_uniforms.eyeCross.z > 0.0 && tsx_uniforms.layerOpacity > 0.0){
     let aspectedCross = tsx_uniforms.eyeCross.z * tsx_uniforms.screenAspect;
     if (tsx_uniforms.eyeCross.x != 0.0) {
         let cross1 = abs(input.fragPosition - vec2<f32>(0.25, 0.5)) * 2.0;
@@ -6921,10 +6965,12 @@ return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1
 `;
 class ScreenRenderPass {
     view;
+    depthView;
     pipeline;
     pipelinePromise;
     bindgroup;
     texture;
+    depthTexture;
     gpu;
     config;
     sliceBuffers;
@@ -6952,15 +6998,21 @@ class ScreenRenderPass {
         });
     }
     setSize(size) {
-        if (this.texture) {
+        if (this.texture)
             this.texture.destroy();
-        }
+        if (this.depthTexture)
+            this.depthTexture.destroy();
         // if (!this.pipeline) throw "TetraSliceRenderer: ScreenRenderPipeline is not initialized.";
         this.texture = this.gpu.device.createTexture({
             size, format: this.config.enableFloat16Blend ? 'rgba16float' : this.gpu.preferredFormat,
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
         });
+        this.depthTexture = this.gpu.device.createTexture({
+            size, format: 'depth24plus',
+            usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        });
         this.view = this.texture.createView();
+        this.depthView = this.depthTexture.createView();
         if (this.pipeline) {
             this.bindgroup = this.gpu.createBindGroup(this.pipeline, 0, [
                 this.view,
@@ -6986,8 +7038,97 @@ class ScreenRenderPass {
         ], "screenBindGroup");
     }
 }
-const _vec4$1 = new Vec4;
+const _vec4$2 = new Vec4;
 const _vec42 = new Vec4;
+class WireFrameRenderPass {
+    pipeline;
+    pipelinePromise;
+    dataBuffer;
+    bindGroup;
+    gpu;
+    config;
+    renderState;
+    renderPassDesc;
+    constructor(gpu, config) {
+        this.gpu = gpu;
+        this.config = config;
+        const shaderModule = gpu.device.createShaderModule({
+            code: StructDefUniformBuffer + `
+@group(0) @binding(0) var<uniform> tsx_uniforms : tsxUniformBuffer;
+@vertex fn tsxVMain(@location(0) inPos: vec4<f32>, @builtin(instance_index) idx: u32) -> @builtin(position) vec4<f32>{
+    let stereoLR = f32(idx & 1) - 0.5;
+    let stereoLR_offset = -stereoLR * tsx_uniforms.eyeCross.y;
+    let se = sin(stereoLR_offset);
+    let ce = cos(stereoLR_offset);
+    var pureRotationMvMat = tsx_uniforms.retinaMV;
+    pureRotationMvMat[3].z = 0.0;
+    let eyeMat = mat4x4<f32>(
+        ce,0,se,0,
+        0,1,0,0,
+        -se,0,ce,0,
+        0,0,tsx_uniforms.retinaMV[3].z,1
+    );
+    var glPosition = tsx_uniforms.retinaP * eyeMat * pureRotationMvMat * vec4(inPos.xyz, 1.0);
+    glPosition.x = (glPosition.x) * tsx_uniforms.screenAspect + step(0.0001, abs(tsx_uniforms.eyeCross.y)) * stereoLR * glPosition.w;
+    return glPosition;
+}
+@fragment fn tsxFMain()->@location(0) vec4<f32>{
+    return vec4<f32>(1.0,0.0,0.0,1.0);
+}`,
+        });
+        this.pipelinePromise = gpu.device.createRenderPipelineAsync({
+            layout: 'auto',
+            vertex: {
+                module: shaderModule,
+                entryPoint: "tsxVMain",
+                buffers: [
+                    {
+                        attributes: [
+                            {
+                                shaderLocation: 0,
+                                offset: 0,
+                                format: "float32x4",
+                            }
+                        ],
+                        arrayStride: 4 * 4,
+                    }
+                ]
+            },
+            primitive: {
+                topology: "line-list"
+            },
+            fragment: {
+                targets: [
+                    { format: this.config.enableFloat16Blend ? 'rgba16float' : this.gpu.preferredFormat },
+                ],
+                module: shaderModule,
+                entryPoint: "tsxFMain"
+            },
+            depthStencil: {
+                depthWriteEnabled: true,
+                depthCompare: 'less',
+                format: 'depth24plus',
+            }
+        });
+    }
+    async init() {
+        this.pipeline = await this.pipelinePromise;
+    }
+    render(buffer, vertices) {
+        if (!this.pipeline)
+            return;
+        this.bindGroup ??= this.gpu.createBindGroup(this.pipeline, 0, [{
+                buffer: this.renderState.sliceBuffers.uniformsBuffer
+            }]);
+        const renderPassEncoder = this.renderState.commandEncoder.beginRenderPass(this.renderPassDesc);
+        renderPassEncoder.setPipeline(this.pipeline);
+        renderPassEncoder.setVertexBuffer(0, buffer);
+        renderPassEncoder.setBindGroup(0, this.bindGroup);
+        // todo: deal with no retina voxel / non stero mode
+        renderPassEncoder.draw(vertices, 2);
+        renderPassEncoder.end();
+    }
+}
 class RenderState {
     commandEncoder;
     computePassEncoder;
@@ -7078,7 +7219,7 @@ class RenderState {
         this.frustumRange ??= this.getFrustumRange(camMat);
         if (!this.frustumRange)
             return true;
-        let relP = _vec4$1.copy(camMat.vec ?? camMat.position);
+        let relP = _vec4$2.copy(camMat.vec ?? camMat.position);
         if (modelMat)
             relP.subs((modelMat.vec ?? modelMat.position));
         if (!modelMat) {
@@ -7095,20 +7236,22 @@ class RenderState {
         }
         else {
             for (let f of this.frustumRange) {
-                if (obb.testPlane(new Plane(_vec42.rotatesconj(modelMat.rotation), f.dot(relP))) === 1)
+                if (obb.testPlane(new Plane(_vec42.copy(f).rotatesconj(modelMat.rotation), f.dot(relP))) === 1)
                     return false;
             }
         }
         return true;
     }
-    getFrustumRange(camMat) {
+    getFrustumRange(camMat, allRange) {
         let minslice = this.sliceIndex << this.config.sliceGroupSizeBit;
         let maxslice = minslice + this.config.sliceGroupSize - 1;
         let isRetinaGroup = this.sliceBuffers.slicesJsBuffer[(minslice << 2) + 1];
         let frustum;
-        // let refacing;
         let camProj = 1 / this.sliceBuffers.camProjJsBuffer[1];
-        if (isRetinaGroup === 0) {
+        if (allRange) {
+            frustum = [-camProj, camProj, -camProj, camProj, -camProj, camProj];
+        }
+        else if (isRetinaGroup === 0) {
             minslice = this.sliceBuffers.slicesJsBuffer[minslice << 2] * camProj;
             maxslice = this.sliceBuffers.slicesJsBuffer[maxslice << 2] * camProj;
             switch (this.sliceBuffers.currentRetinaFacing) {
@@ -7133,6 +7276,7 @@ class RenderState {
             }
             // refacing = SliceFacing[this.currentRetinaFacing];
         }
+        else ;
         if (camMat.mat) {
             const m = camMat.mat;
             return frustum ? [
@@ -8649,6 +8793,24 @@ function tiger(xyRadius, xySegment, zwRadius, zwSegment, secondaryRadius, second
         norm.set(su * Math.sin(u), su * Math.cos(u), cu * Math.sin(v), cu * Math.cos(v));
     }, xySegment, zwSegment, secondarySegment);
 }
+function ditorus(majorRadius, majorSegment, middleRadius, middleSegment, minorRadius, minorSegment) {
+    if (majorSegment < 3)
+        majorSegment = 3;
+    if (middleSegment < 3)
+        middleSegment = 3;
+    if (minorSegment < 3)
+        minorSegment = 3;
+    return parametricSurface((uvw, pos, norm) => {
+        let u = uvw.x * _360;
+        let v = uvw.y * _360;
+        let w = uvw.z * _360;
+        let cw = Math.cos(w);
+        const R2 = middleRadius + minorRadius * cw;
+        const R1 = majorRadius + R2 * Math.cos(v);
+        pos.set(R1 * Math.cos(u), R1 * Math.sin(u), R2 * Math.sin(v), minorRadius * Math.sin(w));
+        norm.set(cw * Math.cos(v) * Math.cos(u), cw * Math.cos(v) * Math.sin(u), cw * Math.sin(v), Math.sin(w));
+    }, majorSegment, middleSegment, minorSegment);
+}
 function parametricSurface(fn, uSegment, vSegment, wSegment) {
     if (uSegment < 1)
         uSegment = 1;
@@ -8899,13 +9061,6 @@ function convexhull(points) {
         position,
         count
     });
-}
-function duocone(xyRadius, xySegment, zwRadius, zwSegment) {
-    // return rotatoid(Bivec.xz,new face.FaceIndexMesh({
-    //     position,
-    //     normal,
-    //     uvw
-    // }),xySegment);
 }
 function duocylinder(xyRadius, xySegment, zwRadius, zwSegment) {
     let dp = directProduct(circle(xyRadius, xySegment), circle(zwRadius, zwSegment));
@@ -9399,7 +9554,7 @@ function cwmesh(cwmesh, notClosed) {
     if (!borders)
         notClosed = true;
     if (!notClosed) {
-        // closed 4d objecgt's surface
+        // closed 4d object's surface
         const cells = [];
         const cellsO = [];
         for (const [cellId, border] of borders.entries()) {
@@ -9458,9 +9613,9 @@ var tetra = /*#__PURE__*/Object.freeze({
     spherinderSide: spherinderSide,
     sphere: sphere,
     tiger: tiger,
+    ditorus: ditorus,
     parametricSurface: parametricSurface,
     convexhull: convexhull,
-    duocone: duocone,
     duocylinder: duocylinder,
     loft: loft,
     rotatoid: rotatoid,
@@ -9472,6 +9627,7 @@ class Scene {
     child = [];
     backGroundColor;
     skyBox;
+    wireframe;
     add(...obj) {
         this.child.push(...obj);
     }
@@ -10086,6 +10242,7 @@ class Renderer {
     render(scene, camera) {
         this.clearState();
         this.setCamera(camera);
+        scene.wireframe?.camera?.copyObj4(camera);
         this.updateScene(scene);
         this.core.render(this.context, (renderState) => {
             for (let { pipeline, meshes, bindGroup } of globalThis.Object.values(this.drawList)) {
@@ -10120,7 +10277,7 @@ class Renderer {
             if (scene.skyBox?.bindGroups) {
                 renderState.drawRaytracing(scene.skyBox.pipeline, scene.skyBox.bindGroups);
             }
-        });
+        }, scene.wireframe ? rs => scene.wireframe.render(rs) : undefined);
     }
     setSize(size) {
         if (size.height) {
@@ -11149,6 +11306,8 @@ class CWMesh {
             }
         }
     }
+    /** tested with bug here (for examples/#cwmesh::duopy5 ), some faces orientations are not consisted */
+    // now, makeDual doesn't use this function anymore
     calculateOrientation(dim, faceIds) {
         if (dim === 0)
             return;
@@ -11696,7 +11855,8 @@ class CWMesh {
             const arr = Array.from(new CWMeshSelection(this).addFace(d, faceId).closure().selData[0]).map(vId => this.data[0][vId]);
             return arr.reduce((a, b) => a.adds(b), new Vec4).divfs(arr.length);
         });
-        mesh.calculateOrientation(3);
+        mesh.data[4] = [range(mesh.data[3].length)];
+        mesh.calculateOrientationInFace(4, 0);
         return mesh;
     }
 }
@@ -11754,6 +11914,11 @@ class TigerGeometry extends Geometry {
         super(tiger(radius1, detail * 8, radius2, detail * 8, circleRadius, detail * 6));
     }
 }
+class DitorusGeometry extends Geometry {
+    constructor(circleRadius = 0.2, radius1 = 0.8, radius2 = 0.4, detail = 2) {
+        super(ditorus(radius1, detail * 8, radius2, detail * 8, circleRadius, detail * 6));
+    }
+}
 class ConvexHullGeometry extends Geometry {
     constructor(points) {
         super(convexhull(points));
@@ -11763,6 +11928,353 @@ class ConvexHullGeometry extends Geometry {
 class CWMeshGeometry extends Geometry {
     constructor(cwmesh$1) {
         super(cwmesh(cwmesh$1).setUVWAsPosition());
+    }
+}
+
+const WireFrameTesseractoid_SubCells = [
+    [0, 2], [0, 3], [0, 4], [0, 5], [0, 6], [0, 7],
+    [1, 2], [1, 3], [1, 4], [1, 5], [1, 6], [1, 7],
+    [2, 4], [2, 5], [2, 6], [2, 7],
+    [3, 4], [3, 5], [3, 6], [3, 7],
+    [4, 6], [4, 7],
+    [5, 6], [5, 7]
+];
+class WireFrameTesseractoid extends Obj4 {
+    lines; // GPUBuffer; // linelist
+    cells;
+    subCells = WireFrameTesseractoid_SubCells;
+    obb;
+    visible = true;
+    transparent = false;
+    constructor(size) {
+        super();
+        let x = size.x, y = size.y, z = size.z, w = size.w;
+        this.obb = new AABB(size.neg(), size);
+        this.lines = [
+            [new Vec4(x, y, z, w), new Vec4(x, y, z, -w)],
+            [new Vec4(x, y, -z, w), new Vec4(x, y, -z, -w)],
+            [new Vec4(x, -y, z, w), new Vec4(x, -y, z, -w)],
+            [new Vec4(x, -y, -z, w), new Vec4(x, -y, -z, -w)],
+            [new Vec4(-x, y, z, w), new Vec4(-x, y, z, -w)],
+            [new Vec4(-x, y, -z, w), new Vec4(-x, y, -z, -w)],
+            [new Vec4(-x, -y, z, w), new Vec4(-x, -y, z, -w)],
+            [new Vec4(-x, -y, -z, w), new Vec4(-x, -y, -z, -w)],
+            [new Vec4(x, y, z, w), new Vec4(-x, y, z, w)],
+            [new Vec4(x, y, z, -w), new Vec4(-x, y, z, -w)],
+            [new Vec4(x, y, -z, w), new Vec4(-x, y, -z, w)],
+            [new Vec4(x, y, -z, -w), new Vec4(-x, y, -z, -w)],
+            [new Vec4(x, -y, z, w), new Vec4(-x, -y, z, w)],
+            [new Vec4(x, -y, z, -w), new Vec4(-x, -y, z, -w)],
+            [new Vec4(x, -y, -z, w), new Vec4(-x, -y, -z, w)],
+            [new Vec4(x, -y, -z, -w), new Vec4(-x, -y, -z, -w)],
+            [new Vec4(x, y, z, w), new Vec4(x, -y, z, w)],
+            [new Vec4(-x, y, z, w), new Vec4(-x, -y, z, w)],
+            [new Vec4(x, y, z, -w), new Vec4(x, -y, z, -w)],
+            [new Vec4(-x, y, z, -w), new Vec4(-x, -y, z, -w)],
+            [new Vec4(x, y, -z, w), new Vec4(x, -y, -z, w)],
+            [new Vec4(-x, y, -z, w), new Vec4(-x, -y, -z, w)],
+            [new Vec4(x, y, -z, -w), new Vec4(x, -y, -z, -w)],
+            [new Vec4(-x, y, -z, -w), new Vec4(-x, -y, -z, -w)],
+            [new Vec4(x, y, z, w), new Vec4(x, y, -z, w)],
+            [new Vec4(-x, y, z, w), new Vec4(-x, y, -z, w)],
+            [new Vec4(x, y, z, -w), new Vec4(x, y, -z, -w)],
+            [new Vec4(-x, y, z, -w), new Vec4(-x, y, -z, -w)],
+            [new Vec4(x, -y, z, w), new Vec4(x, -y, -z, w)],
+            [new Vec4(-x, -y, z, w), new Vec4(-x, -y, -z, w)],
+            [new Vec4(x, -y, z, -w), new Vec4(x, -y, -z, -w)],
+            [new Vec4(-x, -y, z, -w), new Vec4(-x, -y, -z, -w)],
+        ];
+        this.cells = [
+            new Plane(Vec4.x, x), new Plane(Vec4.xNeg, x),
+            new Plane(Vec4.y, y), new Plane(Vec4.yNeg, y),
+            new Plane(Vec4.z, z), new Plane(Vec4.zNeg, z),
+            new Plane(Vec4.w, w), new Plane(Vec4.wNeg, w),
+        ];
+    }
+}
+class WireFrameConvexPolytope extends Obj4 {
+    lines; // GPUBuffer; // linelist
+    cells;
+    subCells;
+    obb;
+    visible = true;
+    transparent = false;
+    constructor(cwmesh) {
+        super();
+        const vertices = cwmesh.data[0];
+        this.lines = cwmesh.data[1].map(face => [vertices[face[0]], vertices[face[1]]]);
+        const subCells = cwmesh.data[2].map(_ => []);
+        for (const [idx, cell] of cwmesh.data[3].entries()) {
+            for (const faceIdx of cell) {
+                subCells[faceIdx].push(idx);
+            }
+        }
+        let simplexes;
+        const borders = cwmesh.findBorder(4);
+        if (borders) {
+            // closed 4d object's surface
+            const cells = [];
+            const cellsO = [];
+            for (const [cellId, border] of borders.entries()) {
+                if (border !== 1 && border !== -1)
+                    continue;
+                cells.push(cellId);
+                cellsO.push(border === 1);
+            }
+            simplexes = cwmesh.triangulate(3, cells, cellsO);
+        }
+        else {
+            simplexes = cwmesh.triangulate(3, cwmesh.data[3].map((_, idx) => idx));
+        }
+        const v1 = new Vec4, v2 = new Vec4, v3 = new Vec4;
+        this.cells = simplexes.map(ss => {
+            const s = ss[0];
+            const a0 = vertices[s[0]];
+            const a1 = vertices[s[1]];
+            const a2 = vertices[s[2]];
+            const a3 = vertices[s[3]];
+            const normal = v1.subset(a0, a1).wedge(v2.subset(a0, a2)).wedgev(v3.subset(a0, a3)).norms();
+            return new Plane(normal, a1.dot(normal));
+        });
+        this.subCells = subCells;
+        this.obb = AABB.fromPoints(vertices);
+    }
+}
+const _vec4$1 = new Vec4;
+new Vec3;
+new Vec4;
+class WireFrameScene {
+    occluders = [];
+    objects = [];
+    camera = new Camera;
+    jsBuffer;
+    gpuBuffer;
+    maxGpuBufferSize = 0x10000;
+    clipEpsilon = 1e-5;
+    add(...o) {
+        for (const obj of o) {
+            if (obj.lines) {
+                this.objects.push(obj);
+            }
+            if (obj.cells) {
+                this.occluders.push(obj);
+            }
+        }
+    }
+    occludeFrustum(renderState) {
+        const frustumRange = renderState.getFrustumRange(this.camera, true);
+        for (const obj of this.objects) {
+            if (obj.visible === false)
+                continue;
+            let relP = _vec4$1.copy(this.camera.position).subs(obj.position);
+            let visible = true;
+            let clipFaces = [];
+            for (let f of frustumRange) {
+                const p = new Plane(f.clone().rotatesconj(obj.rotation), f.dot(relP));
+                const pos = obj.obb.testPlane(p);
+                if (pos === 1) {
+                    visible = false;
+                    break;
+                }
+                if (pos === 0) {
+                    clipFaces.push(p);
+                }
+            }
+            obj._jsBuffer = visible ? obj.lines.map(([pa, pb]) => [pa.clone(), pb.clone()]) : [];
+            if (!visible)
+                continue;
+            clipFaces.map(p => {
+                for (const [pa, pb] of obj._jsBuffer) {
+                    const la = pa.dot(p.normal) - p.offset;
+                    const lb = pb.dot(p.normal) - p.offset;
+                    if (la > 0 !== lb > 0) {
+                        const l = lb / (lb - la);
+                        const p = _vec4$1.copy(pa).subs(pb).mulfs(l).adds(pb);
+                        if (la > 0) {
+                            pa.copy(p);
+                        }
+                        else {
+                            pb.copy(p);
+                        }
+                    }
+                    else if (la > 0 && lb > 0) {
+                        pa.set(NaN);
+                        pb.set(NaN);
+                    }
+                }
+            });
+        }
+    }
+    calcViewBoundary(c1, c2, origin) {
+        if (origin) {
+            const k1 = c1.normal.dot(origin) - c1.offset;
+            const k2 = c2.normal.dot(origin) - c2.offset;
+            const l = k1 / (k1 - k2);
+            const n = c1.normal.mulf(1 - l).addmulfs(c2.normal, l);
+            return new Plane(n, (1 - l) * c1.offset + l * c2.offset);
+        }
+        else {
+            const l = c1.offset / (c1.offset - c2.offset);
+            const n = _vec4$1.copy(c1.normal).mulfs(1 - l).addmulfs(c2.normal, l);
+            return n;
+        }
+    }
+    occludeOccluders() {
+        for (const ocd of this.occluders) {
+            if (ocd.transparent)
+                continue;
+            // todo: obb frustum test, if not visible, skip all
+            const relP = _vec4$1.subset(this.camera.position, ocd.position).rotatesconj(ocd.rotation);
+            const faceDir = ocd.cells.map(p => p.normal.dot(relP) - p.offset > -this.clipEpsilon);
+            const inside = !faceDir.includes(true);
+            let worldBorders;
+            if (inside) {
+                worldBorders = ocd.cells.map(p => p.clone().applyObj4(ocd));
+            }
+            else {
+                const border = ocd.subCells.filter(([a, b]) => faceDir[a] !== faceDir[b]).map(([a, b]) => faceDir[a] ? this.calcViewBoundary(ocd.cells[a], ocd.cells[b], relP) : this.calcViewBoundary(ocd.cells[b], ocd.cells[a], relP));
+                worldBorders = border.map(p => p.applyObj4(ocd));
+                for (let i = 0; i < faceDir.length; i++) {
+                    if (faceDir[i]) {
+                        worldBorders.push(ocd.cells[i].clone().applyObj4(ocd));
+                    }
+                }
+            }
+            ocd._inside = inside;
+            ocd._worldBorders = worldBorders;
+        }
+        for (const obj of this.objects) {
+            if (obj.visible === false)
+                continue;
+            for (let i = 0; i < obj._jsBuffer.length; i++) {
+                let [pa, pb] = obj._jsBuffer[i];
+                if (!isNaN(pa.x)) {
+                    obj._jsBuffer[i][0].copy(pa.applyObj4(obj));
+                    obj._jsBuffer[i][1].copy(pb.applyObj4(obj));
+                }
+            }
+        }
+        for (const ocd of this.occluders) {
+            if (ocd.transparent)
+                continue;
+            for (const obj of this.objects) {
+                if (obj.visible === false)
+                    continue;
+                const nBuffer = [];
+                for (const [pa, pb] of obj._jsBuffer) {
+                    // write new fn here, attention jsbuffer size
+                    if (isNaN(pa.x))
+                        continue;
+                    this.clipLine(ocd._inside, pa, pb, ocd._worldBorders, nBuffer);
+                }
+                obj._jsBuffer.push(...nBuffer);
+            }
+        }
+    }
+    // refeerence: Blockv6 Clip.java
+    clipLine(isInside, pa, pb, borders, nBuffer) {
+        if (isInside) {
+            // pa=cliparea=ra----rb=cliparea==pb
+            let ra = 0, rb = 1;
+            for (const p of borders) {
+                const la = pa.dot(p.normal) - p.offset - this.clipEpsilon;
+                const lb = pb.dot(p.normal) - p.offset - this.clipEpsilon;
+                if (lb > 0) {
+                    if (la > 0) {
+                        pa.set(NaN);
+                        pb.set(NaN);
+                        return;
+                    }
+                    const l = lb / (lb - la);
+                    if (l > ra)
+                        ra = l;
+                }
+                else if (la > 0) {
+                    const l = lb / (lb - la);
+                    if (l < rb)
+                        rb = l;
+                }
+                if (ra >= rb) {
+                    pa.set(NaN);
+                    pb.set(NaN);
+                    return;
+                }
+            }
+        }
+        else {
+            // pa====ra--cliparea--rb====pb
+            let ra = 0, rb = 1;
+            for (const p of borders) {
+                const la = pa.dot(p.normal) - p.offset + this.clipEpsilon;
+                const lb = pb.dot(p.normal) - p.offset + this.clipEpsilon;
+                if (la > 0) {
+                    if (lb > 0)
+                        return;
+                    const l = la / (la - lb);
+                    if (l > ra)
+                        ra = l;
+                }
+                else if (lb > 0) {
+                    const l = la / (la - lb);
+                    if (l < rb)
+                        rb = l;
+                }
+                if (ra >= rb)
+                    return;
+            }
+            if (ra === 0) {
+                if (rb === 1) {
+                    pa.set(NaN);
+                    pb.set(NaN);
+                }
+                else {
+                    pa.copy(_vec4$1.copy(pb).subs(pa).mulfs(rb).adds(pa));
+                }
+            }
+            else if (rb === 1) {
+                pb.copy(_vec4$1.copy(pb).subs(pa).mulfs(ra).adds(pa));
+            }
+            else {
+                nBuffer.push([pb.clone(), pb.sub(pa).mulfs(rb).adds(pa)]);
+                pb.subs(pa).mulfs(ra).adds(pa);
+            }
+        }
+    }
+    render(rs, objs) {
+        const renderState = rs.renderState;
+        const gpu = rs.gpu;
+        this.jsBuffer ??= new Float32Array(this.maxGpuBufferSize);
+        this.gpuBuffer ??= gpu.createBuffer(GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST, this.maxGpuBufferSize);
+        let offset = 0;
+        const fovCoeff = -renderState.sliceBuffers.camProjJsBuffer[1];
+        const _r = new Obj4;
+        // copy data to temp jsbuffer and do retina frustum clip, all data are under object's coord
+        this.occludeFrustum(renderState);
+        // when do occlusion, all data are converted in world coord
+        this.occludeOccluders();
+        // when draw, only need to convert to camera's coord
+        for (const obj of objs ?? this.objects) {
+            if (obj.visible === false)
+                continue;
+            // _r.rotation.copy(obj.rotation).mulslconj(this.camera.rotation);
+            // _r.position.copy(obj.position).subs(this.camera.position).rotatesconj(this.camera.rotation);
+            _r.rotation.copy(this.camera.rotation).conjs();
+            _r.position.copy(this.camera.position).negs().rotatesconj(this.camera.rotation);
+            //ax+b-B=Ay
+            for (const [pa, pb] of obj._jsBuffer) {
+                if (isNaN(pa.x))
+                    continue;
+                _vec4$1.copy(pa).applyObj4(_r);
+                _vec4$1.mulfs(fovCoeff / _vec4$1.w);
+                _vec4$1.writeBuffer(this.jsBuffer, offset);
+                _vec4$1.copy(pb).applyObj4(_r);
+                _vec4$1.mulfs(fovCoeff / _vec4$1.w);
+                _vec4$1.writeBuffer(this.jsBuffer, offset + 4);
+                offset += 8;
+            }
+        }
+        gpu.device.queue.writeBuffer(this.gpuBuffer, 0, this.jsBuffer, 0, offset);
+        rs.render(this.gpuBuffer, offset >> 2);
     }
 }
 
@@ -11804,8 +12316,12 @@ var four = /*#__PURE__*/Object.freeze({
     TorisphereGeometry: TorisphereGeometry,
     SpherinderSideGeometry: SpherinderSideGeometry,
     TigerGeometry: TigerGeometry,
+    DitorusGeometry: DitorusGeometry,
     ConvexHullGeometry: ConvexHullGeometry,
-    CWMeshGeometry: CWMeshGeometry
+    CWMeshGeometry: CWMeshGeometry,
+    WireFrameTesseractoid: WireFrameTesseractoid,
+    WireFrameConvexPolytope: WireFrameConvexPolytope,
+    WireFrameScene: WireFrameScene
 });
 
 class Matrix {
@@ -12603,25 +13119,25 @@ var rigid;
     /** default orientation: (xy-z)-w */
     class Ditorus extends RigidGeometry {
         majorRadius;
+        middleRadius;
         minorRadius;
-        minorRadius2;
         /** majorRadius, minorRadius: torus's radius, minorRadius: cirle's radius */
-        constructor(majorRadius, minorRadius, minorRadius2) {
+        constructor(majorRadius, middleRadius, minorRadius) {
             super();
             this.majorRadius = majorRadius;
             this.minorRadius = minorRadius;
-            this.minorRadius2 = minorRadius2;
-            let minorRadius12 = minorRadius + minorRadius2;
+            this.middleRadius = middleRadius;
+            let minorRadius12 = minorRadius + middleRadius;
             this.obb = new AABB(new Vec4(-majorRadius - minorRadius12, -majorRadius - minorRadius12, -minorRadius12, -minorRadius), new Vec4(majorRadius + minorRadius12, majorRadius + minorRadius12, minorRadius12, minorRadius));
             this.boundingGlome = majorRadius + minorRadius12;
         }
         initializeMassInertia(rigid) {
             rigid.inertiaIsotroy = false;
             let maj1 = this.majorRadius * this.majorRadius;
-            this.majorRadius * this.minorRadius;
-            let min = this.minorRadius * this.minorRadius;
-            let min2 = this.minorRadius2 * this.minorRadius2;
-            rigid.inertia.set(2 * maj1 + min * 5, maj1 + min * 6 + min2, maj1 + min2, maj1 + min * 6 + min2, maj1 + min2, 2 * min + min2).mulfs(rigid.mass * 0.5);
+            this.majorRadius * this.middleRadius;
+            let min = this.middleRadius * this.middleRadius;
+            let min2 = this.minorRadius * this.middleRadius;
+            rigid.inertia.set(2 * maj1 + min * 5, maj1 + min * 6 + min2, maj1 + min2, maj1 + min * 6 + min2, maj1 + min2, 2 * min + min2).mulfs(rigid.mass * 0.2);
         }
     }
     rigid_1.Ditorus = Ditorus;
@@ -14194,6 +14710,8 @@ class NarrowPhase {
                 return this.detectTorisphereGlome(b, a);
             if (b instanceof rigid.Tiger)
                 return this.detectTigerGlome(b, a);
+            if (b instanceof rigid.Ditorus)
+                return this.detectDitorusGlome(b, a);
         }
         if (a instanceof rigid.Plane) {
             if (b instanceof rigid.Glome)
@@ -14206,6 +14724,8 @@ class NarrowPhase {
                 return this.detectTorispherePlane(b, a);
             if (b instanceof rigid.Tiger)
                 return this.detectTigerPlane(b, a);
+            if (b instanceof rigid.Ditorus)
+                return this.detectDitorusPlane(b, a);
         }
         if (a instanceof rigid.Convex) {
             if (b instanceof rigid.Plane)
@@ -14230,6 +14750,8 @@ class NarrowPhase {
                 return this.detectSpheritorusGlome(a, b);
             if (b instanceof rigid.Tiger)
                 return this.detectTigerSpheritorus(b, a);
+            if (b instanceof rigid.Ditorus)
+                return this.detectDitorusSpheritorus(b, a);
         }
         if (a instanceof rigid.Torisphere) {
             if (b instanceof rigid.Torisphere)
@@ -14242,6 +14764,8 @@ class NarrowPhase {
                 return this.detectTorisphereGlome(a, b);
             if (b instanceof rigid.Tiger)
                 return this.detectTigerTorisphere(b, a);
+            if (b instanceof rigid.Ditorus)
+                return this.detectDitorusTorisphere(b, a);
         }
         if (a instanceof rigid.Tiger) {
             if (b instanceof rigid.Tiger)
@@ -14250,10 +14774,26 @@ class NarrowPhase {
                 return this.detectTigerSpheritorus(a, b);
             if (b instanceof rigid.Torisphere)
                 return this.detectTigerTorisphere(a, b);
+            if (b instanceof rigid.Ditorus)
+                return this.detectDitorusTiger(b, a);
             if (b instanceof rigid.Plane)
                 return this.detectTigerPlane(a, b);
             if (b instanceof rigid.Glome)
                 return this.detectTigerGlome(a, b);
+        }
+        if (a instanceof rigid.Ditorus) {
+            if (b instanceof rigid.Plane)
+                return this.detectDitorusPlane(a, b);
+            if (b instanceof rigid.Glome)
+                return this.detectDitorusGlome(a, b);
+            if (b instanceof rigid.Spheritorus)
+                return this.detectDitorusSpheritorus(a, b);
+            if (b instanceof rigid.Torisphere)
+                return this.detectDitorusTorisphere(a, b);
+            if (b instanceof rigid.Tiger)
+                return this.detectDitorusTiger(a, b);
+            if (b instanceof rigid.Ditorus)
+                return this.detectDitorusDitorus(a, b);
         }
     }
     detectGlomeGlome(a, b) {
@@ -14887,30 +15427,321 @@ class NarrowPhase {
             });
         }
     }
+    detectDitorusPlane(a, b) {
+        // convert plane to ts's coord
+        let normal = _vec4.copy(b.normal).rotatesconj(a.rigid.rotation);
+        let offset = a.rigid.position.dot(b.normal) - b.offset;
+        let len1 = Math.hypot(normal.x, normal.y);
+        let len2 = Math.hypot(normal.z, len1);
+        let depth = a.minorRadius - offset + len1 * a.majorRadius + len2 * a.middleRadius;
+        if (depth < 0)
+            return;
+        // point on torus
+        let s2 = len2 ? -a.middleRadius / len2 : 0;
+        let s1 = (len1 ? -a.majorRadius / len1 : 0) + s2;
+        let point = new Vec4(normal.x * s1, normal.y * s1, normal.z * s2, 0);
+        // then to world coord and add normal
+        point.rotates(a.rigid.rotation).adds(a.rigid.position).addmulfs(b.normal, depth * 0.5 - a.minorRadius);
+        this.collisionList.push({ point, normal: b.normal.neg(), depth, a: a.rigid, b: b.rigid });
+    }
     detectDitorusGlome(a, b) {
         // convert glome to dt's coord
         let p = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
-        let xy = p.x * p.x + p.y * p.y;
-        let sqrtxy = Math.sqrt(xy);
-        let d1 = sqrtxy - a.majorRadius;
-        Math.sqrt(d1 * d1 + p.z * p.z);
-        a.majorRadius / sqrtxy;
-        // let d2 = Math.sqrt(d1);
-        // let zw = p.z * p.z + p.w * p.w;
-        // let sqrtzw = Math.sqrt(zw);
-        // let distance = Math.sqrt(
-        //     a.majorRadius1 * a.majorRadius1 + a.majorRadius2 * a.majorRadius2
-        //     + xy + zw - 2 * (sqrtxy * a.majorRadius1 + sqrtzw * a.majorRadius2)
-        // );
-        // let depth = a.minorRadius + b.radius - distance;
-        // if (depth < 0) return;
-        // // find support of circle along normal
-        // let k1 = sqrtxy ? a.majorRadius1 / sqrtxy : 0;
-        // let k2 = sqrtzw ? a.majorRadius2 / sqrtzw : 0;
-        // let point = new Vec4(p.x * k1, p.y * k1, p.z * k2, p.w * k2).rotates(a.rigid.rotation);
-        // let normal = point.adds(a.rigid.position).sub(b.rigid.position).norms().negs();
-        // point.addmulfs(normal, a.minorRadius - depth * 0.5);
-        // this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
+        let sqrtxy = Math.hypot(p.x, p.y);
+        let d1 = sqrtxy - a.majorRadius; // distance to circle in xy plane
+        let d13 = Math.hypot(d1, p.z); // distance to circle in xyz cell
+        let d2 = d13 - a.middleRadius; // distance to torus in xyz cell
+        let distance = Math.sqrt(d2 * d2 + p.w * p.w); // distance to torus in R4
+        let depth = a.minorRadius + b.radius - distance;
+        let kz = a.middleRadius / d13;
+        let kxy = a.majorRadius / sqrtxy;
+        kxy += (1 - kxy) * kz;
+        if (depth < 0)
+            return;
+        let point = new Vec4(p.x * kxy, p.y * kxy, p.z * kz, 0).rotates(a.rigid.rotation);
+        let normal = point.adds(a.rigid.position).sub(b.rigid.position).norms().negs();
+        point.addmulfs(normal, a.minorRadius - depth * 0.5);
+        this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
+    }
+    detectDitorusSpheritorus(a, b) {
+        // position and rotation are b in a's frame 
+        let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+        let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+        let tempa = b.majorRadius * 0.5;
+        let tempb = b.majorRadius * _COS30;
+        // choose 3 initial points (120 degree) on b for iteration
+        let initialPB = [
+            vec4Pool.pop().set(tempa, 0, 0, tempb),
+            vec4Pool.pop().set(tempa, 0, 0, -tempb),
+            vec4Pool.pop().set(-b.majorRadius)
+        ];
+        let newP = vec4Pool.pop();
+        let prevPInA = vec4Pool.pop();
+        let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+        for (let p of initialPB) {
+            // newP and p are in b
+            newP.copy(p);
+            for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                // from b to a
+                newP.rotates(rotation).adds(position);
+                let sqrtxy = Math.hypot(newP.x, newP.y);
+                let d1 = sqrtxy - a.majorRadius; // distance to circle in xy plane
+                let d13 = Math.hypot(d1, newP.z); // distance to circle in xyz cell
+                let kz = a.middleRadius / d13;
+                if (!isFinite(kz))
+                    break;
+                let kxy = a.majorRadius / sqrtxy;
+                if (!isFinite(kxy))
+                    break;
+                kxy += (1 - kxy) * kz;
+                // project to a
+                newP.set(newP.x * kxy, newP.y * kxy, newP.z * kz, 0);
+                prevPInA.copy(newP);
+                // from a to b
+                newP.subs(position).rotatesconj(rotation);
+                let k = b.majorRadius / Math.hypot(newP.x, newP.w);
+                if (!isFinite(k))
+                    break;
+                // project to b
+                newP.set(newP.x * k, 0, 0, newP.w * k);
+                // test if iteration still moves
+                let dx = Math.abs(newP.x - p.x);
+                let dw = Math.abs(newP.w - p.w);
+                p.copy(newP);
+                if (dx + dw < epsilon)
+                    break;
+            }
+            // console.log(converge);
+            // else there might be collision
+            // transform newP to a, then compare newP and prevPInA
+            newP.rotates(rotation).adds(position);
+            let normal = newP.sub(prevPInA);
+            let depth = a.minorRadius + b.minorRadius - normal.norm();
+            if (depth < 0)
+                continue;
+            normal.rotates(a.rigid.rotation).norms();
+            let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+            point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+            this.collisionList.push({
+                normal, point, depth, a: a.rigid, b: b.rigid
+            });
+        }
+    }
+    detectDitorusTorisphere(a, b) {
+        // position and rotation are b in a's frame 
+        let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+        let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+        let temp = b.majorRadius * _TAN30;
+        // choose 4 initial points (regular tetrahedron) on b for iteration
+        let initialPB = [
+            vec4Pool.pop().set(temp, 0, temp, temp),
+            vec4Pool.pop().set(-temp, 0, -temp, temp),
+            vec4Pool.pop().set(-temp, 0, temp, -temp),
+            vec4Pool.pop().set(temp, 0, -temp, -temp),
+        ];
+        let newP = vec4Pool.pop();
+        let prevPInA = vec4Pool.pop();
+        let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+        for (let p of initialPB) {
+            // newP and p are in b
+            newP.copy(p);
+            for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                // from b to a
+                newP.rotates(rotation).adds(position);
+                let sqrtxy = Math.hypot(newP.x, newP.y);
+                let d1 = sqrtxy - a.majorRadius; // distance to circle in xy plane
+                let d13 = Math.hypot(d1, newP.z); // distance to circle in xyz cell
+                let kz = a.middleRadius / d13;
+                if (!isFinite(kz))
+                    break;
+                let kxy = a.majorRadius / sqrtxy;
+                if (!isFinite(kxy))
+                    break;
+                kxy += (1 - kxy) * kz;
+                // project to a
+                newP.set(newP.x * kxy, newP.y * kxy, newP.z * kz, 0);
+                prevPInA.copy(newP);
+                // from a to b
+                newP.subs(position).rotatesconj(rotation);
+                let k = b.majorRadius / Math.hypot(newP.x, newP.z, newP.w);
+                if (!isFinite(k))
+                    break;
+                // project to b
+                newP.set(newP.x * k, 0, newP.z * k, newP.w * k);
+                // test if iteration still moves
+                let dx = Math.abs(newP.x - p.x);
+                let dz = Math.abs(newP.z - p.z);
+                let dw = Math.abs(newP.w - p.w);
+                p.copy(newP);
+                if (dx + dz + dw < epsilon)
+                    break;
+            }
+            // console.log(converge);
+            // else there might be collision
+            // transform newP to a, then compare newP and prevPInA
+            newP.rotates(rotation).adds(position);
+            let normal = newP.sub(prevPInA);
+            let depth = a.minorRadius + b.minorRadius - normal.norm();
+            if (depth < 0)
+                continue;
+            normal.rotates(a.rigid.rotation).norms();
+            let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+            point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+            this.collisionList.push({
+                normal, point, depth, a: a.rigid, b: b.rigid
+            });
+        }
+    }
+    detectDitorusTiger(a, b) {
+        // position and rotation are b in a's frame 
+        let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+        let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+        let temp1 = b.majorRadius1;
+        let temp2 = b.majorRadius2;
+        // choose 8 initial points (w1=0.5,w2=1/4+1/4i) on b for iteration
+        let initialPB = [
+            vec4Pool.pop().set(temp1, 0, temp2, 0),
+            vec4Pool.pop().set(temp1, 0, -temp2, 0),
+            vec4Pool.pop().set(-temp1, 0, temp2, 0),
+            vec4Pool.pop().set(-temp1, 0, -temp2, 0),
+            vec4Pool.pop().set(0, temp1, 0, temp2),
+            vec4Pool.pop().set(0, temp1, 0, -temp2),
+            vec4Pool.pop().set(0, -temp1, 0, temp2),
+            vec4Pool.pop().set(0, -temp1, 0, -temp2),
+        ];
+        let newP = vec4Pool.pop();
+        let prevPInA = vec4Pool.pop();
+        let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+        for (let p of initialPB) {
+            // newP and p are in b
+            newP.copy(p);
+            for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                // from b to a
+                newP.rotates(rotation).adds(position);
+                let sqrtxy = Math.hypot(newP.x, newP.y);
+                let d1 = sqrtxy - a.majorRadius; // distance to circle in xy plane
+                let d13 = Math.hypot(d1, newP.z); // distance to circle in xyz cell
+                let kz = a.middleRadius / d13;
+                if (!isFinite(kz))
+                    break;
+                let kxy = a.majorRadius / sqrtxy;
+                if (!isFinite(kxy))
+                    break;
+                kxy += (1 - kxy) * kz;
+                // project to a
+                newP.set(newP.x * kxy, newP.y * kxy, newP.z * kz, 0);
+                prevPInA.copy(newP);
+                // from a to b
+                newP.subs(position).rotatesconj(rotation);
+                let k1 = b.majorRadius1 / Math.hypot(newP.x, newP.y);
+                if (!isFinite(k1))
+                    break;
+                let k2 = b.majorRadius2 / Math.hypot(newP.z, newP.w);
+                if (!isFinite(k2))
+                    break;
+                // project to b
+                newP.set(newP.x * k1, newP.y * k1, newP.z * k2, newP.w * k2);
+                // test if iteration still moves
+                let dx = Math.abs(newP.x - p.x);
+                let dy = Math.abs(newP.y - p.y);
+                let dz = Math.abs(newP.z - p.z);
+                let dw = Math.abs(newP.w - p.w);
+                p.copy(newP);
+                if (dx + dy + dz + dw < epsilon)
+                    break;
+            }
+            // console.log(converge);
+            // else there might be collision
+            // transform newP to a, then compare newP and prevPInA
+            newP.rotates(rotation).adds(position);
+            let normal = newP.sub(prevPInA);
+            let depth = a.minorRadius + b.minorRadius - normal.norm();
+            if (depth < 0)
+                continue;
+            normal.rotates(a.rigid.rotation).norms();
+            let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+            point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+            this.collisionList.push({
+                normal, point, depth, a: a.rigid, b: b.rigid
+            });
+        }
+    }
+    detectDitorusDitorus(a, b) {
+        // position and rotation are b in a's frame 
+        let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+        let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+        let temp1 = b.majorRadius;
+        let temp2 = b.middleRadius;
+        // choose 8 initial points (w1=0.5,w2=1/4+1/4i) on b for iteration
+        let initialPB = [
+            vec4Pool.pop().set(temp1 + temp2),
+            vec4Pool.pop().set(temp1 - temp2),
+            vec4Pool.pop().set(-temp1 + temp2),
+            vec4Pool.pop().set(-temp1 - temp2),
+            vec4Pool.pop().set(0, temp1, temp2),
+            vec4Pool.pop().set(0, temp1, -temp2),
+            vec4Pool.pop().set(0, -temp1, temp2),
+            vec4Pool.pop().set(0, -temp1, -temp2),
+        ];
+        let newP = vec4Pool.pop();
+        let prevPInA = vec4Pool.pop();
+        let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+        for (let p of initialPB) {
+            // newP and p are in b
+            newP.copy(p);
+            for (let iterationCount = 0; iterationCount < this.maxIteration; iterationCount++) {
+                // from b to a
+                newP.rotates(rotation).adds(position);
+                let sqrtxy = Math.hypot(newP.x, newP.y);
+                let d1 = sqrtxy - a.majorRadius; // distance to circle in xy plane
+                let d13 = Math.hypot(d1, newP.z); // distance to circle in xyz cell
+                let kz = a.middleRadius / d13;
+                if (!isFinite(kz))
+                    break;
+                let kxy = a.majorRadius / sqrtxy;
+                if (!isFinite(kxy))
+                    break;
+                kxy += (1 - kxy) * kz;
+                // project to a
+                newP.set(newP.x * kxy, newP.y * kxy, newP.z * kz, 0);
+                prevPInA.copy(newP);
+                // from a to b
+                newP.subs(position).rotatesconj(rotation);
+                sqrtxy = Math.hypot(newP.x, newP.y);
+                d1 = sqrtxy - a.majorRadius; // distance to circle in xy plane
+                d13 = Math.hypot(d1, newP.z); // distance to circle in xyz cell
+                kz = a.middleRadius / d13;
+                if (!isFinite(kz))
+                    break;
+                kxy = a.majorRadius / sqrtxy;
+                if (!isFinite(kxy))
+                    break;
+                kxy += (1 - kxy) * kz;
+                // project to b
+                newP.set(newP.x * kxy, newP.y * kxy, newP.z * kz, 0);
+                // test if iteration still moves
+                let dx = Math.abs(newP.x - p.x);
+                let dy = Math.abs(newP.y - p.y);
+                let dz = Math.abs(newP.z - p.z);
+                p.copy(newP);
+                if (dx + dy + dz < epsilon)
+                    break;
+            }
+            // console.log(converge);
+            // else there might be collision
+            // transform newP to a, then compare newP and prevPInA
+            newP.rotates(rotation).adds(position);
+            let normal = newP.sub(prevPInA);
+            let depth = a.minorRadius + b.minorRadius - normal.norm();
+            if (depth < 0)
+                continue;
+            normal.rotates(a.rigid.rotation).norms();
+            let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+            point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+            this.collisionList.push({
+                normal, point, depth, a: a.rigid, b: b.rigid
+            });
+        }
     }
 }
 
@@ -16478,7 +17309,7 @@ class RetinaController {
         }
         this.needResize = false;
         if (stereo) {
-            if (state.isKeyHold(this.keyConfig.addEyes3dGap)) {
+            if (on(this.keyConfig.addEyes3dGap)) {
                 this.retinaEyeOffset *= 1.05;
                 if (this.retinaEyeOffset > 0.4)
                     this.retinaEyeOffset = 0.4;
@@ -16487,7 +17318,7 @@ class RetinaController {
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
                 displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (state.isKeyHold(this.keyConfig.subEyes3dGap)) {
+            if (on(this.keyConfig.subEyes3dGap)) {
                 this.retinaEyeOffset /= 1.05;
                 if (this.retinaEyeOffset > 0 && this.retinaEyeOffset < 0.03)
                     this.retinaEyeOffset = 0.03;
@@ -16496,7 +17327,7 @@ class RetinaController {
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
                 displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (state.isKeyHold(this.keyConfig.addEyes4dGap)) {
+            if (on(this.keyConfig.addEyes4dGap)) {
                 this.sectionEyeOffset *= 1.05;
                 if (this.sectionEyeOffset > this.maxSectionEyeOffset)
                     this.sectionEyeOffset = this.maxSectionEyeOffset;
@@ -16505,7 +17336,7 @@ class RetinaController {
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
                 displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (state.isKeyHold(this.keyConfig.subEyes4dGap)) {
+            if (on(this.keyConfig.subEyes4dGap)) {
                 this.sectionEyeOffset /= 1.05;
                 if (this.sectionEyeOffset > 0 && this.sectionEyeOffset < this.minSectionEyeOffset)
                     this.sectionEyeOffset = this.minSectionEyeOffset;
@@ -16514,7 +17345,7 @@ class RetinaController {
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
                 displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (state.isKeyHold(this.keyConfig.negEyesGap)) {
+            if (on(this.keyConfig.negEyesGap)) {
                 this.sectionEyeOffset = -this.sectionEyeOffset;
                 this.retinaEyeOffset = -this.retinaEyeOffset;
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
