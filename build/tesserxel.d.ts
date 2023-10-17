@@ -2522,6 +2522,36 @@ interface SolverConstructor {
 declare abstract class Solver {
     abstract run(collisionList: Collision[], constrainList: Constrain[]): void;
 }
+interface PreparedCollision extends Collision {
+    separateSpeed: number;
+    relativeVelocity: Vec4;
+    materialA: Material;
+    materialB?: Material;
+    dvA?: Vec4;
+    dvB?: Vec4;
+    dwA?: Bivec;
+    dwB?: Bivec;
+    pointConstrain?: PointConstrain;
+}
+declare class IterativeImpulseSolver extends Solver {
+    maxPositionIterations: number;
+    maxVelocityIterations: number;
+    maxResolveRotationAngle: number;
+    separateSpeedEpsilon: number;
+    PositionRelaxationFactor: number;
+    collisionList: PreparedCollision[];
+    private _vec41;
+    private _vec42;
+    private pointConstrainMaterial;
+    run(collisionList: Collision[], constrainList: Constrain[]): void;
+    prepare(collisionList: Collision[], constrainList: Constrain[]): void;
+    resolveVelocity(): void;
+    updateSeparateSpeeds(collision: PreparedCollision): void;
+    updateSeparateSpeed(collision: PreparedCollision, rigidIsA: boolean, rigid: Rigid, dv: Vec4, dw: Bivec): void;
+    resolvePosition(): void;
+    updateDepths(collision: PreparedCollision): void;
+    updateDepth(collision: PreparedCollision, rigidIsA: boolean, rigid: Rigid, dv: Vec4, dw: Bivec): void;
+}
 
 interface EngineOption {
     forceAccumulator?: ForceAccumulatorConstructor;
@@ -2610,6 +2640,12 @@ type physics_d_CurrentElement = CurrentElement;
 type physics_d_CurrentCircuit = CurrentCircuit;
 type physics_d_MaxWell = MaxWell;
 declare const physics_d_MaxWell: typeof MaxWell;
+type physics_d_SolverConstructor = SolverConstructor;
+type physics_d_Solver = Solver;
+declare const physics_d_Solver: typeof Solver;
+type physics_d_PreparedCollision = PreparedCollision;
+type physics_d_IterativeImpulseSolver = IterativeImpulseSolver;
+declare const physics_d_IterativeImpulseSolver: typeof IterativeImpulseSolver;
 declare namespace physics_d {
   export {
     physics_d_PointConstrain as PointConstrain,
@@ -2636,6 +2672,10 @@ declare namespace physics_d {
     physics_d_CurrentElement as CurrentElement,
     physics_d_CurrentCircuit as CurrentCircuit,
     physics_d_MaxWell as MaxWell,
+    physics_d_SolverConstructor as SolverConstructor,
+    physics_d_Solver as Solver,
+    physics_d_PreparedCollision as PreparedCollision,
+    physics_d_IterativeImpulseSolver as IterativeImpulseSolver,
   };
 }
 

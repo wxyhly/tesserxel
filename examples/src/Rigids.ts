@@ -242,10 +242,10 @@ export namespace st_pile {
         function run() {
             // emit a tesseract for every 256 ticks
             if ((tick++ & 0xFF) === 0xFF) {
-                const seed = (tick >> 8)&7;
+                const seed = (tick >> 8) & 7;
                 let spheritorus = new phy.Rigid({
-                    geometry: seed === 4 ? new phy.rigid.Ditorus(0.8, 0.3,0.15) :seed === 6 ?
-                    new phy.rigid.Torisphere(1, 0.3):  new phy.rigid.Spheritorus(1, 0.3),
+                    geometry: seed === 4 ? new phy.rigid.Ditorus(0.8, 0.3, 0.15) : seed === 6 ?
+                        new phy.rigid.Torisphere(1, 0.3) : new phy.rigid.Spheritorus(1, 0.3),
                     material: phyMatSt, mass: 1
                 });
                 spheritorus.position.y = 8;
@@ -652,7 +652,7 @@ export namespace tg_tg_chain {
         run();
     }
 }
-export namespace dzhanibekov {
+namespace dzhanibekov {
     class GUI {
         canvasHeight: number = 200;
         /// horizontal factor for sun angle curve
@@ -734,7 +734,7 @@ export namespace dzhanibekov {
             draw("Wzw", 0.4, this.data2, "zw", "rgb(0,130,140)");
         }
     }
-    export async function load() {
+    export async function load(size: tesserxel.math.Vec4, initW: tesserxel.math.Bivec) {
         const engine = new phy.Engine({ substep: 50, broadPhase: phy.IgnoreAllBroadPhase });
         const world = new phy.World();
         world.gravity.set();
@@ -748,11 +748,11 @@ export namespace dzhanibekov {
         const renderMat = new FOUR.LambertMaterial(new FOUR.CheckerTexture([1, 1, 1, 0.4], [0.2, 0.2, 0.2, 0.8]));
         let g = new phy.Rigid({
             // geometry: new phy.rigid.Tesseractoid(new math.Vec4(1,1.1,1.2,1.3)),
-            geometry: new phy.rigid.Tesseractoid(new math.Vec4(1.1, 0.6, 1.3, 0.8)),
+            geometry: new phy.rigid.Tesseractoid(size),
             // geometry: new phy.rigid.Tesseractoid(new math.Vec4(0.2,0.4,0.8,1.6)),
             mass: 2, material: new phy.Material(1, 1)
         });
-        g.angularVelocity.set(1e-4, 1e-4, 1e-4, 1, 1e-4, 1e-4);
+        g.angularVelocity.copy(initW);
         const fixMeshMG = new FOUR.Mesh(new FOUR.TesseractGeometry(new math.Vec4(compassLongueur, compassThickness, compassThickness, compassThickness)), new FOUR.LambertMaterial([1, 0, 0, 0.3]));
         const fixMeshWE = new FOUR.Mesh(new FOUR.TesseractGeometry(new math.Vec4(compassThickness, compassThickness, compassLongueur, compassThickness)), new FOUR.LambertMaterial([0, 0.8, 0, 0.3]));
         const fixMeshNS = new FOUR.Mesh(new FOUR.TesseractGeometry(new math.Vec4(compassThickness, compassThickness, compassThickness, compassLongueur)), new FOUR.LambertMaterial([0, 0, 1, 0.3]));
@@ -810,6 +810,24 @@ export namespace dzhanibekov {
         run();
     }
 }
+export namespace dzhanibekov2 {
+    export async function load() {
+        await dzhanibekov.load(
+            new math.Vec4(0.6, 0.8, 1.1, 1.3),
+            new math.Bivec(1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4).adds(math.Bivec.xw.mulf(1.5))
+        );
+    }
+}
+export namespace dzhanibekov1 {
+    export async function load() {
+        await dzhanibekov.load(
+            new math.Vec4(0.6, 0.8, 1.1, 1.3),
+            new math.Bivec(1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4).adds(math.Bivec.xz.mulf(1.5))
+        );
+    }
+}
+
+
 async function loadGyroScene(cwmesh: tesserxel.mesh.CWMesh, material: tesserxel.four.Material) {
     const engine = new phy.Engine({ substep: 30, forceAccumulator: phy.force_accumulator.RK4 });
     const world = new phy.World();
@@ -1247,6 +1265,103 @@ export namespace mix_chain {
         run();
     }
 }
+export namespace dt_ts_chain {
+    export async function load() {
+        const engine = new phy.Engine({ substep: 30 });
+        (engine.solver as tesserxel.physics.IterativeImpulseSolver).maxVelocityIterations = 64;
+        (engine.solver as tesserxel.physics.IterativeImpulseSolver).maxPositionIterations = 64;
+        (engine.solver as tesserxel.physics.IterativeImpulseSolver).PositionRelaxationFactor = 0.5;
+        const world = new phy.World();
+        // world.gravity.set(0,-1);
+        const scene = new FOUR.Scene();
+        // define physical materials: frictions and restitutions
+        const phyMatChain = new phy.Material(0.4, 0.4);
+        const phyMatGround = new phy.Material(1.3, 0.4);
+        // define render materials
+        const renderMatDT = new FOUR.LambertMaterial([0.4, 0.4, 0.4, 0.1]);
+        const renderMatST = new FOUR.LambertMaterial([1, 1, 0.1, 3]);
+        const renderMatTS = new FOUR.LambertMaterial([0.2, 0.2, 1, 0.1]);
+        // const renderMatTS2 = new FOUR.LambertMaterial([1, 0.2, 0.2, 1]);
+        const renderMatGround = new FOUR.LambertMaterial([0.2, 1, 0.2, 0.02]);
+        // add ground
+        addRigidToScene(world, scene, renderMatGround, new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, 1)),
+            mass: 0, material: phyMatGround
+        }));
+        let dtArr = [];
+        let tsArr = [];
+        const gap = 1.4;
+        for (let i = 0; i < 6; i++) {
+            let dt = new phy.Rigid({
+                geometry: new phy.rigid.Ditorus(1.8, 1.2, 0.2),
+                mass: 1, material: phyMatChain
+            });
+            addRigidToScene(world, scene, renderMatDT, dt);
+            dt.position.set(0, 14 - i * gap, 0, (i & 1) ? 0.6 : -0.6);
+            dt.rotatesb(math.Bivec.yz.mulf(math._90));
+            dtArr.push(dt);
+            let ts = new phy.Rigid({
+                geometry: new phy.rigid.Torisphere(1.8, 0.2),
+                mass: 1, material: phyMatChain
+            });
+            addRigidToScene(world, scene, renderMatTS, ts);
+            ts.position.set(0, 14 - (i + 0.5) * gap, 0, 0);
+            ts.rotatesb(math.Bivec.yw.mulf(math._90)).rotatesb(math.Bivec.zw.mulf(math._90)).rotatesb(math.Bivec.yz.mulf(math._90));
+
+            tsArr.push(ts);
+        }
+        // set up lights, camera and renderer
+
+        let camera = new FOUR.Camera();
+        camera.position.w = 9;
+        camera.position.y = 8;
+        camera.position.z = 0.1;
+        scene.add(camera);
+        initScene(scene);
+
+        const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+        const renderer = await new FOUR.Renderer(canvas).init();
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
+
+        // controllers
+
+        const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        camCtrl.keyMoveSpeed = 0.01;
+
+        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
+
+        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+            retinaCtrl,
+            camCtrl,
+        ], { enablePointerLock: true });
+
+        function setSize() {
+            let width = window.innerWidth * window.devicePixelRatio;
+            let height = window.innerHeight * window.devicePixelRatio;
+            renderer.setSize({ width, height });
+        }
+        function run() {
+            // console.log(dtArr[0].position);
+            // syncronise physics world and render scene
+            updateRidigsInScene();
+            // update controller states
+            controllerRegistry.update();
+            // rendering
+            renderer.render(scene, camera);
+            // simulating physics
+            // engine.update(world, 1 / 60);
+
+            window.requestAnimationFrame(run);
+        }
+        window.addEventListener("resize", setSize);
+        setSize();
+        run();
+    }
+}
 export namespace ditorus {
     export async function load() {
         const engine = new phy.Engine({ substep: 100 });
@@ -1267,28 +1382,28 @@ export namespace ditorus {
             mass: 0, material: phyMatGround
         }));
         const dt = new phy.Rigid({
-            geometry: new phy.rigid.Ditorus(1.8,0.9,0.4),
+            geometry: new phy.rigid.Ditorus(1.8, 0.9, 0.4),
             mass: 1, material: phyMatChain
         });
         const st = new phy.Rigid({
-            geometry: new phy.rigid.Spheritorus(1.6,0.15),
+            geometry: new phy.rigid.Spheritorus(1.6, 0.15),
             mass: 1, material: phyMatChain
         });
-        
+
         const ts1 = new phy.Rigid({
-            geometry: new phy.rigid.Torisphere(1.65,0.15),
+            geometry: new phy.rigid.Torisphere(1.65, 0.15),
             mass: 1, material: phyMatChain
         });
         const ts2 = new phy.Rigid({
-            geometry: new phy.rigid.Torisphere(1.65,0.15),
+            geometry: new phy.rigid.Torisphere(1.65, 0.15),
             mass: 1, material: phyMatChain
         });
         dt.position.y = 8;
-        ts1.position.set(0,8,0.17,0);
+        ts1.position.set(0, 8, 0.17, 0);
         ts1.rotatesb(math.Bivec.yw.mulf(math._90)).rotatesb(math.Bivec.zw.mulf(math._90));
-        ts2.position.set(0,8,-0.17,0);
+        ts2.position.set(0, 8, -0.17, 0);
         ts2.rotatesb(math.Bivec.yw.mulf(math._90)).rotatesb(math.Bivec.zw.mulf(math._90));
-        st.position.set(3,9.4,0,0);
+        st.position.set(3, 9.4, 0, 0);
         // st2.rotatesb(math.Bivec.zw.mulf(math._90));
         world.add(new phy.PointConstrain(
             st, null, math.Vec4.x, st.position.add(math.Vec4.x.rotate(st.rotation))

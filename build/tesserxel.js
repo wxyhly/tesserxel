@@ -12652,7 +12652,7 @@ class Matrix {
         }
         return det;
     }
-    QRdecompose() {
+    decomposeQR() {
         const m = this.row;
         const n = this.col;
         const qv = [];
@@ -12700,11 +12700,11 @@ class Matrix {
         // m = O L O'
         function OLOdecompose(m) {
             const tempMat = m.clone();
-            let { Q, R } = tempMat.QRdecompose();
+            let { Q, R } = tempMat.decomposeQR();
             const qv = Q.clone();
             for (let i = 0; i < iterations; i++) {
                 tempMat.mulset(R, Q);
-                const { Q: Q2, R: R2 } = tempMat.QRdecompose();
+                const { Q: Q2, R: R2 } = tempMat.decomposeQR();
                 qv.mulsr(Q2);
                 Q = Q2;
                 R = R2;
@@ -15797,6 +15797,8 @@ class IterativeImpulseSolver extends Solver {
                     point = this._vec41.adds(pointB).mulfs(0.5);
                 }
                 let depth = normal.norm();
+                if (depth === 0)
+                    continue;
                 normal.divfs(depth);
                 relativeVelocity.negs();
                 this.collisionList.push({
@@ -15816,6 +15818,8 @@ class IterativeImpulseSolver extends Solver {
         for (let i = 0; i < this.maxVelocityIterations; i++) {
             let collision = this.collisionList.sort((a, b) => ((a.pointConstrain ? (-Math.abs(a.separateSpeed)) : a.separateSpeed)
                 - (b.pointConstrain ? (-Math.abs(b.separateSpeed)) : b.separateSpeed)))[0];
+            if (!collision)
+                return;
             let { point, a, b, separateSpeed, normal, relativeVelocity, materialA, materialB } = collision;
             if (!collision.pointConstrain) {
                 if (separateSpeed >= 0)
@@ -15916,6 +15920,8 @@ class IterativeImpulseSolver extends Solver {
         // iteratively solve the deepest
         for (let i = 0; i < this.maxPositionIterations; i++) {
             let collision = this.collisionList.sort((a, b) => b.depth - a.depth)[0];
+            if (!collision)
+                return;
             let { point, a, b, depth, normal } = collision;
             if (depth <= 0)
                 return;
@@ -16222,7 +16228,9 @@ var physics = /*#__PURE__*/Object.freeze({
     Force: Force,
     Spring: Spring,
     Damping: Damping,
-    MaxWell: MaxWell
+    MaxWell: MaxWell,
+    Solver: Solver,
+    IterativeImpulseSolver: IterativeImpulseSolver
 });
 
 function toSize3DDict(size) {

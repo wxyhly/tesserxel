@@ -311,7 +311,7 @@ export class Matrix {
         }
         return det;
     }
-    QRdecompose() {
+    decomposeQR() {
         const m = this.row;
         const n = this.col;
 
@@ -369,11 +369,11 @@ export class Matrix {
         // m = O L O'
         function OLOdecompose(m: Matrix) {
             const tempMat = m.clone();
-            let { Q, R } = tempMat.QRdecompose();
+            let { Q, R } = tempMat.decomposeQR();
             const qv = Q.clone();
             for (let i = 0; i < iterations; i++) {
                 tempMat.mulset(R, Q);
-                const { Q: Q2, R: R2 } = tempMat.QRdecompose();
+                const { Q: Q2, R: R2 } = tempMat.decomposeQR();
                 qv.mulsr(Q2);
                 Q = Q2; R = R2;
             }

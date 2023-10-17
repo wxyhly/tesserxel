@@ -75,7 +75,7 @@ export class IterativeImpulseSolver extends Solver {
                     normal = this._vec41.adds(a.position).sub(pointB);
                     point = this._vec41.adds(pointB).mulfs(0.5);
                 }
-                let depth = normal.norm(); normal.divfs(depth);
+                let depth = normal.norm(); if (depth === 0) continue; normal.divfs(depth);
                 relativeVelocity.negs();
                 this.collisionList.push({
                     a, b, normal, depth,
@@ -97,6 +97,7 @@ export class IterativeImpulseSolver extends Solver {
                 (a.pointConstrain ? (-Math.abs(a.separateSpeed)) : a.separateSpeed)
                 - (b.pointConstrain ? (-Math.abs(b.separateSpeed)) : b.separateSpeed)
             ))[0];
+            if(!collision) return;
             let { point, a, b, separateSpeed, normal, relativeVelocity, materialA, materialB } = collision;
             if (!collision.pointConstrain) {
                 if (separateSpeed >= 0) return;
@@ -186,6 +187,7 @@ export class IterativeImpulseSolver extends Solver {
         // iteratively solve the deepest
         for (let i = 0; i < this.maxPositionIterations; i++) {
             let collision = this.collisionList.sort((a, b) => b.depth - a.depth)[0];
+            if(!collision) return;
             let { point, a, b, depth, normal } = collision;
             if (depth <= 0) return;
             if (depth > 10) {
@@ -235,7 +237,7 @@ export class IterativeImpulseSolver extends Solver {
                     console.error("A numeric error occured in Rigid collision solver: dvA,dwA in resolvePosition");
                 }
                 a.position.adds(collision.dvA);
-                let r = rotorPool.pop().expset(collision.dwA!);
+                let r = rotorPool.pop().expset(collision.dwA);
                 a.rotation.mulsl(r); r.pushPool();
                 if (!isFinite(a.rotation.l.norm() + a.rotation.r.norm() + a.position.norm1())) {
                     console.error("A numeric error occured in Rigid collision solver: dvA,dwA in resolvePosition");

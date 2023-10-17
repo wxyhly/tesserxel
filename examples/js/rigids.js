@@ -616,7 +616,7 @@ export var tg_tg_chain;
     }
     tg_tg_chain.load = load;
 })(tg_tg_chain || (tg_tg_chain = {}));
-export var dzhanibekov;
+var dzhanibekov;
 (function (dzhanibekov) {
     class GUI {
         canvasHeight = 200;
@@ -698,7 +698,7 @@ export var dzhanibekov;
             draw("Wzw", 0.4, this.data2, "zw", "rgb(0,130,140)");
         }
     }
-    async function load() {
+    async function load(size, initW) {
         const engine = new phy.Engine({ substep: 50, broadPhase: phy.IgnoreAllBroadPhase });
         const world = new phy.World();
         world.gravity.set();
@@ -712,11 +712,11 @@ export var dzhanibekov;
         const renderMat = new FOUR.LambertMaterial(new FOUR.CheckerTexture([1, 1, 1, 0.4], [0.2, 0.2, 0.2, 0.8]));
         let g = new phy.Rigid({
             // geometry: new phy.rigid.Tesseractoid(new math.Vec4(1,1.1,1.2,1.3)),
-            geometry: new phy.rigid.Tesseractoid(new math.Vec4(1.1, 0.6, 1.3, 0.8)),
+            geometry: new phy.rigid.Tesseractoid(size),
             // geometry: new phy.rigid.Tesseractoid(new math.Vec4(0.2,0.4,0.8,1.6)),
             mass: 2, material: new phy.Material(1, 1)
         });
-        g.angularVelocity.set(1e-4, 1e-4, 1e-4, 1, 1e-4, 1e-4);
+        g.angularVelocity.copy(initW);
         const fixMeshMG = new FOUR.Mesh(new FOUR.TesseractGeometry(new math.Vec4(compassLongueur, compassThickness, compassThickness, compassThickness)), new FOUR.LambertMaterial([1, 0, 0, 0.3]));
         const fixMeshWE = new FOUR.Mesh(new FOUR.TesseractGeometry(new math.Vec4(compassThickness, compassThickness, compassLongueur, compassThickness)), new FOUR.LambertMaterial([0, 0.8, 0, 0.3]));
         const fixMeshNS = new FOUR.Mesh(new FOUR.TesseractGeometry(new math.Vec4(compassThickness, compassThickness, compassThickness, compassLongueur)), new FOUR.LambertMaterial([0, 0, 1, 0.3]));
@@ -769,6 +769,20 @@ export var dzhanibekov;
     }
     dzhanibekov.load = load;
 })(dzhanibekov || (dzhanibekov = {}));
+export var dzhanibekov2;
+(function (dzhanibekov2) {
+    async function load() {
+        await dzhanibekov.load(new math.Vec4(0.6, 0.8, 1.1, 1.3), new math.Bivec(1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4).adds(math.Bivec.xw.mulf(1.5)));
+    }
+    dzhanibekov2.load = load;
+})(dzhanibekov2 || (dzhanibekov2 = {}));
+export var dzhanibekov1;
+(function (dzhanibekov1) {
+    async function load() {
+        await dzhanibekov.load(new math.Vec4(0.6, 0.8, 1.1, 1.3), new math.Bivec(1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4).adds(math.Bivec.xz.mulf(1.5)));
+    }
+    dzhanibekov1.load = load;
+})(dzhanibekov1 || (dzhanibekov1 = {}));
 async function loadGyroScene(cwmesh, material) {
     const engine = new phy.Engine({ substep: 30, forceAccumulator: phy.force_accumulator.RK4 });
     const world = new phy.World();
@@ -1185,6 +1199,96 @@ export var mix_chain;
     }
     mix_chain.load = load;
 })(mix_chain || (mix_chain = {}));
+export var dt_ts_chain;
+(function (dt_ts_chain) {
+    async function load() {
+        const engine = new phy.Engine({ substep: 30 });
+        engine.solver.maxVelocityIterations = 64;
+        engine.solver.maxPositionIterations = 64;
+        engine.solver.PositionRelaxationFactor = 0.5;
+        const world = new phy.World();
+        // world.gravity.set(0,-1);
+        const scene = new FOUR.Scene();
+        // define physical materials: frictions and restitutions
+        const phyMatChain = new phy.Material(0.4, 0.4);
+        const phyMatGround = new phy.Material(1.3, 0.4);
+        // define render materials
+        const renderMatDT = new FOUR.LambertMaterial([0.4, 0.4, 0.4, 0.1]);
+        const renderMatST = new FOUR.LambertMaterial([1, 1, 0.1, 3]);
+        const renderMatTS = new FOUR.LambertMaterial([0.2, 0.2, 1, 0.1]);
+        // const renderMatTS2 = new FOUR.LambertMaterial([1, 0.2, 0.2, 1]);
+        const renderMatGround = new FOUR.LambertMaterial([0.2, 1, 0.2, 0.02]);
+        // add ground
+        addRigidToScene(world, scene, renderMatGround, new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, 1)),
+            mass: 0, material: phyMatGround
+        }));
+        let dtArr = [];
+        let tsArr = [];
+        const gap = 1.4;
+        for (let i = 0; i < 6; i++) {
+            let dt = new phy.Rigid({
+                geometry: new phy.rigid.Ditorus(1.8, 1.2, 0.2),
+                mass: 1, material: phyMatChain
+            });
+            addRigidToScene(world, scene, renderMatDT, dt);
+            dt.position.set(0, 14 - i * gap, 0, (i & 1) ? 0.6 : -0.6);
+            dt.rotatesb(math.Bivec.yz.mulf(math._90));
+            dtArr.push(dt);
+            let ts = new phy.Rigid({
+                geometry: new phy.rigid.Torisphere(1.8, 0.2),
+                mass: 1, material: phyMatChain
+            });
+            addRigidToScene(world, scene, renderMatTS, ts);
+            ts.position.set(0, 14 - (i + 0.5) * gap, 0, 0);
+            ts.rotatesb(math.Bivec.yw.mulf(math._90)).rotatesb(math.Bivec.zw.mulf(math._90)).rotatesb(math.Bivec.yz.mulf(math._90));
+            tsArr.push(ts);
+        }
+        // set up lights, camera and renderer
+        let camera = new FOUR.Camera();
+        camera.position.w = 9;
+        camera.position.y = 8;
+        camera.position.z = 0.1;
+        scene.add(camera);
+        initScene(scene);
+        const canvas = document.getElementById("gpu-canvas");
+        const renderer = await new FOUR.Renderer(canvas).init();
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
+        // controllers
+        const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        camCtrl.keyMoveSpeed = 0.01;
+        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
+        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+            retinaCtrl,
+            camCtrl,
+        ], { enablePointerLock: true });
+        function setSize() {
+            let width = window.innerWidth * window.devicePixelRatio;
+            let height = window.innerHeight * window.devicePixelRatio;
+            renderer.setSize({ width, height });
+        }
+        function run() {
+            // console.log(dtArr[0].position);
+            // syncronise physics world and render scene
+            updateRidigsInScene();
+            // update controller states
+            controllerRegistry.update();
+            // rendering
+            renderer.render(scene, camera);
+            // simulating physics
+            // engine.update(world, 1 / 60);
+            window.requestAnimationFrame(run);
+        }
+        window.addEventListener("resize", setSize);
+        setSize();
+        run();
+    }
+    dt_ts_chain.load = load;
+})(dt_ts_chain || (dt_ts_chain = {}));
 export var ditorus;
 (function (ditorus) {
     async function load() {

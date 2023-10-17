@@ -67,26 +67,18 @@ let examples = [
     {
         group: "phy", zh: "物理世界", en: "Physics World",
         child: [
-
-            { target: "forces::spring_rope", zh: "弹簧绳", en: "Rope with Springs" },
-            { target: "rigids::rigid_test", zh: "刚体测试", en: "Rigid Body Test" },
-            { target: "rigids::st_pile", zh: "球环堆", en: "Spheritorus Pile" },
-            { target: "pde::wave_eq", zh: "三维波动方程", en: "Wave Equation" },
-            { target: "pde::river_evolution", zh: "河流演化", en: "River Evolution" },
-            { target: "rigids::dzhanibekov", zh: "刚体自由旋转进动", en: "Dzhanibekov Effect" },
-            // { target: "rigids::thermo_stats", zh: "热力学旋转分布律", en: "Thermotic Rotation Distribution" },
-            { target: "pde::erosion", zh: "流水侵蚀（试验）", en: "Hydraulic Erosion (Experimental)" },
             {
                 group: "rigid_chain", zh: "刚体链", en: "Rigid Chains",
                 child: [
                     { target: "rigids::st_ts_chain", zh: "环球球环链", en: "ST-TS Chain" },
                     { target: "rigids::tg_tg_chain", zh: "双圆环链", en: "Tiger(Duotorus) Chain" },
                     { target: "rigids::mix_chain", zh: "杂环链", en: "Mixed Chain" },
-                    { target: "rigids::ditorus", zh: "圆环环", en: "Ditorus" },
+                    { target: "rigids::ditorus", zh: "圆环环链", en: "Ditorus Chain" },
+                    { target: "rigids::dt_ts_chain", zh: "圆环环链（静态）", en: "Ditorus Chain (Static)" },
                 ]
             },
             {
-                group: "rotating_rigids", zh: "旋转刚体", en:"Rotating Rigids",
+                group: "rotating_rigids", zh: "旋转陀螺", en:"Rotating Gyros",
                 child: [
                     { target: "rigids::gyro_conic_prism", zh: "圆锥柱陀螺", en: "Conic Prism Gyro" },
                     { target: "rigids::gyro_cylindral_cone", zh: "圆柱锥陀螺", en: "Cylindral Cone Gyro" },
@@ -103,7 +95,16 @@ let examples = [
                     { target: "rigids::m_dipole", zh: "磁偶极子", en: "Magnetic Dipoles" },
                     { target: "rigids::m_dipole_dual", zh: "自对偶磁偶极子", en: "Magnetic Dipoles (Self Dual)" }
                 ]
-            }
+            },
+            { target: "rigids::dzhanibekov1", zh: "刚体自由旋转进动1", en: "Dzhanibekov Effect 1" },
+            { target: "rigids::dzhanibekov2", zh: "刚体自由旋转进动2", en: "Dzhanibekov Effect 2" },
+            { target: "forces::spring_rope", zh: "弹簧绳", en: "Rope with Springs" },
+            { target: "rigids::rigid_test", zh: "刚体测试", en: "Rigid Body Test" },
+            { target: "rigids::st_pile", zh: "球环堆", en: "Spheritorus Pile" },
+            { target: "pde::wave_eq", zh: "三维波动方程", en: "Wave Equation" },
+            { target: "pde::river_evolution", zh: "河流演化", en: "River Evolution" },
+            // { target: "rigids::thermo_stats", zh: "热力学旋转分布律", en: "Thermotic Rotation Distribution" },
+            { target: "pde::erosion", zh: "流水侵蚀（试验）", en: "Hydraulic Erosion (Experimental)" },
         ]
     },
     {
@@ -245,8 +246,12 @@ let info = {
         "en": "<b>Control: Keep up mode</b><br>Tigers (doutorus) can match both holes of spheritorus and torisphere, hence they can be used as universal components for constructing chains. Click left mouse button to fire glomes and hit them."
     },
     "rigids::ditorus": {
-        "zh": "<b>控制：保持竖直模式</b><br>圆环环（灰色）不仅可以与环球（黄色）串成链，它的孔还可以与环球（红色与蓝色）的孔匹配，但这种紧密匹配的方式几乎无法延伸成链。使用鼠标左键发射超球轰击它们。",
-        "en": "<b>Control: Keep up mode</b><br>Ditorus (in gray) and spheritorus(in yellow) can make a chain. The hole of ditorus can also match the hole of torisphere, but this tightly matched pattern can hardly be extended to make chains. Click left mouse button to fire glomes and hit them."
+        "zh": "<b>控制：保持竖直模式</b><br>圆环环（灰色）不仅可以与球环（黄色）串成链，它的孔还可以与环球（红色与蓝色）的孔匹配，使用鼠标左键发射超球轰击它们。",
+        "en": "<b>Control: Keep up mode</b><br>Ditorus (in gray) and spheritorus(in yellow) can make a chain. The hole of ditorus can also match the hole of torisphere. Click left mouse button to fire glomes and hit them."
+    },
+    "rigids::dt_ts_chain": {
+        "zh": "<b>控制：保持竖直模式</b><br>圆环环（灰色）可以与环球串成链，但由于这种链的结合方式紧密，Tesserxel的基于迭代的物理引擎解算碰撞不能很好收敛，因此本场景不支持物理交互。",
+        "en": "<b>Control: Keep up mode</b><br>Ditorus (in gray) and torisphere(in blue) can make chains. This construction is too tight so that the iterative collision solving system in Tesserxel's physics engine can't converge. Hence physical interaction in this scene is disabled."
     },
     "rigids::rigid_test": {
         "zh": "<b>控制：保持竖直模式</b><br>三维的地面上将不断掉下超立方体。使用鼠标左键发射超球轰击它们。",
@@ -300,9 +305,13 @@ let info = {
         "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆柱锥陀螺，可以看到它不能保持稳定旋转。使用鼠标左键发射超球轰击它。",
         "en": "<b>Control: Keep up mode</b><br>Spinning conic prismatical gyro. It can be seen that this gyro is not stable. Click left mouse button to fire glomes and hit it."
     },
-    "rigids::dzhanibekov":{
-        "zh": "<b>控制：轨迹球模式</b><br>4D dzhanibekov effect (or Tennis racket theorem). In 3d, a freely rotating cuboid will periodically inverse it's rotating direction, In 4d the inversion has two periods for two different axes. This was firstly proposed in Marc ten bosch's paper, but with wrong simulation result. ",
-        "en": "<b>Control: Trackball mode</b><br>4D 贾尼别科夫效应（亦称网球拍定理）。 三维下，自由旋转的长方体会周期性翻转旋转方向，四维情况则对应超长方体有对应着两个方向的两个翻转周期。 4D贾尼别科夫效应首先在Marc Ten Bosch的论文中提出，但其模拟给出的结论有误。",
+    "rigids::dzhanibekov2":{
+        "en": "<b>Control: Trackball mode</b><br>4D version of Dzhanibekov effect (or Tennis racket theorem). If the supercuboid is rotated around the plane formed by the shortest and longest edges, the rotation direction will inverse frequently. This corresponds to two different periods in two directions. This was firstly proposed in Marc ten bosch's paper, but with wrong simulation result. ",
+        "zh": "<b>控制：轨迹球模式</b><br>4D版贾尼别科夫效应（亦称网球拍定理）。若绕最短与最长棱张成的平面旋转超长方体，则会发生刚体的旋转不时反向的现象，这种旋转反向在两个方向对应两个不同的周期。4D贾尼别科夫效应首先在Marc Ten Bosch的论文中提出，但其模拟给出的结论有误。",
+    },
+    "rigids::dzhanibekov1":{
+        "en": "<b>Control: Trackball mode</b><br>4D version of Dzhanibekov effect (or Tennis racket theorem). If the tesseract is rotating in the plane spanned by the shortest and second longest edges or by the longest and second shortest edges, the rotation direction will inverse periodically. This is the same as in the three-dimensional case with only one period. This was firstly proposed in Marc ten bosch's paper, but with wrong simulation result. ",
+        "zh": "<b>控制：轨迹球模式</b><br>4D版贾尼别科夫效应（亦称网球拍定理）。若绕最短与次长棱张成的平面或绕最长与次短棱张成的平面旋转超长方体，则会发生刚体的旋转不时反向的现象，这种旋转反向跟三维情形一样仅有一个周期。 4D贾尼别科夫效应首先在Marc Ten Bosch的论文中提出，但其模拟给出的结论有误。",
     },
     "voxeltest::rasterizer":{
         "zh": "<b>控制：轨迹球模式</b><br>该示例为使用计算着色器对四面体进行体素光栅化，渲染双圆环的深度缓冲区。",

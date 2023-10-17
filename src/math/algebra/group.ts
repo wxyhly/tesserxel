@@ -209,7 +209,7 @@ export class CosetTable {
         let coset = 0;
         w = w.slice(0);
         let x: number;
-        while ((x = w.shift()!) !== undefined) {
+        while ((x = w.shift()) !== undefined) {
             coset = this.cosets[coset][x];
         }
         return coset;
