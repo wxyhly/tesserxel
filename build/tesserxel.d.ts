@@ -470,7 +470,7 @@ declare class Obj4 {
     rotatesconj(r: Rotor): this;
     rotatesb(b: Bivec): this;
     rotatesAt(r: Rotor, center?: Vec4): this;
-    lookAt(direction: Vec4, target: Vec4): this;
+    lookAt(front: Vec4, target: Vec4): this;
 }
 
 declare class Vec4Pool extends Pool<Vec4> {

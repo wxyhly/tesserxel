@@ -156,9 +156,9 @@ export class Obj4 {
         this.position.subs(center).rotates(r).adds(center);
         return this;
     }
-    lookAt(direction: Vec4, target: Vec4) {
+    lookAt(front: Vec4, target: Vec4) {
         let dir = _vec4.subset(target, this.position);
-        this.rotates(_r.setFromLookAt(_vec4_1.copy(direction).rotates(this.rotation), dir.norms()));
+        this.rotates(_r.setFromLookAt(_vec4_1.copy(front).rotates(this.rotation), dir.norms()));
         return this;
     }
 }

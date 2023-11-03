@@ -2577,9 +2577,9 @@ class Obj4 {
         this.position.subs(center).rotates(r).adds(center);
         return this;
     }
-    lookAt(direction, target) {
+    lookAt(front, target) {
         let dir = _vec4$3.subset(target, this.position);
-        this.rotates(_r$1.setFromLookAt(_vec4_1.copy(direction).rotates(this.rotation), dir.norms()));
+        this.rotates(_r$1.setFromLookAt(_vec4_1.copy(front).rotates(this.rotation), dir.norms()));
         return this;
     }
 }
@@ -16672,7 +16672,7 @@ class KeepUpController {
     wheelSpeed = 0.0001;
     keyMoveSpeed = 0.001;
     keyRotateSpeed = 0.001;
-    damp = 0.1;
+    damp = 0.05;
     keyConfig = {
         front: "KeyW",
         back: "KeyS",
@@ -16722,7 +16722,9 @@ class KeepUpController {
         let key = this.keyConfig;
         let delta;
         let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
-        let disabled = state.isKeyHold(this.keyConfig.disable) || !this.enabled;
+        let disabled = state.isKeyHold(this.keyConfig.disable);
+        if (!this.enabled)
+            return;
         if (!disabled) {
             let keyRotateSpeed = this.keyRotateSpeed * state.mspf;
             delta = (on(key.spinCW) ? -1 : 0) + (on(key.spinCCW) ? 1 : 0);
@@ -17866,6 +17868,7 @@ class RetinaCtrlGui {
                         "mouseBtn2": "Right Mouse Button",
                         "left": "Left",
                         "right": "Right",
+                        "digit": "Digit ",
                         "mainBtn": "Show / Hide Voxel Render Settings",
                         "crosspplPlaceholderBtn": "Show / Hide Choose CrossSection Shape",
                         "crossppl1Btn": "CrossSection Shape: Default Cube",
@@ -17945,7 +17948,7 @@ class RetinaCtrlGui {
         }
         button.retina-ctrl-gui[title]:hover::after{
             white-space: pre-line; width: max-content;
-            content:attr(title);position:absolute;bottom:100%;right:0%; font-size:0.5em;z-index:100;background:#000;color:#FFF; padding:0;margin:0;
+            content:attr(title);position:absolute;bottom:100%;right:0%; font-size:1em;z-index:100;background:#000;color:#FFF; padding:0;margin:0;
         }
         div.retina-ctrl-gui button.retina-ctrl-gui[title]:hover::after{
             bottom:calc(100% + ${this.iconSize}px);

@@ -96,8 +96,9 @@ let examples = [
                     { target: "rigids::m_dipole_dual", zh: "自对偶磁偶极子", en: "Magnetic Dipoles (Self Dual)" }
                 ]
             },
-            { target: "rigids::dzhanibekov1", zh: "刚体自由旋转进动1", en: "Dzhanibekov Effect 1" },
-            { target: "rigids::dzhanibekov2", zh: "刚体自由旋转进动2", en: "Dzhanibekov Effect 2" },
+            { target: "drone", zh: "无人机", en: "Drone" },
+            { target: "rigids::dzhanibekov1", zh: "单周期自由旋转进动", en: "Dzhanibekov Effect with Single Period" },
+            { target: "rigids::dzhanibekov2", zh: "双周期自由旋转进动", en: "Dzhanibekov Effect with Double Period" },
             { target: "forces::spring_rope", zh: "弹簧绳", en: "Rope with Springs" },
             { target: "rigids::rigid_test", zh: "刚体测试", en: "Rigid Body Test" },
             { target: "rigids::st_pile", zh: "球环堆", en: "Spheritorus Pile" },
@@ -311,7 +312,11 @@ let info = {
     },
     "rigids::dzhanibekov1":{
         "en": "<b>Control: Trackball mode</b><br>4D version of Dzhanibekov effect (or Tennis racket theorem). If the tesseract is rotating in the plane spanned by the shortest and second longest edges or by the longest and second shortest edges, the rotation direction will inverse periodically. This is the same as in the three-dimensional case with only one period. This was firstly proposed in Marc ten bosch's paper, but with wrong simulation result. ",
-        "zh": "<b>控制：轨迹球模式</b><br>4D版贾尼别科夫效应（亦称网球拍定理）。若绕最短与次长棱张成的平面或绕最长与次短棱张成的平面旋转超长方体，则会发生刚体的旋转不时反向的现象，这种旋转反向跟三维情形一样仅有一个周期。 4D贾尼别科夫效应首先在Marc Ten Bosch的论文中提出，但其模拟给出的结论有误。",
+        "zh": "<b>控制：轨迹球模式</b><br>4D版贾尼别科夫效应（亦称网球拍定理）。若绕最短与次长棱张成的平面或绕最长与次短棱张成的平面旋转超长方体，则会发生刚体的旋转不时反向的现象，这种旋转反向跟三维情形一样仅有一个周期。 4D贾尼别科夫效应首先在Marc Ten Bosch的论文中提出，但其模拟给出的结论有误。Press H to hide overlapped text.",
+    },
+    "drone":{
+        "en":"<b>In Drone Control:</b><br>Use Space/Shift to rise/descend drone, W/A/S/D/Q/E to drift, and I/J/K/L/U/O to steer.<br><b>In Camera Control: Keep up mode</b><br><br><b>Special Operations:</b><br>Press key B to toggle camera/drone control. Press key 1/2/3 to toggle different camera positions on the drone, press key 4 for free camera. Press Key T to enter automatic mode, this helps you to better handle drone pose.",
+        "zh":"<b>无人机控制模式下：</b><br> 使用空格/Shift升降无人机、W/A/S/D/Q/E漂移、I/J/K/L/U/O转向。<br><b>摄像机控制下为保持竖直模式</b><br><br><b>特殊控制：</b><br>按B键切换相机/无人机控制，按1/2/3键可切换无人机上的不同机位、按4键切至自由相机；按T键进入自动化模式，它将帮您更好控制飞行姿态。按H隐藏叠加的文字。"
     },
     "voxeltest::rasterizer":{
         "zh": "<b>控制：轨迹球模式</b><br>该示例为使用计算着色器对四面体进行体素光栅化，渲染双圆环的深度缓冲区。",
