@@ -76,7 +76,9 @@ export class Vec4 {
     wzxy(): Vec4 { return new Vec4(this.w, this.z, this.x, this.y); }
     yxzw(): Vec4 { return new Vec4(this.y, this.x, this.z, this.w); }
     xzwy(): Vec4 { return new Vec4(this.x, this.z, this.w, this.y); }
-
+    isFinite(): boolean {
+        return isFinite(this.x) && isFinite(this.y) && isFinite(this.z) && isFinite(this.w);
+    }
 
     clone(): Vec4 {
         return new Vec4(this.x, this.y, this.z, this.w);
@@ -248,7 +250,7 @@ export class Vec4 {
         );
     }
     applyObj4(o: Obj4) {
-        if(o.scale){
+        if (o.scale) {
             this.x *= o.scale.x;
             this.y *= o.scale.y;
             this.z *= o.scale.z;
@@ -259,7 +261,7 @@ export class Vec4 {
     }
     applyObj4inv(o: Obj4) {
         this.subs(o.position).rotatesconj(o.rotation);
-        if(o.scale){
+        if (o.scale) {
             this.x /= o.scale.x;
             this.y /= o.scale.y;
             this.z /= o.scale.z;

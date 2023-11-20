@@ -427,6 +427,28 @@ export class CheckerTexture extends MaterialNode {
         this.input = { color1, color2, uvw };
     }
 }
+export class WgslTexture extends MaterialNode {
+    declare output: "color";
+    declare input: {
+        uvw: Vec4OutputNode;
+    }
+    private wgslCode: string;
+    private entryPoint: string;
+    getCode(r: Renderer, root: Material, outputToken: string) {
+        root.addHeader(this.entryPoint, this.wgslCode);
+        let { token, code } = this.getInputCode(r, root, outputToken);
+        return code + `
+                let ${outputToken} = ${this.entryPoint}(${token.uvw});
+                `;
+    }
+    constructor(wgslCode: string, entryPoint: string, uvw?: Vec4OutputNode) {
+        uvw ??= new UVWVec4Input();
+        super(`Wgsl(${wgslCode},${uvw.identifier})`);
+        this.wgslCode = wgslCode.replace(new RegExp("\b" + entryPoint + "\b", "g"), "##");
+        this.input = { uvw };
+        this.entryPoint = entryPoint;
+    }
+}
 export class GridTexture extends MaterialNode {
     declare output: "color";
     declare input: {
@@ -595,7 +617,6 @@ export class NoiseTexture extends MaterialNode {
         uvw: Vec4OutputNode;
     }
     getCode(r: Renderer, root: Material, outputToken: string) {
-        // Tell root material that CheckerTexture needs deal dependency of vary input uvw
         root.addHeader("NoiseWGSLHeader", NoiseWGSLHeader);
         let { token, code } = this.getInputCode(r, root, outputToken);
         return code + `

@@ -24,6 +24,9 @@ export class Bivec {
     static readonly zy = new Bivec(0, 0, 0, -1, 0, 0);
     static readonly wy = new Bivec(0, 0, 0, 0, -1, 0);
     static readonly wz = new Bivec(0, 0, 0, 0, 0, -1);
+    isFinite(): boolean {
+        return isFinite(this.xy) && isFinite(this.xz) && isFinite(this.xw) && isFinite(this.yz) && isFinite(this.yw) && isFinite(this.zw);
+    }
     constructor(
         xy: number = 0, xz: number = 0, xw: number = 0,
         yz: number = 0, yw: number = 0, zw: number = 0

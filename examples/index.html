@@ -109,6 +109,18 @@
         .src:hover {
             opacity: 1;
         }
+
+        #exit-full-screen {
+            position: fixed;
+            top: 2.5em;
+            left: 0px;
+            background-color: rgba(150, 150, 150, 0.5);
+            color: #fff;
+            border-radius: 3px;
+            text-decoration: none;
+            cursor: pointer;
+            display: none;
+        }
     </style>
 </head>
 
@@ -116,6 +128,8 @@
     <div class="sidebar">
         <div class="menu">
             <h3><a>Tesserxel Examples</a></h3>
+            <a href="javascript:void(0);" id="full-screen"></a>
+            <br>
             <a href="https://github.com/wxyhly/tesserxel" target="_blank">Github</a>
             <br>
             <a class="sellang" target="zh">中文</a> / <a class="sellang" target="en">English</a>
@@ -127,6 +141,7 @@
             <div class="info-content"></div>
         </div>
     </div>
+    <a href="javascript:void(0);" id="exit-full-screen"></a>
     <iframe src="iframe.html"></iframe>
 </body>
 <script src="example-list.js"></script>
@@ -174,7 +189,7 @@
                 });
                 if (!showThisSubgroup) {
                     toggleGroup(link, subPanel);
-                }else{
+                } else {
                     containCurrentLink = true;
                 }
             } else {
@@ -217,6 +232,17 @@
         }
     }
     if (!target) iframe.src = iframeUrl + "?lang=" + lang;
+
+    document.getElementById("full-screen").innerText = lang === "zh" ? "隐藏侧栏" : "Hide Sidebar";
+    document.getElementById("exit-full-screen").innerText = lang === "zh" ? "显示侧栏" : "Show Sidebar";
+    document.getElementById("full-screen").onclick = () => {
+        document.querySelector(".sidebar").style.display = "none";
+        document.getElementById("exit-full-screen").style.display = "block";
+    }
+    document.getElementById("exit-full-screen").onclick = () => {
+        document.querySelector(".sidebar").style.display = "block";
+        document.getElementById("exit-full-screen").style.display = "none";
+    }
 </script>
 
 </html>

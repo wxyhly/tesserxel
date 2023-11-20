@@ -1,6 +1,5 @@
-import * as tesserxel from "../../build/tesserxel.js";
-export var city_highway;
-(function (city_highway) {
+import * as tesserxel from "../../build/tesserxel.js"
+export namespace city_freeway {
     const vec4 = tesserxel.math.Vec4;
     const vec3 = tesserxel.math.Vec3;
     const directionalLight_dir = "1.0,1.2,1.0,1.0";
@@ -24,23 +23,26 @@ export var city_highway;
         // let path = new tesserxel.math.Spline(p,q);
         let edge = 40;
         let deri = 30;
-        let path = new tesserxel.math.Spline([
-            new vec4(0, 0, 0, 0),
-            new vec4(0, 0, 0, edge),
-            new vec4(edge, 0, 0, edge),
-            new vec4(edge, 0, edge, edge),
-            new vec4(edge, 0, edge, 0),
-            new vec4(0, 0, edge, 0),
-            new vec4(0, 0, 0, 0),
-        ], [
-            new vec4(0, 0, -deri, deri),
-            new vec4(deri, 0, 0, deri),
-            new vec4(deri, 0, deri, 0),
-            new vec4(0, 0, deri, -deri),
-            new vec4(-deri, 0, 0, -deri),
-            new vec4(-deri, 0, -deri, 0),
-            new vec4(0, 0, -deri, deri),
-        ]);
+        let path = new tesserxel.math.Spline(
+            [
+                new vec4(0, 0, 0, 0),
+                new vec4(0, 0, 0, edge),
+                new vec4(edge, 0, 0, edge),
+                new vec4(edge, 0, edge, edge),
+                new vec4(edge, 0, edge, 0),
+                new vec4(0, 0, edge, 0),
+                new vec4(0, 0, 0, 0),
+            ],
+            [
+                new vec4(0, 0, -deri, deri),
+                new vec4(deri, 0, 0, deri),
+                new vec4(deri, 0, deri, 0),
+                new vec4(0, 0, deri, -deri),
+                new vec4(-deri, 0, 0, -deri),
+                new vec4(-deri, 0, -deri, 0),
+                new vec4(0, 0, -deri, deri),
+            ]
+        );
         let fenceCrossSection = new tesserxel.mesh.FaceMesh({
             quad: {
                 position: new Float32Array([
@@ -56,6 +58,7 @@ export var city_highway;
                     2, -1, -1, 0,
                 ]),
                 normal: new Float32Array([
+
                     1, 0, 0, 0,
                     1, 0, 0, 0,
                     1, 0, 0, 0,
@@ -63,6 +66,7 @@ export var city_highway;
                 ])
             }
         });
+
         let crossSection = new tesserxel.mesh.FaceMesh({
             quad: {
                 position: new Float32Array([
@@ -70,14 +74,17 @@ export var city_highway;
                     rw2, 0, roadHeight, 0,
                     -rw2, 0, roadHeight, 0,
                     -rw2, 0, -roadHeight, 0,
+
                     -fenceWidthHalf, 0, -yLanes, 0,
                     -fenceWidthHalf, 0, yLanes, 0,
                     -fenceWidthHalf, fenceHeight, yLanes, 0,
                     -fenceWidthHalf, fenceHeight, -yLanes, 0,
+
                     fenceWidthHalf, fenceHeight, -yLanes, 0,
                     fenceWidthHalf, fenceHeight, yLanes, 0,
                     fenceWidthHalf, 0, yLanes, 0,
                     fenceWidthHalf, 0, -yLanes, 0,
+
                     fenceWidthHalf, fenceHeight, -yLanes, 0,
                     fenceWidthHalf, fenceHeight, yLanes, 0,
                     -fenceWidthHalf, fenceHeight, yLanes, 0,
@@ -88,18 +95,22 @@ export var city_highway;
                     0, 1, 1, 0,
                     0, -1, 1, 0,
                     0, -1, -1, 0,
+
                     1, 1, -1, 0,
                     1, 1, 1, 0,
                     1, -1, 1, 0,
                     1, -1, -1, 0,
+
                     1, -1, -1, 0,
                     1, -1, 1, 0,
                     1, 1, 1, 0,
                     1, 1, -1, 0,
+
                     1, 1, -1, 0,
                     1, 1, 1, 0,
                     1, -1, 1, 0,
                     1, -1, -1, 0,
+
                 ]),
                 normal: new Float32Array([
                     0, 1, 0, 0,
@@ -209,7 +220,8 @@ export var city_highway;
             }`;
         return { path, roadmesh, roadfragCode, roadvertCode };
     }
-    function genBuilding(path) {
+
+    function genBuilding(path: tesserxel.math.Spline) {
         const buildingCount = 1024;
         const buildingMaxRadius = 120;
         const buildingMinRadius = 15;
@@ -296,7 +308,7 @@ export var city_highway;
         for (let i = 0; i < buildingCount; i++) {
             let willContinue = false;
             let randPointIdx = srand.nexti(pointLen);
-            let r;
+            let r: number;
             do {
                 r = Math.sqrt(srand.nextf()) * buildingMaxRadius;
             } while (r < buildingMinRadius);
@@ -311,8 +323,7 @@ export var city_highway;
                     break;
                 }
             }
-            if (willContinue)
-                continue;
+            if (willContinue) continue;
             let randRot = tesserxel.math.Quaternion.srand(srand).toMat3().elem;
             let scale = vec4.srand(srand);
             scale.x += 3;
@@ -321,7 +332,15 @@ export var city_highway;
             scale.y *= 4;
             scale.w += 3;
             scale.mulfs(1.5);
-            new tesserxel.math.AffineMat4(tesserxel.math.Mat4.diag(scale.x, scale.y, scale.z, scale.w).mulsr(new tesserxel.math.Mat4(randRot[0], 0, randRot[3], randRot[6], 0, 1, 0, 0, randRot[1], 0, randRot[4], randRot[7], randRot[2], 0, randRot[5], randRot[8])), new vec4(randVec.x, scale.y, randVec.y, randVec.z)).writeBuffer(buildingTransformBuffer, 20 * i);
+            new tesserxel.math.AffineMat4(
+                tesserxel.math.Mat4.diag(scale.x, scale.y, scale.z, scale.w).mulsr(new tesserxel.math.Mat4(
+                    randRot[0], 0, randRot[3], randRot[6],
+                    0, 1, 0, 0,
+                    randRot[1], 0, randRot[4], randRot[7],
+                    randRot[2], 0, randRot[5], randRot[8]
+                )),
+                new vec4(randVec.x, scale.y, randVec.y, randVec.z)
+            ).writeBuffer(buildingTransformBuffer, 20 * i);
         }
         return { buildingFragCode, buildingVertCode, buildingTransformBuffer, buildingCount };
     }
@@ -422,9 +441,10 @@ export var city_highway;
         0, 0, 0, terrainSize,
         0, -0.1, 0, 0,
     ]);
-    async function load() {
+
+    export async function load() {
         let gpu = await new tesserxel.render.GPU().init();
-        let canvas = document.getElementById("gpu-canvas");
+        let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         let context = gpu.getContext(canvas);
         let renderer = new tesserxel.render.SliceRenderer(gpu, {
             enableFloat16Blend: true,
@@ -498,6 +518,7 @@ export var city_highway;
             ctrlreg.update();
             camController.object.getAffineMat4inv().writeBuffer(camMatJSBuffer);
             gpu.device.queue.writeBuffer(camBuffer, 0, camMatJSBuffer);
+
             renderer.render(context, (rs) => {
                 rs.beginTetras(roadpipeline);
                 rs.sliceTetras(roadmeshBindGroup, roadmesh.count);
@@ -509,7 +530,7 @@ export var city_highway;
                 rs.drawRaytracing(rtPipeline, rtBindGroup);
             });
             window.requestAnimationFrame(run);
-        };
+        }
         function setSize() {
             let width = window.innerWidth * window.devicePixelRatio;
             let height = window.innerHeight * window.devicePixelRatio;
@@ -521,7 +542,5 @@ export var city_highway;
         window.addEventListener("resize", setSize);
         run();
     }
-    city_highway.load = load;
-})(city_highway || (city_highway = {}));
+}
 // }
-//# sourceMappingURL=city_highway.js.map

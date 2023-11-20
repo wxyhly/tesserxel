@@ -193,6 +193,7 @@ declare class Bivec {
     static readonly zy: Bivec;
     static readonly wy: Bivec;
     static readonly wz: Bivec;
+    isFinite(): boolean;
     constructor(xy?: number, xz?: number, xw?: number, yz?: number, yw?: number, zw?: number);
     copy(v: Bivec): Bivec;
     set(xy?: number, xz?: number, xw?: number, yz?: number, yw?: number, zw?: number): Bivec;
@@ -526,6 +527,7 @@ declare class Vec4 {
     wzxy(): Vec4;
     yxzw(): Vec4;
     xzwy(): Vec4;
+    isFinite(): boolean;
     clone(): Vec4;
     add(v2: Vec4): Vec4;
     addset(v1: Vec4, v2: Vec4): Vec4;
@@ -1685,6 +1687,16 @@ declare class CheckerTexture extends MaterialNode {
     getCode(r: Renderer, root: Material$1, outputToken: string): string;
     constructor(color1: Color, color2: Color, uvw?: Vec4OutputNode);
 }
+declare class WgslTexture extends MaterialNode {
+    output: "color";
+    input: {
+        uvw: Vec4OutputNode;
+    };
+    private wgslCode;
+    private entryPoint;
+    getCode(r: Renderer, root: Material$1, outputToken: string): string;
+    constructor(wgslCode: string, entryPoint: string, uvw?: Vec4OutputNode);
+}
 declare class GridTexture extends MaterialNode {
     output: "color";
     input: {
@@ -2035,6 +2047,9 @@ declare class TigerGeometry extends Geometry {
 declare class DitorusGeometry extends Geometry {
     constructor(circleRadius?: number, radius1?: number, radius2?: number, detail?: number);
 }
+declare class DuocylinderGeometry extends Geometry {
+    constructor(radius1?: number, radius2?: number, detail?: number);
+}
 declare class ConvexHullGeometry extends Geometry {
     constructor(points: Vec4[]);
 }
@@ -2091,6 +2106,8 @@ type four_d_PhongMaterial = PhongMaterial;
 declare const four_d_PhongMaterial: typeof PhongMaterial;
 type four_d_CheckerTexture = CheckerTexture;
 declare const four_d_CheckerTexture: typeof CheckerTexture;
+type four_d_WgslTexture = WgslTexture;
+declare const four_d_WgslTexture: typeof WgslTexture;
 type four_d_GridTexture = GridTexture;
 declare const four_d_GridTexture: typeof GridTexture;
 type four_d_UVWVec4Input = UVWVec4Input;
@@ -2118,6 +2135,8 @@ type four_d_TigerGeometry = TigerGeometry;
 declare const four_d_TigerGeometry: typeof TigerGeometry;
 type four_d_DitorusGeometry = DitorusGeometry;
 declare const four_d_DitorusGeometry: typeof DitorusGeometry;
+type four_d_DuocylinderGeometry = DuocylinderGeometry;
+declare const four_d_DuocylinderGeometry: typeof DuocylinderGeometry;
 type four_d_ConvexHullGeometry = ConvexHullGeometry;
 declare const four_d_ConvexHullGeometry: typeof ConvexHullGeometry;
 type four_d_CWMeshGeometry = CWMeshGeometry;
@@ -2162,6 +2181,7 @@ declare namespace four_d {
     four_d_LambertMaterial as LambertMaterial,
     four_d_PhongMaterial as PhongMaterial,
     four_d_CheckerTexture as CheckerTexture,
+    four_d_WgslTexture as WgslTexture,
     four_d_GridTexture as GridTexture,
     four_d_UVWVec4Input as UVWVec4Input,
     four_d_WorldCoordVec4Input as WorldCoordVec4Input,
@@ -2176,6 +2196,7 @@ declare namespace four_d {
     four_d_SpherinderSideGeometry as SpherinderSideGeometry,
     four_d_TigerGeometry as TigerGeometry,
     four_d_DitorusGeometry as DitorusGeometry,
+    four_d_DuocylinderGeometry as DuocylinderGeometry,
     four_d_ConvexHullGeometry as ConvexHullGeometry,
     four_d_CWMeshGeometry as CWMeshGeometry,
     four_d_WireFrameObject as WireFrameObject,
@@ -2407,6 +2428,25 @@ declare class Spring extends Force {
     constructor(a: Rigid, b: Rigid | null, pointA: Vec4, pointB: Vec4, k: number, length?: number, damp?: number);
     apply(time: number): void;
 }
+/** apply a spring torque between object a and b
+ *  planeA and planeB are in local coordinates, must be simple and normalised,
+ *  b can be null for attaching spring to a fixed plane in the world.
+ *  torque = k (planeA x planeB) - damp * dw */
+declare class TorqueSpring extends Force {
+    a: Rigid;
+    planeA: Bivec;
+    b: Rigid | null;
+    planeB: Bivec;
+    k: number;
+    damp: number;
+    length: number;
+    private _bivf;
+    private _biva;
+    private _bivb;
+    private _bivec;
+    constructor(a: Rigid, b: Rigid | null, planeA: Bivec, planeB: Bivec, k: number, damp?: number);
+    apply(time: number): void;
+}
 declare class Damping extends Force {
     objects: Rigid[];
     linearFactor: number;
@@ -2631,6 +2671,8 @@ type physics_d_Force = Force;
 declare const physics_d_Force: typeof Force;
 type physics_d_Spring = Spring;
 declare const physics_d_Spring: typeof Spring;
+type physics_d_TorqueSpring = TorqueSpring;
+declare const physics_d_TorqueSpring: typeof TorqueSpring;
 type physics_d_Damping = Damping;
 declare const physics_d_Damping: typeof Damping;
 type physics_d_ElectricCharge = ElectricCharge;
@@ -2665,6 +2707,7 @@ declare namespace physics_d {
     physics_d_force_accumulator as force_accumulator,
     physics_d_Force as Force,
     physics_d_Spring as Spring,
+    physics_d_TorqueSpring as TorqueSpring,
     physics_d_Damping as Damping,
     physics_d_ElectricCharge as ElectricCharge,
     physics_d_ElectricDipole as ElectricDipole,
@@ -2770,6 +2813,8 @@ interface ControllerState {
     updateCount: number;
     moveX: number;
     moveY: number;
+    mouseX: number;
+    mouseY: number;
     wheelX: number;
     wheelY: number;
     lastUpdateTime?: number;

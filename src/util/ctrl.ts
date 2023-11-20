@@ -30,6 +30,8 @@ export interface ControllerState {
     updateCount: number;
     moveX: number;
     moveY: number;
+    mouseX: number;
+    mouseY: number;
     wheelX: number;
     wheelY: number;
     lastUpdateTime?: number;
@@ -68,6 +70,8 @@ export class ControllerRegistry {
         updateCount: 0,
         moveX: 0,
         moveY: 0,
+        mouseX: 0,
+        mouseY: 0,
         wheelX: 0,
         wheelY: 0,
         mspf: -1,
@@ -152,6 +156,8 @@ export class ControllerRegistry {
         this.evMouseMove = (ev) => {
             this.states.moveX += ev.movementX;
             this.states.moveY += ev.movementY;
+            this.states.mouseX = ev.offsetX;
+            this.states.mouseY = ev.offsetY;
         };
         this.evMouseUp = (ev) => {
             this.states.currentBtn = -1;

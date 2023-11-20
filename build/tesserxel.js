@@ -1151,6 +1151,9 @@ class Bivec {
     static zy = new Bivec(0, 0, 0, -1, 0, 0);
     static wy = new Bivec(0, 0, 0, 0, -1, 0);
     static wz = new Bivec(0, 0, 0, 0, 0, -1);
+    isFinite() {
+        return isFinite(this.xy) && isFinite(this.xz) && isFinite(this.xw) && isFinite(this.yz) && isFinite(this.yw) && isFinite(this.zw);
+    }
     constructor(xy = 0, xz = 0, xw = 0, yz = 0, yw = 0, zw = 0) {
         this.xy = xy;
         this.xz = xz;
@@ -1534,6 +1537,9 @@ class Vec4 {
     wzxy() { return new Vec4(this.w, this.z, this.x, this.y); }
     yxzw() { return new Vec4(this.y, this.x, this.z, this.w); }
     xzwy() { return new Vec4(this.x, this.z, this.w, this.y); }
+    isFinite() {
+        return isFinite(this.x) && isFinite(this.y) && isFinite(this.z) && isFinite(this.w);
+    }
     clone() {
         return new Vec4(this.x, this.y, this.z, this.w);
     }
@@ -10762,6 +10768,24 @@ class CheckerTexture extends MaterialNode {
         this.input = { color1, color2, uvw };
     }
 }
+class WgslTexture extends MaterialNode {
+    wgslCode;
+    entryPoint;
+    getCode(r, root, outputToken) {
+        root.addHeader(this.entryPoint, this.wgslCode);
+        let { token, code } = this.getInputCode(r, root, outputToken);
+        return code + `
+                let ${outputToken} = ${this.entryPoint}(${token.uvw});
+                `;
+    }
+    constructor(wgslCode, entryPoint, uvw) {
+        uvw ??= new UVWVec4Input();
+        super(`Wgsl(${wgslCode},${uvw.identifier})`);
+        this.wgslCode = wgslCode.replace(new RegExp("\b" + entryPoint + "\b", "g"), "##");
+        this.input = { uvw };
+        this.entryPoint = entryPoint;
+    }
+}
 class GridTexture extends MaterialNode {
     getCode(r, root, outputToken) {
         // Tell root material that CheckerTexture needs deal dependency of vary input uvw
@@ -10909,7 +10933,6 @@ const NoiseWGSLHeader = `
         `;
 class NoiseTexture extends MaterialNode {
     getCode(r, root, outputToken) {
-        // Tell root material that CheckerTexture needs deal dependency of vary input uvw
         root.addHeader("NoiseWGSLHeader", NoiseWGSLHeader);
         let { token, code } = this.getInputCode(r, root, outputToken);
         return code + `
@@ -11919,10 +11942,14 @@ class DitorusGeometry extends Geometry {
         super(ditorus(radius1, detail * 8, radius2, detail * 8, circleRadius, detail * 6));
     }
 }
+class DuocylinderGeometry extends Geometry {
+    constructor(radius1 = 0.8, radius2 = 0.8, detail = 2) {
+        super(duocylinder(radius1, detail * 8, radius2, detail * 8));
+    }
+}
 class ConvexHullGeometry extends Geometry {
     constructor(points) {
-        super(convexhull(points));
-        console.assert(false, "todo: need to generate normal");
+        super(convexhull(points).generateNormal());
     }
 }
 class CWMeshGeometry extends Geometry {
@@ -12303,6 +12330,7 @@ var four = /*#__PURE__*/Object.freeze({
     LambertMaterial: LambertMaterial,
     PhongMaterial: PhongMaterial,
     CheckerTexture: CheckerTexture,
+    WgslTexture: WgslTexture,
     GridTexture: GridTexture,
     UVWVec4Input: UVWVec4Input,
     WorldCoordVec4Input: WorldCoordVec4Input,
@@ -12317,6 +12345,7 @@ var four = /*#__PURE__*/Object.freeze({
     SpherinderSideGeometry: SpherinderSideGeometry,
     TigerGeometry: TigerGeometry,
     DitorusGeometry: DitorusGeometry,
+    DuocylinderGeometry: DuocylinderGeometry,
     ConvexHullGeometry: ConvexHullGeometry,
     CWMeshGeometry: CWMeshGeometry,
     WireFrameTesseractoid: WireFrameTesseractoid,
@@ -13439,6 +13468,9 @@ class ForceAccumulator {
                 mulBivec(o.angularAcceleration, localL.crossrs(localW).negs().adds(localT), o.invInertia);
                 o.angularAcceleration.rotates(o.rotation);
             }
+            if (!o.velocity.isFinite() || !o.angularVelocity.isFinite() || !o.acceleration.isFinite() || !o.angularAcceleration.isFinite()) {
+                console.log("oma");
+            }
         }
     }
 }
@@ -13614,7 +13646,6 @@ var force_accumulator;
 })(force_accumulator || (force_accumulator = {}));
 class Force {
 }
-// export namespace force {
 /** apply a spring force between object a and b
  *  pointA and pointB are in local coordinates,
  *  refering connect point of spring's two ends.
@@ -13655,6 +13686,26 @@ class Spring extends Force {
             let len = this._vec4f.norm();
             k *= (len - this.length) / len;
         }
+        if (this.damp) {
+            const len2 = this._vec4f.normsqr();
+            if (len2 > 1e-9) {
+                const va = vec4Pool.pop();
+                this.a.getlinearVelocity(va, this._vec4a);
+                const vb = vec4Pool.pop().set();
+                if (this.b) {
+                    this.b.getlinearVelocity(vb, this._vec4b);
+                }
+                k -= va.subs(vb).dot(this._vec4f) / len2 * this.damp;
+                let oma = va.subs(vb).dot(this._vec4f);
+                if (Math.abs(oma) > 0.4)
+                    console.log(oma);
+                va.pushPool();
+                vb.pushPool();
+            }
+        }
+        this._vec4a.subs(pa);
+        if (this.b)
+            this._vec4b.subs(pb);
         //_vec4 is force from a to b
         this._vec4f.mulfs(k);
         // add force
@@ -13662,9 +13713,64 @@ class Spring extends Force {
         if (this.b)
             this.b.force.subs(this._vec4f);
         // add torque
-        this.a.torque.adds(this._bivec.wedgevvset(this._vec4f, this._vec4a.subs(pa)));
+        this.a.torque.subs(this._bivec.wedgevvset(this._vec4f, this._vec4a));
         if (this.b)
-            this.b.torque.subs(this._bivec.wedgevvset(this._vec4f, this._vec4b.subs(pb)));
+            this.b.torque.adds(this._bivec.wedgevvset(this._vec4f, this._vec4b));
+    }
+}
+/** apply a spring torque between object a and b
+ *  planeA and planeB are in local coordinates, must be simple and normalised,
+ *  b can be null for attaching spring to a fixed plane in the world.
+ *  torque = k (planeA x planeB) - damp * dw */
+class TorqueSpring extends Force {
+    a;
+    planeA;
+    b;
+    planeB;
+    k;
+    damp;
+    length;
+    _bivf = new Bivec();
+    _biva = new Bivec();
+    _bivb = new Bivec();
+    _bivec = new Bivec();
+    constructor(a, b, planeA, planeB, k, damp = 0) {
+        super();
+        this.a = a;
+        this.b = b;
+        this.k = k;
+        this.damp = damp;
+        this.planeA = planeA;
+        this.planeB = planeB;
+    }
+    apply(time) {
+        const srcB = this._biva.copy(this.planeA).rotates(this.a.rotation);
+        const dstB = this._bivb.copy(this.planeB);
+        if (this.b)
+            dstB.rotates(this.b.rotation);
+        let k = this.k;
+        this._bivf.crossset(srcB, dstB);
+        if (this.damp && this._bivf.norm1() > 1e-3) {
+            let dw = (this.b ? this._bivec.subset(this.a.angularVelocity, this.b.angularVelocity) : this.a.angularVelocity).dot(this._bivf);
+            if (Math.abs(dw) > 0.2)
+                console.log(dw);
+            if (dw > 0.3)
+                dw = 0.3;
+            if (dw < -0.3)
+                dw = -0.3;
+            if (Math.abs(dw) > 0.2)
+                console.log(dw);
+            if (this._bivf.norm() > 10)
+                console.log(this._bivf.norm());
+            k -= dw / this._bivf.normsqr() * this.damp;
+        }
+        this._bivf.mulfs(k);
+        this.a.torque.adds(this._bivf);
+        if (this._bivf.norm() > 100) {
+            console.log(this._bivf.norm());
+        }
+        if (this.b)
+            this.b.torque.subs(this._bivf);
     }
 }
 class Damping extends Force {
@@ -16227,6 +16333,7 @@ var physics = /*#__PURE__*/Object.freeze({
     get force_accumulator () { return force_accumulator; },
     Force: Force,
     Spring: Spring,
+    TorqueSpring: TorqueSpring,
     Damping: Damping,
     MaxWell: MaxWell,
     Solver: Solver,
@@ -16302,6 +16409,8 @@ class ControllerRegistry {
         updateCount: 0,
         moveX: 0,
         moveY: 0,
+        mouseX: 0,
+        mouseY: 0,
         wheelX: 0,
         wheelY: 0,
         mspf: -1,
@@ -16388,6 +16497,8 @@ class ControllerRegistry {
         this.evMouseMove = (ev) => {
             this.states.moveX += ev.movementX;
             this.states.moveY += ev.movementY;
+            this.states.mouseX = ev.offsetX;
+            this.states.mouseY = ev.offsetY;
         };
         this.evMouseUp = (ev) => {
             this.states.currentBtn = -1;

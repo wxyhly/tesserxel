@@ -50,10 +50,14 @@ export class DitorusGeometry extends Geometry {
         super(tetra.ditorus(radius1, detail * 8, radius2, detail * 8, circleRadius, detail * 6));
     }
 }
+export class DuocylinderGeometry extends Geometry {
+    constructor(radius1: number = 0.8, radius2: number = 0.8, detail: number = 2) {
+        super(tetra.duocylinder(radius1, detail * 8, radius2, detail * 8));
+    }
+}
 export class ConvexHullGeometry extends Geometry {
     constructor(points: Vec4[]) {
-        super(tetra.convexhull(points));
-        console.assert(false, "todo: need to generate normal");
+        super(tetra.convexhull(points).generateNormal());
     }
 }
 export class CWMeshGeometry extends Geometry{

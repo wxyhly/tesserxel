@@ -236,7 +236,6 @@ export namespace force_accumulator {
 export abstract class Force {
     abstract apply(time: number): void;
 }
-// export namespace force {
 /** apply a spring force between object a and b
  *  pointA and pointB are in local coordinates,
  *  refering connect point of spring's two ends.
@@ -268,21 +267,85 @@ export class Spring extends Force {
         const pb = this.b?.position;
         this._vec4a.copy(this.pointA).rotates(this.a.rotation).adds(pa);
         this._vec4b.copy(this.pointB);
-        if (this.b) this._vec4b.rotates(this.b.rotation).adds(pb!);
+        if (this.b) this._vec4b.rotates(this.b.rotation).adds(pb);
         let k = this.k;
         this._vec4f.subset(this._vec4b, this._vec4a);
         if (this.length > 0) {
             let len = this._vec4f.norm();
             k *= (len - this.length) / len;
         }
+
+        if (this.damp) {
+            const len2 = this._vec4f.normsqr();
+            if (len2 > 1e-9) {
+                const va = vec4Pool.pop();
+                this.a.getlinearVelocity(va, this._vec4a);
+                const vb = vec4Pool.pop().set();
+                if (this.b) {
+                    this.b.getlinearVelocity(vb, this._vec4b);
+                }
+                k -= va.subs(vb).dot(this._vec4f) / len2 * this.damp;
+                let oma = va.subs(vb).dot(this._vec4f);
+                if (Math.abs(oma) > 0.4) console.log(oma);
+                va.pushPool(); vb.pushPool();
+            }
+        }
+        this._vec4a.subs(pa);
+        if (this.b) this._vec4b.subs(pb);
         //_vec4 is force from a to b
         this._vec4f.mulfs(k);
         // add force
         this.a.force.adds(this._vec4f);
         if (this.b) this.b.force.subs(this._vec4f);
         // add torque
-        this.a.torque.adds(this._bivec.wedgevvset(this._vec4f, this._vec4a.subs(pa)));
-        if (this.b) this.b.torque.subs(this._bivec.wedgevvset(this._vec4f, this._vec4b.subs(pb!)));
+        this.a.torque.subs(this._bivec.wedgevvset(this._vec4f, this._vec4a));
+        if (this.b) this.b.torque.adds(this._bivec.wedgevvset(this._vec4f, this._vec4b));
+
+    }
+}
+/** apply a spring torque between object a and b
+ *  planeA and planeB are in local coordinates, must be simple and normalised,
+ *  b can be null for attaching spring to a fixed plane in the world.
+ *  torque = k (planeA x planeB) - damp * dw */
+export class TorqueSpring extends Force {
+
+    a: Rigid;
+    planeA: Bivec;
+    b: Rigid | null;
+    planeB: Bivec;
+    k: number;
+    damp: number;
+    length: number;
+    private _bivf = new Bivec();
+    private _biva = new Bivec();
+    private _bivb = new Bivec();
+    private _bivec = new Bivec();
+    constructor(
+        a: Rigid, b: Rigid | null, planeA: Bivec, planeB: Bivec,
+        k: number, damp: number = 0) {
+        super();
+        this.a = a; this.b = b; this.k = k; this.damp = damp;
+        this.planeA = planeA;
+        this.planeB = planeB;
+    }
+    apply(time: number): void {
+        const srcB = this._biva.copy(this.planeA).rotates(this.a.rotation);
+        const dstB = this._bivb.copy(this.planeB);
+        if (this.b) dstB.rotates(this.b.rotation);
+        let k = this.k;
+        this._bivf.crossset(srcB, dstB);
+        if (this.damp && this._bivf.norm1() > 1e-3) {
+            let dw = (this.b ? this._bivec.subset(this.a.angularVelocity, this.b.angularVelocity) : this.a.angularVelocity).dot(this._bivf);
+            // if (Math.abs(dw) > 0.2) console.log(dw);
+            // if (dw > 0.3) dw = 0.3;
+            // if (dw < - 0.3) dw = - 0.3;
+            // if (Math.abs(dw) > 0.2) console.log(dw);
+            // if(this._bivf.norm()>10) console.log(this._bivf.norm());
+            k -= dw / this._bivf.normsqr() * this.damp;
+        }
+        this._bivf.mulfs(k);
+        this.a.torque.adds(this._bivf);
+        if (this.b) this.b.torque.subs(this._bivf);
     }
 }
 export class Damping extends Force {

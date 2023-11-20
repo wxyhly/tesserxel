@@ -56,7 +56,7 @@ let examples = [
         group: "world", zh: "四维场景", en: "4D Scenes",
         child: [
             { target: "instanced_cubes", zh: "实例化多方块", en: "Instanced Hypercubes" },
-            { target: "city_highway", zh: "城市高速", en: "City Highway" },
+            { target: "city_freeway", zh: "城市高速", en: "City Freeway" },
             { target: "navigation", zh: "四维星球导航", en: "Navigation On 4D Planet" },
             { target: "backrooms", zh: "后室", en: "Backrooms" },
             { target: "rails::rail1d", zh: "一维轨道火车", en: "Linear Track Train" },
@@ -96,7 +96,9 @@ let examples = [
                     { target: "rigids::m_dipole_dual", zh: "自对偶磁偶极子", en: "Magnetic Dipoles (Self Dual)" }
                 ]
             },
+            // { target: "automobile", zh: "汽车", en: " Automobile" },
             { target: "drone", zh: "无人机", en: "Drone" },
+            { target: "aircraft", zh: "客机", en: "Aircraft" },
             { target: "rigids::dzhanibekov1", zh: "单周期自由旋转进动", en: "Dzhanibekov Effect with Single Period" },
             { target: "rigids::dzhanibekov2", zh: "双周期自由旋转进动", en: "Dzhanibekov Effect with Double Period" },
             { target: "forces::spring_rope", zh: "弹簧绳", en: "Rope with Springs" },
@@ -186,7 +188,7 @@ let info = {
         "zh": "<b>控制：自由飞行模式</b><br>使用四元数的Julia集。迭代公式为：z->z<sup>2</sup>+(-0.125-0.256<i>i</i>+0.847<i>j</i>+0.0895<i>k</i>)",
         "en": "<b>Control: Free fly mode</b><br>Julia set with quaternion number. The iteration fomular is: z->z<sup>2</sup>+(-0.125-0.256<i>i</i>+0.847<i>j</i>+0.0895<i>k</i>)"
     },
-    "city_highway": {
+    "city_freeway": {
         "zh": "<b>控制：保持竖直模式</b><br>四维世界的地面是三维的，人们可以在三维地面上修建城市与空间曲线道路。这是一条单边4x3车道的双向道路。",
         "en": "<b>Control: Keep up mode</b><br>The ground of 4D world is three dimensional, where inhabitants could build city and road by spatial curve. This is a two-way road of 4x3 lanes on each side."
     },
@@ -315,8 +317,12 @@ let info = {
         "zh": "<b>控制：轨迹球模式</b><br>4D版贾尼别科夫效应（亦称网球拍定理）。若绕最短与次长棱张成的平面或绕最长与次短棱张成的平面旋转超长方体，则会发生刚体的旋转不时反向的现象，这种旋转反向跟三维情形一样仅有一个周期。 4D贾尼别科夫效应首先在Marc Ten Bosch的论文中提出，但其模拟给出的结论有误。Press H to hide overlapped text.",
     },
     "drone":{
-        "en":"<b>In Drone Control:</b><br>Use Space/Shift to rise/descend drone, W/A/S/D/Q/E to drift, and I/J/K/L/U/O to steer.<br><b>In Camera Control: Keep up mode</b><br><br><b>Special Operations:</b><br>Press key B to toggle camera/drone control. Press key 1/2/3 to toggle different camera positions on the drone, press key 4 for free camera. Press Key T to enter automatic mode, this helps you to better handle drone pose.",
-        "zh":"<b>无人机控制模式下：</b><br> 使用空格/Shift升降无人机、W/A/S/D/Q/E漂移、I/J/K/L/U/O转向。<br><b>摄像机控制下为保持竖直模式</b><br><br><b>特殊控制：</b><br>按B键切换相机/无人机控制，按1/2/3键可切换无人机上的不同机位、按4键切至自由相机；按T键进入自动化模式，它将帮您更好控制飞行姿态。按H隐藏叠加的文字。"
+        "en":"<b>In Drone Control:</b><br>Use Space/Shift to rise/descend drone, W/A/S/D/Q/E to drift, and I/J/K/L/U/O to steer.<br><br><b>In Camera Control: Keep up mode</b><br>Press =/- to adjust camera move speed.<br><br><b>Special Operations:</b><br>Press key B to toggle camera/drone control. Press key 1/2/3 to toggle different camera positions on the drone, press key 4 for free camera. Press Key T to enter automatic mode, this helps you to better handle drone pose. Press H to hide overlaid texts.",
+        "zh":"<b>无人机控制模式下：</b><br> 使用空格/Shift升降无人机、W/A/S/D/Q/E漂移、I/J/K/L/U/O转向。<br><br><b>摄像机控制下为保持竖直模式</b><br>按=/-调节相机移动速度。<br><br><b>特殊控制：</b><br>按B键切换相机/无人机控制，按1/2/3键可切换无人机上的不同机位、按4键切至自由相机。按T键进入自动化模式，它将帮您更好控制飞行姿态。按H隐藏叠加的文字。"
+    },
+    "aircraft":{
+        "en":"<b>In Aircraft Control:</b><br>Use Arrow Up / Arrow Down to turn on/off throttle(engine's power), W/S(down/up) to control elevator, Q/E(ana/kata) A/D(left/right) to control rudder, Z/X to spin. Use F/Shift+F to control flaps, hold key C to adjust aircraft roll to keep horizontal by automatic control system. When at ground, use K to toggle main gear brake, U/O(ana/kata) J/L(left/right) to control each gear brake to turn. <br><br><b>In Camera Control: Keep up mode</b><br>Press =/- to adjust camera move speed. <br><br><b>Special Operations:</b><br>Press key B to toggle camera/aircraft control. Press key 1/2/3/4/5/6 to toggle different camera positions on the aircraft, press key 7 for free camera. Use 9/0 to zoom in/out (change camera's focus length). Press H to hide overlaid texts.",
+        "zh":"<b>飞机控制模式下：</b><br> 使用上下箭头调节发动机功率，W/S（俯/仰）控制升降舵，Q/E（侧前后） A/D（左右）控制转向，Z/X控制自转。使用F/Shift+F调节襟翼，按住C键可通过自动控制系统修正飞机横滚角至水平姿态。地面滑行时，可使用K键开启/关闭起落架轮主制动，U/O（侧前后） J/L（左右）控制各轮刹车比例控制转向、I/J/K/L/U/O转向。<br><br><b>摄像机控制下为保持竖直模式</b><br>按=/-调节相机移动速度。<br><br><b>特殊控制：</b><br>按B键切换相机/飞机控制，按1/2/3/4/5/6键可切换飞机上的不同机位、按7键切至自由相机，使用大键盘9/0拉进/拉远镜头画面。按H隐藏叠加的文字。"
     },
     "voxeltest::rasterizer":{
         "zh": "<b>控制：轨迹球模式</b><br>该示例为使用计算着色器对四面体进行体素光栅化，渲染双圆环的深度缓冲区。",
