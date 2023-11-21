@@ -322,7 +322,7 @@ let info = {
     },
     "aircraft":{
         "en":"<b>In Aircraft Control:</b><br>Use Arrow Up / Arrow Down to turn on/off throttle(engine's power), W/S(down/up) to control elevator, Q/E(ana/kata) A/D(left/right) to control rudder, Z/X to spin. Use F/Shift+F to control flaps, hold key C to adjust aircraft roll to keep horizontal by automatic control system. When at ground, use K to toggle main gear brake, U/O(ana/kata) J/L(left/right) to control each gear brake to turn. <br><br><b>In Camera Control: Keep up mode</b><br>Press =/- to adjust camera move speed. <br><br><b>Special Operations:</b><br>Press key B to toggle camera/aircraft control. Press key 1/2/3/4/5/6 to toggle different camera positions on the aircraft, press key 7 for free camera. Use 9/0 to zoom in/out (change camera's focus length). Press H to hide overlaid texts.",
-        "zh":"<b>飞机控制模式下：</b><br> 使用上下箭头调节发动机功率，W/S（俯/仰）控制升降舵，Q/E（侧前后） A/D（左右）控制转向，Z/X控制自转。使用F/Shift+F调节襟翼，按住C键可通过自动控制系统修正飞机横滚角至水平姿态。地面滑行时，可使用K键开启/关闭起落架轮主制动，U/O（侧前后） J/L（左右）控制各轮刹车比例控制转向、I/J/K/L/U/O转向。<br><br><b>摄像机控制下为保持竖直模式</b><br>按=/-调节相机移动速度。<br><br><b>特殊控制：</b><br>按B键切换相机/飞机控制，按1/2/3/4/5/6键可切换飞机上的不同机位、按7键切至自由相机，使用大键盘9/0拉进/拉远镜头画面。按H隐藏叠加的文字。"
+        "zh":"<b>飞机控制模式下：</b><br> 使用上下箭头调节发动机功率，W/S（俯/仰）控制升降舵，Q/E（侧前后） A/D（左右）控制转向，Z/X控制自转。使用F/Shift+F调节襟翼，按住C键可通过自动控制系统修正飞机横滚角至水平姿态。地面滑行时，可使用K键开启/关闭起落架轮主制动，U/O（侧前后） J/L（左右）控制各轮刹车比例控制转向。<br><br><b>摄像机控制下为保持竖直模式</b><br>按=/-调节相机移动速度。<br><br><b>特殊控制：</b><br>按B键切换相机/飞机控制，按1/2/3/4/5/6键可切换飞机上的不同机位、按7键切至自由相机，使用大键盘9/0拉近/拉远镜头画面。按H隐藏叠加的文字。"
     },
     "voxeltest::rasterizer":{
         "zh": "<b>控制：轨迹球模式</b><br>该示例为使用计算着色器对四面体进行体素光栅化，渲染双圆环的深度缓冲区。",
