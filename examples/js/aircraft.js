@@ -128,7 +128,7 @@ export var aircraft;
         const hud = document.createElement("div");
         document.body.appendChild(hud);
         hud.style.position = "fixed";
-        hud.style.top = "100px";
+        hud.style.top = "80px";
         hud.style.left = "0px";
         hud.style.fontSize = "0.6em";
         hud.style.color = "#FFF";
@@ -150,6 +150,7 @@ export var aircraft;
             scene.add(o);
             o.alwaysUpdateCoord = true;
         }
+        retinaController.toggleCrosshair();
         function run() {
             const dt = Math.min(ctrlReg.states.mspf * 0.001 / 3, 1 / 60);
             aircraftCtrl.dt = dt;
@@ -373,7 +374,7 @@ export var aircraft;
                 if(isWhite){
                     return vec4<f32>(1.0,1.0,1.0,5.0);
                 }else{
-                    return vec4<f32>(0.3,0.3,0.3,0.3);
+                    return vec4<f32>(0.3,0.3,0.3,0.2);
                 }
             }
             `, "track")));
@@ -694,6 +695,7 @@ class AircraftCtrl {
                 "ctrlMode": "Press B to toggle",
                 "camMode": "Camera Control",
                 "aircraftMode": "Aircraft Control",
+                "fov": "Camera FOV",
             },
             "zh": {
                 "throttle": "引擎功率",
@@ -721,10 +723,12 @@ class AircraftCtrl {
                 "ctrlMode": "按B切换模式",
                 "camMode": "控制相机",
                 "aircraftMode": "控制飞机",
+                "fov": "相机视野角"
             }
         }[lang];
         this.hudDom.innerHTML =
             `<table>
+<tr><td>${translate["fov"]}</td><td> ${this.camera.fov}</td></tr>
 <tr><td>${translate["ctrlMode"]}</td><td> ${this.camLock ? translate["aircraftMode"] : translate["camMode"]}</td></tr>
 <tr><td>${translate["throttle"]}</td><td> ${this.controls.throttle.toFixed(3)}</td></tr>
 <tr><td>${translate["aileronA"]}</td><td> ${this.controls.aileron1.toFixed(3)}</td></tr>

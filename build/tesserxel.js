@@ -13468,9 +13468,6 @@ class ForceAccumulator {
                 mulBivec(o.angularAcceleration, localL.crossrs(localW).negs().adds(localT), o.invInertia);
                 o.angularAcceleration.rotates(o.rotation);
             }
-            if (!o.velocity.isFinite() || !o.angularVelocity.isFinite() || !o.acceleration.isFinite() || !o.angularAcceleration.isFinite()) {
-                console.log("oma");
-            }
         }
     }
 }
@@ -13752,23 +13749,15 @@ class TorqueSpring extends Force {
         this._bivf.crossset(srcB, dstB);
         if (this.damp && this._bivf.norm1() > 1e-3) {
             let dw = (this.b ? this._bivec.subset(this.a.angularVelocity, this.b.angularVelocity) : this.a.angularVelocity).dot(this._bivf);
-            if (Math.abs(dw) > 0.2)
-                console.log(dw);
-            if (dw > 0.3)
-                dw = 0.3;
-            if (dw < -0.3)
-                dw = -0.3;
-            if (Math.abs(dw) > 0.2)
-                console.log(dw);
-            if (this._bivf.norm() > 10)
-                console.log(this._bivf.norm());
+            // if (Math.abs(dw) > 0.2) console.log(dw);
+            // if (dw > 0.3) dw = 0.3;
+            // if (dw < - 0.3) dw = - 0.3;
+            // if (Math.abs(dw) > 0.2) console.log(dw);
+            // if(this._bivf.norm()>10) console.log(this._bivf.norm());
             k -= dw / this._bivf.normsqr() * this.damp;
         }
         this._bivf.mulfs(k);
         this.a.torque.adds(this._bivf);
-        if (this._bivf.norm() > 100) {
-            console.log(this._bivf.norm());
-        }
         if (this.b)
             this.b.torque.subs(this._bivf);
     }
