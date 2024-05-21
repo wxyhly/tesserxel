@@ -7,13 +7,13 @@ Tesserxel is a project aimed for providing 4D scenes rendering and interacting l
 - [Online example browser](https://wxyhly.github.io/tesserxel/examples/)
 
 ![scree snapshots in example browser](https://wxyhly.github.io/img/tsx005.jpg)
-Attention: Examples should be opened by a WebGPU supported browser (e.g. Google Chrome 113 and above), and WebGPU should be enabled in the browser's settings.
+Attention: Examples should be opened by a WebGPU supported browser (e.g. Google Chrome 114 and above), and WebGPU should be enabled in the browser's settings.
 
 ### Features
 #### Display
 - Support 3D retina displayer with transparent voxels and wireframe lines.
-- Support single retina cross Section rendering.
-- Support adjustable naked eye stero mode.
+- Support single retina cross section rendering.
+- Support adjustable naked eye stereo mode.
 - GUI for display options.
 
 #### Modeling

@@ -163,7 +163,7 @@ export namespace aircraft {
         world.add(aircraftP, aircraftMecanism);
         const ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
             retinaController, freeCamCtrl, aircraftCtrl
-        ]);
+        ], { preventDefault: true });
         function setSize() {
             let width = window.innerWidth * window.devicePixelRatio;
             let height = window.innerHeight * window.devicePixelRatio;
@@ -780,13 +780,13 @@ class AircraftCtrl implements tesserxel.util.ctrl.IController {
                 "ctrlMode": "按B切换模式",
                 "camMode": "控制相机",
                 "aircraftMode": "控制飞机",
-                "fov":"相机视野角"
+                "fov": "相机视野角"
             }
         }[lang];
         this.hudDom.innerHTML =
             `<table>
 <tr><td>${translate["fov"]}</td><td> ${this.camera.fov}</td></tr>
-<tr><td>${translate["ctrlMode"]}</td><td> ${this.camLock?translate["aircraftMode"]:translate["camMode"]}</td></tr>
+<tr><td>${translate["ctrlMode"]}</td><td> ${this.camLock ? translate["aircraftMode"] : translate["camMode"]}</td></tr>
 <tr><td>${translate["throttle"]}</td><td> ${this.controls.throttle.toFixed(3)}</td></tr>
 <tr><td>${translate["aileronA"]}</td><td> ${this.controls.aileron1.toFixed(3)}</td></tr>
 <tr><td>${translate["aileronB"]}</td><td> ${this.controls.aileron2.toFixed(3)}</td></tr>

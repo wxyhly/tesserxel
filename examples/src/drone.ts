@@ -83,7 +83,7 @@ export namespace drone {
         world.add(droneMecanism);
         const ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
             retinaController, droneCtrl, freeCamCtrl
-        ]);
+        ], { preventDefault: true });
         function setSize() {
             let width = window.innerWidth * window.devicePixelRatio;
             let height = window.innerHeight * window.devicePixelRatio;
@@ -152,7 +152,7 @@ export namespace drone {
             _v.copy(Vec4.z).rotates(droneP.rotation); _v.y = 0; _v.norms();
             values[5].innerText = (-droneP.velocity.dot(_v))?.toFixed(3);
             values[6].innerText = (Math.acos(Vec4.x.rotate(droneP.rotation).y) * 180 / Math.PI - 90).toFixed(1);
-            values[7].innerText = (Math.acos(Math.min(Vec4.y.rotate(droneP.rotation).y,1)) * 180 / Math.PI).toFixed(1);
+            values[7].innerText = (Math.acos(Math.min(Vec4.y.rotate(droneP.rotation).y, 1)) * 180 / Math.PI).toFixed(1);
             values[8].innerText = (-Math.acos(Vec4.z.rotate(droneP.rotation).y) * 180 / Math.PI + 90).toFixed(1);
             values[9].innerText = (-Math.acos(Vec4.w.rotate(droneP.rotation).y) * 180 / Math.PI + 90).toFixed(1);
             values[10].innerText = droneCtrl.motors[0].toFixed(3) + "; " + droneCtrl.motors[1].toFixed(3);

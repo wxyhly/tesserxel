@@ -6,7 +6,7 @@ import { Mat4 } from "./mat4";
 import { Vec3, _vec3, _vec3_1, _vec3_2 } from "./vec3";
 import { Vec4 } from "./vec4";
 
-export class QuaternionPool extends Pool<Quaternion>{
+export class QuaternionPool extends Pool<Quaternion> {
     constructObject() { return new Quaternion; }
 }
 export const quaternionPool = new QuaternionPool;
@@ -137,10 +137,11 @@ export class Quaternion {
         if (Math.abs(cosf) > 0.99999) {
             A = 1 - t; B = t;
         } else {
-            let f = Math.acos(cosf);
+            let f = Math.acos(Math.abs(cosf));
             let _1s = 1 / Math.sin(f);
             A = Math.sin((1 - t) * f) * _1s;
             B = Math.sin(t * f) * _1s;
+            if (cosf < 0) B = -B;
         }
         return new Quaternion(
             a.x * A + b.x * B, a.y * A + b.y * B, a.z * A + b.z * B, a.w * A + b.w * B

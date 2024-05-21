@@ -57,7 +57,7 @@ export class DuocylinderGeometry extends Geometry {
 }
 export class ConvexHullGeometry extends Geometry {
     constructor(points: Vec4[]) {
-        super(tetra.convexhull(points).generateNormal());
+        super(tetra.convexhull(points).generateNormal().setUVWAsPosition());
     }
 }
 export class CWMeshGeometry extends Geometry{
