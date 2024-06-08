@@ -806,10 +806,12 @@ class Quaternion {
             B = t;
         }
         else {
-            let f = Math.acos(cosf);
+            let f = Math.acos(Math.abs(cosf));
             let _1s = 1 / Math.sin(f);
             A = Math.sin((1 - t) * f) * _1s;
             B = Math.sin(t * f) * _1s;
+            if (cosf < 0)
+                B = -B;
         }
         return new Quaternion(a.x * A + b.x * B, a.y * A + b.y * B, a.z * A + b.z * B, a.w * A + b.w * B);
     }
@@ -11949,7 +11951,7 @@ class DuocylinderGeometry extends Geometry {
 }
 class ConvexHullGeometry extends Geometry {
     constructor(points) {
-        super(convexhull(points).generateNormal());
+        super(convexhull(points).generateNormal().setUVWAsPosition());
     }
 }
 class CWMeshGeometry extends Geometry {
@@ -12806,12 +12808,20 @@ class Rigid extends Obj4 {
             return out.set();
         return out.copy(this.velocity).mulfs(this.mass);
     }
-    getAngularMomentum(out, point) {
+    /** type: "J" for total, type: "S" for Spin, type: "L" for Orbital, */
+    getAngularMomentum(out, point = new Vec4, type = "J") {
         const v = vec4Pool.pop();
         const p = vec4Pool.pop().copy(this.position);
         if (point)
             p.subs(point);
-        out.wedgevvset(p, this.getMomentum(v));
+        if (type === "J" || type === "L") {
+            out.wedgevvset(p, this.getMomentum(v));
+        }
+        else {
+            out.set();
+        }
+        if (type === "L")
+            return out;
         p.pushPool();
         const localW = bivecPool.pop();
         const localIW = bivecPool.pop();
@@ -12913,15 +12923,17 @@ var rigid;
     class Glome extends RigidGeometry {
         radius = 1;
         radiusSqr = 1;
-        constructor(radius) {
+        inertiaCoefficient;
+        constructor(radius, inertiaCoefficient = 0.25) {
             super();
             this.radius = radius;
             this.boundingGlome = radius;
             this.radiusSqr = radius * radius;
+            this.inertiaCoefficient = inertiaCoefficient;
         }
         initializeMassInertia(rigid) {
             rigid.inertiaIsotroy = true;
-            rigid.inertia.xy = rigid.mass * this.radiusSqr * 0.25;
+            rigid.inertia.xy = rigid.mass * this.radiusSqr * this.inertiaCoefficient;
         }
     }
     rigid_1.Glome = Glome;
@@ -13076,6 +13088,22 @@ var rigid;
         }
     }
     rigid_1.Plane = Plane;
+    class GlomicCavity extends RigidGeometry {
+        radius;
+        constructor(radius) {
+            super();
+            this.radius = radius;
+        }
+        initializeMassInertia(rigid) {
+            if (rigid.mass)
+                console.warn("GlomicCavity cannot have a finitive mass.");
+            rigid.mass = undefined;
+            rigid.invMass = 0;
+            rigid.inertia = undefined;
+            rigid.invInertia = undefined;
+        }
+    }
+    rigid_1.GlomicCavity = GlomicCavity;
     /** default orientation: XW */
     class Spheritorus extends RigidGeometry {
         majorRadius;
@@ -13230,12 +13258,33 @@ var rigid;
         }
     }
     rigid_1.ThickHexahedronGrid = ThickHexahedronGrid;
+    class LoftedConvex extends RigidGeometry {
+        grid1;
+        grid2;
+        convex;
+        constructor(sp, section, step) {
+            super();
+        }
+        initializeMassInertia(rigid) {
+            if (rigid.mass)
+                console.warn("HeightField doesnt support a finitive mass.");
+            rigid.mass = undefined;
+            rigid.invMass = 0;
+            rigid.inertia = undefined;
+            rigid.invInertia = undefined;
+        }
+    }
+    rigid_1.LoftedConvex = LoftedConvex;
 })(rigid || (rigid = {}));
 
 class BroadPhase {
     checkList = [];
+    ignorePair = [];
     clearCheckList() {
         this.checkList = [];
+    }
+    verifyCheckList() {
+        this.checkList = this.checkList.filter(([a, b]) => -1 === this.ignorePair.findIndex(([x, y]) => (a === x && b === y) || (a === y && b === x)));
     }
 }
 class BoundingGlomeBroadPhase extends BroadPhase {
@@ -13317,7 +13366,7 @@ class BoundingGlomeTreeBroadPhase extends BroadPhase {
         let rigidIndex = -1;
         for (let i = 0; i < world.rigids.length; i++) {
             let ri = world.rigids[i];
-            if (ri.geometry instanceof rigid.Plane) {
+            if (ri.geometry instanceof rigid.Plane || ri.geometry instanceof rigid.GlomicCavity) {
                 this.exclude.push(ri);
             }
             else {
@@ -14025,6 +14074,39 @@ class MaxWell extends Force {
         dE.adds(mat.set((p2 * (r2 - 6 * rxx) + 2 * pxx * r2) * r8_neg4, xy, xz, xw, xy, (p2 * (r2 - 6 * ryy) + 2 * pyy * r2) * r8_neg4, yz, yw, xz, yz, (p2 * (r2 - 6 * rzz) + 2 * pzz * r2) * r8_neg4, zw, xw, yw, zw, (p2 * (r2 - 6 * rww) + 2 * pww * r2) * r8_neg4).negs());
         mat.pushPool();
         r.pushPool();
+    }
+}
+class Gravity extends Force {
+    _vecG = new Vec4;
+    rigids = [];
+    gain = 10;
+    add(s) {
+        this.rigids.push(s);
+    }
+    getGAt(p, ignore) {
+        this._vecG.set();
+        for (let s of this.rigids) {
+            if (ignore === s.position || ignore === s)
+                continue;
+            this.addGOfMass(this._vecG, p, s);
+        }
+        return this._vecG;
+    }
+    apply(time) {
+        // outter loop: test point, inner loop: source point
+        for (let q of this.rigids) {
+            if (!q || !q.mass)
+                continue;
+            q.force.addmulfs(this.getGAt(q.position, q), q.mass);
+        }
+    }
+    addGOfMass(vecG, p, s) {
+        let r = vec4Pool.pop().subset(p, s.position);
+        let r2 = 1 / r.normsqr();
+        let qr4 = -s.mass * r2 * r2 * this.gain;
+        vecG.addmulfs(r, qr4);
+        r.pushPool();
+        return;
     }
 }
 
@@ -14792,6 +14874,10 @@ class NarrowPhase {
     }
     detectCollision(rigidA, rigidB) {
         let a = rigidA.geometry, b = rigidB.geometry;
+        if (a instanceof rigid.GlomicCavity) {
+            if (b instanceof rigid.Glome)
+                return this.detectGlomeGlomiccavity(b, a);
+        }
         if (a instanceof rigid.Glome) {
             if (b instanceof rigid.Glome)
                 return this.detectGlomeGlome(a, b);
@@ -14807,6 +14893,8 @@ class NarrowPhase {
                 return this.detectTigerGlome(b, a);
             if (b instanceof rigid.Ditorus)
                 return this.detectDitorusGlome(b, a);
+            if (b instanceof rigid.GlomicCavity)
+                return this.detectGlomeGlomiccavity(a, b);
         }
         if (a instanceof rigid.Plane) {
             if (b instanceof rigid.Glome)
@@ -14899,7 +14987,25 @@ class NarrowPhase {
             return null;
         // todo: check whether clone can be removed
         let normal = _vec4.divfs(d).clone();
-        let point = a.rigid.position.clone().adds(b.rigid.position).mulfs(0.5);
+        let point;
+        if (a.radius === b.radius) {
+            point = a.rigid.position.clone().adds(b.rigid.position).mulfs(0.5);
+        }
+        else {
+            const totalinv = 1 / (a.radius + b.radius);
+            point = a.rigid.position.mulf(totalinv * b.radius).addmulfs(b.rigid.position, totalinv * a.radius);
+        }
+        this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
+    }
+    detectGlomeGlomiccavity(a, b) {
+        _vec4.subset(b.rigid.position, a.rigid.position);
+        let d = _vec4.norm();
+        let depth = a.radius - b.radius + d;
+        if (depth < 0)
+            return null;
+        // todo: check whether clone can be removed
+        let normal = _vec4.divf(-d);
+        let point = b.rigid.position.clone().addmulfs(normal, b.radius + depth / 2);
         this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
     }
     detectGlomePlane(a, b) {
@@ -16325,6 +16431,7 @@ var physics = /*#__PURE__*/Object.freeze({
     TorqueSpring: TorqueSpring,
     Damping: Damping,
     MaxWell: MaxWell,
+    Gravity: Gravity,
     Solver: Solver,
     IterativeImpulseSolver: IterativeImpulseSolver
 });

@@ -31,6 +31,9 @@ export class NarrowPhase {
     }
     detectCollision(rigidA: Rigid, rigidB: Rigid) {
         let a = rigidA.geometry, b = rigidB.geometry;
+        if (a instanceof rigid.GlomicCavity) {
+            if (b instanceof rigid.Glome) return this.detectGlomeGlomiccavity(b, a);
+        }
         if (a instanceof rigid.Glome) {
             if (b instanceof rigid.Glome) return this.detectGlomeGlome(a, b);
             if (b instanceof rigid.Plane) return this.detectGlomePlane(a, b);
@@ -39,6 +42,7 @@ export class NarrowPhase {
             if (b instanceof rigid.Torisphere) return this.detectTorisphereGlome(b, a);
             if (b instanceof rigid.Tiger) return this.detectTigerGlome(b, a);
             if (b instanceof rigid.Ditorus) return this.detectDitorusGlome(b, a);
+            if (b instanceof rigid.GlomicCavity) return this.detectGlomeGlomiccavity(a, b);
         }
         if (a instanceof rigid.Plane) {
             if (b instanceof rigid.Glome) return this.detectGlomePlane(b, a);
@@ -99,7 +103,24 @@ export class NarrowPhase {
         if (depth < 0) return null;
         // todo: check whether clone can be removed
         let normal = _vec4.divfs(d).clone();
-        let point = a.rigid.position.clone().adds(b.rigid.position).mulfs(0.5);
+        let point: Vec4;
+        if (a.radius === b.radius) {
+            point = a.rigid.position.clone().adds(b.rigid.position).mulfs(0.5);
+        } else {
+            const totalinv = 1 / (a.radius + b.radius);
+            point = a.rigid.position.mulf(totalinv * b.radius).addmulfs(b.rigid.position, totalinv * a.radius);
+        }
+        this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
+    }
+    private detectGlomeGlomiccavity(a: rigid.Glome, b: rigid.GlomicCavity) {
+        _vec4.subset(b.rigid.position, a.rigid.position);
+        let d = _vec4.norm();
+        let depth = a.radius - b.radius + d;
+        if (depth < 0) return null;
+        // todo: check whether clone can be removed
+        let normal = _vec4.divf(-d);
+        let point = b.rigid.position.clone().addmulfs(normal, b.radius + depth / 2);
+
         this.collisionList.push({ point, normal, depth, a: a.rigid, b: b.rigid });
     }
     private detectGlomePlane(a: rigid.Glome, b: rigid.Plane) {

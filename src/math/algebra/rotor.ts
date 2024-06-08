@@ -7,7 +7,7 @@ import { Quaternion } from "./quaternion";
 import { Vec3, _vec3_1, _vec3_2, _vec3_3, _vec3_4, _vec3_5 } from "./vec3";
 import { Vec4, _vec4 } from "./vec4";
 
-export class RotorPool extends Pool<Rotor>{
+export class RotorPool extends Pool<Rotor> {
     constructObject() { return new Rotor; }
 }
 export const rotorPool = new RotorPool;
@@ -122,11 +122,11 @@ export class Rotor {
     toMat4(): Mat4 {
         return this.l.toLMat4().mulsr(_mat4.setFromQuaternionR(this.r));
     }
-    
+
     /** set rotor from a rotation matrix,
      * i.e. m must be orthogonal with determinant 1.
      * algorithm: iteratively aligne each axis. */
-     setFromMat4(m: Mat4) {
+    setFromMat4(m: Mat4) {
         return this.setFromLookAt(Vec4.x, m.x_()).mulsl(
             _r.setFromLookAt(_vec4.copy(Vec4.y).rotates(this), m.y_())
         ).mulsl(
@@ -135,7 +135,7 @@ export class Rotor {
     }
     /** Rotor: rotate from plane1 to plane2
      *  Bivectors must be simple and normalised */
-     static lookAtbb(from: Bivec, to: Bivec): Rotor {
+    static lookAtbb(from: Bivec, to: Bivec): Rotor {
         let A1 = _vec3_2.set(from.xy + from.zw, from.xz - from.yw, from.xw + from.yz);
         let B1 = _vec3_3.set(from.xy - from.zw, from.xz + from.yw, from.xw - from.yz);
         let A2 = _vec3_4.set(to.xy + to.zw, to.xz - to.yw, to.xw + to.yz);
@@ -206,7 +206,7 @@ export class Rotor {
         this.r.randset();
         return this;
     }
-    
+
     srandset(seed: Srand): Rotor {
         this.l.srandset(seed);
         this.r.srandset(seed);
@@ -217,7 +217,7 @@ export class Rotor {
     }
 
     // todo: fixbug
-    
+
     // fromMat4(m: Mat4) {
     //     return Rotor.lookAt(Vec4.x, m.x_()).mulsl(
     //         _r.setFromLookAt(_vec4.copy(Vec4.y).rotates(this), m.y_())

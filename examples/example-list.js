@@ -45,7 +45,7 @@ let examples = [
                     { target: "shapes::torisphere", zh: "环球", en: "Torisphere" },
                     { target: "shapes::torinder", zh: "圆环柱", en: "Torinder" },
                     { target: "shapes::tiger", zh: "双圆环", en: "Tiger (Duotorus)" },
-                    { target: "shapes::ditorus", zh: "圆圆环", en: "Ditorus" },
+                    { target: "shapes::ditorus", zh: "圆环环", en: "Ditorus" },
                     { target: "shapes::glome", zh: "超球", en: "Glome (Hyphersphere)" },
                     { target: "shapes::suzanne3d", zh: "猴头旋转体", en: "Suzanne Rotatoid" }
                 ]
@@ -101,12 +101,12 @@ let examples = [
             { target: "aircraft", zh: "客机", en: "Aircraft" },
             { target: "rigids::dzhanibekov1", zh: "单周期自由旋转进动", en: "Dzhanibekov Effect with Single Period" },
             { target: "rigids::dzhanibekov2", zh: "双周期自由旋转进动", en: "Dzhanibekov Effect with Double Period" },
+            { target: "rigids::thermo_stats", zh: "旋转分布律（试验）", en: "Thermotic Rotation Distribution (Experimental)" },
             { target: "forces::spring_rope", zh: "弹簧绳", en: "Rope with Springs" },
             { target: "rigids::rigid_test", zh: "刚体测试", en: "Rigid Body Test" },
             { target: "rigids::st_pile", zh: "球环堆", en: "Spheritorus Pile" },
             { target: "pde::wave_eq", zh: "三维波动方程", en: "Wave Equation" },
             { target: "pde::river_evolution", zh: "河流演化", en: "River Evolution" },
-            // { target: "rigids::thermo_stats", zh: "热力学旋转分布律", en: "Thermotic Rotation Distribution" },
             { target: "pde::erosion", zh: "流水侵蚀（试验）", en: "Hydraulic Erosion (Experimental)" },
         ]
     },

@@ -151,11 +151,22 @@ class EmitGlomeController {
         }
     }
 }
-function addRoom(roomSize, world, material, scene, renderMaterial) {
-    // floor
-    world.add(new phy.Rigid({
-        geometry: new phy.rigid.Plane(new math.Vec4(0, 1)), material, mass: 0
-    }));
+function addRoom(roomSize, world, material, scene, renderMaterial, ceil) {
+    //ceil wall
+    if (ceil) {
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, -1), -roomSize), material, mass: 0
+        }));
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, 1), -roomSize), material, mass: 0
+        }));
+    }
+    else {
+        // floor
+        world.add(new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, 1)), material, mass: 0
+        }));
+    }
     // left wall
     world.add(new phy.Rigid({
         geometry: new phy.rigid.Plane(new math.Vec4(1), -roomSize), material, mass: 0
@@ -181,7 +192,8 @@ function addRoom(roomSize, world, material, scene, renderMaterial) {
         geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 0, -1), -roomSize), material, mass: 0
     }));
     let roomMesh = new FOUR.Mesh(new FOUR.TesseractGeometry(roomSize), renderMaterial);
-    roomMesh.position.y += roomSize;
+    if (!ceil)
+        roomMesh.position.y += roomSize;
     roomMesh.geometry.jsBuffer.inverseNormal();
     scene.add(roomMesh);
 }
@@ -919,110 +931,183 @@ export var gyro_sphericone;
 })(gyro_sphericone || (gyro_sphericone = {}));
 export var thermo_stats;
 (function (thermo_stats) {
+    const lang = new URLSearchParams(window.location.search.slice(1)).get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en");
+    class GUI {
+        canvasHeight = 200;
+        /// horizontal factor for sun angle curve
+        timePerPixel = 0.05;
+        canvas;
+        context;
+        time = 0;
+        data = [];
+        maxPoints = 3000;
+        constructor() {
+            this.canvas = document.createElement("canvas");
+            this.canvas.style.width = "100%";
+            this.canvas.style.height = this.canvasHeight + "px";
+            this.canvas.style.position = "absolute";
+            this.canvas.style.bottom = "0px";
+            this.canvas.style.left = "0px";
+            this.context = this.canvas.getContext("2d");
+            document.body.appendChild(this.canvas);
+        }
+        setSize() {
+            this.canvas.width = window.innerWidth * window.devicePixelRatio;
+            this.canvas.height = this.canvasHeight * window.devicePixelRatio;
+        }
+        update(balls) {
+            this.time++;
+            function getDegree(biv) {
+                let degree = Math.atan2(biv.dual().adds(biv).norm(), biv.dual().subs(biv).norm());
+                degree = degree * 4 / Math.PI - 1;
+                return degree;
+            }
+            let sum = new tesserxel.math.Bivec;
+            for (const g of balls) {
+                sum.adds(g.angularVelocity);
+            }
+            const J = new math.Bivec();
+            const S = new math.Bivec();
+            const L = new math.Bivec();
+            const dp = new math.Bivec();
+            let Et = 0;
+            let Er = 0;
+            for (const b of balls) {
+                J.adds(b.getAngularMomentum(dp, new math.Vec4, "J"));
+                S.adds(b.getAngularMomentum(dp, new math.Vec4, "S"));
+                L.adds(b.getAngularMomentum(dp, new math.Vec4, "L"));
+                Et += b.getLinearKineticEnergy();
+                Er += b.getAngularKineticEnergy();
+            }
+            if ((this.time & 3) == 1) {
+                this.data.unshift([
+                    J.norm(), getDegree(J),
+                    L.norm(), getDegree(L),
+                    S.norm(), getDegree(S),
+                    Et / Er
+                    // Et, Er, Et + Er
+                ]);
+            }
+            if (this.data.length > this.maxPoints)
+                this.data.pop();
+            const c = this.context;
+            const width = this.canvas.width;
+            const hdiv2 = this.canvas.height / 2;
+            c.clearRect(0, 0, width, this.canvas.height);
+            c.font = "30px Arial";
+            c.lineWidth = 1;
+            c.fillStyle = "rgba(0,0,0,0.2)";
+            for (const b of balls) {
+                c.beginPath();
+                const d = getDegree(b.angularVelocity);
+                c.arc((d + 1) / 2 * width, hdiv2, 30, 0, Math.PI * 2);
+                c.fill();
+            }
+            c.fillStyle = "rgb(255,255,255)";
+            for (const b of balls) {
+                const d = getDegree(b.angularVelocity);
+                c.fillText(d.toFixed(2), (d + 1) / 2 * width - 30, hdiv2);
+            }
+            const draw = (label, gain, idx, style, isLeft) => {
+                c.strokeStyle = style;
+                c.beginPath();
+                c.moveTo(0, hdiv2);
+                for (let x = 0; x < width; x += 2) {
+                    const dataptr = this.data[Math.round((width - x) / 2)];
+                    if (!dataptr) {
+                        c.moveTo(x, hdiv2);
+                    }
+                    else {
+                        c.lineTo(x, hdiv2 * (-dataptr[idx] * gain + 1));
+                    }
+                }
+                c.stroke();
+                c.fillStyle = style;
+                c.fillText(label, isLeft ? 10 : width - this.context.measureText(label).width - 10, hdiv2 * (-this.data[0][idx] * gain + 1));
+            };
+            c.strokeStyle = "rgb(0,0,0)";
+            c.beginPath();
+            c.moveTo(0, hdiv2);
+            c.lineTo(width, hdiv2);
+            c.stroke();
+            c.lineWidth = 3;
+            const scaleDual = 0.5;
+            const scaleAbs = 0.005;
+            const scaleE = 0.01;
+            const more = 1;
+            draw(lang == "zh" ? "|J|(总角动量大小)" : "|J|(Total Angular Momenta)", scaleAbs, 0, "rgb(240,0,240)", true);
+            this.context.setLineDash([4, 8]);
+            this.context.lineDashOffset = 4;
+            draw(lang == "zh" ? "duality(J)(总角动量对偶性)" : "duality(J)", scaleDual * more, 1, "rgba(240,0,240,0.6)", false);
+            this.context.setLineDash([]);
+            draw(lang == "zh" ? "|L|(轨道角动量大小)" : "|L|(Orbital Angular Momenta)", scaleAbs, 2, "rgb(0,0,255)", false);
+            this.context.setLineDash([4, 8]);
+            this.context.lineDashOffset = 0;
+            draw(lang == "zh" ? "duality(L)(轨道角动量对偶性)" : "duality(L)", scaleDual * more, 3, "rgba(0,0,255,0.6)", true);
+            this.context.setLineDash([]);
+            draw(lang == "zh" ? "|S|(自转角动量大小)" : "|S|(Spin Angular Momenta)", scaleAbs * more, 4, "rgb(255,0,0)", false);
+            this.context.setLineDash([4, 8]);
+            draw(lang == "zh" ? "duality(S)(自转角动量对偶性)" : "duality(S)", scaleDual, 5, "rgba(128,0,0,0.6)", true);
+            this.context.setLineDash([1, 2]);
+            draw(lang == "zh" ? "平动动能/转动动能" : "Translational Kinetic Energy / Rotational Kinetic Energy", scaleE, 6, "rgb(0,255,0)", false);
+            this.context.setLineDash([]);
+        }
+    }
     async function load() {
-        const engine = new phy.Engine({ substep: 5, broadPhase: phy.BoundingGlomeTreeBroadPhase });
+        const engine = new phy.Engine({ substep: 50 });
+        engine.solver.maxPositionIterations = 0;
+        engine.solver.PositionRelaxationFactor = 0.0001;
         const world = new phy.World();
         const scene = new FOUR.Scene();
-        const roomSize = 3.51;
         world.gravity.set();
         // define physical materials: frictions and restitutions
-        const phyMat = new phy.Material(1, 1);
+        const phyMat = new phy.Material(0.2, 1.0);
         const borderMat = new phy.Material(0, 1);
         // define render materials
         const balls = [];
         const renderMat = new FOUR.LambertMaterial(new FOUR.CheckerTexture([1, 1, 1], [0.2, 0.2, 0.2]));
-        // for (let i = 0; i < 20; i++) {
-        //     const g = new phy.Rigid({
-        //         geometry: new phy.rigid.Glome(0.5),
-        //         mass: 1, material: phyMat
-        //     });
-        //     g.position.randset().mulfs(3);
-        //     addRigidToScene(world, scene, renderMat, g);
-        //     // if (!i) {
-        //     g.velocity.copy(g.position).mulfs(-0.1);
-        //     g.angularVelocity.randset();
-        //     // g.velocity.set(g.position.y, -g.position.x, g.position.w, -g.position.z).mulfs(4);
-        //     // }
-        //     balls.push(g);
-        // }
-        let g = new phy.Rigid({
-            geometry: new phy.rigid.Tesseractoid(new math.Vec4(1.1, 0.3, 1.5, 0.7)),
-            mass: 1, material: phyMat
+        const fem = new phy.Gravity();
+        // world.add(fem);
+        for (let i = 0; i < 40; i++) {
+            // const r1 = new phy.Rigid({
+            //     geometry: new phy.rigid.Glome(0.4),
+            //     mass: 1, material: phyMat
+            // });
+            // r1.position.x = -0.3;
+            // const r2 = new phy.Rigid({
+            //     geometry: new phy.rigid.Glome(0.4),
+            //     mass: 1, material: phyMat
+            // });
+            // r2.position.x = 0.3;
+            // const g = new phy.Rigid([
+            //     r1, r2
+            // ]);
+            const g = new phy.Rigid({
+                geometry: new phy.rigid.Glome(0.5),
+                mass: 1, material: phyMat
+            });
+            g.position.randset().mulfs(2);
+            // g.position = [new tesserxel.math.Vec4(1),new tesserxel.math.Vec4(-1)][i];
+            // g.velocity = [new tesserxel.math.Vec4(-0.1),new tesserxel.math.Vec4(0.1)][i];
+            // g.angularVelocity.xy = [0.1,0.1][i];
+            addRigidToScene(world, scene, renderMat, g);
+            // g.velocity.copy(g.position).mulfs(-0.3);
+            // g.velocity.copy(g.position).mulfs(5);
+            g.velocity.randset().mulfs(10);
+            // g.angularVelocity.randset().mulfs(22);
+            // g.angularVelocity.zw = 10;
+            balls.push(g);
+            // fem.add(g);
+        }
+        const cavity = new phy.Rigid({
+            geometry: new phy.rigid.GlomicCavity(3),
+            mass: 0, material: borderMat
         });
-        // g.velocity.x = 1;
-        // g.rotation.randset();
-        g.angularVelocity.set(1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4);
-        g.angularVelocity.xy = 2;
-        // g.position.set(-1, 0, 0, 0);
-        addRigidToScene(world, scene, renderMat, g);
-        balls.push(g);
-        balls.push(g);
-        // g = new phy.Rigid({
-        //     geometry: new phy.rigid.Glome(0.3),
-        //     mass: 1, material: phyMat
-        // });
-        // g.position.set(1, 0.4, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
-        // g.velocity.x = -1;
-        // balls.push(g);
-        // g = new phy.Rigid({
-        //     geometry: new phy.rigid.Glome(0.3),
-        //     mass: 1, material: phyMat
-        // });
-        // g.position.set(2, 0, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
-        // g.velocity.x = -1;
-        // g = new phy.Rigid({
-        //     geometry: new phy.rigid.Glome(0.3),
-        //     mass: 1, material: phyMat
-        // });
-        // g.position.set(-1, 1, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
-        // g = new phy.Rigid({
-        //     geometry: new phy.rigid.Glome(0.3),
-        //     mass: 1, material: phyMat
-        // });
-        // g.position.set(1, 1, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
-        // g.velocity.x = 1;
-        // g = new phy.Rigid({
-        //     geometry: new phy.rigid.Glome(0.3),
-        //     mass: 1, material: phyMat
-        // });
-        // g.position.set(2, 1, 0, 0); addRigidToScene(world, scene, renderMat, g); balls.push(g);
-        // g.velocity.x = -1;
-        // floor
-        world.add(new phy.Rigid({
-            geometry: new phy.rigid.Plane(new math.Vec4(0, 1), -roomSize), material: borderMat, mass: 0
-        }));
-        // ceil
-        world.add(new phy.Rigid({
-            geometry: new phy.rigid.Plane(new math.Vec4(0, -1), -roomSize), material: borderMat, mass: 0
-        }));
-        // left wall
-        world.add(new phy.Rigid({
-            geometry: new phy.rigid.Plane(new math.Vec4(1), -roomSize), material: borderMat, mass: 0
-        }));
-        // right wall
-        world.add(new phy.Rigid({
-            geometry: new phy.rigid.Plane(new math.Vec4(-1), -roomSize), material: borderMat, mass: 0
-        }));
-        // ana wall
-        world.add(new phy.Rigid({
-            geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 1), -roomSize), material: borderMat, mass: 0
-        }));
-        //kata wall
-        world.add(new phy.Rigid({
-            geometry: new phy.rigid.Plane(new math.Vec4(0, 0, -1), -roomSize), material: borderMat, mass: 0
-        }));
-        // front wall
-        world.add(new phy.Rigid({
-            geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 0, 1), -roomSize), material: borderMat, mass: 0
-        }));
-        //back wall
-        world.add(new phy.Rigid({
-            geometry: new phy.rigid.Plane(new math.Vec4(0, 0, 0, -1), -roomSize), material: borderMat, mass: 0
-        }));
+        world.add(cavity);
+        // addRoom(2, world, borderMat, scene, renderMat, true);
         // set up lights, camera and renderer
         let camera = new FOUR.Camera();
         camera.position.w = -5;
-        // camera.lookAt(math.Vec4.w, math.Vec4.origin);
         scene.add(camera);
         scene.add(new FOUR.AmbientLight(0.3));
         scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
@@ -1035,25 +1120,31 @@ export var thermo_stats;
             opacity: 20
         });
         // controllers
-        const camCtrl = new tesserxel.util.ctrl.TrackBallController(camera);
+        const camCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
         const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
-        // const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
-        // emitCtrl.glomeRadius = 2;
-        // emitCtrl.maximumBulletDistance = 70;
-        // emitCtrl.initialSpeed = 10;
+        retinaCtrl.toggleSectionConfig("zsection");
+        const gui = new GUI;
         const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
             retinaCtrl,
             camCtrl,
-            // emitCtrl
         ], { enablePointerLock: true });
         function setSize() {
             let width = window.innerWidth * window.devicePixelRatio;
             let height = window.innerHeight * window.devicePixelRatio;
             renderer.setSize({ width, height });
+            gui.setSize();
         }
         let time = 0;
-        let factor = 1;
+        let factor = 0.1;
+        let Ebuffer = [100, 100, 100, 100, 100, 100, 100, 100];
         function run() {
+            let E = 0;
+            for (const b of balls) {
+                E += b.getLinearKineticEnergy();
+            }
+            Ebuffer.push(E);
+            Ebuffer.shift();
+            factor = 5 / Math.sqrt(Ebuffer.reduce((a, b) => a + b));
             time++;
             // syncronise physics world and render scene
             updateRidigsInScene();
@@ -1064,30 +1155,9 @@ export var thermo_stats;
             renderer.render(scene, camera);
             camera.position.negs();
             // simulating physics
-            if (time > 300 || time < 2)
-                engine.update(world, factor / 20);
+            engine.update(world, factor);
             window.requestAnimationFrame(run);
-            if (time % 32 === 0) {
-                // let jeg: string[] = [];
-                // let sum = new math.Bivec();
-                // for (const g of balls) {
-                //     let degree = Math.atan2(g.angularVelocity.dual().add(g.angularVelocity).norm(), g.angularVelocity.dual().sub(g.angularVelocity).norm());
-                //     degree = degree * 4 / Math.PI - 1;
-                //     jeg.push(degree.toFixed(4));
-                //     sum.adds(g.angularVelocity);
-                // }
-                // let degree = Math.atan2(sum.dual().add(sum).norm(), sum.dual().sub(sum).norm());
-                // degree = degree * 4 / Math.PI - 1;
-                // console.log(jeg.join(","));
-                // console.log(degree.toFixed(4));
-                const p = new math.Bivec();
-                const dp = new math.Bivec();
-                for (const b of balls) {
-                    p.adds(b.getAngularMomentum(dp, new math.Vec4));
-                }
-                console.log(g.angularVelocity.rotate(g.rotation.conj()));
-                console.log(p);
-            }
+            gui.update(balls);
         }
         window.addEventListener("resize", setSize);
         setSize();

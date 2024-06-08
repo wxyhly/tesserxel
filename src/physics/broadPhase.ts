@@ -8,10 +8,14 @@ export interface BroadPhaseConstructor {
 export type BroadPhaseList = [Rigid, Rigid][];
 export abstract class BroadPhase {
     checkList: BroadPhaseList = [];
+    ignorePair: BroadPhaseList = [];
     protected clearCheckList() {
         this.checkList = [];
     }
     abstract run(world: World): void;
+    protected verifyCheckList() {
+        this.checkList = this.checkList.filter(([a, b]) => -1 === this.ignorePair.findIndex(([x, y]) => (a === x && b === y) || (a === y && b === x)));
+    }
 }
 export class BoundingGlomeBroadPhase extends BroadPhase {
     checkBoundingGlome(ri: Rigid, rj: Rigid) {
@@ -90,7 +94,7 @@ export class BoundingGlomeTreeBroadPhase extends BroadPhase {
         let rigidIndex = -1;
         for (let i = 0; i < world.rigids.length; i++) {
             let ri = world.rigids[i];
-            if (ri.geometry instanceof rigid.Plane) {
+            if (ri.geometry instanceof rigid.Plane || ri.geometry instanceof rigid.GlomicCavity) {
                 this.exclude.push(ri);
             } else {
                 this.include.push(ri);
@@ -225,6 +229,7 @@ export class NaiveBroadPhase extends BroadPhase {
                 }
             }
         }
+        this.verifyCheckList();
     }
 }
 export class IgnoreAllBroadPhase extends BroadPhase {

@@ -2247,7 +2247,8 @@ declare class Rigid extends Obj4 {
     constructor(param: SimpleRigidDescriptor | UnionRigidDescriptor);
     getlinearVelocity(out: Vec4, point: Vec4): Vec4;
     getMomentum(out: Vec4): Vec4;
-    getAngularMomentum(out: Bivec, point?: Vec4): Bivec;
+    /** type: "J" for total, type: "S" for Spin, type: "L" for Orbital, */
+    getAngularMomentum(out: Bivec, point?: Vec4, type?: "J" | "S" | "L"): Bivec;
     getLinearKineticEnergy(): number;
     getAngularKineticEnergy(): number;
     getKineticEnergy(): number;
@@ -2275,7 +2276,8 @@ declare namespace rigid {
     class Glome extends RigidGeometry {
         radius: number;
         radiusSqr: number;
-        constructor(radius: number);
+        inertiaCoefficient: number;
+        constructor(radius: number, inertiaCoefficient?: number);
         initializeMassInertia(rigid: Rigid): void;
     }
     class Convex extends RigidGeometry {
@@ -2298,6 +2300,11 @@ declare namespace rigid {
         normal: Vec4;
         offset: number;
         constructor(normal?: Vec4, offset?: number);
+        initializeMassInertia(rigid: Rigid): void;
+    }
+    class GlomicCavity extends RigidGeometry {
+        radius: number;
+        constructor(radius: number);
         initializeMassInertia(rigid: Rigid): void;
     }
     /** default orientation: XW */
@@ -2341,6 +2348,13 @@ declare namespace rigid {
         constructor(grid1: Vec4[][][], grid2: Vec4[][][]);
         initializeMassInertia(rigid: Rigid): void;
     }
+    class LoftedConvex extends RigidGeometry {
+        grid1: Vec4[][][];
+        grid2: Vec4[][][];
+        convex: Convex[];
+        constructor(sp: Spline, section: Vec4[], step: number);
+        initializeMassInertia(rigid: Rigid): void;
+    }
 }
 
 interface BroadPhaseConstructor {
@@ -2349,8 +2363,10 @@ interface BroadPhaseConstructor {
 declare type BroadPhaseList = [Rigid, Rigid][];
 declare abstract class BroadPhase {
     checkList: BroadPhaseList;
+    ignorePair: BroadPhaseList;
     protected clearCheckList(): void;
     abstract run(world: World): void;
+    protected verifyCheckList(): void;
 }
 declare class BoundingGlomeBroadPhase extends BroadPhase {
     checkBoundingGlome(ri: Rigid, rj: Rigid): boolean;
@@ -2515,6 +2531,15 @@ declare class MaxWell extends Force {
     private addBOfMagneticDipole;
     private addEOfElectricDipole;
 }
+declare class Gravity extends Force {
+    _vecG: Vec4;
+    rigids: Rigid[];
+    gain: number;
+    add(s: Rigid): void;
+    getGAt(p: Vec4, ignore: Rigid | Vec4 | undefined): Vec4;
+    apply(time: number): void;
+    private addGOfMass;
+}
 
 interface Collision {
     point: Vec4;
@@ -2532,6 +2557,7 @@ declare class NarrowPhase {
     run(list: BroadPhaseList): void;
     detectCollision(rigidA: Rigid, rigidB: Rigid): any;
     private detectGlomeGlome;
+    private detectGlomeGlomiccavity;
     private detectGlomePlane;
     private detectConvexPlane;
     private detectConvexGlome;
@@ -2682,6 +2708,8 @@ type physics_d_CurrentElement = CurrentElement;
 type physics_d_CurrentCircuit = CurrentCircuit;
 type physics_d_MaxWell = MaxWell;
 declare const physics_d_MaxWell: typeof MaxWell;
+type physics_d_Gravity = Gravity;
+declare const physics_d_Gravity: typeof Gravity;
 type physics_d_SolverConstructor = SolverConstructor;
 type physics_d_Solver = Solver;
 declare const physics_d_Solver: typeof Solver;
@@ -2715,6 +2743,7 @@ declare namespace physics_d {
     physics_d_CurrentElement as CurrentElement,
     physics_d_CurrentCircuit as CurrentCircuit,
     physics_d_MaxWell as MaxWell,
+    physics_d_Gravity as Gravity,
     physics_d_SolverConstructor as SolverConstructor,
     physics_d_Solver as Solver,
     physics_d_PreparedCollision as PreparedCollision,

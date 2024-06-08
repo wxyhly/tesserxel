@@ -3,7 +3,7 @@ import { Bivec, bivecPool } from "../math/algebra/bivec";
 import { Matrix } from "../math/algebra/matrix";
 import { Vec4, vec4Pool } from "../math/algebra/vec4";
 import { AABB } from "../math/geometry/primitive";
-import { Quaternion, Rotor } from "../math/math";
+import { Quaternion, Rotor, Spline } from "../math/math";
 import { Material, mulBivec } from "./engine";
 
 export type RigidType = "still" | "passive" | "active";
@@ -75,11 +75,17 @@ export class Rigid extends Obj4 {
         if (this.type === "still") return out.set();
         return out.copy(this.velocity).mulfs(this.mass);
     }
-    getAngularMomentum(out: Bivec, point?: Vec4) {
+    /** type: "J" for total, type: "S" for Spin, type: "L" for Orbital, */
+    getAngularMomentum(out: Bivec, point = new Vec4, type: "J" | "S" | "L" = "J") {
         const v = vec4Pool.pop();
         const p = vec4Pool.pop().copy(this.position);
         if (point) p.subs(point);
-        out.wedgevvset(p, this.getMomentum(v));
+        if (type === "J" || type === "L") {
+            out.wedgevvset(p, this.getMomentum(v));
+        } else {
+            out.set();
+        }
+        if (type === "L") return out;
         p.pushPool();
         const localW = bivecPool.pop();
         const localIW = bivecPool.pop();
@@ -179,15 +185,17 @@ export namespace rigid {
     export class Glome extends RigidGeometry {
         radius: number = 1;
         radiusSqr: number = 1;
-        constructor(radius: number) {
+        inertiaCoefficient: number;
+        constructor(radius: number, inertiaCoefficient = 0.25) {
             super();
             this.radius = radius;
             this.boundingGlome = radius;
             this.radiusSqr = radius * radius;
+            this.inertiaCoefficient = inertiaCoefficient;
         }
         initializeMassInertia(rigid: Rigid) {
             rigid.inertiaIsotroy = true;
-            rigid.inertia.xy = rigid.mass! * this.radiusSqr * 0.25;
+            rigid.inertia.xy = rigid.mass * this.radiusSqr * this.inertiaCoefficient;
         }
     }
     export class Convex extends RigidGeometry {
@@ -366,6 +374,20 @@ export namespace rigid {
             rigid.invInertia = undefined;
         }
     }
+    export class GlomicCavity extends RigidGeometry {
+        radius: number;
+        constructor(radius: number) {
+            super();
+            this.radius = radius;
+        }
+        initializeMassInertia(rigid: Rigid) {
+            if (rigid.mass) console.warn("GlomicCavity cannot have a finitive mass.");
+            rigid.mass = undefined;
+            rigid.invMass = 0;
+            rigid.inertia = undefined;
+            rigid.invInertia = undefined;
+        }
+    }
     /** default orientation: XW */
     export class Spheritorus extends RigidGeometry {
         majorRadius: number;
@@ -530,6 +552,25 @@ export namespace rigid {
                     }
                 }
             }
+        }
+        initializeMassInertia(rigid: Rigid) {
+            if (rigid.mass) console.warn("HeightField doesnt support a finitive mass.");
+            rigid.mass = undefined;
+            rigid.invMass = 0;
+            rigid.inertia = undefined;
+            rigid.invInertia = undefined;
+        }
+    }
+    /** todo */
+    export class LoftedConvex extends RigidGeometry {
+        grid1: Vec4[][][];
+        grid2: Vec4[][][];
+        convex: Convex[];
+        constructor(
+            sp: Spline, section: Vec4[], step: number
+        ) {
+            super();
+
         }
         initializeMassInertia(rigid: Rigid) {
             if (rigid.mass) console.warn("HeightField doesnt support a finitive mass.");

@@ -56,7 +56,7 @@ export var drone;
         world.add(droneMecanism);
         const ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
             retinaController, droneCtrl, freeCamCtrl
-        ]);
+        ], { preventDefault: true });
         function setSize() {
             let width = window.innerWidth * window.devicePixelRatio;
             let height = window.innerHeight * window.devicePixelRatio;

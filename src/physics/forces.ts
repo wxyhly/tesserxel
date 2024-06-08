@@ -665,3 +665,36 @@ export class MaxWell extends Force {
 
     }
 }
+export class Gravity extends Force {
+    _vecG = new Vec4;
+    rigids: Rigid[] = [];
+    gain = 10;
+    add(s: Rigid) {
+        this.rigids.push(s);
+    }
+    getGAt(p: Vec4, ignore: Rigid | Vec4 | undefined) {
+        this._vecG.set();
+        for (let s of this.rigids) {
+            if (ignore === s.position || ignore === s) continue;
+            this.addGOfMass(this._vecG, p, s);
+        }
+        return this._vecG;
+    }
+    apply(time: number): void {
+
+        // outter loop: test point, inner loop: source point
+
+        for (let q of this.rigids) {
+            if (!q || !q.mass) continue;
+            q.force.addmulfs(this.getGAt(q.position, q), q.mass);
+        }
+    }
+    private addGOfMass(vecG: Vec4, p: Vec4, s: Rigid) {
+        let r = vec4Pool.pop().subset(p, s.position);
+        let r2 = 1 / r.normsqr();
+        let qr4 = -s.mass * r2 * r2 * this.gain*r.norm();
+        vecG.addmulfs(r, qr4);
+        r.pushPool();
+        return;
+    }
+}

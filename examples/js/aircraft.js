@@ -137,7 +137,7 @@ export var aircraft;
         world.add(aircraftP, aircraftMecanism);
         const ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
             retinaController, freeCamCtrl, aircraftCtrl
-        ]);
+        ], { preventDefault: true });
         function setSize() {
             let width = window.innerWidth * window.devicePixelRatio;
             let height = window.innerHeight * window.devicePixelRatio;
