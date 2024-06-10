@@ -4,6 +4,8 @@ const phy = tesserxel.physics;
 const math = tesserxel.math;
 let rigidsInSceneLists: [tesserxel.four.Mesh, tesserxel.physics.Rigid][] = [];
 let geometryData = {};
+const lang = new URLSearchParams(window.location.search.slice(1)).get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en");
+
 function getGeometryData(type: string) {
     if (geometryData[type]) return geometryData[type];
     switch (type) {
@@ -673,6 +675,9 @@ namespace dzhanibekov {
         private time = 0;
         data1: tesserxel.math.Bivec[] = [];
         data2: tesserxel.math.Bivec[] = [];
+        data3: tesserxel.math.Bivec[] = [];
+        data4: tesserxel.math.Bivec[] = [];
+        localMode = true;
         maxPoints = 3000;
         constructor() {
             this.canvas = document.createElement("canvas");
@@ -694,11 +699,15 @@ namespace dzhanibekov {
             const dp = new math.Bivec();
             g.getAngularMomentum(dp, new math.Vec4);
             if ((this.time & 3) == 1) {
-                this.data1.unshift(dp);
-                this.data2.unshift(g.angularVelocity.rotate(g.rotation.conj()));
+                this.data1.unshift(dp.clone());
+                this.data2.unshift(g.angularVelocity.clone());
+                this.data3.unshift(dp.rotate(g.rotation.conj()));
+                this.data4.unshift(g.angularVelocity.rotate(g.rotation.conj()));
             }
             if (this.data1.length > this.maxPoints) this.data1.pop();
             if (this.data2.length > this.maxPoints) this.data2.pop();
+            if (this.data3.length > this.maxPoints) this.data3.pop();
+            if (this.data4.length > this.maxPoints) this.data4.pop();
             const c = this.context;
             const width = this.canvas.width;
             const hdiv2 = this.canvas.height / 2;
@@ -728,21 +737,28 @@ namespace dzhanibekov {
             c.moveTo(0, hdiv2);
             c.lineTo(width, hdiv2);
             c.stroke();
-
-            draw("Jxy", 0.4, this.data1, "xy", "rgb(255,120,50)");
-            draw("Jxz", 0.4, this.data1, "xz", "rgb(220,220,0)");
-            draw("Jxw", 0.4, this.data1, "xw", "rgb(255,20,255)");
-            draw("Jyz", 0.4, this.data1, "yz", "rgb(120,255,20)");
-            draw("Jyw", 0.4, this.data1, "yw", "rgb(20,255,20)");
-            draw("Jzw", 0.4, this.data1, "zw", "rgb(0,220,220)");
+            let dataJ = this.data1;
+            let dataW = this.data2;
+            if (this.localMode) {
+                dataJ = this.data3;
+                dataW = this.data4;
+            }
+            draw("Jxy", 0.4, dataJ, "xy", "rgb(255,120,50)");
+            draw("Jxz", 0.4, dataJ, "xz", "rgb(220,220,0)");
+            draw("Jxw", 0.4, dataJ, "xw", "rgb(255,20,255)");
+            draw("Jyz", 0.4, dataJ, "yz", "rgb(120,255,20)");
+            draw("Jyw", 0.4, dataJ, "yw", "rgb(20,255,20)");
+            draw("Jzw", 0.4, dataJ, "zw", "rgb(0,220,220)");
 
             c.lineWidth = 3;
-            draw("Wxy", 0.4, this.data2, "xy", "rgb(190,90,0)");
-            draw("Wxz", 0.4, this.data2, "xz", "rgb(140,130,0)");
-            draw("Wxw", 0.4, this.data2, "xw", "rgb(140,0,140)");
-            draw("Wyz", 0.4, this.data2, "yz", "rgb(90,190,0)");
-            draw("Wyw", 0.4, this.data2, "yw", "rgb(0,150,0)");
-            draw("Wzw", 0.4, this.data2, "zw", "rgb(0,130,140)");
+            draw("Wxy", 0.4, dataW, "xy", "rgb(190,90,0)");
+            draw("Wxz", 0.4, dataW, "xz", "rgb(140,130,0)");
+            draw("Wxw", 0.4, dataW, "xw", "rgb(140,0,140)");
+            draw("Wyz", 0.4, dataW, "yz", "rgb(90,190,0)");
+            draw("Wyw", 0.4, dataW, "yw", "rgb(0,150,0)");
+            draw("Wzw", 0.4, dataW, "zw", "rgb(0,130,140)");
+
+            c.fillText(lang==="zh"?"按L键切换惯性/局部坐标系":"Press Key L to toggle World/Local Coordinates", width * 0.4, hdiv2 * 1.9);
         }
     }
     export async function load(size: tesserxel.math.Vec4, initW: tesserxel.math.Bivec) {
@@ -817,6 +833,11 @@ namespace dzhanibekov {
             window.requestAnimationFrame(run);
         }
         window.addEventListener("resize", setSize);
+        window.addEventListener("keydown", ev => {
+            if (ev.code === "KeyL") {
+                gui.localMode = !gui.localMode;
+            }
+        })
         setSize();
         run();
     }
@@ -837,8 +858,31 @@ export namespace dzhanibekov1 {
         );
     }
 }
+export namespace dzhanibekov3 {
+    export async function load() {
+        await dzhanibekov.load(
+            new math.Vec4(0.6, 0.8, 1.1, 1.3),
+            new math.Bivec(1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4).adds(math.Bivec.yz.mulf(1.5))
+        );
+    }
+}
+export namespace dzhanibekov4 {
+    export async function load() {
+        await dzhanibekov.load(
+            new math.Vec4(0.6, 0.8, 1.1, 1.3),
+            new math.Bivec(1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4).adds(math.Bivec.xz.mulf(1.5)).adds(math.Bivec.yw.mulf(1.5))
+        );
+    }
+}
 
-
+export namespace dzhanibekov5 {
+    export async function load() {
+        await dzhanibekov.load(
+            new math.Vec4(0.6, 0.8, 1.1, 1.3),
+            new math.Bivec(1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4).adds(math.Bivec.xz.mulf(1.6)).adds(math.Bivec.yw.mulf(1.5))
+        );
+    }
+}
 async function loadGyroScene(cwmesh: tesserxel.mesh.CWMesh, material: tesserxel.four.Material) {
     const engine = new phy.Engine({ substep: 30, forceAccumulator: phy.force_accumulator.RK4 });
     const world = new phy.World();
@@ -968,7 +1012,6 @@ export namespace gyro_sphericone {
     }
 }
 export namespace thermo_stats {
-    const lang = new URLSearchParams(window.location.search.slice(1)).get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en");
 
     class GUI {
         canvasHeight: number = 200;
@@ -1073,22 +1116,22 @@ export namespace thermo_stats {
             const scaleAbs = 0.005;
             const scaleE = 0.01;
             const more = 1;
-            draw(lang=="zh"?"|J|(总角动量大小)":"|J|(Total Angular Momenta)", scaleAbs, 0, "rgb(240,0,240)", true);
+            draw(lang == "zh" ? "|J|(总角动量大小)" : "|J|(Total Angular Momenta)", scaleAbs, 0, "rgb(240,0,240)", true);
             this.context.setLineDash([4, 8]);
             this.context.lineDashOffset = 4;
-            draw(lang=="zh"?"duality(J)(总角动量对偶性)":"duality(J)", scaleDual * more, 1, "rgba(240,0,240,0.6)", false);
+            draw(lang == "zh" ? "duality(J)(总角动量对偶性)" : "duality(J)", scaleDual * more, 1, "rgba(240,0,240,0.6)", false);
             this.context.setLineDash([]);
-            draw(lang=="zh"?"|L|(轨道角动量大小)":"|L|(Orbital Angular Momenta)", scaleAbs, 2, "rgb(0,0,255)", false);
+            draw(lang == "zh" ? "|L|(轨道角动量大小)" : "|L|(Orbital Angular Momenta)", scaleAbs, 2, "rgb(0,0,255)", false);
             this.context.setLineDash([4, 8]);
             this.context.lineDashOffset = 0;
-            draw(lang=="zh"?"duality(L)(轨道角动量对偶性)":"duality(L)", scaleDual * more, 3, "rgba(0,0,255,0.6)", true);
+            draw(lang == "zh" ? "duality(L)(轨道角动量对偶性)" : "duality(L)", scaleDual * more, 3, "rgba(0,0,255,0.6)", true);
             this.context.setLineDash([]);
-            draw(lang=="zh"?"|S|(自转角动量大小)":"|S|(Spin Angular Momenta)", scaleAbs * more, 4, "rgb(255,0,0)", false);
+            draw(lang == "zh" ? "|S|(自转角动量大小)" : "|S|(Spin Angular Momenta)", scaleAbs * more, 4, "rgb(255,0,0)", false);
             this.context.setLineDash([4, 8]);
-            draw(lang=="zh"?"duality(S)(自转角动量对偶性)":"duality(S)", scaleDual, 5, "rgba(128,0,0,0.6)", true);
+            draw(lang == "zh" ? "duality(S)(自转角动量对偶性)" : "duality(S)", scaleDual, 5, "rgba(128,0,0,0.6)", true);
 
             this.context.setLineDash([1, 2]);
-            draw(lang=="zh"?"平动动能/转动动能":"Translational Kinetic Energy / Rotational Kinetic Energy", scaleE, 6, "rgb(0,255,0)", false);
+            draw(lang == "zh" ? "平动动能/转动动能" : "Translational Kinetic Energy / Rotational Kinetic Energy", scaleE, 6, "rgb(0,255,0)", false);
             this.context.setLineDash([]);
         }
     }

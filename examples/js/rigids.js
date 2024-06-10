@@ -4,6 +4,7 @@ const phy = tesserxel.physics;
 const math = tesserxel.math;
 let rigidsInSceneLists = [];
 let geometryData = {};
+const lang = new URLSearchParams(window.location.search.slice(1)).get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en");
 function getGeometryData(type) {
     if (geometryData[type])
         return geometryData[type];
@@ -639,6 +640,9 @@ var dzhanibekov;
         time = 0;
         data1 = [];
         data2 = [];
+        data3 = [];
+        data4 = [];
+        localMode = true;
         maxPoints = 3000;
         constructor() {
             this.canvas = document.createElement("canvas");
@@ -659,13 +663,19 @@ var dzhanibekov;
             const dp = new math.Bivec();
             g.getAngularMomentum(dp, new math.Vec4);
             if ((this.time & 3) == 1) {
-                this.data1.unshift(dp);
-                this.data2.unshift(g.angularVelocity.rotate(g.rotation.conj()));
+                this.data1.unshift(dp.clone());
+                this.data2.unshift(g.angularVelocity.clone());
+                this.data3.unshift(dp.rotate(g.rotation.conj()));
+                this.data4.unshift(g.angularVelocity.rotate(g.rotation.conj()));
             }
             if (this.data1.length > this.maxPoints)
                 this.data1.pop();
             if (this.data2.length > this.maxPoints)
                 this.data2.pop();
+            if (this.data3.length > this.maxPoints)
+                this.data3.pop();
+            if (this.data4.length > this.maxPoints)
+                this.data4.pop();
             const c = this.context;
             const width = this.canvas.width;
             const hdiv2 = this.canvas.height / 2;
@@ -695,19 +705,26 @@ var dzhanibekov;
             c.moveTo(0, hdiv2);
             c.lineTo(width, hdiv2);
             c.stroke();
-            draw("Jxy", 0.4, this.data1, "xy", "rgb(255,120,50)");
-            draw("Jxz", 0.4, this.data1, "xz", "rgb(220,220,0)");
-            draw("Jxw", 0.4, this.data1, "xw", "rgb(255,20,255)");
-            draw("Jyz", 0.4, this.data1, "yz", "rgb(120,255,20)");
-            draw("Jyw", 0.4, this.data1, "yw", "rgb(20,255,20)");
-            draw("Jzw", 0.4, this.data1, "zw", "rgb(0,220,220)");
+            let dataJ = this.data1;
+            let dataW = this.data2;
+            if (this.localMode) {
+                dataJ = this.data3;
+                dataW = this.data4;
+            }
+            draw("Jxy", 0.4, dataJ, "xy", "rgb(255,120,50)");
+            draw("Jxz", 0.4, dataJ, "xz", "rgb(220,220,0)");
+            draw("Jxw", 0.4, dataJ, "xw", "rgb(255,20,255)");
+            draw("Jyz", 0.4, dataJ, "yz", "rgb(120,255,20)");
+            draw("Jyw", 0.4, dataJ, "yw", "rgb(20,255,20)");
+            draw("Jzw", 0.4, dataJ, "zw", "rgb(0,220,220)");
             c.lineWidth = 3;
-            draw("Wxy", 0.4, this.data2, "xy", "rgb(190,90,0)");
-            draw("Wxz", 0.4, this.data2, "xz", "rgb(140,130,0)");
-            draw("Wxw", 0.4, this.data2, "xw", "rgb(140,0,140)");
-            draw("Wyz", 0.4, this.data2, "yz", "rgb(90,190,0)");
-            draw("Wyw", 0.4, this.data2, "yw", "rgb(0,150,0)");
-            draw("Wzw", 0.4, this.data2, "zw", "rgb(0,130,140)");
+            draw("Wxy", 0.4, dataW, "xy", "rgb(190,90,0)");
+            draw("Wxz", 0.4, dataW, "xz", "rgb(140,130,0)");
+            draw("Wxw", 0.4, dataW, "xw", "rgb(140,0,140)");
+            draw("Wyz", 0.4, dataW, "yz", "rgb(90,190,0)");
+            draw("Wyw", 0.4, dataW, "yw", "rgb(0,150,0)");
+            draw("Wzw", 0.4, dataW, "zw", "rgb(0,130,140)");
+            c.fillText(lang === "zh" ? "按L键切换惯性/局部坐标系" : "Press Key L to toggle World/Local Coordinates", width * 0.4, hdiv2 * 1.9);
         }
     }
     async function load(size, initW) {
@@ -776,6 +793,11 @@ var dzhanibekov;
             window.requestAnimationFrame(run);
         }
         window.addEventListener("resize", setSize);
+        window.addEventListener("keydown", ev => {
+            if (ev.code === "KeyL") {
+                gui.localMode = !gui.localMode;
+            }
+        });
         setSize();
         run();
     }
@@ -795,6 +817,27 @@ export var dzhanibekov1;
     }
     dzhanibekov1.load = load;
 })(dzhanibekov1 || (dzhanibekov1 = {}));
+export var dzhanibekov3;
+(function (dzhanibekov3) {
+    async function load() {
+        await dzhanibekov.load(new math.Vec4(0.6, 0.8, 1.1, 1.3), new math.Bivec(1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4).adds(math.Bivec.yz.mulf(1.5)));
+    }
+    dzhanibekov3.load = load;
+})(dzhanibekov3 || (dzhanibekov3 = {}));
+export var dzhanibekov4;
+(function (dzhanibekov4) {
+    async function load() {
+        await dzhanibekov.load(new math.Vec4(0.6, 0.8, 1.1, 1.3), new math.Bivec(1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4).adds(math.Bivec.xz.mulf(1.5)).adds(math.Bivec.yw.mulf(1.5)));
+    }
+    dzhanibekov4.load = load;
+})(dzhanibekov4 || (dzhanibekov4 = {}));
+export var dzhanibekov5;
+(function (dzhanibekov5) {
+    async function load() {
+        await dzhanibekov.load(new math.Vec4(0.6, 0.8, 1.1, 1.3), new math.Bivec(1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4).adds(math.Bivec.xz.mulf(1.6)).adds(math.Bivec.yw.mulf(1.5)));
+    }
+    dzhanibekov5.load = load;
+})(dzhanibekov5 || (dzhanibekov5 = {}));
 async function loadGyroScene(cwmesh, material) {
     const engine = new phy.Engine({ substep: 30, forceAccumulator: phy.force_accumulator.RK4 });
     const world = new phy.World();
@@ -931,7 +974,6 @@ export var gyro_sphericone;
 })(gyro_sphericone || (gyro_sphericone = {}));
 export var thermo_stats;
 (function (thermo_stats) {
-    const lang = new URLSearchParams(window.location.search.slice(1)).get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en");
     class GUI {
         canvasHeight = 200;
         /// horizontal factor for sun angle curve

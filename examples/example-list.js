@@ -96,11 +96,19 @@ let examples = [
                     { target: "rigids::m_dipole_dual", zh: "自对偶磁偶极子", en: "Magnetic Dipoles (Self Dual)" }
                 ]
             },
-            // { target: "automobile", zh: "汽车", en: " Automobile" },
+            {
+                group: "dzhanibekov", zh: "刚体自由旋转", en: "Free Rigid Rotation",
+                child: [
+                    { target: "rigids::dzhanibekov1", zh: "单周期自由旋转进动", en: "Dzhanibekov Effect with Single Period" },
+                    { target: "rigids::dzhanibekov2", zh: "双周期自由旋转进动", en: "Dzhanibekov Effect with Double Period" },
+                    { target: "rigids::dzhanibekov3", zh: "稳定自由单旋转", en: "Stable Simple Rotation" },
+                    { target: "rigids::dzhanibekov4", zh: "稳定自由等角双旋转", en: "Stable Isoclinic Rotation" },
+                    { target: "rigids::dzhanibekov5", zh: "自由双旋转进动", en: "Dzhanibekov Effect with Double Rotation" },
+                ]
+            },
+            { target: "automobile", zh: "汽车", en: " Automobile" },
             { target: "drone", zh: "无人机", en: "Drone" },
             { target: "aircraft", zh: "客机", en: "Aircraft" },
-            { target: "rigids::dzhanibekov1", zh: "单周期自由旋转进动", en: "Dzhanibekov Effect with Single Period" },
-            { target: "rigids::dzhanibekov2", zh: "双周期自由旋转进动", en: "Dzhanibekov Effect with Double Period" },
             { target: "rigids::thermo_stats", zh: "旋转分布律（试验）", en: "Thermotic Rotation Distribution (Experimental)" },
             { target: "forces::spring_rope", zh: "弹簧绳", en: "Rope with Springs" },
             { target: "rigids::rigid_test", zh: "刚体测试", en: "Rigid Body Test" },
@@ -315,6 +323,18 @@ let info = {
     "rigids::dzhanibekov1":{
         "en": "<b>Control: Trackball mode</b><br>4D version of Dzhanibekov effect (or Tennis racket theorem). If the tesseract is rotating in the plane spanned by the shortest and second longest edges or by the longest and second shortest edges, the rotation direction will inverse periodically. This is the same as in the three-dimensional case with only one period. This was firstly proposed in Marc ten bosch's paper, but with wrong simulation result. ",
         "zh": "<b>控制：轨迹球模式</b><br>4D版贾尼别科夫效应（亦称网球拍定理）。若绕最短与次长棱张成的平面或绕最长与次短棱张成的平面旋转超长方体，则会发生刚体的旋转不时反向的现象，这种旋转反向跟三维情形一样仅有一个周期。 4D贾尼别科夫效应首先在Marc Ten Bosch的论文中提出，但其模拟给出的结论有误。",
+    },
+    "rigids::dzhanibekov3":{
+        "en": "<b>Control: Trackball mode</b><br>If the tesseract is rotating in the plane spanned by the second shortest and second longest edges， the rotation is stable, and there's no Dzhanibekov effect.",
+        "zh": "<b>控制：轨迹球模式</b><br>若绕次短与次长棱张成的平面旋转超长方体则旋转是稳定的，不会发生贾尼别科夫效应。",
+    },
+    "rigids::dzhanibekov4":{
+        "en": "<b>Control: Trackball mode</b><br>If the tesseract is rotated isoclinicly， the rotation is stable, and there's no Dzhanibekov effect.",
+        "zh": "<b>控制：轨迹球模式</b><br>若初始旋转是等角双旋转则旋转是稳定的，不会发生贾尼别科夫效应。",
+    },
+    "rigids::dzhanibekov5":{
+        "en": "<b>Control: Trackball mode</b><br>Hint: Please wait half minute for rotation direction inverse.<br>If the tesseract is rotated not perfectly isoclinic， the rotation can be unstable, and Dzhanibekov effect could happen. If rotation gets closer to isoclinic, the period of direction inverse will get longer.",
+        "zh": "<b>控制：轨迹球模式</b><br>提示：需要等大约半分钟才会有旋转翻转效应。<br>若初始旋转是非等角双旋转则可能会发生贾尼别科夫效应，且越接近完美等角双旋转翻转周期会变得越长。",
     },
     "drone":{
         "en":"<b>In Drone Control:</b><br>Use Space/Shift to rise/descend drone, W/A/S/D/Q/E to drift, and I/J/K/L/U/O to steer.<br><br><b>In Camera Control: Keep up mode</b><br>Press =/- to adjust camera move speed.<br><br><b>Special Operations:</b><br>Press key B to toggle camera/drone control. Press key 1/2/3 to toggle different camera positions on the drone, press key 4 for free camera. Press Key T to enter automatic mode, this helps you to better handle drone pose. Press H to hide overlapped texts.",

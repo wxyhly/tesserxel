@@ -8157,7 +8157,7 @@ function applyObj4(mesh, obj) {
         }
     }
     else {
-        for (let i = 0; i < mesh.quad.position.length; i += 4) {
+        for (let i = 0; i < mesh.quad?.position.length; i += 4) {
             if (obj.scale) {
                 vp.set(mesh.quad.position[i] * obj.scale.x, mesh.quad.position[i + 1] * obj.scale.y, mesh.quad.position[i + 2] * obj.scale.z, mesh.quad.position[i + 3] * obj.scale.w).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.quad.position, i);
                 if (mesh.quad.normal) {
@@ -8171,7 +8171,7 @@ function applyObj4(mesh, obj) {
                 }
             }
         }
-        for (let i = 0; i < mesh.triangle.position.length; i += 4) {
+        for (let i = 0; i < mesh.triangle?.position.length; i += 4) {
             if (obj.scale) {
                 vp.set(mesh.triangle.position[i] * obj.scale.x, mesh.triangle.position[i + 1] * obj.scale.y, mesh.triangle.position[i + 2] * obj.scale.z, mesh.triangle.position[i + 3] * obj.scale.w).rotates(obj.rotation).adds(obj.position).writeBuffer(mesh.triangle.position, i);
                 if (mesh.triangle.normal) {
@@ -8238,6 +8238,34 @@ function applyObj4(mesh, obj) {
 //     }
 // }
 
+let square = new FaceMesh({
+    quad: {
+        normal: new Float32Array([0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0]),
+        position: new Float32Array([-1, 0, -1, 0, -1, 0, 1, 0, 1, 0, 1, 0, 1, 0, -1, 0]),
+        uvw: new Float32Array([0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0]),
+    }
+});
+function cube$1() {
+    let rotor = new Rotor();
+    let biv = new Bivec();
+    let yface = square.clone().applyObj4(new Obj4(Vec4.y, rotor.expset(biv.set(0, _90))));
+    let meshes = [
+        biv.set(_90).exp(),
+        biv.set(-_90).exp(),
+        biv.set(0, 0, 0, _90).exp().mulsl(rotor.expset(biv.set(_90, 0, 0, 0, 0))),
+        biv.set(0, 0, 0, -_90).exp().mulsl(rotor.expset(biv.set(_90, 0, 0, 0, 0))),
+        biv.set(_180).exp(),
+    ].map(r => yface.clone().applyObj4(new Obj4(new Vec4(), r)));
+    for (const m of meshes)
+        yface = yface.concat(m);
+    let m = yface;
+    // for (let i = 0; i < 6; i++) {
+    //     for (let j = 0; j < 8; j++) {
+    //         m.uvw[i * 80 + j * 4 + 2] = i;
+    //     }
+    // }
+    return m;
+}
 function sphere$1(radius, u, v, uAngle = _360, vAngle = _180) {
     if (u < 3)
         u = 3;
@@ -8403,6 +8431,8 @@ var face = /*#__PURE__*/Object.freeze({
     __proto__: null,
     FaceMesh: FaceMesh,
     FaceIndexMesh: FaceIndexMesh,
+    square: square,
+    cube: cube$1,
     sphere: sphere$1,
     polygon: polygon,
     circle: circle,
@@ -13066,6 +13096,42 @@ var rigid;
         }
     }
     rigid_1.Tesseractoid = Tesseractoid;
+    class Duocylinder extends Convex {
+        radius1;
+        radius2;
+        segment1;
+        segment2;
+        constructor(radius1, radius2, segment1, segment2) {
+            const ps = [];
+            const d1 = Math.PI * 2 / segment1;
+            const d2 = Math.PI * 2 / segment2;
+            for (let i = 0, ii = 0; i < segment1; i++, ii += d1) {
+                for (let j = 0, jj = 0; j < segment2; j++, jj += d2) {
+                    ps.push(new Vec4(Math.sin(ii) * radius1, Math.sin(jj) * radius2, Math.cos(jj) * radius2, Math.cos(ii) * radius1));
+                }
+            }
+            super(ps);
+            this.radius1 = radius1;
+            this.radius2 = radius2;
+            this.segment1 = segment1;
+            this.segment2 = segment2;
+        }
+        initializeMassInertia(rigid) {
+            let isoratio = this.radius1 / this.radius2;
+            rigid.inertiaIsotroy = isoratio > 0.95 && isoratio < 1.05;
+            if (rigid.inertiaIsotroy) {
+                rigid.inertia.xy = rigid.mass * (this.radius1 + this.radius2) * (this.radius1 + this.radius2) * 0.2;
+            }
+            else {
+                let x = this.radius1 * this.radius1;
+                let y = this.radius2 * this.radius2;
+                let z = y;
+                let w = x;
+                rigid.inertia.set(x + y, x + z, x + w, y + z, y + w, z + w).mulfs(rigid.mass * 0.2);
+            }
+        }
+    }
+    rigid_1.Duocylinder = Duocylinder;
     /** equation: dot(normal,positon) == offset
      *  => when offset > 0, plane is shifted to normal direction
      *  from origin by distance = offset
@@ -13258,16 +13324,26 @@ var rigid;
         }
     }
     rigid_1.ThickHexahedronGrid = ThickHexahedronGrid;
-    class LoftedConvex extends RigidGeometry {
-        grid1;
-        grid2;
-        convex;
+    /** todo */
+    class LoftedConvex extends Union {
         constructor(sp, section, step) {
-            super();
+            const { points, rotors } = sp.generate(step);
+            const components = [];
+            for (let j = 1; j < rotors.length; j++) {
+                let r = rotors[j];
+                let p = points[j];
+                let r0 = rotors[j - 1];
+                let p0 = points[j - 1];
+                let ps = section.map(v => v.rotate(r).adds(p));
+                let ps0 = section.map(v => v.rotate(r0).adds(p0));
+                ps.push(...ps0);
+                components.push(new Rigid({ geometry: new Convex(ps), mass: 0, material: new Material(1, 0.6) }));
+            }
+            super(components);
         }
         initializeMassInertia(rigid) {
             if (rigid.mass)
-                console.warn("HeightField doesnt support a finitive mass.");
+                console.warn("LoftedConvex doesnt support a finitive mass.");
             rigid.mass = undefined;
             rigid.invMass = 0;
             rigid.inertia = undefined;
@@ -14103,7 +14179,7 @@ class Gravity extends Force {
     addGOfMass(vecG, p, s) {
         let r = vec4Pool.pop().subset(p, s.position);
         let r2 = 1 / r.normsqr();
-        let qr4 = -s.mass * r2 * r2 * this.gain;
+        let qr4 = -s.mass * r2 * r2 * this.gain * r.norm();
         vecG.addmulfs(r, qr4);
         r.pushPool();
         return;

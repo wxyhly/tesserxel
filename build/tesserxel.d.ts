@@ -1378,6 +1378,8 @@ declare class FaceIndexMesh implements FaceIndexMeshData {
     concat(m2: FaceIndexMesh): FaceIndexMesh;
 }
 
+declare let square: FaceMesh;
+declare function cube$1(): FaceMesh;
 declare function sphere$1(radius: number, u: number, v: number, uAngle?: number, vAngle?: number): FaceMesh;
 declare function polygon(points: Vec4[]): FaceIndexMesh;
 declare function circle(radius: number, segment: number): FaceIndexMesh;
@@ -1391,6 +1393,7 @@ declare const face_d_FaceMesh: typeof FaceMesh;
 type face_d_FaceIndexMeshData = FaceIndexMeshData;
 type face_d_FaceIndexMesh = FaceIndexMesh;
 declare const face_d_FaceIndexMesh: typeof FaceIndexMesh;
+declare const face_d_square: typeof square;
 declare const face_d_polygon: typeof polygon;
 declare const face_d_circle: typeof circle;
 declare const face_d_findBorder: typeof findBorder;
@@ -1400,6 +1403,8 @@ declare namespace face_d {
     face_d_FaceMesh as FaceMesh,
     face_d_FaceIndexMeshData as FaceIndexMeshData,
     face_d_FaceIndexMesh as FaceIndexMesh,
+    face_d_square as square,
+    cube$1 as cube,
     sphere$1 as sphere,
     face_d_polygon as polygon,
     face_d_circle as circle,
@@ -2292,6 +2297,14 @@ declare namespace rigid {
         constructor(size: Vec4 | number);
         initializeMassInertia(rigid: Rigid): void;
     }
+    class Duocylinder extends Convex {
+        radius1: number;
+        radius2: number;
+        segment1: number;
+        segment2: number;
+        constructor(radius1: number, radius2: number, segment1: number, segment2: number);
+        initializeMassInertia(rigid: Rigid): void;
+    }
     /** equation: dot(normal,positon) == offset
      *  => when offset > 0, plane is shifted to normal direction
      *  from origin by distance = offset
@@ -2348,10 +2361,8 @@ declare namespace rigid {
         constructor(grid1: Vec4[][][], grid2: Vec4[][][]);
         initializeMassInertia(rigid: Rigid): void;
     }
-    class LoftedConvex extends RigidGeometry {
-        grid1: Vec4[][][];
-        grid2: Vec4[][][];
-        convex: Convex[];
+    /** todo */
+    class LoftedConvex extends Union {
         constructor(sp: Spline, section: Vec4[], step: number);
         initializeMassInertia(rigid: Rigid): void;
     }
