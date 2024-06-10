@@ -106,7 +106,7 @@ let examples = [
                     { target: "rigids::dzhanibekov5", zh: "自由双旋转进动", en: "Dzhanibekov Effect with Double Rotation" },
                 ]
             },
-            { target: "automobile", zh: "汽车", en: " Automobile" },
+            // { target: "automobile", zh: "汽车", en: " Automobile" },
             { target: "drone", zh: "无人机", en: "Drone" },
             { target: "aircraft", zh: "客机", en: "Aircraft" },
             { target: "rigids::thermo_stats", zh: "旋转分布律（试验）", en: "Thermotic Rotation Distribution (Experimental)" },
