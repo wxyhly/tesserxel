@@ -184,7 +184,7 @@
                 subPanel.classList.add("subdiv");
                 const showThisSubgroup = addSubChild(subPanel, c.child);
                 link.addEventListener('click', () => {
-                    getInfo(target);
+                    infodiv.innerHTML = {"en":"Folder ","zh":"目录："}[lang]+c[lang];
                     toggleGroup(link, subPanel);
                 });
                 if (!showThisSubgroup) {

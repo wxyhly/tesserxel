@@ -3,6 +3,8 @@ const { Bivec, Vec4 } = tesserxel.math;
 type Vec4 = tesserxel.math.Vec4;
 const CWMesh = tesserxel.mesh.CWMesh;
 const polytope = tesserxel.mesh.cw.polytope;
+const truncatedPolytope = tesserxel.mesh.cw.truncatedPolytope;
+const bitruncatedPolytope = tesserxel.mesh.cw.bitruncatedPolytope;
 type CWMesh = tesserxel.mesh.CWMesh;
 function cwmesh0dframe(cwmesh: tesserxel.mesh.CWMesh, radius: number, segment: number) {
     const vtable = cwmesh.data[0] as tesserxel.math.Vec4[];
@@ -96,7 +98,7 @@ class DisplayCtrl implements tesserxel.util.ctrl.IController {
         }
     }
 }
-async function loadPolytope0123dFacesScene(mesh: tesserxel.mesh.CWMesh) {
+async function loadPolytope0123dFacesScene(mesh: tesserxel.mesh.CWMesh, scale: number = 1) {
     const FOUR = tesserxel.four;
     const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
     /** This is a asycn function wait for request WebGPU adapter and do initiations */
@@ -104,12 +106,15 @@ async function loadPolytope0123dFacesScene(mesh: tesserxel.mesh.CWMesh) {
     renderer.core.setDisplayConfig({ opacity: 15 });
     let scene = new FOUR.Scene();
     scene.wireframe = new FOUR.WireFrameScene;
-    scene.wireframe.add(new FOUR.WireFrameConvexPolytope(mesh));
+    if (mesh.data[1].length < 1e3)
+        scene.wireframe.add(new FOUR.WireFrameConvexPolytope(mesh));
     scene.setBackgroudColor({ r: 1.0, g: 1.0, b: 1.0, a: 0.08 });
     let camera = new FOUR.Camera();
-    const mesh0 = cwmesh0dframe(mesh, 0.07, 1);
-    const mesh1 = cwmesh1dframe(mesh, 0.05, 5, 5);
-    const mesh2 = cwmesh2dframe(mesh, 0.04, 5);
+    const mesh0 = cwmesh0dframe(mesh, 0.07 * scale, 1);
+    const es = mesh.data[1].length > 256 ? 3 : mesh.data[1].length > 127 ? 4 : 5;
+    const mesh1 = cwmesh1dframe(mesh, 0.05 * scale, es, es);
+    const fs = mesh.data[2].length > 256 ? 3 : mesh.data[2].length > 127 ? 4 : 5;
+    const mesh2 = cwmesh2dframe(mesh, 0.04 * scale, fs);
     const mesh3 = cwmesh2Tetrahedra(mesh);
     scene.add(mesh0);
     scene.add(mesh1);
@@ -224,5 +229,57 @@ export namespace cell24 {
 export namespace cell600 {
     export async function load() {
         await loadPolytope0123dFacesScene(polytope([3, 3, 5]));
+    }
+}
+export namespace cell5t {
+    export async function load() {
+        await loadPolytope0123dFacesScene(truncatedPolytope([3, 3, 3], 0.5));
+    }
+}
+export namespace cell8t {
+    export async function load() {
+        await loadPolytope0123dFacesScene(truncatedPolytope([4, 3, 3], 0.5));
+    }
+}
+export namespace cell120t {
+    export async function load() {
+        await loadPolytope0123dFacesScene(truncatedPolytope([5, 3, 3], 0.5), 0.5);
+    }
+}
+export namespace cell16t {
+    export async function load() {
+        await loadPolytope0123dFacesScene(truncatedPolytope([3, 3, 4], 0.5));
+    }
+}
+export namespace cell24t {
+    export async function load() {
+        await loadPolytope0123dFacesScene(truncatedPolytope([3, 4, 3], 0.5));
+    }
+}
+export namespace cell600t {
+    export async function load() {
+        await loadPolytope0123dFacesScene(truncatedPolytope([3, 3, 5], 0.5), 0.5);
+    }
+}
+
+
+export namespace cell5tt {
+    export async function load() {
+        await loadPolytope0123dFacesScene(bitruncatedPolytope([3, 3, 3]));
+    }
+}
+export namespace cell8tt {
+    export async function load() {
+        await loadPolytope0123dFacesScene(bitruncatedPolytope([4, 3, 3]));
+    }
+}
+export namespace cell120tt {
+    export async function load() {
+        await loadPolytope0123dFacesScene(bitruncatedPolytope([5, 3, 3]), 0.5);
+    }
+}
+export namespace cell24tt {
+    export async function load() {
+        await loadPolytope0123dFacesScene(bitruncatedPolytope([3, 4, 3]));
     }
 }

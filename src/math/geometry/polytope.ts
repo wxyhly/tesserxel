@@ -111,16 +111,18 @@ export class Polytope {
         }
         return v0;
     }
-    generateFaceLinkTable(srcNum: number, srcTable: number[], destTable: number[]) {
+    generateFaceLinkTable(srcNum: number, srcTable: number[], ...destTable: number[][]) {
         const src: Set<number>[] = new Array(srcNum);
         for (let i = 0; i < srcTable.length; i++) {
             src[srcTable[i]] ??= new Set<number>();
-            src[srcTable[i]].add(destTable[i]);
+            for (const val of destTable.map(dt => dt[i])) {
+                src[srcTable[i]].add(val);
+            }
         }
         return src.map(e => Array.from(e));
     }
     getRegularPolytope() {
-        if(this.gens.length === 1) return [];
+        if (this.gens.length === 1) return [];
         // kface[0] : Vtable, kface[1] : Etable...
         const kfaceTable = this.getFirstStructure();
         let pqr = new Array(this.gens.length - 1);
@@ -132,18 +134,76 @@ export class Polytope {
         }
         return polytope;
     }
-    getStructures(subgroups:string[][]){
+    getTrucatedRegularPolytope(t: number) {
+        if (t <= 0 || t >= 1) throw "Trucation parameter must be in range (0,1)!";
+        if (this.gens.length === 1) return [];
+        // kface[0] : Vtable, kface[1] : Etable...
+        const kfaceTable = this.getTrucatedStructure();
+        let pqr = new Array(this.gens.length - 1);
+        pqr.fill(0); if (pqr.length > 1) { pqr[0] = 1 - t; pqr[1] = t; }
+        let vi = this.gens.length;
+        // if > 4, return abstract vertex without coord
+        const V = this.gens.length > 4 ? kfaceTable[0].cosetTable.cosets.map(() => new Array<number>()) : this.generateVertices(this.getInitVertex(pqr), kfaceTable[vi].cosetTable);
+        let polytope: (Array<number>[] | Vec4[])[] = [V];
+        let tOffset: number;
+        for (let i = 1; i < this.gens.length; i++) {
+            // [vi->ei vi->e]
+            // [ei->fi (ei+e)->f]
+            // [fi->ci (fi+f)->c]
+            const t = this.generateFaceLinkTable(kfaceTable[i === vi - 1 ? 0 : (i + vi)].cosetTable.length, kfaceTable[i === vi - 1 ? 0 : (i + vi)].subGroupTable, kfaceTable[i + vi - 1].subGroupTable);
+            let offset = t.length;
+            if (i > 1)
+                t.push(...this.generateFaceLinkTable(kfaceTable[i].cosetTable.length, kfaceTable[i].subGroupTable, kfaceTable[i + vi - 1].subGroupTable, kfaceTable[i - 1].subGroupTable.map(e => e + tOffset)));
+            else
+                t.push(...this.generateFaceLinkTable(kfaceTable[i].cosetTable.length, kfaceTable[i].subGroupTable, kfaceTable[i + vi - 1].subGroupTable));
+            polytope.push(t);
+            tOffset = offset;
+        }
+        return polytope;
+    }
+    getBitrucatedRegularPolytope(t: number = 0.5) {
+        if (t <= 0 || t >= 1) throw "BiTrucation parameter must be in range (0,1)!";
+        if (this.gens.length !== 4) throw "BiTrucation is only implemented in 4D!";
+        // kface[0] : Vtable, kface[1] : Etable...
+        const kfaceTable = this.getBitrucatedStructure();
+        let pqr = new Array(this.gens.length - 1);
+        pqr.fill(0); if (pqr.length > 1) { pqr[0] = 0; pqr[1] = t; pqr[2] = 1 - t; }
+        let vi = this.gens.length;
+        // if > 4, return abstract vertex without coord
+        const V = this.gens.length > 4 ? kfaceTable[0].cosetTable.cosets.map(() => new Array<number>()) : this.generateVertices(this.getInitVertex(pqr), kfaceTable[vi].cosetTable);
+
+        let tOffset: number;
+        const link = (src: number, ...dst: number[]) => {
+            return this.generateFaceLinkTable(kfaceTable[src].cosetTable.length, kfaceTable[src].subGroupTable, ...dst.map(n => kfaceTable[n].subGroupTable));
+        }
+        // [vi->ei vi->e]
+        const ei = link(5, 4);
+        const e = link(7, 4);
+        const edge = [...ei, ...e];
+        kfaceTable[7].subGroupTable = kfaceTable[7].subGroupTable.map(e => e + ei.length);
+        // [ei->f (ei+e)->fi e->fe]
+        const f = link(2, 5);
+        const fi = link(6, 5, 7);
+        const fe = link(1, 7);
+        const face = [...f, ...fi, ...fe];
+        kfaceTable[6].subGroupTable = kfaceTable[6].subGroupTable.map(e => e + f.length);
+        kfaceTable[1].subGroupTable = kfaceTable[1].subGroupTable.map(e => e + f.length + fi.length);
+        // [(fi+fe)->ci (fi+f)->c ]
+        const ci = link(0, 1, 6);
+        const c = link(3, 2, 6);
+        const cell = [...ci, ...c];
+        return [V, edge, face, cell];
+    }
+    getStructures(subgroups: string[][]) {
         this.fullgroupTable ??= new CosetTable(this.gens, this.rels, []).enumerate();
         this.fullgroupRepresentatives ??= this.fullgroupTable.getRepresentatives();
         const table: { cosetTable: CosetTable, subGroupTable: number[] }[] = [];
-        return subgroups.map(subgroup=>{
+        return subgroups.map(subgroup => {
             const cosetTable = new CosetTable(this.gens, this.rels, subgroup).enumerate();
             const subGroupTable = this.fullgroupRepresentatives.map(w => cosetTable.findCoset(w));
             return { cosetTable, subGroupTable };
         })
     }
-
-    
     getFirstStructure() {
         this.fullgroupTable ??= new CosetTable(this.gens, this.rels, []).enumerate();
         this.fullgroupRepresentatives ??= this.fullgroupTable.getRepresentatives();
@@ -157,14 +217,67 @@ export class Polytope {
         }
         return table;
     }
+    getTrucatedStructure() {
+        this.fullgroupTable ??= new CosetTable(this.gens, this.rels, []).enumerate();
+        this.fullgroupRepresentatives ??= this.fullgroupTable.getRepresentatives();
+        const table: { cosetTable: CosetTable, subGroupTable: number[] }[] = [];
+        for (let i = 0; i < this.gens.length; i++) {
+            // Ct: "b,c,d" E: "a,c,d" F: "a,b,d" C: "a,b,c"
+            const subgroup = Array.from(this.gens); subgroup.splice(i, 1);
+            const cosetTable = new CosetTable(this.gens, this.rels, subgroup).enumerate();
+            const subGroupTable = this.fullgroupRepresentatives.map(w => cosetTable.findCoset(w));
+            console.log(subgroup, cosetTable.length);
+            table.push({ cosetTable, subGroupTable });
+        }
 
-    
+        for (let i = 0; i < this.gens.length - 1; i++) {
+            // Vt:"c,d" Et:"b,d" Ft:"b,c" 
+            let subgroup = Array.from(this.gens); subgroup = subgroup.slice(1); subgroup.splice(i, 1);
+            const cosetTable = new CosetTable(this.gens, this.rels, subgroup).enumerate();
+            const subGroupTable = this.fullgroupRepresentatives.map(w => cosetTable.findCoset(w));
+            console.log(subgroup, cosetTable.length);
+            table.push({ cosetTable, subGroupTable });
+        }
+        return table;
+    }
+    getBitrucatedStructure() {
+        if (this.gens.length !== 4) throw "not implemented yet";
+        this.fullgroupTable ??= new CosetTable(this.gens, this.rels, []).enumerate();
+        this.fullgroupRepresentatives ??= this.fullgroupTable.getRepresentatives();
+        const table: { cosetTable: CosetTable, subGroupTable: number[] }[] = [];
+        // Ct: "b,c,d" Fe: "a,c,d" F: "a,b,d" C: "a,b,c"
+        for (let i = 0; i < this.gens.length; i++) {
+            const subgroup = Array.from(this.gens);
+            subgroup.splice(i, 1);
+            const cosetTable = new CosetTable(this.gens, this.rels, subgroup).enumerate();
+            const subGroupTable = this.fullgroupRepresentatives.map(w => cosetTable.findCoset(w));
+            console.log(subgroup, cosetTable.length);
+            table.push({ cosetTable, subGroupTable });
+        }
+        // Vt:"a,d" Et:"b,d" Ft:"b,c" E: "a,c" 
+
+        for (let i = 0; i < this.gens.length; i++) {
+            let subgroup = Array.from(this.gens);
+            if (i === 0) {
+                subgroup = [subgroup[0], subgroup[3]];
+            } else if (i === this.gens.length - 1) {
+                subgroup = [subgroup[0], subgroup[2]];
+            } else { subgroup = subgroup.slice(1); subgroup.splice(i, 1); }
+            const cosetTable = new CosetTable(this.gens, this.rels, subgroup).enumerate();
+            const subGroupTable = this.fullgroupRepresentatives.map(w => cosetTable.findCoset(w));
+            console.log(subgroup, cosetTable.length);
+            table.push({ cosetTable, subGroupTable });
+        }
+        return table;
+    }
+
+
     getPolytope() {
-        if(this.gens.length === 1) return [];
+        if (this.gens.length === 1) return [];
         // kface[0] : Vtable, kface[1] : Etable...
         const kfaceTable = this.getFirstStructure();
         let pqr = new Array(this.gens.length - 1);
-        pqr.fill(1/pqr.length);
+        pqr.fill(1 / pqr.length);
         const V = this.gens.length > 4 ? kfaceTable[0].cosetTable.cosets.map(() => new Array<number>()) : this.generateVertices(this.getInitVertex(pqr), kfaceTable[0].cosetTable);
         let polytope: (Array<number>[] | Vec4[])[] = [V];
         for (let i = 1; i < this.gens.length; i++) {

@@ -354,6 +354,38 @@ export namespace rigid {
             }
         }
     }
+    export class Duocylinder extends Convex {
+        radius1: number;
+        radius2: number;
+        segment1: number;
+        segment2: number;
+        constructor(radius1: number, radius2: number, segment1: number, segment2: number) {
+            const ps: Vec4[] = [];
+            const d1 = Math.PI * 2 / segment1;
+            const d2 = Math.PI * 2 / segment2;
+            for (let i = 0, ii = 0; i < segment1; i++, ii += d1) {
+                for (let j = 0, jj = 0; j < segment2; j++, jj += d2) {
+                    ps.push(new Vec4(Math.sin(ii) * radius1, Math.sin(jj) * radius2, Math.cos(jj) * radius2, Math.cos(ii) * radius1));
+                }
+            }
+            super(ps);
+            this.radius1 = radius1; this.radius2 = radius2;
+            this.segment1 = segment1; this.segment2 = segment2;
+        }
+        initializeMassInertia(rigid: Rigid) {
+            let isoratio = this.radius1 / this.radius2;
+            rigid.inertiaIsotroy = isoratio > 0.95 && isoratio < 1.05;
+            if (rigid.inertiaIsotroy) {
+                rigid.inertia.xy = rigid.mass * (this.radius1 + this.radius2) * (this.radius1 + this.radius2) * 0.2;
+            } else {
+                let x = this.radius1 * this.radius1;
+                let y = this.radius2 * this.radius2;
+                let z = y;
+                let w = x;
+                rigid.inertia.set(x + y, x + z, x + w, y + z, y + w, z + w).mulfs(rigid.mass * 0.2);
+            }
+        }
+    }
     /** equation: dot(normal,positon) == offset
      *  => when offset > 0, plane is shifted to normal direction
      *  from origin by distance = offset
@@ -562,18 +594,27 @@ export namespace rigid {
         }
     }
     /** todo */
-    export class LoftedConvex extends RigidGeometry {
-        grid1: Vec4[][][];
-        grid2: Vec4[][][];
-        convex: Convex[];
+    export class LoftedConvex extends Union {
         constructor(
             sp: Spline, section: Vec4[], step: number
         ) {
-            super();
+            const { points, rotors } = sp.generate(step);
+            const components: Rigid[] = [];
+            for (let j = 1; j < rotors.length; j++) {
+                let r = rotors[j];
+                let p = points[j];
+                let r0 = rotors[j - 1];
+                let p0 = points[j - 1];
+                let ps = section.map(v => v.rotate(r).adds(p));
+                let ps0 = section.map(v => v.rotate(r0).adds(p0));
+                ps.push(...ps0);
+                components.push(new Rigid({ geometry: new Convex(ps), mass: 0, material: new Material(1, 0.6) }));
 
+            }
+            super(components);
         }
         initializeMassInertia(rigid: Rigid) {
-            if (rigid.mass) console.warn("HeightField doesnt support a finitive mass.");
+            if (rigid.mass) console.warn("LoftedConvex doesnt support a finitive mass.");
             rigid.mass = undefined;
             rigid.invMass = 0;
             rigid.inertia = undefined;

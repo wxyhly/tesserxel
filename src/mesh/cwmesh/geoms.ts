@@ -21,6 +21,38 @@ export function polytope(schlafli: number[]) {
     ).map(([idx, o]) => m.data[dim][0][idx]));
     return m;
 }
+export function truncatedPolytope(schlafli: number[], t: number) {
+    const m = new CWMesh();
+    if (!schlafli) {
+        m.data = [[new Vec4]]; return m;
+    }
+    if (schlafli.length === 0) {
+        m.data = [[Vec4.xNeg.clone(), Vec4.x.clone()], [[0, 1]]]; return m;
+    }
+    const dim = schlafli.length + 1;
+    m.data = new Polytope(schlafli).getTrucatedRegularPolytope(t);
+    m.data.push([m.data[dim - 1].map((_, i: number) => i)]);
+    m.calculateOrientationInFace(dim, 0);
+    m.flipOrientation(dim - 1, Array.from(m.orientation[dim][0].entries()).filter(
+        ([idx, o]) => o === false
+    ).map(([idx, o]) => m.data[dim][0][idx]));
+    return m;
+}
+
+export function bitruncatedPolytope(schlafli: number[], t: number=0.5) {
+    const m = new CWMesh();
+    if (!schlafli) {
+        m.data = [[new Vec4]]; return m;
+    }
+    const dim = schlafli.length + 1;
+    m.data = new Polytope(schlafli).getBitrucatedRegularPolytope(t);
+    m.data.push([m.data[dim - 1].map((_, i: number) => i)]);
+    m.calculateOrientationInFace(dim, 0);
+    m.flipOrientation(dim - 1, Array.from(m.orientation[dim][0].entries()).filter(
+        ([idx, o]) => o === false
+    ).map(([idx, o]) => m.data[dim][0][idx]));
+    return m;
+}
 export function path(points: Vec4[] | number, closed?: boolean) {
 
     const mesh = new CWMesh;

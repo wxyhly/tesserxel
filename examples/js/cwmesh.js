@@ -2,6 +2,8 @@ import * as tesserxel from "../../build/tesserxel.js";
 const { Bivec, Vec4 } = tesserxel.math;
 const CWMesh = tesserxel.mesh.CWMesh;
 const polytope = tesserxel.mesh.cw.polytope;
+const truncatedPolytope = tesserxel.mesh.cw.truncatedPolytope;
+const bitruncatedPolytope = tesserxel.mesh.cw.bitruncatedPolytope;
 function cwmesh0dframe(cwmesh, radius, segment) {
     const vtable = cwmesh.data[0];
     let obj = new tesserxel.four.Object;
@@ -91,7 +93,7 @@ class DisplayCtrl {
         }
     }
 }
-async function loadPolytope0123dFacesScene(mesh) {
+async function loadPolytope0123dFacesScene(mesh, scale = 1) {
     const FOUR = tesserxel.four;
     const canvas = document.getElementById("gpu-canvas");
     /** This is a asycn function wait for request WebGPU adapter and do initiations */
@@ -99,12 +101,15 @@ async function loadPolytope0123dFacesScene(mesh) {
     renderer.core.setDisplayConfig({ opacity: 15 });
     let scene = new FOUR.Scene();
     scene.wireframe = new FOUR.WireFrameScene;
-    scene.wireframe.add(new FOUR.WireFrameConvexPolytope(mesh));
+    if (mesh.data[1].length < 1e3)
+        scene.wireframe.add(new FOUR.WireFrameConvexPolytope(mesh));
     scene.setBackgroudColor({ r: 1.0, g: 1.0, b: 1.0, a: 0.08 });
     let camera = new FOUR.Camera();
-    const mesh0 = cwmesh0dframe(mesh, 0.07, 1);
-    const mesh1 = cwmesh1dframe(mesh, 0.05, 5, 5);
-    const mesh2 = cwmesh2dframe(mesh, 0.04, 5);
+    const mesh0 = cwmesh0dframe(mesh, 0.07 * scale, 1);
+    const es = mesh.data[1].length > 256 ? 3 : mesh.data[1].length > 127 ? 4 : 5;
+    const mesh1 = cwmesh1dframe(mesh, 0.05 * scale, es, es);
+    const fs = mesh.data[2].length > 256 ? 3 : mesh.data[2].length > 127 ? 4 : 5;
+    const mesh2 = cwmesh2dframe(mesh, 0.04 * scale, fs);
     const mesh3 = cwmesh2Tetrahedra(mesh);
     scene.add(mesh0);
     scene.add(mesh1);
@@ -245,4 +250,74 @@ export var cell600;
     }
     cell600.load = load;
 })(cell600 || (cell600 = {}));
+export var cell5t;
+(function (cell5t) {
+    async function load() {
+        await loadPolytope0123dFacesScene(truncatedPolytope([3, 3, 3], 0.5));
+    }
+    cell5t.load = load;
+})(cell5t || (cell5t = {}));
+export var cell8t;
+(function (cell8t) {
+    async function load() {
+        await loadPolytope0123dFacesScene(truncatedPolytope([4, 3, 3], 0.5));
+    }
+    cell8t.load = load;
+})(cell8t || (cell8t = {}));
+export var cell120t;
+(function (cell120t) {
+    async function load() {
+        await loadPolytope0123dFacesScene(truncatedPolytope([5, 3, 3], 0.5), 0.5);
+    }
+    cell120t.load = load;
+})(cell120t || (cell120t = {}));
+export var cell16t;
+(function (cell16t) {
+    async function load() {
+        await loadPolytope0123dFacesScene(truncatedPolytope([3, 3, 4], 0.5));
+    }
+    cell16t.load = load;
+})(cell16t || (cell16t = {}));
+export var cell24t;
+(function (cell24t) {
+    async function load() {
+        await loadPolytope0123dFacesScene(truncatedPolytope([3, 4, 3], 0.5));
+    }
+    cell24t.load = load;
+})(cell24t || (cell24t = {}));
+export var cell600t;
+(function (cell600t) {
+    async function load() {
+        await loadPolytope0123dFacesScene(truncatedPolytope([3, 3, 5], 0.5), 0.5);
+    }
+    cell600t.load = load;
+})(cell600t || (cell600t = {}));
+export var cell5tt;
+(function (cell5tt) {
+    async function load() {
+        await loadPolytope0123dFacesScene(bitruncatedPolytope([3, 3, 3]));
+    }
+    cell5tt.load = load;
+})(cell5tt || (cell5tt = {}));
+export var cell8tt;
+(function (cell8tt) {
+    async function load() {
+        await loadPolytope0123dFacesScene(bitruncatedPolytope([4, 3, 3]));
+    }
+    cell8tt.load = load;
+})(cell8tt || (cell8tt = {}));
+export var cell120tt;
+(function (cell120tt) {
+    async function load() {
+        await loadPolytope0123dFacesScene(bitruncatedPolytope([5, 3, 3]), 0.5);
+    }
+    cell120tt.load = load;
+})(cell120tt || (cell120tt = {}));
+export var cell24tt;
+(function (cell24tt) {
+    async function load() {
+        await loadPolytope0123dFacesScene(bitruncatedPolytope([3, 4, 3]));
+    }
+    cell24tt.load = load;
+})(cell24tt || (cell24tt = {}));
 //# sourceMappingURL=cwmesh.js.map

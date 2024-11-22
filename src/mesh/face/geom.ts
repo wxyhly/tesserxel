@@ -1,8 +1,38 @@
 import { Vec2 } from "../../math/algebra/vec2";
 import { Vec4 } from "../../math/algebra/vec4";
-import { _180, _360 } from "../../math/const";
+import { Bivec } from "../../math/algebra/bivec";
+import { Rotor } from "../../math/algebra/rotor";
+import { Obj4 } from "../../math/algebra/affine";
+import { _180, _360, _90 } from "../../math/const";
 import { FaceIndexMesh, FaceIndexMeshData, FaceMesh } from "./facemesh";
-export function sphere(radius:number, u:number, v:number, uAngle: number = _360, vAngle: number = _180) {
+export let square = new FaceMesh({
+    quad: {
+        normal: new Float32Array([0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0]),
+        position: new Float32Array([-1, 0, -1, 0, -1, 0, 1, 0, 1, 0, 1, 0, 1, 0, -1, 0]),
+        uvw: new Float32Array([0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0]),
+    }
+});
+export function cube() {
+    let rotor = new Rotor();
+    let biv = new Bivec();
+    let yface = square.clone().applyObj4(new Obj4(Vec4.y, rotor.expset(biv.set(0, _90))));
+    let meshes = [
+        biv.set(_90).exp(),
+        biv.set(-_90).exp(),
+        biv.set(0, 0, 0, _90).exp().mulsl(rotor.expset(biv.set(_90, 0, 0, 0, 0))),
+        biv.set(0, 0, 0, -_90).exp().mulsl(rotor.expset(biv.set(_90, 0, 0, 0, 0))),
+        biv.set(_180).exp(),
+    ].map(r => yface.clone().applyObj4(new Obj4(new Vec4(), r)));
+    for (const m of meshes) yface = yface.concat(m);
+    let m = yface;
+    // for (let i = 0; i < 6; i++) {
+    //     for (let j = 0; j < 8; j++) {
+    //         m.uvw[i * 80 + j * 4 + 2] = i;
+    //     }
+    // }
+    return m;
+}
+export function sphere(radius: number, u: number, v: number, uAngle: number = _360, vAngle: number = _180) {
     if (u < 3) u = 3;
     if (v < 3) v = 3;
     return parametricSurface((uvw, pos, norm) => {

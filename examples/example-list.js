@@ -5,15 +5,40 @@ let examples = [
             {
                 group: "polytopes", zh: "多胞体", en: "Polytopes",
                 child: [
-                    
+
                     { target: "shapes::tesseract", zh: "超立方体", en: "Tesseract (Hypercube)" },
                     { target: "shapes::tesseract_ortho", zh: "超立方体（正交投影）", en: "Tesseract (Orthographic Projection)" },
-                    { target: "cwmesh::cell5", zh: "正5胞体", en: "5-Cell" },
-                    { target: "cwmesh::cell8", zh: "正8胞体", en: "8-Cell" },
-                    { target: "cwmesh::cell16", zh: "正16胞体", en: "16-Cell" },
-                    { target: "cwmesh::cell24", zh: "正24胞体", en: "24-Cell" },
-                    { target: "cwmesh::cell120", zh: "正120胞体", en: "120-Cell" },
-                    { target: "cwmesh::cell600", zh: "正600胞体", en: "600-Cell" },
+                    {
+                        group: "regular", zh: "正多胞体", en: "Regular Polytopes",
+                        child: [
+                            { target: "cwmesh::cell5", zh: "正5胞体", en: "5-Cell" },
+                            { target: "cwmesh::cell8", zh: "正8胞体", en: "8-Cell" },
+                            { target: "cwmesh::cell16", zh: "正16胞体", en: "16-Cell" },
+                            { target: "cwmesh::cell24", zh: "正24胞体", en: "24-Cell" },
+                            { target: "cwmesh::cell120", zh: "正120胞体", en: "120-Cell" },
+                            { target: "cwmesh::cell600", zh: "正600胞体", en: "600-Cell" },
+                        ]
+                    },
+                    {
+                        group: "truncated", zh: "截角多胞体", en: "Truncated Polytopes",
+                        child: [
+                            { target: "cwmesh::cell5t", zh: "截角5胞体", en: "Tr-5-Cell" },
+                            { target: "cwmesh::cell8t", zh: "截角8胞体", en: "Tr-8-Cell" },
+                            { target: "cwmesh::cell16t", zh: "截角16胞体", en: "Tr-16-Cell" },
+                            { target: "cwmesh::cell24t", zh: "截角24胞体", en: "Tr-24-Cell" },
+                            { target: "cwmesh::cell120t", zh: "截角120胞体", en: "Tr-120-Cell" },
+                            { target: "cwmesh::cell600t", zh: "截角600胞体", en: "Tr-600-Cell" },
+                        ]
+                    },
+                    {
+                        group: "bitruncated", zh: "过截角多胞体", en: "Bitruncated Polytopes",
+                        child: [
+                            { target: "cwmesh::cell5tt", zh: "过截角5胞体", en: "Bitr-5-Cell" },
+                            { target: "cwmesh::cell8tt", zh: "过截角8胞体", en: "Bitr-8-Cell" },
+                            { target: "cwmesh::cell24tt", zh: "过截角24胞体", en: "Bitr-24-Cell" },
+                            { target: "cwmesh::cell120tt", zh: "过截角120胞体", en: "Bitr-120-Cell" },
+                        ]
+                    },
                     { target: "cwmesh::duopr5", zh: "5,5-双棱柱", en: "5,5-Duoprism" },
                     { target: "cwmesh::duopy5", zh: "5,5-双棱锥", en: "5,5-Duopyramid" },
                     { target: "cwmesh::prpr5", zh: "正5棱柱柱", en: "Pentagonal Prism Prism" },
@@ -78,7 +103,7 @@ let examples = [
                 ]
             },
             {
-                group: "rotating_rigids", zh: "旋转陀螺", en:"Rotating Gyros",
+                group: "rotating_rigids", zh: "旋转陀螺", en: "Rotating Gyros",
                 child: [
                     { target: "rigids::gyro_conic_prism", zh: "圆锥柱陀螺", en: "Conic Prism Gyro" },
                     { target: "rigids::gyro_cylindral_cone", zh: "圆柱锥陀螺", en: "Cylindral Cone Gyro" },
@@ -296,60 +321,61 @@ let info = {
         "zh": "<b>控制：保持竖直模式</b><br>对偶磁偶极子为两个绝对垂直的等大环形电流的磁场叠加。对偶磁偶极子按手性可分为互为镜像的自对偶与反自对偶磁偶极子。同种对偶磁偶极子之间因两个线圈受力抵消，因而无相互作用力。使用键盘G开启/关闭重力。",
         "en": "<b>Control: Keep up mode</b><br>Dual magnetic dipole is constructed by two perpendicular current loop with same amount. It can be categorized into two different chiral class: self-dual and anti-self-dual dipole. dipoles with the same chirality have no interactions since force applied by perpendicular current loops exactly cancel each other. Use keyboard G to turn on/off the gravity."
     },
-    "rigids::gyro_conic_prism":{
+    "rigids::gyro_conic_prism": {
         "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆锥柱陀螺。使用鼠标左键发射超球轰击它可以看到该陀螺具有一定的稳定性。",
         "en": "<b>Control: Keep up mode</b><br>Spinning conic prismatical gyro. Click left mouse button to fire glomes and hit it, which can be shown that this gyro is stable while spinning."
     },
-    "rigids::gyro_dicone":{
+    "rigids::gyro_dicone": {
         "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆锥锥陀螺。使用鼠标左键发射超球轰击它可以看到该陀螺具有一定的稳定性。",
         "en": "<b>Control: Keep up mode</b><br>Spinning diconic gyro. Click left mouse button to fire glomes and hit it, which can be shown that this gyro is stable while spinning."
     },
-    "rigids::gyro_duocone":{
+    "rigids::gyro_duocone": {
         "zh": "<b>控制：保持竖直模式</b><br>快速旋转的双圆锥陀螺，可以看到它不能保持稳定旋转。使用鼠标左键发射超球轰击它。",
         "en": "<b>Control: Keep up mode</b><br>Spinning duoconic gyro. It can be seen that this gyro is not stable. Click left mouse button to fire glomes and hit it."
     },
-    "rigids::gyro_sphericone":{
+    "rigids::gyro_sphericone": {
         "zh": "<b>控制：保持竖直模式</b><br>快速旋转的球锥陀螺，可以看到它不能保持稳定旋转。使用鼠标左键发射超球轰击它。",
         "en": "<b>Control: Keep up mode</b><br>Spinning sphericonic gyro. It can be seen that this gyro is not stable. Click left mouse button to fire glomes and hit it."
     },
-    "rigids::gyro_cylindral_cone":{
+    "rigids::gyro_cylindral_cone": {
         "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆柱锥陀螺，可以看到它不能保持稳定旋转。使用鼠标左键发射超球轰击它。",
         "en": "<b>Control: Keep up mode</b><br>Spinning conic prismatical gyro. It can be seen that this gyro is not stable. Click left mouse button to fire glomes and hit it."
     },
-    "rigids::dzhanibekov2":{
+    "rigids::dzhanibekov2": {
         "en": "<b>Control: Trackball mode</b><br>4D version of Dzhanibekov effect (or Tennis racket theorem). If the supercuboid is rotated around the plane formed by the shortest and longest edges, the rotation direction will inverse frequently. This corresponds to two different periods in two directions. This was firstly proposed in Marc ten bosch's paper, but with wrong simulation result. ",
         "zh": "<b>控制：轨迹球模式</b><br>4D版贾尼别科夫效应（亦称网球拍定理）。若绕最短与最长棱张成的平面旋转超长方体，则会发生刚体的旋转不时反向的现象，这种旋转反向在两个方向对应两个不同的周期。4D贾尼别科夫效应首先在Marc Ten Bosch的论文中提出，但其模拟给出的结论有误。",
     },
-    "rigids::dzhanibekov1":{
+    "rigids::dzhanibekov1": {
         "en": "<b>Control: Trackball mode</b><br>4D version of Dzhanibekov effect (or Tennis racket theorem). If the tesseract is rotating in the plane spanned by the shortest and second longest edges or by the longest and second shortest edges, the rotation direction will inverse periodically. This is the same as in the three-dimensional case with only one period. This was firstly proposed in Marc ten bosch's paper, but with wrong simulation result. ",
         "zh": "<b>控制：轨迹球模式</b><br>4D版贾尼别科夫效应（亦称网球拍定理）。若绕最短与次长棱张成的平面或绕最长与次短棱张成的平面旋转超长方体，则会发生刚体的旋转不时反向的现象，这种旋转反向跟三维情形一样仅有一个周期。 4D贾尼别科夫效应首先在Marc Ten Bosch的论文中提出，但其模拟给出的结论有误。",
     },
-    "rigids::dzhanibekov3":{
+    "rigids::dzhanibekov3": {
         "en": "<b>Control: Trackball mode</b><br>If the tesseract is rotating in the plane spanned by the second shortest and second longest edges， the rotation is stable, and there's no Dzhanibekov effect.",
         "zh": "<b>控制：轨迹球模式</b><br>若绕次短与次长棱张成的平面旋转超长方体则旋转是稳定的，不会发生贾尼别科夫效应。",
     },
-    "rigids::dzhanibekov4":{
+    "rigids::dzhanibekov4": {
         "en": "<b>Control: Trackball mode</b><br>If the tesseract is rotated isoclinicly， the rotation is stable, and there's no Dzhanibekov effect.",
         "zh": "<b>控制：轨迹球模式</b><br>若初始旋转是等角双旋转则旋转是稳定的，不会发生贾尼别科夫效应。",
     },
-    "rigids::dzhanibekov5":{
+    "rigids::dzhanibekov5": {
         "en": "<b>Control: Trackball mode</b><br>Hint: Please wait half minute for rotation direction inverse.<br>If the tesseract is rotated not perfectly isoclinic， the rotation can be unstable, and Dzhanibekov effect could happen. If rotation gets closer to isoclinic, the period of direction inverse will get longer.",
         "zh": "<b>控制：轨迹球模式</b><br>提示：需要等大约半分钟才会有旋转翻转效应。<br>若初始旋转是非等角双旋转则可能会发生贾尼别科夫效应，且越接近完美等角双旋转翻转周期会变得越长。",
     },
-    "drone":{
-        "en":"<b>In Drone Control:</b><br>Use Space/Shift to rise/descend drone, W/A/S/D/Q/E to drift, and I/J/K/L/U/O to steer.<br><br><b>In Camera Control: Keep up mode</b><br>Press =/- to adjust camera move speed.<br><br><b>Special Operations:</b><br>Press key B to toggle camera/drone control. Press key 1/2/3 to toggle different camera positions on the drone, press key 4 for free camera. Press Key T to enter automatic mode, this helps you to better handle drone pose. Press H to hide overlapped texts.",
-        "zh":"<b>无人机控制模式下：</b><br> 使用空格/Shift升降无人机、W/A/S/D/Q/E漂移、I/J/K/L/U/O转向。<br><br><b>摄像机控制下为保持竖直模式</b><br>按=/-调节相机移动速度。<br><br><b>特殊控制：</b><br>按B键切换相机/无人机控制，按1/2/3键可切换无人机上的不同机位、按4键切至自由相机。按T键进入自动化模式，它将帮您更好控制飞行姿态。按H隐藏叠加的文字。"
+    "drone": {
+        "en": "<b>In Drone Control:</b><br>Use Space/Shift to rise/descend drone, W/A/S/D/Q/E to drift, and I/J/K/L/U/O to steer.<br><br><b>In Camera Control: Keep up mode</b><br>Press =/- to adjust camera move speed.<br><br><b>Special Operations:</b><br>Press key B to toggle camera/drone control. Press key 1/2/3 to toggle different camera positions on the drone, press key 4 for free camera. Press Key T to enter automatic mode, this helps you to better handle drone pose. Press H to hide overlapped texts.",
+        "zh": "<b>无人机控制模式下：</b><br> 使用空格/Shift升降无人机、W/A/S/D/Q/E漂移、I/J/K/L/U/O转向。<br><br><b>摄像机控制下为保持竖直模式</b><br>按=/-调节相机移动速度。<br><br><b>特殊控制：</b><br>按B键切换相机/无人机控制，按1/2/3键可切换无人机上的不同机位、按4键切至自由相机。按T键进入自动化模式，它将帮您更好控制飞行姿态。按H隐藏叠加的文字。"
     },
-    "aircraft":{
-        "en":"<b>In Aircraft Control:</b><br>Use Arrow Up / Arrow Down to turn on/off throttle(engine's power), W/S(down/up) to control elevator, Q/E(ana/kata) A/D(left/right) to control rudder, Z/X to spin. Use F/Shift+F to control flaps, hold key C to adjust aircraft roll to keep horizontal by automatic system. When at ground, use K to toggle all gear brake, U/O(ana/kata) J/L(left/right) to control each gear brake to turn. <br><br><b>In Camera Control: Keep up mode</b><br>Press =/- to adjust camera move speed. <br><br><b>Special Operations:</b><br>Press key B to toggle camera/aircraft control. Press key 1/2/3/4/5/6 to toggle different camera positions on the aircraft, press key 7 for free camera. Use 9/0 to zoom in/out (change camera's focus length). Press H to hide overlapped texts.",
-        "zh":"<b>飞机控制模式下：</b><br> 使用上下箭头调节发动机功率，W/S（俯/仰）控制升降舵，Q/E（侧前后） A/D（左右）控制转向，Z/X控制自转。使用F/Shift+F调节襟翼，按住C键可通过自动控制系统修正飞机横滚角至水平姿态。地面滑行时，可使用K键开启/关闭所有起落架轮制动，U/O（侧前后） J/L（左右）控制各轮刹车比例控制转向。<br><br><b>摄像机控制下为保持竖直模式</b><br>按=/-调节相机移动速度。<br><br><b>特殊控制：</b><br>按B键切换相机/飞机控制，按1/2/3/4/5/6键可切换飞机上的不同机位、按7键切至自由相机，使用大键盘9/0拉近/拉远镜头画面。按H隐藏叠加的文字。"
+    "aircraft": {
+        "en": "<b>In Aircraft Control:</b><br>Use Arrow Up / Arrow Down to turn on/off throttle(engine's power), W/S(down/up) to control elevator, Q/E(ana/kata) A/D(left/right) to control rudder, Z/X to spin. Use F/Shift+F to control flaps, hold key C to adjust aircraft roll to keep horizontal by automatic system. When at ground, use K to toggle all gear brake, U/O(ana/kata) J/L(left/right) to control each gear brake to turn. <br><br><b>In Camera Control: Keep up mode</b><br>Press =/- to adjust camera move speed. <br><br><b>Special Operations:</b><br>Press key B to toggle camera/aircraft control. Press key 1/2/3/4/5/6 to toggle different camera positions on the aircraft, press key 7 for free camera. Use 9/0 to zoom in/out (change camera's focus length). Press H to hide overlapped texts.",
+        "zh": "<b>飞机控制模式下：</b><br> 使用上下箭头调节发动机功率，W/S（俯/仰）控制升降舵，Q/E（侧前后） A/D（左右）控制转向，Z/X控制自转。使用F/Shift+F调节襟翼，按住C键可通过自动控制系统修正飞机横滚角至水平姿态。地面滑行时，可使用K键开启/关闭所有起落架轮制动，U/O（侧前后） J/L（左右）控制各轮刹车比例控制转向。<br><br><b>摄像机控制下为保持竖直模式</b><br>按=/-调节相机移动速度。<br><br><b>特殊控制：</b><br>按B键切换相机/飞机控制，按1/2/3/4/5/6键可切换飞机上的不同机位、按7键切至自由相机，使用大键盘9/0拉近/拉远镜头画面。按H隐藏叠加的文字。"
     },
-    "voxeltest::rasterizer":{
+    "voxeltest::rasterizer": {
         "zh": "<b>控制：轨迹球模式</b><br>该示例为使用计算着色器对四面体进行体素光栅化，渲染双圆环的深度缓冲区。",
         "en": "<b>Control: Trackball mode</b><br>This example renders depth buffer of a tiger (i.e. duotorus), which use compute shader to rasterize tetrahedra.",
     }
 };
-examples.find(v => v.group === "geoms").child.find(v => v.group === "polytopes").child.filter(
+const polytopes = examples.find(v => v.group === "geoms").child.find(v => v.group === "polytopes").child;
+polytopes.filter(
     v => v.target ? v.target.startsWith("cwmesh::") : false
 ).forEach(v => {
     info[v.target] = {
@@ -357,3 +383,12 @@ examples.find(v => v.group === "geoms").child.find(v => v.group === "polytopes")
         "en": `<b>Control: Trackball mode</b><br>Polytope ${v.en}. Press keyboard digital 0, 1, 2, 3 keys to show / hide vertices, edges, faces, cells of this polytope respectively.`,
     }
 });
+polytopes.filter(
+    v => v.group
+).forEach(k => k.child.forEach(v => {
+    info[v.target] = {
+        "zh": `<b>控制：轨迹球模式</b><br>${v.zh}。按大键盘的数字0、1、2、3键可分别切换显示/隐藏该多胞体的顶点、棱、面、胞。`,
+        "en": `<b>Control: Trackball mode</b><br>Polytope ${v.en.replace("Tr-", "Trucated ").replace("Bitr-", "Bitrucated ")}. Press keyboard digital 0, 1, 2, 3 keys to show / hide vertices, edges, faces, cells of this polytope respectively.`,
+    }
+})
+);

@@ -823,13 +823,23 @@ declare class Polytope {
     constructor(schlafli: number[]);
     private generateVertices;
     private getInitVertex;
-    generateFaceLinkTable(srcNum: number, srcTable: number[], destTable: number[]): number[][];
+    generateFaceLinkTable(srcNum: number, srcTable: number[], ...destTable: number[][]): number[][];
     getRegularPolytope(): (number[][] | Vec4[])[];
+    getTrucatedRegularPolytope(t: number): (number[][] | Vec4[])[];
+    getBitrucatedRegularPolytope(t?: number): (number[][] | Vec4[])[];
     getStructures(subgroups: string[][]): {
         cosetTable: CosetTable;
         subGroupTable: number[];
     }[];
     getFirstStructure(): {
+        cosetTable: CosetTable;
+        subGroupTable: number[];
+    }[];
+    getTrucatedStructure(): {
+        cosetTable: CosetTable;
+        subGroupTable: number[];
+    }[];
+    getBitrucatedStructure(): {
         cosetTable: CosetTable;
         subGroupTable: number[];
     }[];
@@ -1757,12 +1767,16 @@ declare class ObjFile {
 }
 
 declare function polytope(schlafli: number[]): CWMesh;
+declare function truncatedPolytope(schlafli: number[], t: number): CWMesh;
+declare function bitruncatedPolytope(schlafli: number[], t?: number): CWMesh;
 declare function path(points: Vec4[] | number, closed?: boolean): CWMesh;
 declare function solidTorus(majorRadius: number, minorRadius: number, u: number, v: number): CWMesh;
 declare function ball2(u: number, v: number): CWMesh;
 declare function ball3(u: number, v: number, w: number): void;
 
 declare const geoms_d_polytope: typeof polytope;
+declare const geoms_d_truncatedPolytope: typeof truncatedPolytope;
+declare const geoms_d_bitruncatedPolytope: typeof bitruncatedPolytope;
 declare const geoms_d_path: typeof path;
 declare const geoms_d_solidTorus: typeof solidTorus;
 declare const geoms_d_ball2: typeof ball2;
@@ -1770,6 +1784,8 @@ declare const geoms_d_ball3: typeof ball3;
 declare namespace geoms_d {
   export {
     geoms_d_polytope as polytope,
+    geoms_d_truncatedPolytope as truncatedPolytope,
+    geoms_d_bitruncatedPolytope as bitruncatedPolytope,
     geoms_d_path as path,
     geoms_d_solidTorus as solidTorus,
     geoms_d_ball2 as ball2,

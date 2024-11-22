@@ -464,7 +464,7 @@ function applyObj4(mesh: FaceIndexMeshData | FaceMeshData, obj: Obj4) {
             }
         }
     } else {
-        for (let i = 0; i < mesh.quad.position.length; i += 4) {
+        for (let i = 0; i < mesh.quad?.position.length; i += 4) {
             if (obj.scale) {
                 vp.set(
                     mesh.quad.position[i] * obj.scale.x,
@@ -497,7 +497,7 @@ function applyObj4(mesh: FaceIndexMeshData | FaceMeshData, obj: Obj4) {
                 }
             }
         }
-        for (let i = 0; i < mesh.triangle.position.length; i += 4) {
+        for (let i = 0; i < mesh.triangle?.position.length; i += 4) {
             if (obj.scale) {
                 vp.set(
                     mesh.triangle.position[i] * obj.scale.x,
