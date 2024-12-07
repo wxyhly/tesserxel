@@ -33,7 +33,7 @@ function cwmesh1dframe(cwmesh: tesserxel.mesh.CWMesh, radius: number, u: number,
     return obj;
 }
 function cwmesh2Tetrahedra(cwmesh: tesserxel.mesh.CWMesh) {
-    const material = new tesserxel.four.LambertMaterial([1, 1, 0, 0.15]);
+    const material = new tesserxel.four.LambertMaterial([1, 1, 0, 0.05]);
     material.cullMode = "none";
     const geom = new tesserxel.four.Geometry(tesserxel.mesh.tetra.cwmesh(cwmesh));
     return new tesserxel.four.Mesh(geom, material);
@@ -41,7 +41,7 @@ function cwmesh2Tetrahedra(cwmesh: tesserxel.mesh.CWMesh) {
 function cwmesh2dframe(cwmesh: tesserxel.mesh.CWMesh, radius: number, segment: number) {
     let obj = new tesserxel.four.Object;
     let tetra: tesserxel.mesh.TetraMesh;
-    const material = new tesserxel.four.LambertMaterial([0, 0, 1, 0.25]);
+    const material = new tesserxel.four.LambertMaterial([0, 0, 1, 0.1]);
     cwmesh.sort2DFace();
     for (let i = 0; i < cwmesh.data[2].length; i++) {
         // select ith 2d face
@@ -104,11 +104,12 @@ async function loadPolytope0123dFacesScene(mesh: tesserxel.mesh.CWMesh, scale: n
     /** This is a asycn function wait for request WebGPU adapter and do initiations */
     let renderer = await new FOUR.Renderer(canvas).init();
     renderer.core.setDisplayConfig({ opacity: 15 });
+    renderer.setBackgroudColor([1,1,1,1]);
     let scene = new FOUR.Scene();
     scene.wireframe = new FOUR.WireFrameScene;
     if (mesh.data[1].length < 1e3)
         scene.wireframe.add(new FOUR.WireFrameConvexPolytope(mesh));
-    scene.setBackgroudColor({ r: 1.0, g: 1.0, b: 1.0, a: 0.08 });
+    scene.setBackgroudColor({ r: 1.0, g: 1.0, b: 1.0, a: 0.02 });
     let camera = new FOUR.Camera();
     const mesh0 = cwmesh0dframe(mesh, 0.07 * scale, 1);
     const es = mesh.data[1].length > 256 ? 3 : mesh.data[1].length > 127 ? 4 : 5;
