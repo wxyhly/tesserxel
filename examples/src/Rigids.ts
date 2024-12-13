@@ -758,7 +758,7 @@ namespace dzhanibekov {
             draw("Wyw", 0.4, dataW, "yw", "rgb(0,150,0)");
             draw("Wzw", 0.4, dataW, "zw", "rgb(0,130,140)");
 
-            c.fillText(lang==="zh"?"按L键切换惯性/局部坐标系":"Press Key L to toggle World/Local Coordinates", width * 0.4, hdiv2 * 1.9);
+            c.fillText(lang === "zh" ? "按L键切换惯性/局部坐标系" : "Press Key L to toggle World/Local Coordinates", width * 0.4, hdiv2 * 1.9);
         }
     }
     export async function load(size: tesserxel.math.Vec4, initW: tesserxel.math.Bivec) {
@@ -1805,5 +1805,96 @@ export namespace m_dipole_dual {
                 addRigidToScene(world, scene, renderMatMDipoleDual, dipoleA);
             }
         });
+    }
+}
+export namespace dice_yugu233 {
+    export async function load() {
+        const engine = new phy.Engine({ substep: 60 });
+        const world = new phy.World();
+        const scene = new FOUR.Scene();
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const renderMatGround = new FOUR.LambertMaterial([0.2, 1, 0.2, 0.04]);
+        // add ground
+        addRigidToScene(world, scene, renderMatGround, new phy.Rigid({
+            geometry: new phy.rigid.Plane(new math.Vec4(0, 1)),
+            mass: 0, material: new phy.Material(1, 0.8)
+        }));
+        const diceM = new tesserxel.four.LambertMaterial(new tesserxel.four.WgslTexture(`
+            const arr:array<vec4<f32>,8> = array<vec4<f32>,8>(vec4<f32>(1.0,0.0,0.0,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(1.0,0.0,0.0,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(1.0,0.0,0.0,1.0));
+            fn mainfr(uvw:vec4<f32>)->vec4<f32>{
+                var pattern:f32;
+                if(uvw.w<0.5){pattern=step(length(uvw.xyz),0.5);}
+                else if(uvw.w<1.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.3)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,-0.35)),0.3);}
+                else if(uvw.w<2.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.38,0.38,0.38)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.38,-0.38,-0.38)),0.28)+step(length(uvw.xyz),0.28);}
+                 else if(uvw.w<3.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,0.35)),0.28);}
+                 else if(uvw.w<4.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,0.35)),0.28)+step(length(uvw.xyz),0.28);}
+                 else if(uvw.w<5.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,0.0,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.0,0.35)),0.28);}
+                 else if(uvw.w<6.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,0.0,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.0,0.35)),0.28)+step(length(uvw.xyz),0.28);}
+                 else if(uvw.w<7.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,-0.35)),0.28);}
+
+                return mix(vec4<f32>(1.0,1.0,1.0,0.1),arr[u32(uvw.w+0.5)],pattern);
+                
+            }
+            `, 'mainfr'));
+        for (let i = 0; i < 5; i++) {
+            let dice = new phy.Rigid({
+                geometry: new phy.rigid.Tesseractoid(1),
+                material: new phy.Material(1, 0.4), mass: 1
+            });
+            addRigidToScene(world, scene, diceM, dice);
+            dice.position.y = 4+i*2;
+            dice.velocity.y = 0;
+            dice.rotation.randset();
+            dice.angularVelocity.randset().mulfs(3);
+        }
+        // set up lights, camera and renderer
+
+        let camera = new FOUR.Camera();
+        camera.position.w = 7;
+        camera.position.y = 1;
+        scene.add(camera);
+        initScene(scene);
+
+        const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+        const renderer = await new FOUR.Renderer(canvas).init();
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 30
+        });
+        // controllers
+
+        const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        camCtrl.keyMoveSpeed = 0.01;
+
+        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
+
+        const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
+        emitCtrl.initialSpeed = 10;
+
+        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+            retinaCtrl,
+            camCtrl,
+            emitCtrl
+        ], { enablePointerLock: true });
+        function setSize() {
+            let width = window.innerWidth * window.devicePixelRatio;
+            let height = window.innerHeight * window.devicePixelRatio;
+            renderer.setSize({ width, height });
+        }
+        function run() {
+            // syncronise physics world and render scene
+            updateRidigsInScene();
+            // update controller states
+            controllerRegistry.update();
+            // rendering
+            renderer.render(scene, camera);
+            // simulating physics
+            engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
+            window.requestAnimationFrame(run);
+        }
+        window.addEventListener("resize", setSize);
+        setSize();
+        run();
     }
 }

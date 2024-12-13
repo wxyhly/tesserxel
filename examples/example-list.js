@@ -136,6 +136,7 @@ let examples = [
             { target: "aircraft", zh: "客机", en: "Aircraft" },
             { target: "rigids::thermo_stats", zh: "旋转分布律（试验）", en: "Thermotic Rotation Distribution (Experimental)" },
             { target: "forces::spring_rope", zh: "弹簧绳", en: "Rope with Springs" },
+            { target: "rigids::dice_yugu233", zh: "四维骰子", en: "4D Dice" },
             { target: "rigids::rigid_test", zh: "刚体测试", en: "Rigid Body Test" },
             { target: "rigids::st_pile", zh: "球环堆", en: "Spheritorus Pile" },
             { target: "pde::wave_eq", zh: "三维波动方程", en: "Wave Equation" },
@@ -360,6 +361,10 @@ let info = {
     "rigids::dzhanibekov5": {
         "en": "<b>Control: Trackball mode</b><br>Hint: Please wait half minute for rotation direction inverse.<br>If the tesseract is rotated not perfectly isoclinic， the rotation can be unstable, and Dzhanibekov effect could happen. If rotation gets closer to isoclinic, the period of direction inverse will get longer.",
         "zh": "<b>控制：轨迹球模式</b><br>提示：需要等大约半分钟才会有旋转翻转效应。<br>若初始旋转是非等角双旋转则可能会发生贾尼别科夫效应，且越接近完美等角双旋转翻转周期会变得越长。",
+    },
+    "rigids::dice_yugu233": {
+        "en": "<b>Control: Keep up mode</b><br>4D Dice designed by yugu233, click the link to see: <a target='_blank' href='https://www.bilibili.com/video/BV1PoqYYeEtp/'>the original design</a>. Click left mouse button to fire glomes and hit them.",
+        "zh": "<b>控制：保持竖直模式</b><br>由yugu2333设计的四维骰子：<a target='_blank' href='https://www.bilibili.com/video/BV1PoqYYeEtp/'>出处见链接</a>。使用鼠标左键发射超球轰击它们。",
     },
     "drone": {
         "en": "<b>In Drone Control:</b><br>Use Space/Shift to rise/descend drone, W/A/S/D/Q/E to drift, and I/J/K/L/U/O to steer.<br><br><b>In Camera Control: Keep up mode</b><br>Press =/- to adjust camera move speed.<br><br><b>Special Operations:</b><br>Press key B to toggle camera/drone control. Press key 1/2/3 to toggle different camera positions on the drone, press key 4 for free camera. Press Key T to enter automatic mode, this helps you to better handle drone pose. Press H to hide overlapped texts.",
