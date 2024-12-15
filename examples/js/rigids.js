@@ -1695,17 +1695,17 @@ export var dice_yugu233;
         }));
         // draw dots on the dice using wgsl shader
         const diceM = new tesserxel.four.LambertMaterial(new tesserxel.four.WgslTexture(`
-            const arr:array<vec4<f32>,8> = array<vec4<f32>,8>(vec4<f32>(1.0,0.0,0.0,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(1.0,0.0,0.0,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(1.0,0.0,0.0,1.0));
+            const arr:array<vec4<f32>,8> = array<vec4<f32>,8>(vec4<f32>(1.0,0.0,0.0,1.0),vec4<f32>(1.0,0.0,0.0,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(1.0,0.0,0.0,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(0.0,0.0,0.8,1.0));
             fn mainfr(uvw:vec4<f32>)->vec4<f32>{
                 var pattern:f32;
                 if(uvw.w<0.5){pattern=step(length(uvw.xyz),0.5);}
-                else if(uvw.w<1.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.3)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,-0.35)),0.3);}
+                else if(uvw.w<1.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,-0.35)),0.28);}
                 else if(uvw.w<2.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.38,0.38,0.38)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.38,-0.38,-0.38)),0.28)+step(length(uvw.xyz),0.28);}
-                 else if(uvw.w<3.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,0.35)),0.28);}
+                 else if(uvw.w<3.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.46,0.0,-0.46)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.46,0.0,0.46)),0.28);}
                  else if(uvw.w<4.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,0.35)),0.28)+step(length(uvw.xyz),0.28);}
-                 else if(uvw.w<5.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.46,0.0,-0.46)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.46,0.0,0.46)),0.28);}
+                 else if(uvw.w<5.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,0.35)),0.28);}
                  else if(uvw.w<6.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.38,0.38,0.38)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.38,0.38,-0.38)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.38,-0.38,-0.38)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.38,-0.38,0.38)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.46,0.0,-0.46)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.46,0.0,0.46)),0.28)+step(length(uvw.xyz),0.28);}
-                 else if(uvw.w<7.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,-0.35)),0.28);}
+                 else if(uvw.w<7.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.3)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,-0.35)),0.3);}
 
                 return mix(vec4<f32>(1.0,1.0,1.0,0.1),arr[u32(uvw.w+0.5)],pattern);
                 
