@@ -170,7 +170,7 @@ let examples = [
             { target: "voxeltest::rasterizer", zh: "四面体素软光栅化器演示", en: "Tetrahedra Voxel Rasterizer Demo" },
         ]
     },
-
+    { target: "hh", zh: "超球谐函数", en: "Hyperspherical Harmonics" },
 ];
 // todo: magicCube4D
 let info = {
@@ -377,6 +377,10 @@ let info = {
     "voxeltest::rasterizer": {
         "zh": "<b>控制：轨迹球模式</b><br>该示例为使用计算着色器对四面体进行体素光栅化，渲染双圆环的深度缓冲区。",
         "en": "<b>Control: Trackball mode</b><br>This example renders depth buffer of a tiger (i.e. duotorus), which use compute shader to rasterize tetrahedra.",
+    },
+    "hh": {
+        "zh": "<b>控制：轨迹球模式</b><br>超球面上的调和函数，详见<a href='/archives/hh/' target='_blank'>这里</a>。可通过三级联动菜单选择相应的波函数，最后一级为绿色按钮(点击后为青色)。使用鼠标滚轮推拉相机可进出超球面内外部。",
+        "en": "<b>Control: Trackball mode</b><br>Harmonic functions on S3. Detail can be found <a href='/archives/hh/' target='_blank'>here (In Chinese)</a>. Please choose wave functions by multi-level selection menu, the last level is green button (Cyan after click). Use mouse wheel to push/pull camera to move in/out of the hypersphere.",
     }
 };
 const polytopes = examples.find(v => v.group === "geoms").child.find(v => v.group === "polytopes").child;
