@@ -177,7 +177,7 @@ export class Vec4 {
         return Math.abs(this.x) + Math.abs(this.y) + Math.abs(this.z) + Math.abs(this.w);
     }
     norminf(): number {
-        return Math.max(Math.abs(this.x), Math.abs(this.y), Math.abs(this.z), Math.abs(this.z));
+        return Math.max(Math.abs(this.x), Math.abs(this.y), Math.abs(this.z), Math.abs(this.w));
     }
     normi(i: number): number {
         return Math.pow(

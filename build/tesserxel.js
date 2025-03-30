@@ -1685,7 +1685,7 @@ class Vec4 {
         return Math.abs(this.x) + Math.abs(this.y) + Math.abs(this.z) + Math.abs(this.w);
     }
     norminf() {
-        return Math.max(Math.abs(this.x), Math.abs(this.y), Math.abs(this.z), Math.abs(this.z));
+        return Math.max(Math.abs(this.x), Math.abs(this.y), Math.abs(this.z), Math.abs(this.w));
     }
     normi(i) {
         return Math.pow(Math.pow(Math.abs(this.x), i) +
@@ -3372,8 +3372,6 @@ class Polytope {
         const ci = link(0, 1, 6);
         const c = link(3, 2, 6);
         const cell = [...ci, ...c];
-        console.log(JSON.stringify(V.map(v => [v.x.toFixed(3), v.y.toFixed(3), v.z.toFixed(3), v.w.toFixed(3)])).replaceAll('"', ""));
-        console.log(JSON.stringify(edge));
         return [V, edge, face, cell];
     }
     getStructures(subgroups) {

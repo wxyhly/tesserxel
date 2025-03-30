@@ -142,7 +142,21 @@ let examples = [
             { target: "pde::wave_eq", zh: "三维波动方程", en: "Wave Equation" },
             { target: "pde::river_evolution", zh: "河流演化", en: "River Evolution" },
             { target: "pde::erosion", zh: "流水侵蚀（试验）", en: "Hydraulic Erosion (Experimental)" },
+            { target: "hh", zh: "超球谐函数", en: "Hyperspherical Harmonics" },
         ]
+    },
+    {
+        group: "struct", zh: "物质结构", en: "Matter Structures",
+        child: [
+            { target: "molecule", zh: "四维分子", en: "4D Molecule" },
+            {
+                group: "lattice", zh: "四维晶格", en: "4D Lattice",
+                child: [
+                    { target: "lattice::hc_sp", zh: "简单超立方", en: "Simple Hypercubic" },
+                    { target: "lattice::hc_vc", zh: "体心超立方", en: "Body-centered Hypercubic" },
+                    { target: "lattice::l20", zh: "二十方", en: "Icosagonal" },
+                ]
+            }]
     },
     {
         group: "fractal", zh: "分形", en: "Fractals",
@@ -170,7 +184,6 @@ let examples = [
             { target: "voxeltest::rasterizer", zh: "四面体素软光栅化器演示", en: "Tetrahedra Voxel Rasterizer Demo" },
         ]
     },
-    { target: "hh", zh: "超球谐函数", en: "Hyperspherical Harmonics" },
 ];
 // todo: magicCube4D
 let info = {

@@ -104,7 +104,7 @@ async function loadPolytope0123dFacesScene(mesh: tesserxel.mesh.CWMesh, scale: n
     /** This is a asycn function wait for request WebGPU adapter and do initiations */
     let renderer = await new FOUR.Renderer(canvas).init();
     renderer.core.setDisplayConfig({ opacity: 15 });
-    renderer.setBackgroudColor([1,1,1,1]);
+    renderer.setBackgroudColor([1, 1, 1, 1]);
     let scene = new FOUR.Scene();
     scene.wireframe = new FOUR.WireFrameScene;
     if (mesh.data[1].length < 1e3)
