@@ -394,6 +394,10 @@ let info = {
     "hh": {
         "zh": "<b>控制：轨迹球模式</b><br>超球面上的调和函数，详见<a href='/archives/hh/' target='_blank'>这里</a>。可通过三级联动菜单选择相应的波函数，最后一级为绿色按钮(点击后为青色)。使用鼠标滚轮推拉相机可进出超球面内外部。",
         "en": "<b>Control: Trackball mode</b><br>Harmonic functions on S3. Detail can be found <a href='/archives/hh/' target='_blank'>here (In Chinese)</a>. Please choose wave functions by multi-level selection menu, the last level is green button (Cyan after click). Use mouse wheel to push/pull camera to move in/out of the hypersphere.",
+    },
+    "molecule": {
+        "zh": "<b>控制：轨迹球模式</b><br>四维分子模型，使用键盘H加热分子，键盘R切换球棍模型。<br>可在四维分子库中随机挑选出四维分子。",
+        "en": "<b>Control: Trackball mode</b><br>4D molecule model. Use keyboard H to heat the molecule, and keyboard R to toggle ball-stick model.<br>Randomly select a 4D molecule from the 4D molecule library. Names of 4D molecules are not translated from Chinese yet.",
     }
 };
 const polytopes = examples.find(v => v.group === "geoms").child.find(v => v.group === "polytopes").child;
