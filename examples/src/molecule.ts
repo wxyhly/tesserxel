@@ -1,9 +1,9 @@
 import * as tesserxel from "../../build/tesserxel.js"
 
 // @ts-ignore
-import { getStructureInfo, getAtomColor, getAtomRadius, drawStructure, goodLuck } from "/ccahgaolo/chem4d/js/api.js"
+// import { getStructureInfo, getAtomColor, getAtomRadius, drawStructure, goodLuck } from "/ccahgaolo/chem4d/js/api.js"
 // @ts-ignore
-// import { getStructureInfo, getAtomColor, getAtomRadius, drawStructure, goodLuck } from "https://wxyhly.github.io/Chem4D/js/api.js"
+import { getStructureInfo, getAtomColor, getAtomRadius, drawStructure, goodLuck } from "https://wxyhly.github.io/Chem4D/js/api.js"
 
 const FOUR = tesserxel.four;
 
