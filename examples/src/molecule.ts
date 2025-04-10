@@ -256,7 +256,7 @@ class StructBuilder {
                 if (sa.type === 8) continue;
                 an.push((sa.start === start) ? sa.stop : sa.start);
             }
-            if (!an[0]) continue;
+            if (!an[0] || (b.type >> 4 === 2 && !an[1])) continue;
             const k = tesserxel.math.vec4Pool.pop();
             const k2 = tesserxel.math.vec4Pool.pop();
             const k3 = tesserxel.math.vec4Pool.pop();
@@ -292,7 +292,7 @@ class StructBuilder {
             }
             let next = b.start === a ? b.stop : b.start;
             const bn = next.bonds.filter(e => e.type >> 4 === 1).map(e => e.start === next ? e.stop : e.start);
-            if (!bn[0]) continue;
+            if (!bn[0] || (b.type >> 4 === 2 && !bn[1])) continue;
             const kbn = tesserxel.math.vec4Pool.pop().subset(next.position, a.position);
             let normal2: tesserxel.math.Vec4 | tesserxel.math.Bivec = b.type >> 4 === 2 ?
                 k.subset(bn[0].position, next.position).wedge(k2.subset(bn[1].position, next.position)).wedgev(bn.length === 3 ? k3.subset(bn[2].position, next.position) : kbn).norms()
@@ -426,6 +426,11 @@ class StructBuilder {
         }
     }
 }
+async function delay(ms: number) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+}
 
 export namespace molecule {
 
@@ -457,7 +462,7 @@ export namespace molecule {
         // move camera a little back to see polytope at origin
         // note: w axis is pointed to back direction (like z axis in 3D)
         camera.position.w = 400;
-        
+
         const graph = getStructureInfo("FnCCCCCO") as Graph;
         let builder = new StructBuilder(graph, atomGeom, bondGeom, bondMat);
 
@@ -534,8 +539,9 @@ class GUI {
         btnOpen.innerText = lang === "zh" ? "打开分子库" : "Open Molecule Browser";
         btnRnd.innerText = lang === "zh" ? "手气不错" : "Good Luck";
         window.name = "TsxChem4D";
-        window["changeFromWindow"] = () => {
+        window["changeFromWindow"] = (n: string) => {
             this.onchange();
+            if (n) btnRnd.innerText = (lang === "zh" ? "分子库" : "Molecule Library")+" : " + n;
         };
         btnOpen.addEventListener('click', () => {
             if (!this.window || this.window.closed) {
@@ -548,7 +554,16 @@ class GUI {
             } else {
                 window.open("javascript:void(0);", "Chem4D");
             }
+            waitToLoad();
         });
+        const waitToLoad = async () => {
+            while (!this.window["changeFromWindow"]) {
+                await delay(1000);
+                console.log("wait");
+            }
+            console.log("wait finished, okay！");
+            this.window["changeFromWindow"](this.input.value, btnRnd.innerText.split(" : ")[1]);
+        }
         btnRnd.addEventListener('click', () => {
             const data = goodLuck();
             this.input.value = data[1];
