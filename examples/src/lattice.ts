@@ -107,6 +107,73 @@ export namespace hc_vc {
     }
 }
 
+export namespace iso6o {
+    class App extends LatticeApp {
+        defineScene() {
+            let { scene, glomeGeometry } = this;
+            const range = 6;
+            const cst = Math.sqrt(3) / 2;
+            for (let x = -range; x <= range; x++) {
+                for (let y = -range; y <= range; y++) {
+                    for (let z = -range; z <= range; z++) {
+                        for (let w = -range; w <= range; w++) {
+                            let glomeMesh = new FOUR.Mesh(glomeGeometry, new FOUR.PhongMaterial(
+                                [1, 0.2, 0.1, 0.4], 50
+                            ));
+                            glomeMesh.position.set(x+y*0.5, y*cst, z + w * 0.5, w * cst);
+                            const norm = glomeMesh.position.norm();
+                            if (norm <= 2) {
+                                glomeMesh.position.mulfs(2);
+                                if (norm < 1.2) {
+                                    glomeMesh.material = new FOUR.PhongMaterial([0.4, 0.0, 1.0], 50);
+                                }
+                                scene.add(glomeMesh);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+    export async function load() {
+        new App().init();
+    }
+}
+export namespace l6_4 {
+    class App extends LatticeApp {
+        defineScene() {
+            let { scene, glomeGeometry } = this;
+            const range = 6;
+            const cst = Math.sqrt(3) / 2;
+            for (let x = -range; x <= range; x++) {
+                for (let y = -range; y <= range; y++) {
+                    for (let z = -range; z <= range; z++) {
+                        for (let w = -range; w <= range; w++) {
+                            let glomeMesh = new FOUR.Mesh(glomeGeometry, new FOUR.PhongMaterial(
+                                [1, 0.2, 0.1, 0.4], 50
+                            ));
+                            glomeMesh.position.set(x, y, z + w * 0.5, w * cst);
+                            const norm = glomeMesh.position.norm();
+                            if (norm <= 2) {
+                                glomeMesh.position.mulfs(2);
+                                if (norm < 1.2) {
+                                    glomeMesh.material = new FOUR.PhongMaterial([0.4, 0.0, 1.0], 50);
+                                }
+                                scene.add(glomeMesh);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+    export async function load() {
+        new App().init();
+    }
+}
+
 export namespace l20 {
     class App extends LatticeApp {
         defineScene() {
@@ -118,27 +185,23 @@ export namespace l20 {
                     for (let z = -range; z <= range; z++) {
                         for (let w = -range; w <= range; w++) {
                             let glomeMesh = new FOUR.Mesh(glomeGeometry, new FOUR.PhongMaterial(
-                                [1, 0.2, 0.1], 50
+                                [1, 0.2, 0.1, 0.4], 50
                             ));
 
                             glomeMesh.position.set(x + y + z - cst * w, x + y - cst * z + w, x - cst * y + w + z, -cst * x + y + z + w);
-                            // glomeMesh.position.set(
-                            //     -3*x, x, x, x 
-                            // );
+
                             glomeMesh.position.mulfs(0.4045 * 3);
                             const norm = glomeMesh.position.norm();
-                            if (norm > 0.1 && norm <= 6.2) {
+                            if (norm <= 6.2) {
+                                if (norm < 3) {
+                                    glomeMesh.material = new FOUR.PhongMaterial([0.4, 0.0, 1.0], 50);
+                                }
                                 scene.add(glomeMesh);
                             }
                         }
                     }
                 }
             }
-            // let convex = tesserxel.mesh.tetra.convexhull(scene.child.map(c => c.position));
-            // const convexG = new tesserxel.four.Geometry(convex);
-            // convex.generateNormal();
-            // convex.inverseNormal();
-            // scene.add(new tesserxel.four.Mesh(convexG, new tesserxel.four.LambertMaterial([0.4, 0.5, 0.3])));
         }
 
     }

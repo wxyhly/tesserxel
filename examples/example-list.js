@@ -156,6 +156,8 @@ let examples = [
                 child: [
                     { target: "lattice::hc_sp", zh: "简单超立方", en: "Simple Hypercubic" },
                     { target: "lattice::hc_vc", zh: "体心超立方", en: "Body-centered Hypercubic" },
+                    { target: "lattice::iso6o", zh: "双同六方正交", en: "Diisohexagonal Orthogonal" },
+                    { target: "lattice::l6_4", zh: "六方四方", en: "Hexagonal tetragonal" },
                     { target: "lattice::l20", zh: "二十方", en: "Icosagonal" },
                 ]
             }]
