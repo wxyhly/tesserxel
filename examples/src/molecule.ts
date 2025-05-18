@@ -441,7 +441,7 @@ export namespace molecule {
         const bondMat = new FOUR.PhongMaterial([0.93, 0.87, 0.8]);
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-        let renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         let scene = new FOUR.Scene();
         renderer.core.setDisplayConfig({ opacity: 50, screenBackgroundColor: [1, 1, 1, 1], sectionStereoEyeOffset: 40 });
         scene.setBackgroudColor([1, 1, 1, 0.0]);
@@ -470,13 +470,6 @@ export namespace molecule {
         const trackballCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
         const guiCtrl = new GUICtrl(builder);
         let controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [trackballCtrl, retinaController, guiCtrl], { preventDefault: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
-        setSize();
-        window.addEventListener("resize", setSize);
         function run() {
             controllerRegistry.update();
             if (controllerRegistry.states.isKeyHold("KeyH")) {
@@ -541,7 +534,7 @@ class GUI {
         window.name = "TsxChem4D";
         window["changeFromWindow"] = (n: string) => {
             this.onchange();
-            if (n) btnRnd.innerText = (lang === "zh" ? "分子库" : "Molecule Library")+" : " + n;
+            if (n) btnRnd.innerText = (lang === "zh" ? "分子库" : "Molecule Library") + " : " + n;
         };
         btnOpen.addEventListener('click', () => {
             if (!this.window || this.window.closed) {

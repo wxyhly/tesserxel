@@ -11,7 +11,7 @@ export namespace spring_rope {
 
         const FOUR = tesserxel.four;
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-        const renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         let scene = new FOUR.Scene();
         renderer.setBackgroudColor([1, 1, 1, 1]);
         scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
@@ -37,15 +37,7 @@ export namespace spring_rope {
             new tesserxel.util.ctrl.RetinaController(renderer.core),
             new tesserxel.util.ctrl.KeepUpController(camera)
         ], { enablePointerLock: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
-
         renderer.core.setDisplayConfig({ opacity: 10 });
-        setSize();
-        window.addEventListener("resize", setSize);
 
         // init physic scene
 

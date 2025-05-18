@@ -34,7 +34,7 @@ export var aircraft;
 (function (aircraft_1) {
     async function load() {
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         renderer.core.setDisplayConfig({ opacity: 12 });
         renderer.setBackgroudColor([0, 0, 0, 0.2]);
         const scene = new FOUR.Scene();
@@ -138,13 +138,6 @@ export var aircraft;
         const ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
             retinaController, freeCamCtrl, aircraftCtrl
         ], { preventDefault: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
-        setSize();
-        window.addEventListener("resize", setSize);
         aircraftMesh1.alwaysUpdateCoord = true;
         for (const [p, o] of phyHelper) {
             scene.add(o);

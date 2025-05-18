@@ -8,7 +8,7 @@ abstract class LatticeApp {
     glomeGeometry: tesserxel.four.GlomeGeometry
     abstract defineScene(): void;
     async init() {
-        this.renderer = await new FOUR.Renderer(canvas).init();
+        this.renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         this.scene = new FOUR.Scene();
         this.renderer.core.setDisplayConfig({ opacity: 5.0, sectionStereoEyeOffset: 0.5 });
         this.scene.backGroundColor = [0.6, 0.8, 0.9, 0.2];
@@ -34,13 +34,6 @@ abstract class LatticeApp {
             new tesserxel.util.ctrl.TrackBallController(camera, true),
             new tesserxel.util.ctrl.RetinaController(this.renderer.core)
         ], { enablePointerLock: true });
-        const setSize = () => {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            this.renderer.setSize({ width, height });
-        }
-        setSize();
-        window.addEventListener("resize", setSize);
         const run = () => {
             controller.update();
             this.renderer.render(this.scene, camera);

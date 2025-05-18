@@ -1227,6 +1227,12 @@ interface RaytracingPipelineDescriptor {
     code: string;
     rayEntryPoint: string;
     fragmentEntryPoint: string;
+    viewport?: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    };
 }
 interface GeneralShaderState {
     code: string;
@@ -2003,6 +2009,7 @@ declare class Renderer {
         lightCode: string;
         uWorldLightBufferSize: number;
     };
+    autoSetSizeHandler: () => void;
     private cameraInScene;
     private safeTetraNumInOnePass;
     private tetraNumOccupancyRatio;
@@ -2011,6 +2018,8 @@ declare class Renderer {
     constructor(canvas: HTMLCanvasElement, config?: RendererConfig);
     setBackgroudColor(color: GPUColor): void;
     init(): Promise<this>;
+    autoSetSize(): this;
+    clearAutoSetSize(): void;
     fetchPipelineName(identifier: string): string;
     fetchPipeline(identifier: string): TetraSlicePipeline | "compiling";
     pullPipeline(identifier: string, pipeline: TetraSlicePipeline | "compiling"): void;

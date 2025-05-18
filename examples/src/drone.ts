@@ -11,7 +11,7 @@ export namespace drone {
 
     export async function load() {
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-        const renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         renderer.core.setDisplayConfig({ opacity: 5 });
         renderer.setBackgroudColor([1, 1, 1, 1]);
         const scene = new FOUR.Scene();
@@ -84,13 +84,6 @@ export namespace drone {
         const ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
             retinaController, droneCtrl, freeCamCtrl
         ], { preventDefault: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
-        setSize();
-        window.addEventListener("resize", setSize);
         const coeffFanrotAnimation = 1;
         const values: HTMLTableCellElement[] = [];
         const keys = {

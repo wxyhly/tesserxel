@@ -3,7 +3,7 @@ export namespace four_materials {
     export async function load() {
         const FOUR = tesserxel.four;
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-        let renderer = await new FOUR.Renderer(canvas).init();
+        let renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         let scene = new FOUR.Scene();
         let cubeGeometry = new FOUR.TesseractGeometry();
         let glomeGeometry = new FOUR.GlomeGeometry();
@@ -62,13 +62,6 @@ export namespace four_materials {
             new tesserxel.util.ctrl.KeepUpController(camera),
             new tesserxel.util.ctrl.RetinaController(renderer.core)
         ], { enablePointerLock: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
-        setSize();
-        window.addEventListener("resize", setSize);
         let t = Math.random() * 12345678;
         function run() {
             spotLight.direction.copy(

@@ -7,6 +7,8 @@ export var four_basic_scene;
         const canvas = document.getElementById("gpu-canvas");
         /** This is a asycn function wait for request WebGPU adapter and do initiations */
         let renderer = await new FOUR.Renderer(canvas).init();
+        // enable autoSetSize to make the canvas size same as the window size
+        renderer.autoSetSize();
         let scene = new FOUR.Scene();
         // by default the backgroud is black (0.0, 0.0, 0.0) here we change it to white
         // alpha value is used for voxel opacity in retina
@@ -28,13 +30,6 @@ export var four_basic_scene;
         retinaController.keyConfig.enable = "";
         // Create a controllerRegistry binding on the canvas, then add our controller
         let controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaController]);
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
-        setSize();
-        window.addEventListener("resize", setSize);
         function run() {
             controllerRegistry.update();
             // For every frame, we rotate the mesh by angle of 0.01 radius degree in both xw and yz direction

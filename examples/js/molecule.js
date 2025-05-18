@@ -453,7 +453,7 @@ export var molecule;
         const bondGeom = new tesserxel.four.Geometry(tesserxel.mesh.tetra.spherinderSide(10, 10, 2, 2, 1));
         const bondMat = new FOUR.PhongMaterial([0.93, 0.87, 0.8]);
         const canvas = document.getElementById("gpu-canvas");
-        let renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         let scene = new FOUR.Scene();
         renderer.core.setDisplayConfig({ opacity: 50, screenBackgroundColor: [1, 1, 1, 1], sectionStereoEyeOffset: 40 });
         scene.setBackgroudColor([1, 1, 1, 0.0]);
@@ -478,13 +478,6 @@ export var molecule;
         const trackballCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
         const guiCtrl = new GUICtrl(builder);
         let controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [trackballCtrl, retinaController, guiCtrl], { preventDefault: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
-        setSize();
-        window.addEventListener("resize", setSize);
         function run() {
             controllerRegistry.update();
             if (controllerRegistry.states.isKeyHold("KeyH")) {

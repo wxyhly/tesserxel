@@ -82,7 +82,7 @@ export namespace navigation {
         camera.position.y = planetRadius + 0.3;
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-        const renderer = await new four.Renderer(canvas).init();
+        const renderer = (await new four.Renderer(canvas).init()).autoSetSize();
         renderer.core.setDisplayConfig({opacity: 20});
         const skyBox = new NishitaPlanetSkyBox();
         scene.skyBox = skyBox;
@@ -93,14 +93,6 @@ export namespace navigation {
         const controllerRegistry = new util.ctrl.ControllerRegistry(canvas, [retinaController, camController, timeCtrl], { preventDefault: true, enablePointerLock: true });
 
         const gui = new GUI();
-        function setSize() {
-            const width = window.innerWidth * window.devicePixelRatio;
-            const height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-            gui.setSize();
-        }
-        setSize();
-        window.addEventListener("resize", setSize);
         const solar_sys = new SolarSystem();
         const compass_sys = new CompassSystem(0);
         let time = 0;

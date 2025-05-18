@@ -144,7 +144,7 @@ export interface RenderState {
     drawRaytracing(pipeline: RaytracingPipeline, bindGroups?: GPUBindGroup[]): void;
 
     testWithFrustumData(obb: AABB, camMat: AffineMat4 | Obj4, modelMat?: AffineMat4 | Obj4): boolean;
-    getFrustumRange(camMat: AffineMat4 | Obj4, allRange?:boolean): Vec4[];
+    getFrustumRange(camMat: AffineMat4 | Obj4, allRange?: boolean): Vec4[];
 }
 export interface RetinaRenderPass {
     /**
@@ -161,6 +161,8 @@ export interface RaytracingPipelineDescriptor {
     code: string;
     rayEntryPoint: string;
     fragmentEntryPoint: string;
+    // viewport can be used in sprite shader
+    viewport?: { x: number, y: number, width: number, height: number };
 }
 export interface GeneralShaderState {
     code: string;
@@ -185,6 +187,6 @@ export interface RetinaRenderPassDescriptor {
     alphaShader?: GeneralShaderState;
     alphaShaderBindingResources?: GPUBindingResource[];
 }
-export interface IWireframeRenderState{
-    render(buffer: GPUBuffer, vertices: number):void;
+export interface IWireframeRenderState {
+    render(buffer: GPUBuffer, vertices: number): void;
 }

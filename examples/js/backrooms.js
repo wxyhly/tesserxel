@@ -44,16 +44,10 @@ export var backrooms;
         scene.add(new four.AmbientLight(0.05));
         const canvas = document.getElementById("gpu-canvas");
         const renderer = await new four.Renderer(canvas, { posdirLightsNumber: 7 * 2 * 3, spotLightsNumber: 1 }).init();
+        renderer.autoSetSize();
         const retinaController = new util.ctrl.RetinaController(renderer.core);
         const camController = new util.ctrl.KeepUpController(camera);
         const controllerRegistry = new util.ctrl.ControllerRegistry(canvas, [retinaController, camController], { preventDefault: true, enablePointerLock: true });
-        function setSize() {
-            const width = window.innerWidth * window.devicePixelRatio;
-            const height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
-        setSize();
-        window.addEventListener("resize", setSize);
         function run() {
             controllerRegistry.update();
             renderer.render(scene, camera);

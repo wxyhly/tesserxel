@@ -476,7 +476,7 @@ export class KeepUpController implements IController {
         let delta: number;
         let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
         let disabled = state.isKeyHold(this.keyConfig.disable);
-        if(!this.enabled) return;
+        if (!this.enabled) return;
         if (!disabled) {
 
             let keyRotateSpeed = this.keyRotateSpeed * state.mspf;
@@ -1063,6 +1063,7 @@ export class RetinaController implements IController {
         let stereo = this.renderer.getStereoMode();
         if (on(this.keyConfig.toggle3D)) {
             this.writeConfigToggleStereoMode(displayConfig, !stereo);
+            this.gui?.refresh({ "toggleStereo": !stereo });
         } else if (this.needResize) {
             displayConfig.sections = this.sectionPresets(this.renderer.getDisplayConfig("canvasSize"))[this.currentSectionConfig][(
                 stereo ? "eye2" : "eye1"
@@ -1098,11 +1099,12 @@ export class RetinaController implements IController {
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
                 displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (on(this.keyConfig.negEyesGap)) {
+            if (this.guiMouseOperation === "negEyesGap" || on(this.keyConfig.negEyesGap)) {
                 this.sectionEyeOffset = -this.sectionEyeOffset;
                 this.retinaEyeOffset = -this.retinaEyeOffset;
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
                 displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
+                this.gui?.refresh({ "negEyesGap": this.retinaEyeOffset > 0 || this.sectionEyeOffset > 0 });
             }
         }
         if (on(this.keyConfig.toggleCrosshair)) {
@@ -1257,6 +1259,7 @@ export class RetinaController implements IController {
         )];
     }
     toggleStereo(stereo?: boolean) {
+        this.gui?.refresh({ "toggleStereo": stereo || !this.renderer.getStereoMode() });
         this.writeConfigToggleStereoMode(this.tempDisplayConfig, stereo);
         this.displayConfigChanged = true;
     }
@@ -1403,7 +1406,12 @@ export class RetinaCtrlGui {
         const fovmBtn = this.addBtn(`${SVG_CAM}${SVG_MINUS}</g></svg>`);
         const respBtn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="4.6" height="2.93" x="0.33" y="0.9"/><path d="M 2.44,3.844 1.62,4.78 H 3.77 L 3.03,3.84"/><circle cx="1.86" cy="2.4" r="1.05"/><rect width="1.63" height="0.48" x="3.38" y="1.7" transform="rotate(12.5)"/><path d="M 1.075,1.825H 1.6 V 2.1 H 1.9 V 2.5 H 2.3 V 3.07 H 2.5"/>${SVG_PLUS}</g></svg>`);
         const resmBtn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="4.6" height="2.93" x="0.33" y="0.9"/><path d="M 2.44,3.844 1.62,4.78 H 3.77 L 3.03,3.84"/><circle cx="1.86" cy="2.4" r="1.05"/><rect width="1.63" height="0.48" x="3.38" y="1.7" transform="rotate(12.5)"/><path d="M 1.075,1.825H 1.6 V 2.1 H 1.9 V 2.5 H 2.3 V 3.07 H 2.5"/>${SVG_MINUS}</g></svg>`);
-
+        const eyeModeCrossBtn = this.addBtn(`${SVG_HEADER}0.5 0.3 4.5 4.5'><g ${SVG_LINE}><circle cx="2" cy="4" r="0.3"/><circle cx="3.2" cy="4" r="0.3"/><path d="M 2,3.4 3,1 M 3.2,3.4 2.2,1"/></g></svg>`);
+        const eyeModeParaBtn = this.addBtn(`${SVG_HEADER}0.5 0.3 4.5 4.5'><g ${SVG_LINE}><circle cx="2" cy="4" r="0.3"/><circle cx="3.2" cy="4" r="0.3"/><path d="M 2,3.4 1.8,1 M 3.2,3.4 3.4,1"/></g></svg>`);
+        eyeModeCrossBtn.style.position="absolute";
+        eyeModeParaBtn.style.position="absolute";
+        eyeModeCrossBtn.style.left="-32px";
+        eyeModeParaBtn.style.left="-32px";
         const mainBar = this.createToggleDiv(mainBtn, "inline-block");
         let drag = NaN;
         let startPos: number;
@@ -1412,7 +1420,7 @@ export class RetinaCtrlGui {
             drag = e.clientY;
             startPos = Number(this.dom.style.top.replace("vh", "")) / 100 * window.innerHeight;
         });
-        mainBtn.addEventListener('mouseenter',()=>{
+        mainBtn.addEventListener('mouseenter', () => {
             if (enableKeycode != retinaCtrl.keyConfig.enable) {
                 this.refresh({ "enableKeyCode": retinaCtrl.keyConfig.enable });
             }
@@ -1428,14 +1436,21 @@ export class RetinaCtrlGui {
 
 
         this.dom.appendChild(mainBar);
-        stereoBtn.addEventListener('click', () => retinaCtrl.toggleStereo()); mainBar.appendChild(stereoBtn);
+
+        mainBar.appendChild(eyeModeCrossBtn);
+        mainBar.appendChild(eyeModeParaBtn);
+        eyeModeCrossBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "negEyesGap");
+        eyeModeParaBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "negEyesGap");
+
+        stereoBtn.addEventListener('click', () => retinaCtrl.toggleStereo());
+        mainBar.appendChild(stereoBtn);
 
         const slicecfgPlaceholder = document.createElement("span");
         slicecfgPlaceholder.className = "slicecfg";
         mainBar.appendChild(slicecfgPlaceholder);
         let slicecfgPlaceholderBtn = slicecfg1Btn.cloneNode(true) as HTMLButtonElement;
         slicecfgPlaceholder.appendChild(slicecfgPlaceholderBtn);
-        const slicecfgBar = this.createDropBox(slicecfgPlaceholderBtn, 1);
+        const slicecfgBar = this.createDropBox(slicecfgPlaceholderBtn, 0,2);
         slicecfgPlaceholder.appendChild(slicecfgBar);
         slicecfgBar.appendChild(slicecfg1Btn);
         slicecfgBar.appendChild(slicecfg2Btn);
@@ -1508,6 +1523,15 @@ export class RetinaCtrlGui {
                 case 2: crosspplBtn = crossppl3Btn; break;
                 case 3: crosspplBtn = crossppl4Btn; break;
             }
+            switch (param["toggleStereo"]) {
+                case true: param["negEyesGap"] = retinaCtrl.retinaEyeOffset > 0 || retinaCtrl.sectionEyeOffset > 0; break;
+                case false: eyeModeCrossBtn.style.display = "none"; eyeModeParaBtn.style.display = "none"; break;
+            }
+            switch (param["negEyesGap"]) {
+                case false: eyeModeCrossBtn.style.display = "none"; eyeModeParaBtn.style.display = ""; break;
+                case true: eyeModeCrossBtn.style.display = ""; eyeModeParaBtn.style.display = "none"; break;
+            }
+
             if (crosspplBtn) crosspplPlaceholderBtn.style.backgroundImage = crosspplBtn.style.backgroundImage;
             switch (param["toggleSectionConfig"]) {
                 case "retina+sections": slicecfg1Btn.click(); break;
@@ -1539,6 +1563,8 @@ export class RetinaCtrlGui {
                         "crossppl3BtnDesc": "拖动以改变立方体大小(垂直)\n和剩余部分透明度(水平)",
                         "crossppl4BtnDesc": "拖动以改变截平面方向",
                         "stereoBtn": "切换裸眼3D模式",
+                        "eyeModeCrossBtn": "交叉眼",
+                        "eyeModeParaBtn": "平行眼",
                         "slicecfgPlaceholderBtn": "显示/隐藏选择视图配置",
                         "slicecfg1Btn": "视图配置：体素+三个截面",
                         "slicecfg2Btn": "视图配置：体素+三个大截面",
@@ -1563,6 +1589,8 @@ export class RetinaCtrlGui {
                         "mouseBtn0": "Left Mouse Button",
                         "mouseBtn1": "Middle Mouse Button",
                         "mouseBtn2": "Right Mouse Button",
+                        "eyeModeCrossBtn": "Cross View",
+                        "eyeModeParaBtn": "Parallel View",
                         "left": "Left",
                         "right": "Right",
                         "digit": "Digit ",
@@ -1613,6 +1641,8 @@ export class RetinaCtrlGui {
                 crossppl3Btn.title = getCrosspplBtnTitle("crossppl3Btn");
                 crossppl4Btn.title = getCrosspplBtnTitle("crossppl4Btn");
                 stereoBtn.title = tr["stereoBtn"] + keyName("toggle3D");
+                eyeModeCrossBtn.title = tr["eyeModeCrossBtn"] + keyName("negEyesGap");
+                eyeModeParaBtn.title = tr["eyeModeParaBtn"] + keyName("negEyesGap");
                 slicecfgPlaceholderBtn.title = tr["slicecfgPlaceholderBtn"];
                 slicecfg1Btn.title = tr["slicecfg1Btn"] + keyName("retina+sections", retinaCtrl.keyConfig.sectionConfigs);
                 slicecfg2Btn.title = tr["slicecfg2Btn"] + keyName("retina+bigsections", retinaCtrl.keyConfig.sectionConfigs);
@@ -1634,7 +1664,6 @@ export class RetinaCtrlGui {
                 crosshairBtn.title = tr["crosshairBtn"] + keyName("toggleCrosshair");
             }
         }
-
         const css = document.createElement("style");
         css.appendChild(document.createTextNode(`
         button.retina-ctrl-gui{
@@ -1659,6 +1688,8 @@ export class RetinaCtrlGui {
         `));
         this.dom.appendChild(mainBtn);
         this.dom.appendChild(css);
+
+        this.refresh({ "negEyesGap": retinaCtrl.retinaEyeOffset > 0 || retinaCtrl.sectionEyeOffset > 0 });
     }
     addBtn(svgIcon: string) {
         const btn = document.createElement("button");

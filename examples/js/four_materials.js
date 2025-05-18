@@ -4,7 +4,7 @@ export var four_materials;
     async function load() {
         const FOUR = tesserxel.four;
         const canvas = document.getElementById("gpu-canvas");
-        let renderer = await new FOUR.Renderer(canvas).init();
+        let renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         let scene = new FOUR.Scene();
         let cubeGeometry = new FOUR.TesseractGeometry();
         let glomeGeometry = new FOUR.GlomeGeometry();
@@ -54,13 +54,6 @@ export var four_materials;
             new tesserxel.util.ctrl.KeepUpController(camera),
             new tesserxel.util.ctrl.RetinaController(renderer.core)
         ], { enablePointerLock: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
-        setSize();
-        window.addEventListener("resize", setSize);
         let t = Math.random() * 12345678;
         function run() {
             spotLight.direction.copy(new tesserxel.math.Vec4(Math.sin(t * 3), Math.cos(t * 3), Math.sin(t * 1.732), Math.cos(t * 1.732)).adds(tesserxel.math.Vec4.y.mulf(6)).norms());

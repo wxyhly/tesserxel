@@ -226,7 +226,7 @@ export var st_pile;
         scene.add(new FOUR.DirectionalLight([0.1, 0.2, 0.3], new math.Vec4(-0.2, 0.2, -0.2, -0.4).norms()));
         scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -243,11 +243,6 @@ export var st_pile;
             camCtrl,
             emitCtrl
         ], { enablePointerLock: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
         let tick = -2;
         function run() {
             // emit a tesseract for every 256 ticks
@@ -273,8 +268,6 @@ export var st_pile;
             engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
             window.requestAnimationFrame(run);
         }
-        window.addEventListener("resize", setSize);
-        setSize();
         run();
     }
     st_pile.load = load;
@@ -304,7 +297,7 @@ export var rigid_test;
         scene.add(camera);
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -321,11 +314,6 @@ export var rigid_test;
             camCtrl,
             emitCtrl
         ], { enablePointerLock: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
         let tick = -2;
         const wfs = new tesserxel.four.WireFrameScene;
         scene.wireframe = wfs;
@@ -362,8 +350,6 @@ export var rigid_test;
             engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
             window.requestAnimationFrame(run);
         }
-        window.addEventListener("resize", setSize);
-        setSize();
         run();
     }
     rigid_test.load = load;
@@ -418,7 +404,7 @@ export var st_ts_chain;
         scene.add(camera);
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -437,11 +423,6 @@ export var st_ts_chain;
             camCtrl,
             emitCtrl
         ], { enablePointerLock: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
         function run() {
             // syncronise physics world and render scene
             updateRidigsInScene();
@@ -453,8 +434,6 @@ export var st_ts_chain;
             engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
             window.requestAnimationFrame(run);
         }
-        window.addEventListener("resize", setSize);
-        setSize();
         run();
     }
     st_ts_chain.load = load;
@@ -588,7 +567,7 @@ export var tg_tg_chain;
         scene.add(camera);
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -607,11 +586,6 @@ export var tg_tg_chain;
             camCtrl,
             emitCtrl
         ], { enablePointerLock: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
         function run() {
             // syncronise physics world and render scene
             updateRidigsInScene();
@@ -623,8 +597,6 @@ export var tg_tg_chain;
             engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
             window.requestAnimationFrame(run);
         }
-        window.addEventListener("resize", setSize);
-        setSize();
         run();
     }
     tg_tg_chain.load = load;
@@ -760,7 +732,7 @@ var dzhanibekov;
         scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
         scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -792,13 +764,11 @@ var dzhanibekov;
             gui.update(g);
             window.requestAnimationFrame(run);
         }
-        window.addEventListener("resize", setSize);
         window.addEventListener("keydown", ev => {
             if (ev.code === "KeyL") {
                 gui.localMode = !gui.localMode;
             }
         });
-        setSize();
         run();
     }
     dzhanibekov.load = load;
@@ -864,7 +834,7 @@ async function loadGyroScene(cwmesh, material) {
     gyroLogic.rotatesb(tesserxel.math.Bivec.rand().mulfs(0.01)); // pertubation
     rigidsInSceneLists.push([gyroDisplay, gyroLogic]);
     const canvas = document.getElementById("gpu-canvas");
-    const renderer = await new FOUR.Renderer(canvas).init();
+    const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
     renderer.core.setDisplayConfig({
         screenBackgroundColor: [1, 1, 1, 1],
         sectionStereoEyeOffset: 0.5,
@@ -882,8 +852,6 @@ async function loadGyroScene(cwmesh, material) {
         let height = window.innerHeight * window.devicePixelRatio;
         renderer.setSize({ width, height });
     }
-    window.addEventListener("resize", setSize);
-    setSize();
     function run() {
         // syncronise physics world and render scene
         updateRidigsInScene();
@@ -1155,7 +1123,7 @@ export var thermo_stats;
         scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
         scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -1201,8 +1169,6 @@ export var thermo_stats;
             window.requestAnimationFrame(run);
             gui.update(balls);
         }
-        window.addEventListener("resize", setSize);
-        setSize();
         run();
     }
     thermo_stats.load = load;
@@ -1270,7 +1236,7 @@ export var mix_chain;
         scene.add(camera);
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -1289,11 +1255,6 @@ export var mix_chain;
             camCtrl,
             emitCtrl
         ], { enablePointerLock: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
         function run() {
             // syncronise physics world and render scene
             updateRidigsInScene();
@@ -1305,8 +1266,6 @@ export var mix_chain;
             engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
             window.requestAnimationFrame(run);
         }
-        window.addEventListener("resize", setSize);
-        setSize();
         run();
     }
     mix_chain.load = load;
@@ -1364,7 +1323,7 @@ export var dt_ts_chain;
         scene.add(camera);
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -1378,11 +1337,6 @@ export var dt_ts_chain;
             retinaCtrl,
             camCtrl,
         ], { enablePointerLock: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
         function run() {
             // console.log(dtArr[0].position);
             // syncronise physics world and render scene
@@ -1395,8 +1349,6 @@ export var dt_ts_chain;
             // engine.update(world, 1 / 60);
             window.requestAnimationFrame(run);
         }
-        window.addEventListener("resize", setSize);
-        setSize();
         run();
     }
     dt_ts_chain.load = load;
@@ -1456,7 +1408,7 @@ export var ditorus;
         scene.add(camera);
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -1475,11 +1427,6 @@ export var ditorus;
             camCtrl,
             emitCtrl
         ], { enablePointerLock: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
         function run() {
             // syncronise physics world and render scene
             updateRidigsInScene();
@@ -1491,8 +1438,6 @@ export var ditorus;
             engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
             window.requestAnimationFrame(run);
         }
-        window.addEventListener("resize", setSize);
-        setSize();
         run();
     }
     ditorus.load = load;
@@ -1511,7 +1456,7 @@ async function loadMaxwell(cb) {
     let maxwell = new phy.MaxWell();
     world.add(maxwell);
     const canvas = document.getElementById("gpu-canvas");
-    const renderer = await new FOUR.Renderer(canvas).init();
+    const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
     await cb(world, maxwell, scene, renderer);
     // set up lights, camera and renderer
     let camera = new FOUR.Camera();
@@ -1566,8 +1511,6 @@ async function loadMaxwell(cb) {
         engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
         window.requestAnimationFrame(run);
     }
-    window.addEventListener("resize", setSize);
-    setSize();
     run();
 }
 export var e_charge;
@@ -1729,7 +1672,7 @@ export var dice_yugu233;
         scene.add(camera);
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -1746,11 +1689,6 @@ export var dice_yugu233;
             camCtrl,
             emitCtrl
         ], { enablePointerLock: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
         function run() {
             // syncronise physics world and render scene
             updateRidigsInScene();
@@ -1762,8 +1700,6 @@ export var dice_yugu233;
             engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
             window.requestAnimationFrame(run);
         }
-        window.addEventListener("resize", setSize);
-        setSize();
         run();
     }
     dice_yugu233.load = load;

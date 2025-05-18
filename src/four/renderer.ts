@@ -20,6 +20,7 @@ export class Renderer {
     uCamMatBuffer: GPUBuffer; // contain inv and uninv affineMat
     uWorldLightBuffer: GPUBuffer;
     lightShaderInfomation = _initLightShader();
+    autoSetSizeHandler: () => void;
     private cameraInScene: boolean;
     private safeTetraNumInOnePass: number;
     private tetraNumOccupancyRatio: number = 0.08;
@@ -47,6 +48,22 @@ export class Renderer {
 
         await this.core.init();
         return this;
+    }
+    autoSetSize() {
+        this.autoSetSizeHandler = () => {
+            let width = window.innerWidth * window.devicePixelRatio;
+            let height = window.innerHeight * window.devicePixelRatio;
+            this.setSize({ width, height });
+        }
+        this.autoSetSizeHandler();
+        window.addEventListener("resize", this.autoSetSizeHandler);
+        return this;
+    }
+    clearAutoSetSize() {
+        if (this.autoSetSizeHandler) {
+            window.removeEventListener("resize", this.autoSetSizeHandler);
+            this.autoSetSizeHandler = null;
+        }
     }
     // todo: add computePipeLinePool
     fetchPipelineName(identifier: string): string {

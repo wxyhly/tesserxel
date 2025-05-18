@@ -458,20 +458,13 @@ export var rail1d;
         let voiture2 = new four.Mesh(voiture, material.voiture);
         let voiture3 = new four.Mesh(voiture, material.voiture);
         train.add(voiture1, voiture2, voiture3);
-        const renderer = await new four.Renderer(canvas).init();
+        const renderer = (await new four.Renderer(canvas).init()).autoSetSize();
         renderer.core.setDisplayConfig({ opacity: 5 });
         const retinaController = new util.ctrl.RetinaController(renderer.core);
         const camController = new util.ctrl.KeepUpController(camera);
         camController.keyMoveSpeed *= 5.0;
         const trainCtrl = new TrainCtrl;
         const controllerRegistry = new util.ctrl.ControllerRegistry(canvas, [retinaController, camController, trainCtrl], { preventDefault: true, enablePointerLock: true });
-        function setSize() {
-            const width = window.innerWidth * window.devicePixelRatio;
-            const height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-        }
-        setSize();
-        window.addEventListener("resize", setSize);
         let splineData = sp.generate(spSeg);
         function run() {
             let nextPos;

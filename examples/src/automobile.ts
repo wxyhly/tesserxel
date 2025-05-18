@@ -119,7 +119,7 @@ export namespace automobile {
 
     export async function load() {
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-        const renderer = await new FOUR.Renderer(canvas).init();
+        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
         renderer.core.setDisplayConfig({ opacity: 5 });
         renderer.setBackgroudColor([1, 1, 1, 1]);
         const scene = new FOUR.Scene();

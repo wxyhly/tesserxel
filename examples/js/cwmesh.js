@@ -97,7 +97,7 @@ async function loadPolytope0123dFacesScene(mesh, scale = 1) {
     const FOUR = tesserxel.four;
     const canvas = document.getElementById("gpu-canvas");
     /** This is a asycn function wait for request WebGPU adapter and do initiations */
-    let renderer = await new FOUR.Renderer(canvas).init();
+    const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
     renderer.core.setDisplayConfig({ opacity: 15 });
     renderer.setBackgroudColor([1, 1, 1, 1]);
     let scene = new FOUR.Scene();
@@ -135,13 +135,6 @@ async function loadPolytope0123dFacesScene(mesh, scale = 1) {
     ]));
     // Create a controllerRegistry binding on the canvas, then add our controller
     let controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [trackballCtrl, retinaController, displayCtrl], { preventDefault: true });
-    function setSize() {
-        let width = window.innerWidth * window.devicePixelRatio;
-        let height = window.innerHeight * window.devicePixelRatio;
-        renderer.setSize({ width, height });
-    }
-    setSize();
-    window.addEventListener("resize", setSize);
     function run() {
         controllerRegistry.update();
         renderer.render(scene, camera);
