@@ -83,7 +83,7 @@ export namespace navigation {
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const renderer = (await new four.Renderer(canvas).init()).autoSetSize();
-        renderer.core.setDisplayConfig({opacity: 20});
+        renderer.core.setDisplayConfig({ opacity: 20 });
         const skyBox = new NishitaPlanetSkyBox();
         scene.skyBox = skyBox;
         renderer.setBackgroudColor([1, 1, 1, 1]);
@@ -96,6 +96,7 @@ export namespace navigation {
         const solar_sys = new SolarSystem();
         const compass_sys = new CompassSystem(0);
         let time = 0;
+        window.addEventListener("resize", () => gui.setSize());gui.setSize();
         function run() {
             controllerRegistry.update();
             if (!timeCtrl.timePaused) time += controllerRegistry.states.mspf / 60_00;

@@ -89,6 +89,8 @@ export var navigation;
         const solar_sys = new SolarSystem();
         const compass_sys = new CompassSystem(0);
         let time = 0;
+        window.addEventListener("resize", () => gui.setSize());
+        gui.setSize();
         function run() {
             controllerRegistry.update();
             if (!timeCtrl.timePaused)

@@ -246,7 +246,7 @@ export namespace st_pile {
             emitCtrl
         ], { enablePointerLock: true });
 
-        
+
         let tick = -2;
         function run() {
             // emit a tesseract for every 256 ticks
@@ -272,8 +272,8 @@ export namespace st_pile {
             engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
             window.requestAnimationFrame(run);
         }
-        
-    
+
+
         run();
     }
 }
@@ -329,7 +329,7 @@ export namespace rigid_test {
             emitCtrl
         ], { enablePointerLock: true });
 
-        
+
         let tick = -2;
         const wfs = new tesserxel.four.WireFrameScene;
         scene.wireframe = wfs;
@@ -366,8 +366,8 @@ export namespace rigid_test {
             engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
             window.requestAnimationFrame(run);
         }
-        
-    
+
+
         run();
     }
 }
@@ -450,7 +450,7 @@ export namespace st_ts_chain {
             emitCtrl
         ], { enablePointerLock: true });
 
-        
+
         function run() {
             // syncronise physics world and render scene
             updateRidigsInScene();
@@ -461,7 +461,7 @@ export namespace st_ts_chain {
             // simulating physics
             engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
             window.requestAnimationFrame(run);
-        }    
+        }
         run();
     }
     // test
@@ -630,7 +630,7 @@ export namespace tg_tg_chain {
             emitCtrl
         ], { enablePointerLock: true });
 
-        
+
         function run() {
             // syncronise physics world and render scene
             updateRidigsInScene();
@@ -642,8 +642,8 @@ export namespace tg_tg_chain {
             engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
             window.requestAnimationFrame(run);
         }
-        
-    
+
+
         run();
     }
 }
@@ -796,12 +796,7 @@ namespace dzhanibekov {
             camCtrl,
         ], { enablePointerLock: true });
         const gui = new GUI;
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            gui.setSize();
-            renderer.setSize({ width, height });
-        }
+        window.addEventListener("resize", () => gui.setSize());gui.setSize();
         function run() {
             // syncronise physics world and render scene
             updateRidigsInScene();
@@ -814,13 +809,13 @@ namespace dzhanibekov {
             gui.update(g);
             window.requestAnimationFrame(run);
         }
-        
+
         window.addEventListener("keydown", ev => {
             if (ev.code === "KeyL") {
                 gui.localMode = !gui.localMode;
             }
         })
-    
+
         run();
     }
 }
@@ -912,7 +907,7 @@ async function loadGyroScene(cwmesh: tesserxel.mesh.CWMesh, material: tesserxel.
         let height = window.innerHeight * window.devicePixelRatio;
         renderer.setSize({ width, height });
     }
-    
+
 
     function run() {
         // syncronise physics world and render scene
@@ -1235,8 +1230,8 @@ export namespace thermo_stats {
             window.requestAnimationFrame(run);
             gui.update(balls);
         }
-        
-    
+
+
         run();
     }
 }
@@ -1332,7 +1327,7 @@ export namespace mix_chain {
             emitCtrl
         ], { enablePointerLock: true });
 
-        
+
         function run() {
             // syncronise physics world and render scene
             updateRidigsInScene();
@@ -1344,8 +1339,8 @@ export namespace mix_chain {
             engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
             window.requestAnimationFrame(run);
         }
-        
-    
+
+
         run();
     }
 }
@@ -1423,7 +1418,7 @@ export namespace dt_ts_chain {
             camCtrl,
         ], { enablePointerLock: true });
 
-        
+
         function run() {
             // console.log(dtArr[0].position);
             // syncronise physics world and render scene
@@ -1437,8 +1432,8 @@ export namespace dt_ts_chain {
 
             window.requestAnimationFrame(run);
         }
-        
-    
+
+
         run();
     }
 }
@@ -1526,7 +1521,7 @@ export namespace ditorus {
             emitCtrl
         ], { enablePointerLock: true });
 
-        
+
         function run() {
             // syncronise physics world and render scene
             updateRidigsInScene();
@@ -1538,8 +1533,8 @@ export namespace ditorus {
             engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
             window.requestAnimationFrame(run);
         }
-        
-    
+
+
         run();
     }
 }
@@ -1625,7 +1620,7 @@ async function loadMaxwell(cb: (
         engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
         window.requestAnimationFrame(run);
     }
-    
+
 
     run();
 }
@@ -1813,7 +1808,7 @@ export namespace dice_yugu233 {
                 material: new phy.Material(1, 0.4), mass: 1
             });
             addRigidToScene(world, scene, diceM, dice);
-            dice.position.y = 4+i*2;
+            dice.position.y = 4 + i * 2;
             dice.velocity.y = 0;
             dice.rotation.randset();
             dice.angularVelocity.randset().mulfs(3);
@@ -1848,7 +1843,7 @@ export namespace dice_yugu233 {
             camCtrl,
             emitCtrl
         ], { enablePointerLock: true });
-        
+
         function run() {
             // syncronise physics world and render scene
             updateRidigsInScene();

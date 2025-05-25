@@ -746,12 +746,8 @@ var dzhanibekov;
             camCtrl,
         ], { enablePointerLock: true });
         const gui = new GUI;
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            gui.setSize();
-            renderer.setSize({ width, height });
-        }
+        window.addEventListener("resize", () => gui.setSize());
+        gui.setSize();
         function run() {
             // syncronise physics world and render scene
             updateRidigsInScene();
