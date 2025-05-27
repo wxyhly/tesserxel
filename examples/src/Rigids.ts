@@ -796,7 +796,7 @@ namespace dzhanibekov {
             camCtrl,
         ], { enablePointerLock: true });
         const gui = new GUI;
-        window.addEventListener("resize", () => gui.setSize());gui.setSize();
+        window.addEventListener("resize", () => gui.setSize()); gui.setSize();
         function run() {
             // syncronise physics world and render scene
             updateRidigsInScene();
@@ -1711,37 +1711,18 @@ export namespace m_dipole {
         });
     }
 }
-export namespace m_dipole_dual {
+const renderMatMDipoleDual = new FOUR.LambertMaterial(new FOUR.WgslTexture(`fn hopfA(uvw:vec4<f32>)->vec4<f32>{
+                return mix(vec4<f32>(1.0, 0.5, 0.5, 0.2),vec4<f32>(0.02,0.02,1.0,1.0),step(1.5,fract((uvw.x+uvw.y)*4.0)*2.0)*step(1.5,fract((uvw.z)*4.0)*2.0)) ;
+            }    
+            `, `hopfA`));
+const renderMatMDipoleAntiDual = new FOUR.LambertMaterial(new FOUR.WgslTexture(`fn hopfB(uvw:vec4<f32>)->vec4<f32>{
+                return mix(vec4<f32>(0.5, 0.5, 1.0, 0.2),vec4<f32>(1.0,0.02,0.02,1.0),step(1.5,fract((uvw.x-uvw.y)*4.0)*2.0)*step(1.5,fract((uvw.z)*4.0)*2.0)) ;
+            }    
+            `, `hopfB`));
+export namespace m_dipole_dual1 {
     export async function load() {
         await loadMaxwell(async (world, maxwell, scene, renderer) => {
             const phyMatCharge = new phy.Material(1, 0.5);
-            const renderMatMDipoleDual = new FOUR.LambertMaterial(new FOUR.CheckerTexture(
-                [1, 0, 0, 1], new FOUR.CheckerTexture(
-                    [1, 0.5, 0.5, 0.2], [0, 0, 1, 1],
-                    new FOUR.Vec4TransformNode(
-                        new FOUR.UVWVec4Input(),
-                        new math.Obj4(new math.Vec4(0, 0, 0.41), null, new math.Vec4(0.1, 0.1, 0.1, 0.1))
-                    )
-                ),
-                new FOUR.Vec4TransformNode(
-                    new FOUR.UVWVec4Input(),
-                    new math.Obj4(new math.Vec4(0, 0, 0.49), null, new math.Vec4(0.1, 0.1, 0.1, 0.1))
-                )
-            ));
-
-            const renderMatMDipoleAntiDual = new FOUR.LambertMaterial(new FOUR.CheckerTexture(
-                [1, 0, 0, 1], new FOUR.CheckerTexture(
-                    [0.5, 0.5, 1, 0.2], [0, 0, 1, 1],
-                    new FOUR.Vec4TransformNode(
-                        new FOUR.UVWVec4Input(),
-                        new math.Obj4(new math.Vec4(0, 0, 0.41), null, new math.Vec4(0.1, 0.1, 0.1, 0.1))
-                    )
-                ),
-                new FOUR.Vec4TransformNode(
-                    new FOUR.UVWVec4Input(),
-                    new math.Obj4(new math.Vec4(0, 0, 0.49), null, new math.Vec4(0.1, 0.1, 0.1, 0.1))
-                )
-            ));
             const chargeNum = 12;
             const radius = 5;
             // await renderMatMDipoleDual.compile(renderer);
@@ -1768,6 +1749,39 @@ export namespace m_dipole_dual {
                 maxwell.addMagneticDipole({ rigid: dipoleA, moment: new math.Bivec(10, 0, 0, 0, 0, 10), position: math.Vec4.origin.clone() });
                 damp.add(dipoleA);
                 addRigidToScene(world, scene, renderMatMDipoleDual, dipoleA);
+            }
+        });
+    }
+}
+export namespace m_dipole_dual2 {
+    export async function load() {
+        await loadMaxwell(async (world, maxwell, scene, renderer) => {
+            const phyMatCharge = new phy.Material(1, 0.5);
+            const chargeNum = 8;
+            const radius = 5;
+            // await renderMatMDipoleDual.compile(renderer);
+            // await renderMatMDipoleAntiDual.compile(renderer);
+            let damp = new phy.Damping(0.01, 0.01);
+            world.add(damp);
+            for (let i = 0; i < chargeNum; i++) {
+                let dipoleA = new phy.Rigid({ geometry: new phy.rigid.Glome(1), mass: 1, material: phyMatCharge });
+                let gndPos = math.Vec3.rand().mulfs(radius).x0yz();
+                dipoleA.position.copy(gndPos);
+                dipoleA.position.x *= 0.5;
+                dipoleA.position.x -= 4;
+                dipoleA.position.y = 3 + Math.random();
+                maxwell.addMagneticDipole({ rigid: dipoleA, moment: new math.Bivec(10, 0, 0, 0, 0, 10), position: math.Vec4.origin.clone() });
+                damp.add(dipoleA);
+                addRigidToScene(world, scene, renderMatMDipoleDual, dipoleA);
+                let dipoleB = new phy.Rigid({ geometry: new phy.rigid.Glome(1), mass: 1, material: phyMatCharge });
+                gndPos = math.Vec3.rand().mulfs(radius).x0yz();
+                dipoleB.position.copy(gndPos);
+                dipoleB.position.x *= 0.5;
+                dipoleB.position.x += 4;
+                dipoleB.position.y = 3 + Math.random();
+                maxwell.addMagneticDipole({ rigid: dipoleB, moment: new math.Bivec(10, 0, 0, 0, 0, -10), position: math.Vec4.origin.clone() });
+                damp.add(dipoleB);
+                addRigidToScene(world, scene, renderMatMDipoleAntiDual, dipoleB);
             }
         });
     }
