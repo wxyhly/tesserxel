@@ -134,13 +134,13 @@ export class Bivec {
         this.yz *= k; this.yw *= k; this.zw *= k; return this;
     }
     normsqr(): number {
-        return this.xy * this.xy + this.xz * this.xz + this.yz * this.yz + this.yw * this.yw + this.zw * this.zw + this.xw * this.xw;;
+        return this.xy * this.xy + this.xz * this.xz + this.yz * this.yz + this.yw * this.yw + this.zw * this.zw + this.xw * this.xw;
     }
     norm1(): number {
         return Math.abs(this.xy) + Math.abs(this.xz) + Math.abs(this.xw) + Math.abs(this.yz) + Math.abs(this.yw) + Math.abs(this.zw);
     }
     wedge(biv: Bivec): number {
-        return this.xy * biv.zw - this.xz * biv.yw + this.xw * biv.yz + this.yz * biv.xw - this.yw * biv.xz + this.zw * biv.xz;
+        return this.xy * biv.zw - this.xz * biv.yw + this.xw * biv.yz + this.yz * biv.xw - this.yw * biv.xz + this.zw * biv.xy;
     }
     dual(): Bivec {
         return new Bivec(this.zw, -this.yw, this.yz, this.xw, -this.xz, this.xy);

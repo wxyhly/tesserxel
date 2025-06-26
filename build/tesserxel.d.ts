@@ -2570,10 +2570,14 @@ declare class MaxWell extends Force {
 declare class Gravity extends Force {
     _vecG: Vec4;
     rigids: Rigid[];
+    lawIndex: number;
+    gravitonMass: number;
+    constructor(lawIndex?: number, gravitonMass?: number);
     gain: number;
     add(s: Rigid): void;
     getGAt(p: Vec4, ignore: Rigid | Vec4 | undefined): Vec4;
     apply(time: number): void;
+    data: number[];
     private addGOfMass;
 }
 
