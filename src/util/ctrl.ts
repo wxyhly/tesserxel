@@ -3,16 +3,16 @@ import { Bivec } from "../math/algebra/bivec";
 import { Mat4 } from "../math/algebra/mat4";
 import { Quaternion } from "../math/algebra/quaternion";
 import { Rotor } from "../math/algebra/rotor";
-import { Vec2 } from "../math/algebra/vec2";
+import { Vec2, vec2Pool } from "../math/algebra/vec2";
 import { Vec3 } from "../math/algebra/vec3";
 import { Vec4 } from "../math/algebra/vec4";
-import { _360, _DEG2RAD, _SQRT_3 } from "../math/const";
+import { _360, _90, _DEG2RAD, _SQRT_3 } from "../math/const";
 import { EyeStereo, SectionConfig, DisplayConfig, RetinaSliceFacing, SliceRenderer, RetinaRenderPass, RetinaRenderPassDescriptor } from "../render/slice/slice";
 
 export interface IController {
     update(state: ControllerState): void;
 }
-interface ControllerConfig {
+export interface ControllerConfig {
     preventDefault?: boolean;
     enablePointerLock?: boolean;
 }
@@ -58,7 +58,7 @@ export enum KeyState {
 }
 export class ControllerRegistry {
     dom: HTMLElement;
-    ctrls: Iterable<IController>;
+    private ctrls: Array<IController>;
     enablePointerLock: boolean;
     readonly states: ControllerState = {
         currentKeys: new Map(),
@@ -91,7 +91,7 @@ export class ControllerRegistry {
     private evKeyUp: (ev: KeyboardEvent) => any;
     private evKeyDown: (ev: KeyboardEvent) => any;
     private evContextMenu: (ev: MouseEvent) => any;
-    constructor(dom: HTMLElement, ctrls: Iterable<IController>, config?: ControllerConfig) {
+    constructor(dom: HTMLElement, ctrls: Array<IController>, config?: ControllerConfig) {
         this.dom = dom;
         dom.tabIndex = 1;
         this.ctrls = ctrls;
@@ -203,6 +203,13 @@ export class ControllerRegistry {
             };
             dom.addEventListener("contextmenu", this.evContextMenu);
         }
+    }
+    add(ctrl: IController) {
+        this.ctrls.push(ctrl);
+    }
+
+    remove(ctrl: IController) {
+        this.ctrls = this.ctrls.filter(c => c !== ctrl);
     }
     unregist() {
         this.dom.removeEventListener("mousedown", this.evMouseDown);
@@ -909,6 +916,10 @@ export class RetinaController implements IController {
         rotateUp: "ArrowUp",
         rotateDown: "ArrowDown",
         refaceFront: ".KeyR",
+        refaceRight: ".KeyL",
+        refaceLeft: ".KeyJ",
+        refaceTop: ".KeyI",
+        refaceBottom: ".KeyK",
         toggleRetinaAlpha: ".KeyF",
         sectionConfigs: {
             "retina+sections": ".Digit1",
@@ -1005,6 +1016,7 @@ export class RetinaController implements IController {
     private _q2 = new Quaternion();
     private _mat4 = new Mat4();
     private refacingFront: boolean = false;
+    private refacingTarget = new Vec2;
     private needsUpdateRetinaCamera: boolean = false;
     private retinaFov: number = 40;
     private retinaSize = 1.8;
@@ -1204,6 +1216,19 @@ export class RetinaController implements IController {
         }
         if (on(key.refaceFront)) {
             this.refacingFront = true;
+            this.refacingTarget.set();
+        } else if (on(key.refaceRight)) {
+            this.refacingFront = true;
+            this.refacingTarget.set(_90, 0);
+        } else if (on(key.refaceTop)) {
+            this.refacingFront = true;
+            this.refacingTarget.set(0, -_90);
+        } else if (on(key.refaceLeft)) {
+            this.refacingFront = true;
+            this.refacingTarget.set(-_90, 0);
+        } else if (on(key.refaceBottom)) {
+            this.refacingFront = true;
+            this.refacingTarget.set(0, _90);
         }
 
         if (this._vec2damp.norm1() < 1e-3 || this.refacingFront) {
@@ -1232,8 +1257,9 @@ export class RetinaController implements IController {
             this._vec2euler.y %= _360;
             let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
             if (this.refacingFront) {
-                this._vec2euler.mulfs(dampFactor);
+                this._vec2euler.subs(this.refacingTarget).mulfs(dampFactor);
                 if (this._vec2euler.norm1() < 0.01) this.refacingFront = false;
+                this._vec2euler.adds(this.refacingTarget);
             }
             this._vec2euler.adds(this._vec2damp);
             let mat = this._mat4.setFrom3DRotation(this._q1.expset(this._vec3.set(0, this._vec2euler.x, 0)).mulsr(
@@ -1408,10 +1434,10 @@ export class RetinaCtrlGui {
         const resmBtn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="4.6" height="2.93" x="0.33" y="0.9"/><path d="M 2.44,3.844 1.62,4.78 H 3.77 L 3.03,3.84"/><circle cx="1.86" cy="2.4" r="1.05"/><rect width="1.63" height="0.48" x="3.38" y="1.7" transform="rotate(12.5)"/><path d="M 1.075,1.825H 1.6 V 2.1 H 1.9 V 2.5 H 2.3 V 3.07 H 2.5"/>${SVG_MINUS}</g></svg>`);
         const eyeModeCrossBtn = this.addBtn(`${SVG_HEADER}0.5 0.3 4.5 4.5'><g ${SVG_LINE}><circle cx="2" cy="4" r="0.3"/><circle cx="3.2" cy="4" r="0.3"/><path d="M 2,3.4 3,1 M 3.2,3.4 2.2,1"/></g></svg>`);
         const eyeModeParaBtn = this.addBtn(`${SVG_HEADER}0.5 0.3 4.5 4.5'><g ${SVG_LINE}><circle cx="2" cy="4" r="0.3"/><circle cx="3.2" cy="4" r="0.3"/><path d="M 2,3.4 1.8,1 M 3.2,3.4 3.4,1"/></g></svg>`);
-        eyeModeCrossBtn.style.position="absolute";
-        eyeModeParaBtn.style.position="absolute";
-        eyeModeCrossBtn.style.left="-32px";
-        eyeModeParaBtn.style.left="-32px";
+        eyeModeCrossBtn.style.position = "absolute";
+        eyeModeParaBtn.style.position = "absolute";
+        eyeModeCrossBtn.style.left = "-32px";
+        eyeModeParaBtn.style.left = "-32px";
         const mainBar = this.createToggleDiv(mainBtn, "inline-block");
         let drag = NaN;
         let startPos: number;
@@ -1450,7 +1476,7 @@ export class RetinaCtrlGui {
         mainBar.appendChild(slicecfgPlaceholder);
         let slicecfgPlaceholderBtn = slicecfg1Btn.cloneNode(true) as HTMLButtonElement;
         slicecfgPlaceholder.appendChild(slicecfgPlaceholderBtn);
-        const slicecfgBar = this.createDropBox(slicecfgPlaceholderBtn, 0,2);
+        const slicecfgBar = this.createDropBox(slicecfgPlaceholderBtn, 0, 2);
         slicecfgPlaceholder.appendChild(slicecfgBar);
         slicecfgBar.appendChild(slicecfg1Btn);
         slicecfgBar.appendChild(slicecfg2Btn);

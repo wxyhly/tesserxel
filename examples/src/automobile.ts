@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js"
+import * as tesserxel from "../../build/esm/tesserxel.js"
 const FOUR = tesserxel.four;
 const PHY = tesserxel.physics;
 const Vec4 = tesserxel.math.Vec4;
@@ -119,7 +119,8 @@ export namespace automobile {
 
     export async function load() {
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
+        const app = await tesserxel.four.App.create({ canvas });
+        const renderer = app.renderer;
         renderer.core.setDisplayConfig({ opacity: 5 });
         renderer.setBackgroudColor([1, 1, 1, 1]);
         const scene = new FOUR.Scene();
@@ -145,7 +146,7 @@ export namespace automobile {
             ),
             new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new Obj4(null, null, new Vec4(10, 10, 10, 10)))
         ))));
-        const camera = new FOUR.Camera();
+        const camera = new FOUR.PerspectiveCamera();
         camera.near = 0.1;
         camera.far = 500;
         scene.add(camera);
@@ -222,7 +223,7 @@ export namespace automobile {
             new Vec4(10, 0, 0, 0),
         ]);
         const roadGeom = new tesserxel.four.Geometry(tesserxel.mesh.tetra.loft(spline, tesserxel.mesh.face.cube().setConstantNormal(new Vec4()), 5).generateNormal());
-        scene.add(new tesserxel.four.Mesh(roadGeom,new tesserxel.four.LambertMaterial([0.5,0.5,0.5])));
+        scene.add(new tesserxel.four.Mesh(roadGeom, new tesserxel.four.LambertMaterial([0.5, 0.5, 0.5])));
         camera.position.w = 0.5;
         const retinaController = new tesserxel.util.ctrl.RetinaController(renderer.core);
         const freeCamCtrl = new tesserxel.util.ctrl.KeepUpController(camera);

@@ -1,4 +1,4 @@
-import { math, four, util, mesh, render } from "../../build/tesserxel.js"
+import { math, four, util, mesh, render } from "../../build/esm/tesserxel.js"
 interface rubicBlcMesh extends four.Mesh {
     initPosition: math.Vec4;
     peer: rubicBlcMesh;
@@ -501,30 +501,26 @@ export namespace rubic {
         let skybox = new four.SimpleSkyBox();
         skybox.setOpacity(0.03);
         scene.skyBox = skybox;
-        const camera = new four.Camera();
+        const camera = new four.PerspectiveCamera();
         scene.add(camera);
         const sunLight = new four.DirectionalLight(1.0, new math.Vec4(0.2, 0.9, 0.14, 0.1).norms());
         scene.add(sunLight);
         scene.add(new four.AmbientLight(0.3));
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-        const renderer = (await new four.Renderer(canvas).init()).autoSetSize();
-        renderer.core.setDisplayConfig({ opacity: 30 });
-        const retinaController = new util.ctrl.RetinaController(renderer.core);
+        const app=await four.App.create({canvas,camera,scene,controllerConfig:{ preventDefault: true }});
+        app.renderer.core.setDisplayConfig({ opacity: 30 });
         const camController = new util.ctrl.TrackBallController(cubeGroup);
         const rubicMgr = new RubicMgr(posHash);
         const rubicCtrl = new RubicCtrl(rubicMgr);
         for (let i = 0; i < 1000; i++) rubicCtrl.cycle();
         camController.mouseButton3D = 0;
         camController.mouseButton4D = 2;
-        const controllerRegistry = new util.ctrl.ControllerRegistry(canvas, [retinaController, camController, rubicCtrl], { preventDefault: true });
-        function run() {
-            controllerRegistry.update();
+        app.controllerRegistry.add(camController);
+        app.controllerRegistry.add(rubicCtrl);
+        app.run(()=>{
             cubeSubgroup2.visible = rubicCtrl.hollowModel;
             cubeSubgroup1.visible = !rubicCtrl.hollowModel;
-            renderer.render(scene, camera);
-            window.requestAnimationFrame(run);
-        }
-        run();
+        });
     }
 }

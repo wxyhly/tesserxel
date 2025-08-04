@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js";
+import * as tesserxel from "../../build/esm/tesserxel.js";
 const { Bivec, Vec4 } = tesserxel.math;
 const CWMesh = tesserxel.mesh.CWMesh;
 const polytope = tesserxel.mesh.cw.polytope;
@@ -96,16 +96,17 @@ class DisplayCtrl {
 async function loadPolytope0123dFacesScene(mesh, scale = 1) {
     const FOUR = tesserxel.four;
     const canvas = document.getElementById("gpu-canvas");
+    const app = await FOUR.App.create({ canvas, controllerConfig: { preventDefault: true } });
     /** This is a asycn function wait for request WebGPU adapter and do initiations */
-    const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
+    const renderer = app.renderer;
     renderer.core.setDisplayConfig({ opacity: 15 });
     renderer.setBackgroudColor([1, 1, 1, 1]);
-    let scene = new FOUR.Scene();
+    let scene = app.scene;
     scene.wireframe = new FOUR.WireFrameScene;
     if (mesh.data[1].length < 1e3)
         scene.wireframe.add(new FOUR.WireFrameConvexPolytope(mesh));
     scene.setBackgroudColor({ r: 1.0, g: 1.0, b: 1.0, a: 0.02 });
-    let camera = new FOUR.Camera();
+    let camera = app.camera;
     const mesh0 = cwmesh0dframe(mesh, 0.07 * scale, 1);
     const es = mesh.data[1].length > 256 ? 3 : mesh.data[1].length > 127 ? 4 : 5;
     const mesh1 = cwmesh1dframe(mesh, 0.05 * scale, es, es);
@@ -125,7 +126,6 @@ async function loadPolytope0123dFacesScene(mesh, scale = 1) {
     // move camera a little back to see polytope at origin
     // note: w axis is pointed to back direction (like z axis in 3D)
     camera.position.w = 1.5;
-    let retinaController = new tesserxel.util.ctrl.RetinaController(renderer.core);
     const trackballCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
     const displayCtrl = new DisplayCtrl(new Map([
         [".Digit0", mesh0],
@@ -133,14 +133,10 @@ async function loadPolytope0123dFacesScene(mesh, scale = 1) {
         [".Digit2", mesh2],
         [".Digit3", mesh3],
     ]));
-    // Create a controllerRegistry binding on the canvas, then add our controller
-    let controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [trackballCtrl, retinaController, displayCtrl], { preventDefault: true });
-    function run() {
-        controllerRegistry.update();
-        renderer.render(scene, camera);
-        window.requestAnimationFrame(run);
-    }
-    run();
+    // add our controller
+    app.controllerRegistry.add(displayCtrl);
+    app.controllerRegistry.add(trackballCtrl);
+    app.run();
 }
 export var duopr5;
 (function (duopr5) {

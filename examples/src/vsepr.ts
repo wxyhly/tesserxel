@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js"
+import * as tesserxel from "../../build/esm/tesserxel.js"
 
 const FOUR = tesserxel.four;
 
@@ -130,14 +130,14 @@ class DiamondBuilder {
                         a.alwaysUpdateCoord = true;
 
                         for (let j = 0; j < 5; j++) {
-                            const b = new tesserxel.four.Mesh(bondGeom,pos.normsqr() < 5?new FOUR.PhongMaterial([0.01, 0.8, 0.2]): bondMat);
+                            const b = new tesserxel.four.Mesh(bondGeom, pos.normsqr() < 5 ? new FOUR.PhongMaterial([0.01, 0.8, 0.2]) : bondMat);
                             b.alwaysUpdateCoord = true;
                             const v1 = base[j].clone();
                             b.position.copy(a.position).addmulfs(v1, 0.5);
                             b.rotation.setFromLookAt(tesserxel.math.Vec4.w, v1);
                             b.scale ??= new tesserxel.math.Vec4();
                             b.scale.set(0.005, 0.005, 0.005, v1.norm());
-                            if((pos.normsqr() < 5))b.scale.set(0.01, 0.01, 0.01, v1.norm());
+                            if ((pos.normsqr() < 5)) b.scale.set(0.01, 0.01, 0.01, v1.norm());
                             this.bondObj.add(b);
                         }
                     }
@@ -162,9 +162,9 @@ export namespace hyperdiamond {
         const bondMat = new FOUR.PhongMaterial([0.93, 0.87, 0.8]);
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-        let renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
-        let scene = new FOUR.Scene();
-        renderer.core.setDisplayConfig({ opacity: 50, screenBackgroundColor: [1, 1, 1, 1], sectionStereoEyeOffset: 40 });
+        const app = await tesserxel.four.App.create({ canvas, controllerConfig: { preventDefault: true } });
+        let scene = app.scene;
+        app.renderer.core.setDisplayConfig({ opacity: 50, screenBackgroundColor: [1, 1, 1, 1], sectionStereoEyeOffset: 40 });
         scene.setBackgroudColor([1, 1, 1, 0.0]);
 
         scene.add(new FOUR.AmbientLight(0.3));
@@ -174,7 +174,7 @@ export namespace hyperdiamond {
         scene.add(dirLight2);
         let dirLight3 = new FOUR.DirectionalLight([0.7, 0.6, 0.5], new tesserxel.math.Vec4(-1, 0, -1, 0).norms())
         scene.add(dirLight3);
-        let camera = new FOUR.Camera();
+        let camera = app.camera as tesserxel.four.PerspectiveCamera;
         camera.near = 0.02;
         camera.far = 5;
         camera.fov = 80;
@@ -185,15 +185,9 @@ export namespace hyperdiamond {
 
         let builder = new DiamondBuilder(16, 0, atomGeom, bondGeom, bondMat);
         builder.buildAndAddToScene(scene);
-        let retinaController = new tesserxel.util.ctrl.RetinaController(renderer.core);
         const trackballCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
-        let controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [trackballCtrl, retinaController], { preventDefault: true });
-        function run() {
-            controllerRegistry.update();
-            renderer.render(scene, camera);
-            window.requestAnimationFrame(run);
-        }
-        run();
+        app.controllerRegistry.add(trackballCtrl);
+        app.run();
     }
 }
 export namespace vsepr {
@@ -221,7 +215,7 @@ export namespace vsepr {
         const central = new FOUR.Mesh(atomGeom, new FOUR.PhongMaterial([0.8, 0.0, 0.0]));
         central.scale = new tesserxel.math.Vec4(0.3, 0.3, 0.3, 0.3);
         scene.add(central);
-        let camera = new FOUR.Camera();
+        let camera = new FOUR.PerspectiveCamera();
         camera.near = 0.02;
         camera.far = 5;
         camera.fov = 80;

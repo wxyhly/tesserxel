@@ -4,8 +4,6 @@ import { AmbientLight, DirectionalLight, PointLight, SpotLight, _initLightShader
 import { Camera, Mesh, Object, Scene } from "./scene";
 import { Material } from "./material";
 import { Vec3 } from "../math/algebra/vec3";
-import { Vec4 } from "../math/algebra/vec4";
-import { Plane } from "../math/geometry/primitive";
 export interface RendererConfig {
     posdirLightsNumber?: number;
     spotLightsNumber?: number;
@@ -48,22 +46,6 @@ export class Renderer {
 
         await this.core.init();
         return this;
-    }
-    autoSetSize() {
-        this.autoSetSizeHandler = () => {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            this.setSize({ width, height });
-        }
-        this.autoSetSizeHandler();
-        window.addEventListener("resize", this.autoSetSizeHandler);
-        return this;
-    }
-    clearAutoSetSize() {
-        if (this.autoSetSizeHandler) {
-            window.removeEventListener("resize", this.autoSetSizeHandler);
-            this.autoSetSizeHandler = null;
-        }
     }
     // todo: add computePipeLinePool
     fetchPipelineName(identifier: string): string {

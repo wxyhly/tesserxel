@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js"
+import * as tesserxel from "../../build/esm/tesserxel.js"
 
 // @ts-ignore
 // import { getStructureInfo, getAtomColor, getAtomRadius, drawStructure, goodLuck } from "/ccahgaolo/chem4d/js/api.js"
@@ -436,14 +436,14 @@ export namespace molecule {
 
     export async function load() {
 
+        
+        const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+        const app = await tesserxel.four.App.create({ canvas, controllerConfig: { preventDefault: true } });
+        let scene = app.scene;
         const atomGeom = new FOUR.GlomeGeometry(1, 1);
         const bondGeom = new tesserxel.four.Geometry(tesserxel.mesh.tetra.spherinderSide(10, 10, 2, 2, 1));
         const bondMat = new FOUR.PhongMaterial([0.93, 0.87, 0.8]);
-
-        const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
-        let scene = new FOUR.Scene();
-        renderer.core.setDisplayConfig({ opacity: 50, screenBackgroundColor: [1, 1, 1, 1], sectionStereoEyeOffset: 40 });
+        app.renderer.core.setDisplayConfig({ opacity: 50, screenBackgroundColor: [1, 1, 1, 1], sectionStereoEyeOffset: 40 });
         scene.setBackgroudColor([1, 1, 1, 0.0]);
 
 
@@ -454,7 +454,7 @@ export namespace molecule {
         scene.add(dirLight2);
         let dirLight3 = new FOUR.DirectionalLight([0.7, 0.6, 0.5], new tesserxel.math.Vec4(-1, 0, -1, 0).norms())
         scene.add(dirLight3);
-        let camera = new FOUR.Camera();
+        let camera = app.camera as tesserxel.four.PerspectiveCamera;
         camera.near = 5;
         camera.far = 1000;
         camera.fov = 80;
@@ -466,31 +466,30 @@ export namespace molecule {
         const graph = getStructureInfo("FnCCCCCO") as Graph;
         let builder = new StructBuilder(graph, atomGeom, bondGeom, bondMat);
 
-        let retinaController = new tesserxel.util.ctrl.RetinaController(renderer.core);
         const trackballCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
         const guiCtrl = new GUICtrl(builder);
-        let controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [trackballCtrl, retinaController, guiCtrl], { preventDefault: true });
-        function run() {
-            controllerRegistry.update();
-            if (controllerRegistry.states.isKeyHold("KeyH")) {
-                builder.startHeat();
-            } else {
-                if (builder.heat) builder.stopHeat();
-            }
-            builder.update();
-            renderer.render(scene, camera);
-            window.requestAnimationFrame(run);
-        }
+        app.controllerRegistry.add(trackballCtrl);
+        app.controllerRegistry.add(guiCtrl);
+        app.controllerRegistry.add(builder);
         builder.buildAndAddToScene(scene);
         const gui = new GUI();
         gui.build().rebuildMol = (smiles) => {
             builder.deleteFromScene(scene);
+            app.controllerRegistry.remove(builder);
             builder = new StructBuilder(getStructureInfo(smiles) as Graph, atomGeom, bondGeom, bondMat);
+            app.controllerRegistry.add(builder);
             builder.buildAndAddToScene(scene);
             guiCtrl.builder = builder;
         };
-        run();
+        app.run(() => {
+            if (app.controllerRegistry.states.isKeyHold("KeyH")) {
+                builder.startHeat();
+            } else {
+                if (builder.heat) builder.stopHeat();
+            }
+        });
         gui.btnRnd.click();
+
     }
 }
 const urlp = new URLSearchParams(window.location.search.slice(1));

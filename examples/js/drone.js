@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js";
+import * as tesserxel from "../../build/esm/tesserxel.js";
 const FOUR = tesserxel.four;
 const PHY = tesserxel.physics;
 const Vec4 = tesserxel.math.Vec4;
@@ -10,13 +10,14 @@ export var drone;
 (function (drone) {
     async function load() {
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
+        const app = await FOUR.App.create({ canvas, controllerConfig: { preventDefault: true } });
+        const renderer = app.renderer;
         renderer.core.setDisplayConfig({ opacity: 5 });
         renderer.setBackgroudColor([1, 1, 1, 1]);
-        const scene = new FOUR.Scene();
+        const scene = app.scene;
         const gnd = new FOUR.CubeGeometry(20000);
         scene.add(new FOUR.Mesh(gnd, new FOUR.LambertMaterial(new FOUR.CheckerTexture(new FOUR.CheckerTexture(new FOUR.CheckerTexture([1, 1, 1, 0.1], [0.9, 0.8, 0.8, 0.1], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new Obj4(null, null, new Vec4(1000, 1000, 1000, 1000)))), [0.5, 0.3, 0.3, 0.1], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new Obj4(null, null, new Vec4(100, 100, 100, 100)))), new FOUR.CheckerTexture(new FOUR.CheckerTexture([1, 1, 0.6, 0.1], [0.9, 0.8, 0.4, 0.1], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new Obj4(null, null, new Vec4(1000, 1000, 1000, 1000)))), [0.3, 0.7, 0.7, 0.1], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new Obj4(null, null, new Vec4(100, 100, 100, 100)))), new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new Obj4(null, null, new Vec4(10, 10, 10, 10)))))));
-        const camera = new FOUR.Camera();
+        const camera = app.camera;
         camera.near = 0.1;
         camera.far = 5000;
         scene.add(camera);
@@ -48,15 +49,13 @@ export var drone;
         world.add(droneP);
         droneP.position.y = 0.2;
         // camera.rotatesb(Bivec.xw.mulf(Math.PI));
-        const retinaController = new tesserxel.util.ctrl.RetinaController(renderer.core);
         const freeCamCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
         const hud = document.createElement("table");
         const droneCtrl = new DroneCtrl(droneP, freeCamCtrl, hud);
         const droneMecanism = new DroneMecanism(droneCtrl);
         world.add(droneMecanism);
-        const ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
-            retinaController, droneCtrl, freeCamCtrl
-        ], { preventDefault: true });
+        app.controllerRegistry.add(droneCtrl);
+        app.controllerRegistry.add(freeCamCtrl);
         const coeffFanrotAnimation = 1;
         const values = [];
         const keys = {
@@ -142,7 +141,7 @@ export var drone;
                 if (values[i].innerText === "-0.000")
                     values[i].innerText = "0.000";
             }
-            ctrlReg.update();
+            app.controllerRegistry.update();
             engine.update(world, 1 / 60);
             animateDrone();
             if (droneCtrl.camLock) {

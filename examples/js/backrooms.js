@@ -1,4 +1,4 @@
-import { math, four, util, mesh } from "../../build/tesserxel.js";
+import { math, four, util, mesh } from "../../build/esm/tesserxel.js";
 export var backrooms;
 (function (backrooms) {
     class CarpetTexture extends four.MaterialNode {
@@ -21,7 +21,7 @@ export var backrooms;
     }
     async function load() {
         const scene = new four.Scene();
-        const camera = new four.Camera();
+        const camera = new four.PerspectiveCamera();
         camera.rotatesb(math.Bivec.xw.mulf(2.8));
         camera.position.set(1.4, 0, 1.6, 1.3);
         const materials = {
@@ -43,17 +43,14 @@ export var backrooms;
         // scene.add(new four.DirectionalLight([0.02, 0.017, 0.01], new math.Vec4(-1, 2, -0.2, -0.5).norms()));
         scene.add(new four.AmbientLight(0.05));
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = await new four.Renderer(canvas, { posdirLightsNumber: 7 * 2 * 3, spotLightsNumber: 1 }).init();
-        renderer.autoSetSize();
-        const retinaController = new util.ctrl.RetinaController(renderer.core);
+        const app = await four.App.create({
+            canvas, camera, scene,
+            renderConfig: { posdirLightsNumber: 7 * 2 * 3, spotLightsNumber: 1 },
+            controllerConfig: { preventDefault: true, enablePointerLock: true }
+        });
         const camController = new util.ctrl.KeepUpController(camera);
-        const controllerRegistry = new util.ctrl.ControllerRegistry(canvas, [retinaController, camController], { preventDefault: true, enablePointerLock: true });
-        function run() {
-            controllerRegistry.update();
-            renderer.render(scene, camera);
-            window.requestAnimationFrame(run);
-        }
-        run();
+        app.controllerRegistry.add(camController);
+        app.run();
     }
     backrooms.load = load;
     class MapGenerator {

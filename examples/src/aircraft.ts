@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js"
+import * as tesserxel from "../../build/esm/tesserxel.js"
 const FOUR = tesserxel.four;
 const PHY = tesserxel.physics;
 const Vec4 = tesserxel.math.Vec4;
@@ -33,11 +33,11 @@ export namespace aircraft {
 
     export async function load() {
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
+        const app = await FOUR.App.create({ canvas, controllerConfig: { preventDefault: true } });
 
-        renderer.core.setDisplayConfig({ opacity: 12 });
-        renderer.setBackgroudColor([0, 0, 0, 0.2]);
-        const scene = new FOUR.Scene();
+        app.renderer.core.setDisplayConfig({ opacity: 12 });
+        app.renderer.setBackgroudColor([0, 0, 0, 0.2]);
+        const scene = app.scene;
         const gnd = new FOUR.CubeGeometry(20000);
         scene.add(new FOUR.Mesh(gnd, new FOUR.LambertMaterial(new FOUR.CheckerTexture(
             new FOUR.CheckerTexture(
@@ -60,11 +60,10 @@ export namespace aircraft {
             ),
             new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new Obj4(null, null, new Vec4(10, 10, 10, 10)))
         ))));
-        const camera = new FOUR.Camera();
+        const camera = app.camera as tesserxel.four.PerspectiveCamera;
         camera.near = 0.2;
         camera.far = 5000;
         camera.fov = 90;
-        scene.add(camera);
         scene.skyBox = new FOUR.SimpleSkyBox();
         (scene.skyBox as tesserxel.four.SimpleSkyBox).setOpacity(0.05);
         scene.add(new FOUR.AmbientLight(0.2));
@@ -104,8 +103,6 @@ export namespace aircraft {
             geometry: new PHY.rigid.Plane(Vec4.y, 0.3),
             material: new PHY.Material(1, 0.3)
         }));
-
-        const retinaController = new tesserxel.util.ctrl.RetinaController(renderer.core);
 
         const aircraftP = new PHY.Rigid({
             mass: 2, geometry: new PHY.rigid.Tesseractoid(new Vec4(2, 1, 2, 5)),
@@ -162,24 +159,23 @@ export namespace aircraft {
         const aircraftCtrl = new AircraftCtrl(aircraftP, freeCamCtrl, canvas, hud, camera);
         const aircraftMecanism = new AircraftMecanism(aircraftCtrl);
         world.add(aircraftP, aircraftMecanism);
-        const ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
-            retinaController, freeCamCtrl, aircraftCtrl
-        ], { preventDefault: true });
+        app.controllerRegistry.add(freeCamCtrl);
+        app.controllerRegistry.add(aircraftCtrl);
         aircraftMesh1.alwaysUpdateCoord = true;
         for (const [p, o] of phyHelper) {
             scene.add(o);
             o.alwaysUpdateCoord = true;
         }
-        retinaController.toggleCrosshair();
+        app.retinaController.toggleCrosshair();
         function run() {
-            const dt = Math.min(ctrlReg.states.mspf * 0.001 / 3, 1 / 60);
+            const dt = Math.min(app.controllerRegistry.states.mspf * 0.001 / 3, 1 / 60);
             aircraftCtrl.dt = dt;
-            ctrlReg.update();
+            app.controllerRegistry.update();
             engine.update(world, dt);
             for (const [p, o] of phyHelper) {
                 o.copyObj4(p);
             }
-            renderer.render(scene, camera);
+            app.renderer.render(scene, camera);
             aircraftMesh1.copyObj4(aircraftP).translates(new Vec4(0, 0, 0, -3).rotates(aircraftP.rotation));
             window.requestAnimationFrame(run);
             if (aircraftCtrl.camLock) {
@@ -485,12 +481,12 @@ class AircraftCtrl implements tesserxel.util.ctrl.IController {
     };
     rigid: tesserxel.physics.Rigid;
     hudDom: HTMLElement;
-    camera: tesserxel.four.Camera;
+    camera: tesserxel.four.PerspectiveCamera;
     rollXPID: PIDCtrl;
     rollYPID: PIDCtrl;
     dt: number = 1 / 60;
     brake = false;
-    constructor(rigid: tesserxel.physics.Rigid, camCtrl: tesserxel.util.ctrl.KeepUpController, canvas: HTMLCanvasElement, hudDom: HTMLElement, camera: tesserxel.four.Camera) {
+    constructor(rigid: tesserxel.physics.Rigid, camCtrl: tesserxel.util.ctrl.KeepUpController, canvas: HTMLCanvasElement, hudDom: HTMLElement, camera: tesserxel.four.PerspectiveCamera) {
         this.rigid = rigid;
         this.camCtrl = camCtrl;
         this.canvas = canvas;

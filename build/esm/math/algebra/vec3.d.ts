@@ -1,0 +1,88 @@
+import { Vec2 } from "./vec2";
+import { Vec4 } from "./vec4";
+import { Quaternion } from "./quaternion";
+import { Pool } from "../pool";
+import { Srand } from "../random";
+export declare class Vec3Pool extends Pool<Vec3> {
+    constructObject(): Vec3;
+}
+export declare const vec3Pool: Vec3Pool;
+export declare class Vec3 {
+    x: number;
+    y: number;
+    z: number;
+    static readonly x: Vec3;
+    static readonly y: Vec3;
+    static readonly z: Vec3;
+    constructor(x?: number, y?: number, z?: number);
+    flat(): number[];
+    writeBuffer(b: Float32Array, offset?: number): void;
+    copy(v: Vec3): Vec3;
+    set(x?: number, y?: number, z?: number): Vec3;
+    xy(): Vec2;
+    yx(): Vec2;
+    xz(): Vec2;
+    yz(): Vec2;
+    zy(): Vec2;
+    yzx(): Vec3;
+    yxz(): Vec3;
+    zyx(): Vec3;
+    zxy(): Vec3;
+    xzy(): Vec3;
+    xyz0(): Vec4;
+    x0yz(): Vec4;
+    clone(): Vec3;
+    add(v2: Vec3): Vec3;
+    addset(v1: Vec3, v2: Vec3): Vec3;
+    addf(v2: number): Vec3;
+    adds(v2: Vec3): Vec3;
+    addfs(v2: number): Vec3;
+    /** this += v * k */
+    addmulfs(v: Vec3, k: number): this;
+    neg(): Vec3;
+    negs(): Vec3;
+    sub(v2: Vec3): Vec3;
+    subset(v1: Vec3, v2: Vec3): Vec3;
+    subf(v2: number): Vec3;
+    subs(v2: Vec3): Vec3;
+    subfs(v2: number): Vec3;
+    mulf(v2: number): Vec3;
+    mulfs(v2: number): Vec3;
+    mul(v2: Vec3): Vec3;
+    muls(v2: Vec3): Vec3;
+    divf(v2: number): Vec3;
+    divfs(v2: number): Vec3;
+    div(v2: Vec3): Vec3;
+    divs(v2: Vec3): Vec3;
+    dot(v2: Vec3): number;
+    norm(): number;
+    norms(): Vec3;
+    normsqr(): number;
+    norm1(): number;
+    norminf(): number;
+    normi(i: number): number;
+    wedge(v3: Vec3): Vec3;
+    /** this.set(v1 ^ v2) */
+    wedgeset(v1: Vec3, v2: Vec3): Vec3;
+    /** this = this ^ v */
+    wedgesr(v: Vec3): Vec3;
+    exp(): Quaternion;
+    rotate(q: Quaternion): Vec3;
+    rotates(q: Quaternion): Vec3;
+    randset(): Vec3;
+    srandset(seed: Srand): Vec3;
+    static rand(): Vec3;
+    static srand(seed: Srand): Vec3;
+    distanceTo(p: Vec3): number;
+    distanceSqrTo(p: Vec3): number;
+    reflect(normal: Vec3): Vec3;
+    reflects(normal: Vec3): Vec3;
+    equal(v: Vec3): boolean;
+    pushPool(pool?: Vec3Pool): void;
+}
+export declare let _vec3: Vec3;
+export declare let _vec3_1: Vec3;
+export declare let _vec3_2: Vec3;
+export declare let _vec3_3: Vec3;
+export declare let _vec3_4: Vec3;
+export declare let _vec3_5: Vec3;

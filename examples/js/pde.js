@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js";
+import * as tesserxel from "../../build/esm/tesserxel.js";
 export var wave_eq;
 (function (wave_eq) {
     async function load() {
@@ -158,7 +158,7 @@ export var wave_eq;
             uBlockJsBuffer[1] = dt;
             for (let i = 0; i < step; i++) {
                 t += dt;
-                uBlockJsBuffer[0] = (Math.sin(t * 4));
+                uBlockJsBuffer[0] = (t > Math.PI * 2) ? 0 : (Math.sin(t * 4));
                 device.queue.writeBuffer(uBlockBuffer, 0, uBlockJsBuffer);
                 passEncoder.setPipeline(computePipeline1);
                 passEncoder.setBindGroup(0, computeBindgroup1);

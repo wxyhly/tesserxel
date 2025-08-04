@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js"
+import * as tesserxel from "../../build/esm/tesserxel.js"
 export namespace hello_tetra1 {
     export async function load() {
         const gpu = await new tesserxel.render.GPU().init();

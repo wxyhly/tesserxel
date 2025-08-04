@@ -11,16 +11,35 @@
   "license": "ISC",
   "type": "module",
   "main": "./build/tesserxel.js",
-  "module": "./build/tesserxel.js",
+  "module": "./build/esm/tesserxel.js",
   "exports": {
     ".": {
       "import": "./build/tesserxel.js"
-    }
+    },
+    "./math":{
+      "import": "./build/math/math.js"
+    },
+    "./four":{
+      "import": "./build/four/four.js"
+    },
+    "./mesh":{
+      "import": "./build/mesh/mesh.js"
+    },
+    "./physics":{
+      "import": "./build/physics/physics.js"
+    },
+    "./render":{
+      "import": "./build/render/render.js"
+    },
+    "./util":{
+      "import": "./build/util/util.js"
+    }    
   },
   "devDependencies": {
     "@webgpu/types": "^0.1.30",
     "rollup": "^3.2.1",
     "rollup-plugin-dts": "^5.0.0",
+    "rollup-plugin-multi-input": "^1.5.0",
     "rollup-plugin-typescript2": "^0.34.1",
     "tslib": "^2.4.0",
     "typescript": "^4.8.4"

@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js";
+import * as tesserxel from "../../build/esm/tesserxel.js";
 export var city_freeway;
 (function (city_freeway) {
     const vec4 = tesserxel.math.Vec4;

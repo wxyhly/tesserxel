@@ -1,0 +1,1 @@
+{"version":3,"file":"renderer.js","sources":["../../../../src/render/voxel/renderer.ts"],"sourcesContent":["export class VoxelRenderer{\r\n    constructor(){\r\n        \r\n    }\r\n    render(){\r\n\r\n    }\r\n}"],"names":[],"mappings":"MAAa,aAAa,CAAA;AACtB,IAAA,WAAA,GAAA;KAEC;IACD,MAAM,GAAA;KAEL;AACJ;;;;"}

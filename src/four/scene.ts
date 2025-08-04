@@ -1,9 +1,7 @@
 import { AffineMat4, Obj4 } from "../math/algebra/affine";
-import { Vec3 } from "../math/algebra/vec3";
 import { Vec4 } from "../math/algebra/vec4";
-import { PerspectiveCamera } from "../math/geometry/camera";
+import { OrthographicCamera as IOrthographicCamera, PerspectiveCamera as IPerspectiveCamera } from "../math/geometry/camera";
 import { AABB } from "../math/geometry/primitive";
-import { tetra } from "../mesh/mesh";
 import { TetraMesh, TetraMeshData } from "../mesh/tetra";
 import { RaytracingPipeline, RaytracingPipelineDescriptor } from "../render/slice/slice";
 import { Material } from "./material";
@@ -56,13 +54,22 @@ export class Object extends Obj4 {
         }
     }
 }
-export class Camera extends Object implements PerspectiveCamera {
+export class PerspectiveCamera extends Object implements IPerspectiveCamera {
     fov: number = 90;
     near: number = 0.1;
     far: number = 100;
     alwaysUpdateCoord = true;
     needsUpdate = true;
 }
+
+export class OrthographicCamera extends Object implements IOrthographicCamera {
+    size: number;
+    near: number;
+    far: number;
+    alwaysUpdateCoord = true;
+    needsUpdate = true;
+}
+export type Camera = PerspectiveCamera | OrthographicCamera;
 export class Mesh extends Object {
     geometry: Geometry;
     material: Material;

@@ -1,11 +1,11 @@
-import * as tesserxel from "../../build/tesserxel.js";
+import * as tesserxel from "../../build/esm/tesserxel.js";
 export var four_materials;
 (function (four_materials) {
     async function load() {
         const FOUR = tesserxel.four;
         const canvas = document.getElementById("gpu-canvas");
-        let renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
-        let scene = new FOUR.Scene();
+        const app = await FOUR.App.create({ canvas, controllerConfig: { enablePointerLock: true } });
+        let scene = app.scene;
         let cubeGeometry = new FOUR.TesseractGeometry();
         let glomeGeometry = new FOUR.GlomeGeometry();
         let floorGeometry = new FOUR.CubeGeometry(10.0);
@@ -45,17 +45,14 @@ export var four_materials;
         pointLight2.alwaysUpdateCoord = true;
         pointLight3.alwaysUpdateCoord = true;
         spotLight.alwaysUpdateCoord = true;
-        let camera = new FOUR.Camera();
+        let camera = app.camera;
         camera.position.w = 5.0;
         camera.position.y = 2.0;
         camera.lookAt(tesserxel.math.Vec4.wNeg, new tesserxel.math.Vec4());
         scene.add(camera);
-        let controller = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
-            new tesserxel.util.ctrl.KeepUpController(camera),
-            new tesserxel.util.ctrl.RetinaController(renderer.core)
-        ], { enablePointerLock: true });
+        app.controllerRegistry.add(new tesserxel.util.ctrl.KeepUpController(camera));
         let t = Math.random() * 12345678;
-        function run() {
+        app.run(() => {
             spotLight.direction.copy(new tesserxel.math.Vec4(Math.sin(t * 3), Math.cos(t * 3), Math.sin(t * 1.732), Math.cos(t * 1.732)).adds(tesserxel.math.Vec4.y.mulf(6)).norms());
             pointLight.position.set(Math.sin(t * 3), 0.5, Math.cos(t * 3), 0).mulfs(3);
             pointLight2.position.set(0, 0.5, Math.sin(t * 3), Math.cos(t * 3)).mulfs(3);
@@ -63,11 +60,7 @@ export var four_materials;
             dirLight.direction.set(Math.sin(t * 20), 0.2, Math.cos(t * 20) * 0.2, Math.cos(t * 20)).norms();
             uniformColor.write([Math.sin(t) * 0.3 + 0.7, Math.sin(t * 0.91) * 0.5 + 0.5, Math.sin(t * 1.414) * 0.5 + 0.5]);
             t += 0.01;
-            controller.update();
-            renderer.render(scene, camera);
-            window.requestAnimationFrame(run);
-        }
-        run();
+        });
     }
     four_materials.load = load;
 })(four_materials || (four_materials = {}));

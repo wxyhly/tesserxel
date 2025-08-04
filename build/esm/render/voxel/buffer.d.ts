@@ -1,0 +1,17 @@
+/// <reference types="@webgpu/types" />
+import { GPU } from "../gpu";
+export declare type Size3DDict = {
+    width: number;
+    height: number;
+    depth: number;
+};
+export interface VoxelBuffer {
+    buffer: GPUBuffer;
+    header?: ArrayBuffer;
+    width: number;
+    height: number;
+    depth: number;
+    length: number;
+    formatSize: number;
+}
+export declare function createVoxelBuffer(gpu: GPU, size: GPUExtent3D, formatSize: number, header?: ArrayBuffer, headerSize?: number): VoxelBuffer;

@@ -1,4 +1,4 @@
-import { math, four, util, mesh } from "../../build/tesserxel.js";
+import { math, four, util, mesh } from "../../build/esm/tesserxel.js";
 async function loadFile(src) {
     return new Promise((resolve, reject) => {
         let xhr = new XMLHttpRequest();
@@ -36,7 +36,7 @@ const tieLen = 1.5;
 const wheelAxleHeight = 0.41 + wheelR;
 const trainOverHeight = 0.1 + wheelR + wheelAxleHeight;
 const scene = new four.Scene();
-const camera = new four.Camera();
+const camera = new four.PerspectiveCamera();
 scene.add(camera);
 const material = {
     rustedSteel: new four.PhongMaterial([0.3, 0.22, 0.1, 20.0]),
@@ -93,6 +93,7 @@ export var rail2d;
     const projErr = 0.0001;
     const tieZLen = 9;
     async function load() {
+        const app = await four.App.create({ canvas, scene, camera, controllerConfig: { preventDefault: true, enablePointerLock: true } });
         ground.position.w = 100;
         ground.position.x = -100;
         ground.scale = new math.Vec4(2, 2, 2, 2);
@@ -121,13 +122,13 @@ export var rail2d;
         scene.add(train);
         camera.position.w = -4;
         camera.position.y = wheelAxleHeight;
-        const renderer = await new four.Renderer(canvas).init();
+        const renderer = app.renderer;
         renderer.core.setDisplayConfig({ opacity: 5 });
-        const retinaController = new util.ctrl.RetinaController(renderer.core);
         const camController = new util.ctrl.KeepUpController(camera);
         camController.keyMoveSpeed *= 4.0;
         const trainCtrl = new TrainObj4Mgr(backBogieFrame, frontBogieFrame, camController);
-        const controllerRegistry = new util.ctrl.ControllerRegistry(canvas, [retinaController, camController, trainCtrl], { preventDefault: true, enablePointerLock: true });
+        app.controllerRegistry.add(camController);
+        app.controllerRegistry.add(trainCtrl);
         function setSize() {
             const width = window.innerWidth * window.devicePixelRatio;
             const height = window.innerHeight * window.devicePixelRatio;
@@ -144,7 +145,7 @@ export var rail2d;
             wheelsf1.rotation.mulsr(R);
             wheelsf2.rotation.copy(wheelsf1.rotation);
             wheelsb.rotation.mulsr(R);
-            controllerRegistry.update();
+            app.controllerRegistry.update();
             renderer.render(scene, camera);
             window.requestAnimationFrame(run);
         }
@@ -432,6 +433,7 @@ export var rail1d;
         }
     }
     async function load() {
+        const app = await four.App.create({ canvas, scene, camera, controllerConfig: { preventDefault: true, enablePointerLock: true } });
         camera.position.w = -3;
         camera.position.y = 0.32;
         scene.add(new four.Mesh(await genRail(), material.rustedSteel));
@@ -458,13 +460,13 @@ export var rail1d;
         let voiture2 = new four.Mesh(voiture, material.voiture);
         let voiture3 = new four.Mesh(voiture, material.voiture);
         train.add(voiture1, voiture2, voiture3);
-        const renderer = (await new four.Renderer(canvas).init()).autoSetSize();
+        const renderer = app.renderer;
         renderer.core.setDisplayConfig({ opacity: 5 });
-        const retinaController = new util.ctrl.RetinaController(renderer.core);
         const camController = new util.ctrl.KeepUpController(camera);
         camController.keyMoveSpeed *= 5.0;
         const trainCtrl = new TrainCtrl;
-        const controllerRegistry = new util.ctrl.ControllerRegistry(canvas, [retinaController, camController, trainCtrl], { preventDefault: true, enablePointerLock: true });
+        app.controllerRegistry.add(camController);
+        app.controllerRegistry.add(trainCtrl);
         let splineData = sp.generate(spSeg);
         function run() {
             let nextPos;
@@ -489,7 +491,7 @@ export var rail1d;
             setVoiture(voiture3, prevPos + bogiesGap, nextPos);
             setWheel(wheel3b1, nextPos - bogieGap);
             setWheel(wheel3b2, nextPos);
-            controllerRegistry.update();
+            app.controllerRegistry.update();
             renderer.render(scene, camera);
             window.requestAnimationFrame(run);
         }

@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js";
+import * as tesserxel from "../../build/esm/tesserxel.js";
 const FOUR = tesserxel.four;
 const phy = tesserxel.physics;
 const math = tesserxel.math;
@@ -217,7 +217,7 @@ export var st_pile;
         const roomSize = 2.5;
         addRoom(roomSize, world, phyMatRoom, scene, renderMatRoom);
         // set up lights, camera and renderer
-        let camera = new FOUR.Camera();
+        let camera = new FOUR.PerspectiveCamera();
         camera.position.w = 3;
         camera.position.y = 1.5;
         scene.add(camera);
@@ -226,7 +226,8 @@ export var st_pile;
         scene.add(new FOUR.DirectionalLight([0.1, 0.2, 0.3], new math.Vec4(-0.2, 0.2, -0.2, -0.4).norms()));
         scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
+        const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } });
+        const renderer = app.renderer;
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -291,13 +292,14 @@ export var rigid_test;
             mass: 0, material: phyMatGround
         }));
         // set up lights, camera and renderer
-        let camera = new FOUR.Camera();
+        let camera = new FOUR.PerspectiveCamera();
         camera.position.w = 4;
         camera.position.y = 4;
         scene.add(camera);
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
+        const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } });
+        const renderer = app.renderer;
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -398,13 +400,14 @@ export var st_ts_chain;
         // add point constrain to the first ring
         world.add(new phy.PointConstrain(torisphereArr[0], null, math.Vec4.x, torisphereArr[0].position.add(math.Vec4.x)));
         // set up lights, camera and renderer
-        let camera = new FOUR.Camera();
+        let camera = new FOUR.PerspectiveCamera();
         camera.position.w = 9;
         camera.position.y = 8;
         scene.add(camera);
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
+        const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } });
+        const renderer = app.renderer;
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -561,13 +564,14 @@ export var tg_tg_chain;
         // add point constrain to the first ring
         world.add(new phy.PointConstrain(tg1Arr[0], null, math.Vec4.x, tg1Arr[0].position.add(math.Vec4.x.rotate(tg1Arr[0].rotation))));
         // set up lights, camera and renderer
-        let camera = new FOUR.Camera();
+        let camera = new FOUR.PerspectiveCamera();
         camera.position.w = 9;
         camera.position.y = 8;
         scene.add(camera);
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
+        const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } });
+        const renderer = app.renderer;
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -725,14 +729,15 @@ var dzhanibekov;
         addRigidToScene(world, scene, renderMat, g);
         rigidsInSceneLists[0][0].add(compassMeshNS, compassMeshWE, compassMeshMG, compassMeshUD);
         scene.add(fixMeshNS, fixMeshWE, fixMeshMG, fixMeshUD);
-        let camera = new FOUR.Camera();
+        let camera = new FOUR.PerspectiveCamera();
         camera.position.w = 4;
         scene.add(camera);
         scene.add(new FOUR.AmbientLight(0.3));
         scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
         scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
+        const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } });
+        const renderer = app.renderer;
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -808,7 +813,7 @@ async function loadGyroScene(cwmesh, material) {
     const engine = new phy.Engine({ substep: 30, forceAccumulator: phy.force_accumulator.RK4 });
     const world = new phy.World();
     const scene = new FOUR.Scene();
-    let camera = new FOUR.Camera();
+    let camera = new FOUR.PerspectiveCamera();
     camera.position.w = 4;
     camera.position.y = 0.6;
     scene.add(camera);
@@ -830,7 +835,8 @@ async function loadGyroScene(cwmesh, material) {
     gyroLogic.rotatesb(tesserxel.math.Bivec.rand().mulfs(0.01)); // pertubation
     rigidsInSceneLists.push([gyroDisplay, gyroLogic]);
     const canvas = document.getElementById("gpu-canvas");
-    const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
+    const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } });
+    const renderer = app.renderer;
     renderer.core.setDisplayConfig({
         screenBackgroundColor: [1, 1, 1, 1],
         sectionStereoEyeOffset: 0.5,
@@ -1112,14 +1118,15 @@ export var thermo_stats;
         world.add(cavity);
         // addRoom(2, world, borderMat, scene, renderMat, true);
         // set up lights, camera and renderer
-        let camera = new FOUR.Camera();
+        let camera = new FOUR.PerspectiveCamera();
         camera.position.w = -5;
         scene.add(camera);
         scene.add(new FOUR.AmbientLight(0.3));
         scene.add(new FOUR.DirectionalLight([2.2, 2.0, 1.9], new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()));
         scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
+        const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } });
+        const renderer = app.renderer;
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -1130,16 +1137,12 @@ export var thermo_stats;
         const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
         retinaCtrl.toggleSectionConfig("zsection");
         const gui = new GUI;
+        gui.setSize();
+        app.onresize = () => gui.setSize();
         const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
             retinaCtrl,
             camCtrl,
         ], { enablePointerLock: true });
-        function setSize() {
-            let width = window.innerWidth * window.devicePixelRatio;
-            let height = window.innerHeight * window.devicePixelRatio;
-            renderer.setSize({ width, height });
-            gui.setSize();
-        }
         let time = 0;
         let factor = 0.1;
         let Ebuffer = [100, 100, 100, 100, 100, 100, 100, 100];
@@ -1226,13 +1229,14 @@ export var mix_chain;
         // add point constrain to the first ring
         world.add(new phy.PointConstrain(tgArr[0], null, math.Vec4.x, tgArr[0].position.add(math.Vec4.x.rotate(tgArr[0].rotation))));
         // set up lights, camera and renderer
-        let camera = new FOUR.Camera();
+        let camera = new FOUR.PerspectiveCamera();
         camera.position.w = 9;
         camera.position.y = 8;
         scene.add(camera);
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
+        const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } });
+        const renderer = app.renderer;
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -1312,14 +1316,15 @@ export var dt_ts_chain;
             tsArr.push(ts);
         }
         // set up lights, camera and renderer
-        let camera = new FOUR.Camera();
+        let camera = new FOUR.PerspectiveCamera();
         camera.position.w = 9;
         camera.position.y = 8;
         camera.position.z = 0.1;
         scene.add(camera);
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
+        const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } });
+        const renderer = app.renderer;
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -1398,13 +1403,14 @@ export var ditorus;
         addRigidToScene(world, scene, renderMatTS1, ts1);
         addRigidToScene(world, scene, renderMatTS2, ts2);
         // set up lights, camera and renderer
-        let camera = new FOUR.Camera();
+        let camera = new FOUR.PerspectiveCamera();
         camera.position.w = 9;
         camera.position.y = 8;
         scene.add(camera);
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
+        const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } });
+        const renderer = app.renderer;
         renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
@@ -1452,17 +1458,17 @@ async function loadMaxwell(cb) {
     let maxwell = new phy.MaxWell();
     world.add(maxwell);
     const canvas = document.getElementById("gpu-canvas");
-    const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
-    await cb(world, maxwell, scene, renderer);
+    const app = await tesserxel.four.App.create({ canvas, scene, controllerConfig: { enablePointerLock: true } });
+    await cb(world, maxwell, scene, app.renderer);
     // set up lights, camera and renderer
-    let camera = new FOUR.Camera();
+    let camera = app.camera;
     camera.position.w = 9;
     camera.position.y = 8;
     scene.add(camera);
     initScene(scene);
     scene.skyBox = null; // delete skyBox in initScene() to save resources, because sky can't be seen
-    await renderer.compileMaterials(scene);
-    renderer.core.setDisplayConfig({
+    await app.renderer.compileMaterials(scene);
+    app.renderer.core.setDisplayConfig({
         screenBackgroundColor: [1, 1, 1, 1],
         sectionStereoEyeOffset: 0.5,
         opacity: 20
@@ -1480,34 +1486,17 @@ async function loadMaxwell(cb) {
         enabled: true,
         gravity: true
     };
-    const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
-    const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
+    const emitCtrl = new EmitGlomeController(world, scene, camera, app.renderer);
     emitCtrl.glomeRadius = 1;
     emitCtrl.maximumBulletDistance = 70;
     emitCtrl.initialSpeed = 10;
-    const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
-        retinaCtrl,
-        camCtrl,
-        emitCtrl,
-        gravityCtrl
-    ], { enablePointerLock: true });
-    function setSize() {
-        let width = window.innerWidth * window.devicePixelRatio;
-        let height = window.innerHeight * window.devicePixelRatio;
-        renderer.setSize({ width, height });
-    }
-    function run() {
-        // syncronise physics world and render scene
+    app.controllerRegistry.add(camCtrl);
+    app.controllerRegistry.add(emitCtrl);
+    app.controllerRegistry.add(gravityCtrl);
+    app.run(() => {
         updateRidigsInScene();
-        // update controller states
-        controllerRegistry.update();
-        // rendering
-        renderer.render(scene, camera);
-        // simulating physics
-        engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
-        window.requestAnimationFrame(run);
-    }
-    run();
+        engine.update(world, Math.min(1 / 15, app.controllerRegistry.states.mspf / 1000));
+    });
 }
 export var e_charge;
 (function (e_charge) {
@@ -1703,42 +1692,123 @@ export var dice_yugu233;
             dice.angularVelocity.randset().mulfs(3);
         }
         // set up lights, camera and renderer
-        let camera = new FOUR.Camera();
+        let camera = new FOUR.PerspectiveCamera();
         camera.position.w = 7;
         camera.position.y = 1;
         scene.add(camera);
         initScene(scene);
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
-        renderer.core.setDisplayConfig({
+        const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } });
+        app.renderer.core.setDisplayConfig({
             screenBackgroundColor: [1, 1, 1, 1],
             sectionStereoEyeOffset: 0.5,
-            opacity: 30
+            opacity: 30,
         });
         // controllers
         const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        app.controllerRegistry.add(camCtrl);
         camCtrl.keyMoveSpeed = 0.01;
-        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
-        const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
+        const emitCtrl = new EmitGlomeController(world, scene, camera, app.renderer);
         emitCtrl.initialSpeed = 10;
-        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
-            retinaCtrl,
-            camCtrl,
-            emitCtrl
-        ], { enablePointerLock: true });
-        function run() {
+        app.controllerRegistry.add(emitCtrl);
+        app.run(() => {
             // syncronise physics world and render scene
             updateRidigsInScene();
-            // update controller states
-            controllerRegistry.update();
-            // rendering
-            renderer.render(scene, camera);
-            // simulating physics
-            engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000));
-            window.requestAnimationFrame(run);
-        }
-        run();
+            engine.update(world, Math.min(1 / 15, app.controllerRegistry.states.mspf / 1000));
+        });
     }
     dice_yugu233.load = load;
 })(dice_yugu233 || (dice_yugu233 = {}));
+class gravityApp {
+    async load(initVelocity, G) {
+        const engine = new phy.Engine({ substep: 100 });
+        const world = new phy.World();
+        const scene = new FOUR.Scene();
+        let camera = new FOUR.PerspectiveCamera();
+        camera.position.w = 9;
+        scene.add(camera);
+        scene.add(new FOUR.AmbientLight(0.5));
+        scene.add(new FOUR.DirectionalLight([1, 1, 1], new math.Vec4(1, -3, 2, 1.414)));
+        const count = 15;
+        const totalV = new math.Vec4(0, 0, 0, 0);
+        for (let i = 0; i < count; i++) {
+            let sphere = new phy.Rigid({
+                geometry: new phy.rigid.Glome(0.2),
+                material: new phy.Material(1, 0.4), mass: 2
+            });
+            addRigidToScene(world, scene, new FOUR.LambertMaterial([0.2, 0.2, 1, 0.1]), sphere);
+            sphere.position.randset().mulfs(5);
+            sphere.velocity.randset().mulfs(initVelocity);
+            totalV.adds(sphere.velocity);
+            sphere.rotation.randset();
+            sphere.angularVelocity.randset().mulfs(0.1);
+            G.add(sphere);
+        }
+        totalV.divfs(count);
+        for (const c of G.rigids) {
+            c.velocity.subs(totalV);
+        }
+        // let sphere = new phy.Rigid({
+        //     geometry: new phy.rigid.Glome(0.2),
+        //     material: new phy.Material(1, 0), mass: 41
+        // });
+        // addRigidToScene(world, scene, new FOUR.LambertMaterial([0.2, 0.2, 1, 0.1]), sphere);
+        // sphere.position.x = 2;
+        // sphere.velocity.y = -initVelocity*2;
+        // G.add(sphere);
+        // let sphere2 = new phy.Rigid({
+        //     geometry: new phy.rigid.Glome(0.2),
+        //     material: new phy.Material(1, 0), mass: 41
+        // });
+        // addRigidToScene(world, scene, new FOUR.LambertMaterial([0.2, 0.2, 1, 0.1]), sphere2);
+        // sphere2.position.x = -2;
+        // sphere2.velocity.y = initVelocity*2;
+        // G.add(sphere2);
+        world.gravity.set();
+        world.add(G);
+        const canvas = document.getElementById("gpu-canvas");
+        const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } });
+        app.renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 300,
+            // retinaLayers: 64,
+        });
+        // controllers
+        const camCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
+        app.controllerRegistry.add(camCtrl);
+        app.run(() => {
+            // syncronise physics world and render scene
+            updateRidigsInScene();
+            engine.update(world, Math.min(1 / 15, app.controllerRegistry.states.mspf / 1000) * 0.2);
+        });
+    }
+}
+export var gravity2;
+(function (gravity2) {
+    async function load() {
+        const G = new phy.Gravity(-2);
+        G.gain = 12;
+        await new gravityApp().load(3.5, G);
+    }
+    gravity2.load = load;
+})(gravity2 || (gravity2 = {}));
+export var gravity3;
+(function (gravity3) {
+    async function load() {
+        const G = new phy.Gravity(-3);
+        G.gain = 20;
+        await new gravityApp().load(2.5, G);
+    }
+    gravity3.load = load;
+})(gravity3 || (gravity3 = {}));
+export var gravity3s;
+(function (gravity3s) {
+    async function load() {
+        const G = new phy.Gravity(-3, -10);
+        G.gain = 20;
+        await new gravityApp().load(2.1, G);
+    }
+    gravity3s.load = load;
+})(gravity3s || (gravity3s = {}));
 //# sourceMappingURL=rigids.js.map

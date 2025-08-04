@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js"
+import * as tesserxel from "../../build/esm/tesserxel.js"
 export namespace spring_rope {
     export async function load() {
         const math = tesserxel.math;
@@ -11,11 +11,12 @@ export namespace spring_rope {
 
         const FOUR = tesserxel.four;
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
-        const renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
-        let scene = new FOUR.Scene();
-        renderer.setBackgroudColor([1, 1, 1, 1]);
+        const app = await tesserxel.four.App.create({ canvas, controllerConfig: { enablePointerLock: true } });
+
+        let scene = app.scene;
+        app.renderer.setBackgroudColor([1, 1, 1, 1]);
         scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
-        let camera = new FOUR.Camera();
+        let camera = app.camera as tesserxel.four.PerspectiveCamera;
         camera.position.w = 2;
         scene.add(camera);
         const glomeGeometry = new FOUR.GlomeGeometry(glomeRadius);
@@ -33,11 +34,8 @@ export namespace spring_rope {
         meshGlome0.position.copy(pointA);
         scene.add(new FOUR.DirectionalLight([3.3, 3, 3], new math.Vec4(0, 1, 0, 3).norms()));
         scene.add(new FOUR.DirectionalLight([0.2, 0.3, 0.4], math.Vec4.yNeg));
-        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
-            new tesserxel.util.ctrl.RetinaController(renderer.core),
-            new tesserxel.util.ctrl.KeepUpController(camera)
-        ], { enablePointerLock: true });
-        renderer.core.setDisplayConfig({ opacity: 10 });
+        app.controllerRegistry.add(new tesserxel.util.ctrl.KeepUpController(camera));
+        app.renderer.core.setDisplayConfig({ opacity: 10 });
 
         // init physic scene
 
@@ -60,7 +58,7 @@ export namespace spring_rope {
         world.add(new phy.Spring(physicGlomes[glomeNums - 1], null, new math.Vec4(), pointB, k, l));
 
         // run everything
-        function run() {
+        app.run(() => {
             for (let i = 0; i < glomeNums; i++) {
                 renderGlomes[i].copyObj4(physicGlomes[i]);
                 renderGlomes[i].needsUpdateCoord = true;
@@ -70,12 +68,7 @@ export namespace spring_rope {
             pointB.set(0, Math.sin(world.time * omega) * 0.2 + 1, Math.cos(world.time * omega) * 0.2, 0);
             meshGlome1.position.copy(pointB);
             meshGlome1.needsUpdateCoord = true;
-            controllerRegistry.update();
-            renderer.render(scene, camera);
             engine.update(world, 1 / 60)
-            window.requestAnimationFrame(run);
-        }
-        run();
-
+        });
     }
 }

@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js"
+import * as tesserxel from "../../build/esm/tesserxel.js"
 export namespace city_freeway {
     const vec4 = tesserxel.math.Vec4;
     const vec3 = tesserxel.math.Vec3;

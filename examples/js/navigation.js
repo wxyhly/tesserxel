@@ -1,4 +1,4 @@
-import { math, four, util, physics } from "../../build/tesserxel.js";
+import { math, four, util, physics } from "../../build/esm/tesserxel.js";
 export var navigation;
 (function (navigation) {
     class GlomeSurfaceScatter {
@@ -65,7 +65,7 @@ export var navigation;
         const compassMeshCenter = new four.Mesh(new four.TesseractGeometry(compassThickness * 1.3), new four.LambertMaterial([1, 1, 1, 1]));
         const compassMesh = new four.Object();
         compassMesh.add(compassMeshN, compassMeshS, compassMeshWE, compassMeshMG, compassMeshCenter);
-        const camera = new four.Camera();
+        const camera = new four.PerspectiveCamera();
         scene.add(camera);
         scene.add(compassMesh);
         scene.add(planet);
@@ -76,15 +76,16 @@ export var navigation;
         scene.add(new four.AmbientLight([0.2, 0.2, 0.24]));
         camera.position.y = planetRadius + 0.3;
         const canvas = document.getElementById("gpu-canvas");
-        const renderer = (await new four.Renderer(canvas).init()).autoSetSize();
+        const app = await four.App.create({ canvas, scene, camera, controllerConfig: { preventDefault: true, enablePointerLock: true } });
+        const renderer = app.renderer;
         renderer.core.setDisplayConfig({ opacity: 20 });
         const skyBox = new NishitaPlanetSkyBox();
         scene.skyBox = skyBox;
         renderer.setBackgroudColor([1, 1, 1, 1]);
-        const retinaController = new util.ctrl.RetinaController(renderer.core);
         const camController = new util.ctrl.FreeFlyController(camera);
         const timeCtrl = new TimeCtrl();
-        const controllerRegistry = new util.ctrl.ControllerRegistry(canvas, [retinaController, camController, timeCtrl], { preventDefault: true, enablePointerLock: true });
+        app.controllerRegistry.add(camController);
+        app.controllerRegistry.add(timeCtrl);
         const gui = new GUI();
         const solar_sys = new SolarSystem();
         const compass_sys = new CompassSystem(0);
@@ -92,9 +93,9 @@ export var navigation;
         window.addEventListener("resize", () => gui.setSize());
         gui.setSize();
         function run() {
-            controllerRegistry.update();
+            app.controllerRegistry.update();
             if (!timeCtrl.timePaused)
-                time += controllerRegistry.states.mspf / 6000;
+                time += app.controllerRegistry.states.mspf / 6000;
             sunLight.direction = solar_sys.getRelSunPos(time);
             skyBox.setSunPosition(sunLight.direction);
             // calculate camera's and world's y-w planes, whether they are aligned

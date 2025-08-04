@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js";
+import * as tesserxel from "../../build/esm/tesserxel.js";
 const FOUR = tesserxel.four;
 class StructBuilder {
     molObj;
@@ -166,9 +166,9 @@ export var hyperdiamond;
         const bondGeom = new tesserxel.four.Geometry(tesserxel.mesh.tetra.spherinderSide(10, 10, 1, 1, 1));
         const bondMat = new FOUR.PhongMaterial([0.93, 0.87, 0.8]);
         const canvas = document.getElementById("gpu-canvas");
-        let renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
-        let scene = new FOUR.Scene();
-        renderer.core.setDisplayConfig({ opacity: 50, screenBackgroundColor: [1, 1, 1, 1], sectionStereoEyeOffset: 40 });
+        const app = await tesserxel.four.App.create({ canvas, controllerConfig: { preventDefault: true } });
+        let scene = app.scene;
+        app.renderer.core.setDisplayConfig({ opacity: 50, screenBackgroundColor: [1, 1, 1, 1], sectionStereoEyeOffset: 40 });
         scene.setBackgroudColor([1, 1, 1, 0.0]);
         scene.add(new FOUR.AmbientLight(0.3));
         let dirLight = new FOUR.DirectionalLight([0.9, 0.8, 0.8], new tesserxel.math.Vec4(1, -1, 0, -1).norms());
@@ -177,7 +177,7 @@ export var hyperdiamond;
         scene.add(dirLight2);
         let dirLight3 = new FOUR.DirectionalLight([0.7, 0.6, 0.5], new tesserxel.math.Vec4(-1, 0, -1, 0).norms());
         scene.add(dirLight3);
-        let camera = new FOUR.Camera();
+        let camera = app.camera;
         camera.near = 0.02;
         camera.far = 5;
         camera.fov = 80;
@@ -187,15 +187,9 @@ export var hyperdiamond;
         camera.position.w = 2;
         let builder = new DiamondBuilder(16, 0, atomGeom, bondGeom, bondMat);
         builder.buildAndAddToScene(scene);
-        let retinaController = new tesserxel.util.ctrl.RetinaController(renderer.core);
         const trackballCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
-        let controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [trackballCtrl, retinaController], { preventDefault: true });
-        function run() {
-            controllerRegistry.update();
-            renderer.render(scene, camera);
-            window.requestAnimationFrame(run);
-        }
-        run();
+        app.controllerRegistry.add(trackballCtrl);
+        app.run();
     }
     hyperdiamond.load = load;
 })(hyperdiamond || (hyperdiamond = {}));
@@ -220,7 +214,7 @@ export var vsepr;
         const central = new FOUR.Mesh(atomGeom, new FOUR.PhongMaterial([0.8, 0.0, 0.0]));
         central.scale = new tesserxel.math.Vec4(0.3, 0.3, 0.3, 0.3);
         scene.add(central);
-        let camera = new FOUR.Camera();
+        let camera = new FOUR.PerspectiveCamera();
         camera.near = 0.02;
         camera.far = 5;
         camera.fov = 80;

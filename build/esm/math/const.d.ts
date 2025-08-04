@@ -1,0 +1,13 @@
+export declare const _180: number;
+export declare const _30: number;
+export declare const _60: number;
+export declare const _45: number;
+export declare const _90: number;
+export declare const _120: number;
+export declare const _360: number;
+export declare const _DEG2RAD: number;
+export declare const _RAD2DEG: number;
+export declare const _SQRT_3: number;
+export declare const _COS30: number;
+export declare const _TAN30: number;
+export declare const _GOLDRATIO: number;

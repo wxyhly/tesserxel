@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js";
+import * as tesserxel from "../../build/esm/tesserxel.js";
 const FOUR = tesserxel.four;
 const canvas = document.getElementById("gpu-canvas");
 class LatticeApp {
@@ -6,8 +6,9 @@ class LatticeApp {
     scene;
     glomeGeometry;
     async init() {
-        this.renderer = (await new FOUR.Renderer(canvas).init()).autoSetSize();
-        this.scene = new FOUR.Scene();
+        const app = await tesserxel.four.App.create({ canvas, controllerConfig: { enablePointerLock: true } });
+        this.scene = app.scene;
+        this.renderer = app.renderer;
         this.renderer.core.setDisplayConfig({ opacity: 5.0, sectionStereoEyeOffset: 0.5 });
         this.scene.backGroundColor = [0.6, 0.8, 0.9, 0.2];
         this.glomeGeometry = new FOUR.GlomeGeometry(0.4, 1);
@@ -24,20 +25,11 @@ class LatticeApp {
         this.scene.add(dirLight2);
         this.scene.add(dirLight3);
         this.scene.add(dirLight4);
-        let camera = new FOUR.Camera();
+        let camera = app.camera;
         camera.position.w = 5.0;
         this.scene.add(camera);
-        let controller = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
-            // new tesserxel.util.ctrl.KeepUpController(camera),
-            new tesserxel.util.ctrl.TrackBallController(camera, true),
-            new tesserxel.util.ctrl.RetinaController(this.renderer.core)
-        ], { enablePointerLock: true });
-        const run = () => {
-            controller.update();
-            this.renderer.render(this.scene, camera);
-            window.requestAnimationFrame(run);
-        };
-        run();
+        app.controllerRegistry.add(new tesserxel.util.ctrl.TrackBallController(camera, true));
+        app.run();
     }
 }
 export var hc_sp;

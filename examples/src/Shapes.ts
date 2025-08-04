@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js"
+import * as tesserxel from "../../build/esm/tesserxel.js"
 class ShapesApp {
     vertCode = `
         // vertex attributes, regard four vector4 for vertices of one tetrahedra as matrix4x4 

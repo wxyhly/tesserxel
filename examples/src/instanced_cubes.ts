@@ -1,4 +1,4 @@
-import * as tesserxel from "../../build/tesserxel.js"
+import * as tesserxel from "../../build/esm/tesserxel.js"
 export namespace instanced_cubes {
     let vertCode = `
 struct InputType{

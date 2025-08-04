@@ -1,4 +1,4 @@
-import { render, util } from "../../build/tesserxel.js";
+import { render, util } from "../../build/esm/tesserxel.js";
 // export namespace examples {
 class MengerApp {
     renderer;

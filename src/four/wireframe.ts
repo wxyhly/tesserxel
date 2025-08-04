@@ -1,6 +1,6 @@
 import { Vec4 } from "../math/algebra/vec4";
 import { Obj4 } from "../math/algebra/affine";
-import { Camera } from "./scene";
+import { Camera, PerspectiveCamera } from "./scene";
 import { AABB, Plane } from "../math/geometry/primitive";
 import { IWireframeRenderState, RenderState } from "../render/slice/interfaces";
 import { Vec3, _vec3_4 } from "../math/algebra/vec3";
@@ -129,7 +129,7 @@ const _vec42 = new Vec4;
 export class WireFrameScene {
     occluders: WireFrameOccluder[] = [];
     objects: WireFrameObject[] = [];
-    camera = new Camera;
+    camera = new PerspectiveCamera;
     jsBuffer: Float32Array;
     gpuBuffer: GPUBuffer;
     maxGpuBufferSize: number = 0x10000;
