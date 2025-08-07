@@ -1,5 +1,6 @@
 import typescript from 'rollup-plugin-typescript2';
 import multiInput from 'rollup-plugin-multi-input';
+import resolve from '@rollup/plugin-node-resolve';
 import dts from 'rollup-plugin-dts';
 export default [
   {
@@ -12,6 +13,7 @@ export default [
       preserveModulesRoot: 'src',
     },
     plugins: [
+      resolve(),
       multiInput(),
       typescript({
         tsconfig: 'tsconfig.json',
@@ -26,16 +28,18 @@ export default [
       format: 'umd',
       name: "tesserxel"
     },
-    plugins: [typescript({
-      tsconfig: "tsconfig.json",
-      tsconfigOverride: {
-        exclude:[],
-        compilerOptions: {
-          declaration: false, // 已由单独的配置生成.d.ts
+    plugins: [
+      resolve(),
+      typescript({
+        tsconfig: "tsconfig.json",
+        tsconfigOverride: {
+          exclude: [],
+          compilerOptions: {
+            declaration: false, // 已由单独的配置生成.d.ts
+          },
         },
-      },
-      // useTsconfigDeclarationDir: true,
-    }),
+        // useTsconfigDeclarationDir: true,
+      }),
     ]
   }
 ]

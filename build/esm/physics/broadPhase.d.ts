@@ -1,6 +1,6 @@
-import { math } from "../tesserxel";
-import { World } from "./engine";
-import { Rigid } from "./rigid";
+import { math } from "../tesserxel.js";
+import { World } from "./engine.js";
+import { Rigid } from "./rigid.js";
 export interface BroadPhaseConstructor {
     new (): BroadPhase;
 }

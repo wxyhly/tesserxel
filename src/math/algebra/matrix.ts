@@ -1,7 +1,7 @@
-import { Mat3 } from "./mat3";
-import { Mat4 } from "./mat4";
-import { Vec3 } from "./vec3";
-import { Vec4 } from "./vec4";
+import { Mat3 } from "./mat3.js";
+import { Mat4 } from "./mat4.js";
+import { Vec3 } from "./vec3.js";
+import { Vec4 } from "./vec4.js";
 
 export interface ColumnVector extends Matrix {
     row: 1;

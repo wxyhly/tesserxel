@@ -1,5 +1,5 @@
-import { CosetTable } from "../algebra/group";
-import { Bivec, Rotor, Vec4 } from "../math";
+import { CosetTable } from "../algebra/group.js";
+import { Bivec, Rotor, Vec4 } from "../math.js";
 
 export class Polytope {
     private gens: string;

@@ -1,6 +1,6 @@
 // todo
 // texture view can choose type "2d" and set layer
-import { GPU } from "../gpu";
+import { GPU } from "../gpu.js";
 
 function createTexture2DArray(gpu: GPU) {
     

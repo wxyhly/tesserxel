@@ -1,9 +1,9 @@
 /// <reference types="@webgpu/types" />
-import { Obj4 } from "../math/algebra/affine";
-import { Vec4 } from "../math/algebra/vec4";
-import { TetraSlicePipeline } from "../render/slice/slice";
-import { Renderer } from "./renderer";
-import { Geometry } from "./scene";
+import { Obj4 } from "../math/algebra/affine.js";
+import { Vec4 } from "../math/algebra/vec4.js";
+import { TetraSlicePipeline } from "../render/slice/slice.js";
+import { Renderer } from "./renderer.js";
+import { Geometry } from "./scene.js";
 export declare type ColorOutputNode = MaterialNode & {
     output: "color";
 };

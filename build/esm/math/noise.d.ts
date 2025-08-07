@@ -1,4 +1,4 @@
-import { Srand } from "./random";
+import { Srand } from "./random.js";
 export declare class Perlin3 {
     private _p;
     constructor(srand: Srand);

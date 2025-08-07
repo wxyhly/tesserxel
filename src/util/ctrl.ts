@@ -1,15 +1,16 @@
-import { Obj4 } from "../math/algebra/affine";
-import { Bivec } from "../math/algebra/bivec";
-import { Mat4 } from "../math/algebra/mat4";
-import { Quaternion } from "../math/algebra/quaternion";
-import { Rotor } from "../math/algebra/rotor";
-import { Vec2, vec2Pool } from "../math/algebra/vec2";
-import { Vec3 } from "../math/algebra/vec3";
-import { Vec4 } from "../math/algebra/vec4";
-import { _360, _90, _DEG2RAD, _SQRT_3 } from "../math/const";
-import { EyeStereo, SectionConfig, DisplayConfig, RetinaSliceFacing, SliceRenderer, RetinaRenderPass, RetinaRenderPassDescriptor } from "../render/slice/slice";
+import { Obj4 } from "../math/algebra/affine.js";
+import { Bivec } from "../math/algebra/bivec.js";
+import { Mat4 } from "../math/algebra/mat4.js";
+import { Quaternion } from "../math/algebra/quaternion.js";
+import { Rotor } from "../math/algebra/rotor.js";
+import { Vec2, vec2Pool } from "../math/algebra/vec2.js";
+import { Vec3 } from "../math/algebra/vec3.js";
+import { Vec4 } from "../math/algebra/vec4.js";
+import { _360, _90, _DEG2RAD, _SQRT_3 } from "../math/const.js";
+import { EyeStereo, SectionConfig, DisplayConfig, RetinaSliceFacing, SliceRenderer, RetinaRenderPass, RetinaRenderPassDescriptor } from "../render/slice/slice.js";
 
 export interface IController {
+    enabled?: boolean;
     update(state: ControllerState): void;
 }
 export interface ControllerConfig {
@@ -170,14 +171,14 @@ export class ControllerRegistry {
                 this.states.currentKeys.set("AltLeft", KeyState.NONE);
                 this.states.currentKeys.set("AltRight", KeyState.NONE);
             }
-            if (ev.altKey === true || ev.ctrlKey === true || this.disableDefaultEvent) {
+            if ((ev.altKey === true || ev.ctrlKey === true) && this.disableDefaultEvent) {
                 ev.preventDefault();
                 ev.stopPropagation();
             }
         };
         this.evKeyUp = (ev) => {
             this.states.currentKeys.set(ev.code, KeyState.UP);
-            if (ev.altKey === true || ev.ctrlKey === true || this.disableDefaultEvent) {
+            if ((ev.altKey === true || ev.ctrlKey === true) && this.disableDefaultEvent) {
                 ev.preventDefault();
                 ev.stopPropagation();
             }
@@ -1062,7 +1063,7 @@ export class RetinaController implements IController {
         return Math.min(512, layers);
     }
     update(state: ControllerState): void {
-        let enabled = !this.keyConfig.enable || state.isKeyHold(this.keyConfig.enable);
+        let enabled = (!this.keyConfig.enable || state.isKeyHold(this.keyConfig.enable)) && this.enabled;
         const on = (k: string) => state.isKeyHold(k) && enabled;
         let key = this.keyConfig;
         let delta: number;

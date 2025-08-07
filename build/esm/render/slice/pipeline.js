@@ -1,4 +1,5 @@
-import { wgslreflect } from '../wgslparser.js';
+import { getFnInputAndOutput, parseAttr, parseTypeName } from '../wgsl.js';
+import { WgslReflect as _t, ResourceType as i } from '../../node_modules/wgsl_reflect/wgsl_reflect.module.js';
 
 const tetraSliceBindGroup0declareIndex = 3;
 const refacingMatsCode = `
@@ -80,17 +81,22 @@ class TetraSlicePipeline {
     reflect;
     gpu;
     device;
+    crossComputeShaderModule;
+    fragmentShaderModule;
     descriptor;
+    getCompilationInfo() {
+        return { tetra: this.crossComputeShaderModule?.getCompilationInfo(), fragment: this.fragmentShaderModule?.getCompilationInfo() };
+    }
     async init(gpu, config, descriptor, tetrasliceBufferMgr) {
         this.gpu = gpu;
         this.device = gpu.device;
         this.descriptor = descriptor;
         let vertexState = descriptor.vertex;
-        this.reflect = new wgslreflect.WgslReflect(vertexState.code);
-        let mainFn = this.reflect.functions.filter(e => e.attributes && e.attributes.some(a => a.name === "tetra") && e.name == vertexState.entryPoint)[0];
-        if (!mainFn)
+        this.reflect = new _t(vertexState.code);
+        let mainFn = this.reflect._functions.get(vertexState.entryPoint);
+        if (!mainFn || mainFn.node.attributes?.[0].name !== "tetra")
             console.error("Tetra vertex shader entry Point function not found");
-        let { input, output, call } = wgslreflect.getFnInputAndOutput(this.reflect, mainFn, expectTetraSlicePipelineInput, expectTetraSlicePipelineOutput);
+        let { input, output, call } = getFnInputAndOutput(this.reflect, mainFn, expectTetraSlicePipelineInput, expectTetraSlicePipelineOutput);
         let layout = this.getBindGroupLayout(output);
         // compute pipeline
         let computeGroup0Buffers = tetrasliceBufferMgr.buffers.slice(0);
@@ -395,12 +401,13 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
     } // end camera type
 }
 `;
+        this.crossComputeShaderModule = this.gpu.device.createShaderModule({
+            code: crossComputeCode
+        });
         let computePipelinePromise = this.gpu.device.createComputePipelineAsync({
             layout: layout.computeLayout,
             compute: {
-                module: this.gpu.device.createShaderModule({
-                    code: crossComputeCode
-                }),
+                module: this.crossComputeShaderModule,
                 entryPoint: '_mainCompute'
             }
         });
@@ -430,6 +437,7 @@ struct tsxvOutputType{
 }
 `
         });
+        this.fragmentShaderModule = this.gpu.device.createShaderModule({ code: descriptor.fragment.code });
         let renderPipelinePromise = this.gpu.device.createRenderPipelineAsync({
             layout: layout.renderLayout,
             vertex: {
@@ -438,7 +446,7 @@ struct tsxvOutputType{
                 buffers: vertexBufferAttributes,
             },
             fragment: {
-                module: this.gpu.device.createShaderModule({ code: descriptor.fragment.code }),
+                module: this.fragmentShaderModule,
                 entryPoint: descriptor.fragment.entryPoint,
                 targets: [{ format: this.gpu.preferredFormat }]
             },
@@ -482,17 +490,20 @@ struct tsxvOutputType{
                 }
                 else {
                     const bindings = bindgroupLayouts[groupIdx];
-                    for (let i = 0, l = bindings.length; i < l; i++) {
-                        const entry = bindGroupLayoutsDesc[groupIdx]?.entries?.filter(e => e.binding === i)[0];
-                        const descriptor = bindings[i];
+                    for (let i$1 = 0, l = bindings.length; i$1 < l; i$1++) {
+                        const entry = bindGroupLayoutsDesc[groupIdx]?.entries?.filter(e => e.binding === i$1)[0];
+                        const descriptor = bindings[i$1];
                         if (entry) {
                             groupLayoutDesc.push(entry);
                         }
                         else if (!descriptor) {
-                            groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } });
+                            groupLayoutDesc.push({ binding: i$1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } });
                         }
-                        else if (descriptor.type === "buffer") {
-                            groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.COMPUTE, buffer: { type: descriptor.resource.type } });
+                        else if (descriptor.resourceType === i.Storage) {
+                            groupLayoutDesc.push({ binding: i$1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } });
+                        }
+                        else if (descriptor.resourceType === i.Uniform) {
+                            groupLayoutDesc.push({ binding: i$1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } });
                         }
                     }
                 }
@@ -503,27 +514,27 @@ struct tsxvOutputType{
         }
         if ((renderLayout !== 'auto' && renderLayout)?.length) {
             const bindGroupLayoutsDesc = renderLayout;
-            const renderReflect = new wgslreflect.WgslReflect(this.descriptor.fragment.code);
+            const renderReflect = new _t(this.descriptor.fragment.code);
             let bindgroupLayouts = renderReflect.getBindGroups();
             for (let groupIdx = 0, l = bindgroupLayouts.length; groupIdx < l; groupIdx++) {
                 let groupLayoutDesc = [];
                 const bindings = bindgroupLayouts[groupIdx];
-                for (let i = 0, l = bindings.length; i < l; i++) {
-                    const entry = bindGroupLayoutsDesc[groupIdx]?.entries?.filter(e => e.binding === i)[0];
+                for (let i$1 = 0, l = bindings.length; i$1 < l; i$1++) {
+                    const entry = bindGroupLayoutsDesc[groupIdx]?.entries?.filter(e => e.binding === i$1)[0];
                     if (entry) {
                         groupLayoutDesc.push(entry);
                     }
-                    else if (!bindings[i] || bindings[i].type === "buffer") {
-                        groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.FRAGMENT, buffer: {} });
+                    else if (!bindings[i$1] || bindings[i$1].resourceType === i.Storage) {
+                        groupLayoutDesc.push({ binding: i$1, visibility: GPUShaderStage.FRAGMENT, buffer: {} });
                     }
-                    else if (bindings[i].type === "buffer") {
-                        groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.FRAGMENT, buffer: {} });
+                    else if (bindings[i$1].resourceType === i.Storage) {
+                        groupLayoutDesc.push({ binding: i$1, visibility: GPUShaderStage.FRAGMENT, buffer: {} });
                     }
-                    else if (bindings[i].type === "sampler") {
-                        groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.FRAGMENT, sampler: {} });
+                    else if (bindings[i$1].resourceType === i.Sampler) {
+                        groupLayoutDesc.push({ binding: i$1, visibility: GPUShaderStage.FRAGMENT, sampler: {} });
                     }
-                    else if (bindings[i].type === "texture") {
-                        groupLayoutDesc.push({ binding: i, visibility: GPUShaderStage.FRAGMENT, texture: {} });
+                    else if (bindings[i$1].resourceType === i.Texture) {
+                        groupLayoutDesc.push({ binding: i$1, visibility: GPUShaderStage.FRAGMENT, texture: {} });
                     }
                 }
                 const bindGroupLayout = this.device.createBindGroupLayout({ entries: groupLayoutDesc });
@@ -539,16 +550,20 @@ struct tsxvOutputType{
 class RaytracingPipeline {
     pipeline;
     bindGroup0;
+    shaderModule;
+    getCompilationInfo() {
+        return this.shaderModule?.getCompilationInfo();
+    }
     async init(gpu, config, descriptor, sliceBuffers) {
         let code = descriptor.code.replace(/@ray(\s)/g, "@vertex$1");
-        const reflect = new wgslreflect.WgslReflect(code);
-        let mainRayFn = reflect.functions.filter(e => e.attributes && e.attributes.some(a => a.name === "vertex") && e.name == descriptor.rayEntryPoint)[0];
+        const reflect = new _t(code);
+        let mainRayFn = reflect._functions.get(descriptor.rayEntryPoint);
         if (!mainRayFn)
             console.error("Raytracing pipeline: Entry point does not exist.");
         // let mainFragFn = reflect.functions.filter(
         //     e => e.attributes && e.attributes.some(a => a.name === "fragment") && e.name == descriptor.fragment.entryPoint
         // )[0];
-        let { input, output, call } = wgslreflect.getFnInputAndOutput(reflect, mainRayFn, {
+        let { input, output, call } = getFnInputAndOutput(reflect, mainRayFn, {
             "builtin(ray_origin)": "camRayOri",
             "builtin(ray_direction)": "camRayDir",
             "builtin(voxel_coord)": "voxelCoord",
@@ -560,16 +575,16 @@ class RaytracingPipeline {
         }
         let retunTypeMembers;
         let outputMembers;
-        if (mainRayFn.return.attributes) {
+        if (mainRayFn.node.returnType.attributes) {
             outputMembers = output["return"].expr;
-            retunTypeMembers = `@${wgslreflect.parseAttr(mainRayFn.return.attributes)} ${wgslreflect.parseTypeName(mainRayFn.return)}`;
+            retunTypeMembers = `@${parseAttr(mainRayFn.node.returnType.attributes)} ${parseTypeName(mainRayFn.node.returnType)}`;
         }
         else {
-            let st = reflect.structs.filter(s => s.name === mainRayFn.return.name)[0];
+            let st = reflect.structs.filter(s => s.name === mainRayFn.node.returnType.name)[0];
             if (!st)
                 console.error("No attribute found");
-            outputMembers = st.members.map(m => output[wgslreflect.parseAttr(m.attributes)].expr).join(",\n");
-            retunTypeMembers = st.members.map(m => `@${wgslreflect.parseAttr(m.attributes)} ${m.name}: ${wgslreflect.parseTypeName(m.type)}`).join(",\n");
+            outputMembers = st.members.map(m => output[parseAttr(m.attributes)].expr).join(",\n");
+            retunTypeMembers = st.members.map(m => `@${parseAttr(m.attributes)} ${m.name}: ${parseTypeName(m.type)}`).join(",\n");
         }
         // ${wgslreflect.parseAttr(mainRayFn.return.attributes)} userRayOut: ${wgslreflect.parseTypeName(mainRayFn.return)}
         let shaderCode = refacingMatsCode + StructDefSliceInfo + StructDefUniformBuffer + `
@@ -657,6 +672,7 @@ fn calDepth(distance: f32)->f32{
 }
 `;
         let module = gpu.device.createShaderModule({ code: shaderCode });
+        this.shaderModule = module;
         this.pipeline = await gpu.device.createRenderPipelineAsync({
             layout: 'auto',
             vertex: {

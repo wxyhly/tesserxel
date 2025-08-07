@@ -1,11 +1,11 @@
-import { Vec3 } from "./vec3";
-import { Quaternion } from "./quaternion";
-import { Pool } from "../pool";
-import { Srand } from "../random";
-import { Bivec } from "./bivec";
-import { Rotor } from "./rotor";
-import { Mat4 } from "./mat4";
-import { Obj4 } from "./affine";
+import { Vec3 } from "./vec3.js";
+import { Quaternion } from "./quaternion.js";
+import { Pool } from "../pool.js";
+import { Srand } from "../random.js";
+import { Bivec } from "./bivec.js";
+import { Rotor } from "./rotor.js";
+import { Mat4 } from "./mat4.js";
+import { Obj4 } from "./affine.js";
 export declare class Vec4Pool extends Pool<Vec4> {
     constructObject(): Vec4;
 }

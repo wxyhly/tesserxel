@@ -1,9 +1,9 @@
-import { Pool } from "../pool";
-import { Srand } from "../random";
-import { Quaternion, _Q_1, _Q_2 } from "./quaternion";
-import { Rotor } from "./rotor";
-import { Vec3, _vec3_1, _vec3_2 } from "./vec3";
-import { Vec4 } from "./vec4";
+import { Pool } from "../pool.js";
+import { Srand } from "../random.js";
+import { Quaternion, _Q_1, _Q_2 } from "./quaternion.js";
+import { Rotor } from "./rotor.js";
+import { Vec3, _vec3_1, _vec3_2 } from "./vec3.js";
+import { Vec4 } from "./vec4.js";
 
 export class BivecPool extends Pool<Bivec>{
     constructObject() { return new Bivec; }

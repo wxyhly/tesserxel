@@ -1,6 +1,6 @@
-import { Complex } from "./cplx";
-import { Srand } from "../random";
-import { Pool } from "../pool";
+import { Complex } from "./cplx.js";
+import { Srand } from "../random.js";
+import { Pool } from "../pool.js";
 export declare class Vec2Pool extends Pool<Vec2> {
     constructObject(): Vec2;
 }

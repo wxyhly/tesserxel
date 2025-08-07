@@ -195,8 +195,8 @@ let examples = [
             { target: "four_basic_scene", zh: "创建简单Four场景", en: "Basic Four Scene Creation" },
             { target: "four_materials", zh: "Four材质与灯光", en: "Four Materials & Lights" },
             { target: "voxeltest::rasterizer", zh: "四面体素软光栅化器演示", en: "Tetrahedra Voxel Rasterizer Demo" },
-            // { target: "shadertoy::voxel", zh: "Shadertoy体素编辑器", en: "Shadertoy" },
-            // { target: "shadertoy::cam", zh: "Shadertoy光追编辑器", en: "Shadertoy" },
+            { target: "shadertoy::voxel", zh: "Shadertoy体素编辑器", en: "Shadertoy: Voxel" },
+            { target: "shadertoy::cam", zh: "Shadertoy光追编辑器", en: "Shadertoy: Raytracing" },
         ]
     },
 ];

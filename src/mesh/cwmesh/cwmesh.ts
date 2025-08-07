@@ -1,5 +1,5 @@
-import { Vec4 } from "../../math/algebra/vec4";
-import { Bivec, Obj4, Rotor, _360 } from "../../math/math";
+import { Vec4 } from "../../math/algebra/vec4.js";
+import { Bivec, Obj4, Rotor, _360 } from "../../math/math.js";
 import { path, polytope } from "./geoms";
 export type FaceId = number;
 export type Simplex = number[];

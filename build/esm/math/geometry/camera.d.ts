@@ -1,5 +1,5 @@
-import { Mat4 } from "../algebra/mat4";
-import { Vec4 } from "../algebra/vec4";
+import { Mat4 } from "../algebra/mat4.js";
+import { Vec4 } from "../algebra/vec4.js";
 export interface PerspectiveCamera {
     fov: number;
     near: number;

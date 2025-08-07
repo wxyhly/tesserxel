@@ -1,10 +1,10 @@
-import { Bivec } from "../math/algebra/bivec";
-import { Vec4 } from "../math/algebra/vec4";
-import { BroadPhase, BroadPhaseConstructor } from "./broadPhase";
+import { Bivec } from "../math/algebra/bivec.js";
+import { Vec4 } from "../math/algebra/vec4.js";
+import { BroadPhase, BroadPhaseConstructor } from "./broadPhase.js";
 import { Force, ForceAccumulator, ForceAccumulatorConstructor } from "./forces";
-import { NarrowPhase } from "./narrowphase";
-import { rigid, Rigid } from "./rigid";
-import { Solver, SolverConstructor } from "./solver";
+import { NarrowPhase } from "./narrowphase.js";
+import { rigid, Rigid } from "./rigid.js";
+import { Solver, SolverConstructor } from "./solver.js";
 interface EngineOption {
     forceAccumulator?: ForceAccumulatorConstructor;
     broadPhase?: BroadPhaseConstructor;

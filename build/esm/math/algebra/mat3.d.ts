@@ -1,6 +1,6 @@
-import { Pool } from "../pool";
-import { Quaternion } from "./quaternion";
-import { Vec3 } from "./vec3";
+import { Pool } from "../pool.js";
+import { Quaternion } from "./quaternion.js";
+import { Vec3 } from "./vec3.js";
 export declare class Mat3Pool extends Pool<Mat3> {
     constructObject(): Mat3;
 }

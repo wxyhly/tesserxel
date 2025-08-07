@@ -1,10 +1,10 @@
-import { Obj4 } from "../math/algebra/affine";
-import { Bivec, bivecPool } from "../math/algebra/bivec";
-import { Matrix } from "../math/algebra/matrix";
-import { Vec4, vec4Pool } from "../math/algebra/vec4";
-import { AABB } from "../math/geometry/primitive";
-import { Quaternion, Rotor, Spline } from "../math/math";
-import { Material, mulBivec } from "./engine";
+import { Obj4 } from "../math/algebra/affine.js";
+import { Bivec, bivecPool } from "../math/algebra/bivec.js";
+import { Matrix } from "../math/algebra/matrix.js";
+import { Vec4, vec4Pool } from "../math/algebra/vec4.js";
+import { AABB } from "../math/geometry/primitive.js";
+import { Quaternion, Rotor, Spline } from "../math/math.js";
+import { Material, mulBivec } from "./engine.js";
 
 export type RigidType = "still" | "passive" | "active";
 interface SimpleRigidDescriptor {

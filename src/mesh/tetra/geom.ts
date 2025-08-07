@@ -1,14 +1,14 @@
-import { Obj4 } from "../../math/algebra/affine";
-import { Bivec } from "../../math/algebra/bivec";
-import { Mat4 } from "../../math/algebra/mat4";
-import { Rotor } from "../../math/algebra/rotor";
-import { Vec3 } from "../../math/algebra/vec3";
-import { Vec4 } from "../../math/algebra/vec4";
-import { _180, _360, _90 } from "../../math/const";
-import { Spline } from "../../math/geometry/spline";
+import { Obj4 } from "../../math/algebra/affine.js";
+import { Bivec } from "../../math/algebra/bivec.js";
+import { Mat4 } from "../../math/algebra/mat4.js";
+import { Rotor } from "../../math/algebra/rotor.js";
+import { Vec3 } from "../../math/algebra/vec3.js";
+import { Vec4 } from "../../math/algebra/vec4.js";
+import { _180, _360, _90 } from "../../math/const.js";
+import { Spline } from "../../math/geometry/spline.js";
 import * as face from "../../mesh/face";
-import { CWMesh } from "../cwmesh/cwmesh";
-import { concat, TetraMesh } from "./tetramesh";
+import { CWMesh } from "../cwmesh/cwmesh.js";
+import { concat, TetraMesh } from "./tetramesh.js";
 
 export let cube = new TetraMesh({
     position: new Float32Array([

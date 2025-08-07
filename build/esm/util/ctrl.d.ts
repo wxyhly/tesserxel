@@ -1,7 +1,8 @@
 /// <reference types="@webgpu/types" />
-import { Obj4 } from "../math/algebra/affine";
-import { SectionConfig, SliceRenderer } from "../render/slice/slice";
+import { Obj4 } from "../math/algebra/affine.js";
+import { SectionConfig, SliceRenderer } from "../render/slice/slice.js";
 export interface IController {
+    enabled?: boolean;
     update(state: ControllerState): void;
 }
 export interface ControllerConfig {

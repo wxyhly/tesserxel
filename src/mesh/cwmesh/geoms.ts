@@ -1,8 +1,8 @@
-import { Vec4 } from "../../math/algebra/vec4";
-import { _180 } from "../../math/const";
-import { Polytope } from "../../math/geometry/polytope";
-import { Bivec } from "../../math/math";
-import { CWMesh, CWMeshSelection, Face } from "./cwmesh";
+import { Vec4 } from "../../math/algebra/vec4.js";
+import { _180 } from "../../math/const.js";
+import { Polytope } from "../../math/geometry/polytope.js";
+import { Bivec } from "../../math/math.js";
+import { CWMesh, CWMeshSelection, Face } from "./cwmesh.js";
 
 export function polytope(schlafli: number[]) {
     const m = new CWMesh();

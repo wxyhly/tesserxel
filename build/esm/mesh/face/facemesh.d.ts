@@ -1,5 +1,5 @@
-import { AffineMat4, Obj4 } from "../../math/algebra/affine";
-import { Vec4 } from "../../math/algebra/vec4";
+import { AffineMat4, Obj4 } from "../../math/algebra/affine.js";
+import { Vec4 } from "../../math/algebra/vec4.js";
 /** FaceMesh store traditional 2-face mesh as triangle or quad list
  *  This mesh is for constructing complex tetrameshes
  *  It is not aimed for rendering purpose

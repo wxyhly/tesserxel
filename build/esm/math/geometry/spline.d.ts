@@ -1,6 +1,6 @@
-import { Obj4 } from "../algebra/affine";
-import { Rotor } from "../algebra/rotor";
-import { Vec4 } from "../algebra/vec4";
+import { Obj4 } from "../algebra/affine.js";
+import { Rotor } from "../algebra/rotor.js";
+import { Vec4 } from "../algebra/vec4.js";
 interface SplineData {
     points: Vec4[];
     rotors: Rotor[];

@@ -1,6 +1,5 @@
 import '../render/slice/interfaces.js';
 import { SliceRenderer } from '../render/slice/renderer.js';
-import '../render/wgslparser.js';
 import { GPU } from '../render/gpu.js';
 import { _initLightShader, AmbientLight, PointLight, SpotLight, DirectionalLight, _updateWorldLight } from './light.js';
 import { Mesh, Scene } from './scene.js';

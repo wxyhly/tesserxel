@@ -1,10 +1,10 @@
-import { Vec2 } from "../../math/algebra/vec2";
-import { Vec4 } from "../../math/algebra/vec4";
-import { Bivec } from "../../math/algebra/bivec";
-import { Rotor } from "../../math/algebra/rotor";
-import { Obj4 } from "../../math/algebra/affine";
-import { _180, _360, _90 } from "../../math/const";
-import { FaceIndexMesh, FaceIndexMeshData, FaceMesh } from "./facemesh";
+import { Vec2 } from "../../math/algebra/vec2.js";
+import { Vec4 } from "../../math/algebra/vec4.js";
+import { Bivec } from "../../math/algebra/bivec.js";
+import { Rotor } from "../../math/algebra/rotor.js";
+import { Obj4 } from "../../math/algebra/affine.js";
+import { _180, _360, _90 } from "../../math/const.js";
+import { FaceIndexMesh, FaceIndexMeshData, FaceMesh } from "./facemesh.js";
 export let square = new FaceMesh({
     quad: {
         normal: new Float32Array([0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0]),

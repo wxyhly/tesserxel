@@ -1,6 +1,6 @@
-import { ControllerConfig, ControllerRegistry, IController, RetinaController } from "../util/ctrl";
-import { Renderer, RendererConfig } from "./renderer";
-import { Camera, PerspectiveCamera, Scene } from "./scene";
+import { ControllerConfig, ControllerRegistry, IController, RetinaController } from "../util/ctrl.js";
+import { Renderer, RendererConfig } from "./renderer.js";
+import { Camera, PerspectiveCamera, Scene } from "./scene.js";
 
 export class App {
     canvas: HTMLCanvasElement;

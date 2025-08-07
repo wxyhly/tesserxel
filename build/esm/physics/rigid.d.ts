@@ -1,9 +1,9 @@
-import { Obj4 } from "../math/algebra/affine";
-import { Bivec } from "../math/algebra/bivec";
-import { Vec4 } from "../math/algebra/vec4";
-import { AABB } from "../math/geometry/primitive";
-import { Spline } from "../math/math";
-import { Material } from "./engine";
+import { Obj4 } from "../math/algebra/affine.js";
+import { Bivec } from "../math/algebra/bivec.js";
+import { Vec4 } from "../math/algebra/vec4.js";
+import { AABB } from "../math/geometry/primitive.js";
+import { Spline } from "../math/math.js";
+import { Material } from "./engine.js";
 export declare type RigidType = "still" | "passive" | "active";
 interface SimpleRigidDescriptor {
     /** mass set to 0 to specify non-active rigid */

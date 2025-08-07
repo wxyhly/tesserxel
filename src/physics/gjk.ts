@@ -1,5 +1,5 @@
-import { bivecPool } from "../math/algebra/bivec";
-import { Vec4, vec4Pool } from "../math/algebra/vec4";
+import { bivecPool } from "../math/algebra/bivec.js";
+import { Vec4, vec4Pool } from "../math/algebra/vec4.js";
 
 // Convex Collision Detection algorithms (GJK Distance + EPA)
         const maxEpaStep = 16;

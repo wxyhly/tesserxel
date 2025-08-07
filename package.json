@@ -16,26 +16,27 @@
     ".": {
       "import": "./build/tesserxel.js"
     },
-    "./math":{
+    "./math": {
       "import": "./build/math/math.js"
     },
-    "./four":{
+    "./four": {
       "import": "./build/four/four.js"
     },
-    "./mesh":{
+    "./mesh": {
       "import": "./build/mesh/mesh.js"
     },
-    "./physics":{
+    "./physics": {
       "import": "./build/physics/physics.js"
     },
-    "./render":{
+    "./render": {
       "import": "./build/render/render.js"
     },
-    "./util":{
+    "./util": {
       "import": "./build/util/util.js"
-    }    
+    }
   },
   "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.1",
     "@webgpu/types": "^0.1.30",
     "rollup": "^3.2.1",
     "rollup-plugin-dts": "^5.0.0",
@@ -43,5 +44,8 @@
     "rollup-plugin-typescript2": "^0.34.1",
     "tslib": "^2.4.0",
     "typescript": "^4.8.4"
+  },
+  "dependencies": {
+    "wgsl_reflect": "^1.2.3"
   }
 }

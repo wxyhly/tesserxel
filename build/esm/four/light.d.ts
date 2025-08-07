@@ -1,7 +1,7 @@
-import { Vec3 } from "../math/algebra/vec3";
-import { Vec4 } from "../math/algebra/vec4";
-import { Renderer, RendererConfig } from "./renderer";
-import { Object } from "./scene";
+import { Vec3 } from "../math/algebra/vec3.js";
+import { Vec4 } from "../math/algebra/vec4.js";
+import { Renderer, RendererConfig } from "./renderer.js";
+import { Object } from "./scene.js";
 declare type LightDensity = {
     r: number;
     g: number;

@@ -9,7 +9,6 @@ import { Vec4 } from '../math/algebra/vec4.js';
 import { _SQRT_3, _90, _DEG2RAD, _360 } from '../math/const.js';
 import { RetinaSliceFacing, EyeStereo } from '../render/slice/interfaces.js';
 import '../render/slice/renderer.js';
-import '../render/wgslparser.js';
 
 var KeyState;
 (function (KeyState) {
@@ -134,14 +133,14 @@ class ControllerRegistry {
                 this.states.currentKeys.set("AltLeft", KeyState.NONE);
                 this.states.currentKeys.set("AltRight", KeyState.NONE);
             }
-            if (ev.altKey === true || ev.ctrlKey === true || this.disableDefaultEvent) {
+            if ((ev.altKey === true || ev.ctrlKey === true) && this.disableDefaultEvent) {
                 ev.preventDefault();
                 ev.stopPropagation();
             }
         };
         this.evKeyUp = (ev) => {
             this.states.currentKeys.set(ev.code, KeyState.UP);
-            if (ev.altKey === true || ev.ctrlKey === true || this.disableDefaultEvent) {
+            if ((ev.altKey === true || ev.ctrlKey === true) && this.disableDefaultEvent) {
                 ev.preventDefault();
                 ev.stopPropagation();
             }
@@ -1046,7 +1045,7 @@ class RetinaController {
         return Math.min(512, layers);
     }
     update(state) {
-        let enabled = !this.keyConfig.enable || state.isKeyHold(this.keyConfig.enable);
+        let enabled = (!this.keyConfig.enable || state.isKeyHold(this.keyConfig.enable)) && this.enabled;
         const on = (k) => state.isKeyHold(k) && enabled;
         let key = this.keyConfig;
         let delta;

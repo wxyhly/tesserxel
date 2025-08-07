@@ -1,5 +1,5 @@
-import { Obj4 } from "../algebra/affine";
-import { Vec4 } from "../algebra/vec4";
+import { Obj4 } from "../algebra/affine.js";
+import { Vec4 } from "../algebra/vec4.js";
 
 export class Ray {
     origin: Vec4;

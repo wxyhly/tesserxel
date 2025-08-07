@@ -1,9 +1,9 @@
-import { Pool } from "../pool";
-import { Mat3 } from "./mat3";
-import { Quaternion } from "./quaternion";
-import { Rotor } from "./rotor";
-import { Vec3 } from "./vec3";
-import { Vec4 } from "./vec4";
+import { Pool } from "../pool.js";
+import { Mat3 } from "./mat3.js";
+import { Quaternion } from "./quaternion.js";
+import { Rotor } from "./rotor.js";
+import { Vec3 } from "./vec3.js";
+import { Vec4 } from "./vec4.js";
 
 
 export class Mat4Pool extends Pool<Mat4>{

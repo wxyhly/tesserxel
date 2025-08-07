@@ -1,13 +1,13 @@
-import { AffineMat4, Obj4 } from "../../math/algebra/affine";
-import { Mat4 } from "../../math/algebra/mat4";
-import { Vec4 } from "../../math/algebra/vec4";
-import { _RAD2DEG } from "../../math/const";
-import { OrthographicCamera, PerspectiveCamera, getOrthographicProjectionMatrix, getPerspectiveProjectionMatrix } from "../../math/geometry/camera";
-import { AABB, Plane } from "../../math/geometry/primitive";
-import { GPU } from "../gpu";
-import { DefaultDisplayConfig, DisplayConfig, DisplayConfigName, EyeStereo, IWireframeRenderState, RaytracingPipelineDescriptor, RetinaRenderPassDescriptor, RetinaSliceFacing, SectionConfig, SliceRendererConfig, TetraSlicePipelineDescriptor } from "./interfaces";
-import { RaytracingPipeline, StructDefSliceInfo, StructDefUniformBuffer, TetraSlicePipeline, refacingMatsCode } from "./pipeline";
-import { RenderState as IRenderState, RetinaRenderPass as IRetinaRenderPass } from "./interfaces";
+import { AffineMat4, Obj4 } from "../../math/algebra/affine.js";
+import { Mat4 } from "../../math/algebra/mat4.js";
+import { Vec4 } from "../../math/algebra/vec4.js";
+import { _RAD2DEG } from "../../math/const.js";
+import { OrthographicCamera, PerspectiveCamera, getOrthographicProjectionMatrix, getPerspectiveProjectionMatrix } from "../../math/geometry/camera.js";
+import { AABB, Plane } from "../../math/geometry/primitive.js";
+import { GPU } from "../gpu.js";
+import { DefaultDisplayConfig, DisplayConfig, DisplayConfigName, EyeStereo, IWireframeRenderState, RaytracingPipelineDescriptor, RetinaRenderPassDescriptor, RetinaSliceFacing, SectionConfig, SliceRendererConfig, TetraSlicePipelineDescriptor } from "./interfaces.js";
+import { RaytracingPipeline, StructDefSliceInfo, StructDefUniformBuffer, TetraSlicePipeline, refacingMatsCode } from "./pipeline.js";
+import { RenderState as IRenderState, RetinaRenderPass as IRetinaRenderPass } from "./interfaces.js";
 /** Internal use for SliceRenderer's Display Configs */
 export interface InternalDisplayConfig extends DisplayConfig {
     opacity: number;

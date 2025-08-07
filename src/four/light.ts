@@ -1,8 +1,8 @@
-import { Vec3 } from "../math/algebra/vec3";
-import { Vec4 } from "../math/algebra/vec4";
-import { _DEG2RAD } from "../math/const";
-import { Renderer, RendererConfig } from "./renderer";
-import { Object } from "./scene";
+import { Vec3 } from "../math/algebra/vec3.js";
+import { Vec4 } from "../math/algebra/vec4.js";
+import { _DEG2RAD } from "../math/const.js";
+import { Renderer, RendererConfig } from "./renderer.js";
+import { Object } from "./scene.js";
 
 type LightDensity = { r: number, g: number, b: number } | Vec3 | number[] | number;
 export class Light extends Object {

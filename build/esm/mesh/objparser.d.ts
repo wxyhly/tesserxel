@@ -1,5 +1,5 @@
-import { FaceIndexMesh, FaceIndexMeshData } from "./face/facemesh";
-import { TetraIndexMesh } from "./tetra/tetramesh";
+import { FaceIndexMesh, FaceIndexMeshData } from "./face/facemesh.js";
+import { TetraIndexMesh } from "./tetra/tetramesh.js";
 interface IndexMesh extends FaceIndexMeshData {
     positionIndex?: Uint32Array;
     normalIndex?: Uint32Array;

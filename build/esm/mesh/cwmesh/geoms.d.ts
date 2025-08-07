@@ -1,5 +1,5 @@
-import { Vec4 } from "../../math/algebra/vec4";
-import { CWMesh } from "./cwmesh";
+import { Vec4 } from "../../math/algebra/vec4.js";
+import { CWMesh } from "./cwmesh.js";
 export declare function polytope(schlafli: number[]): CWMesh;
 export declare function truncatedPolytope(schlafli: number[], t: number): CWMesh;
 export declare function bitruncatedPolytope(schlafli: number[], t?: number): CWMesh;

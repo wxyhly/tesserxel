@@ -1,4 +1,4 @@
-import { GPU } from "../gpu";
+import { GPU } from "../gpu.js";
 export type Size3DDict = { width: number, height: number, depth: number };
 function toSize3DDict(size: GPUExtent3D): Size3DDict {
     let width: number, height: number, depth: number;

@@ -1,9 +1,9 @@
-import { Pool } from "../pool";
-import { Srand } from "../random";
-import { Mat3 } from "./mat3";
-import { Mat4 } from "./mat4";
-import { Vec3 } from "./vec3";
-import { Vec4 } from "./vec4";
+import { Pool } from "../pool.js";
+import { Srand } from "../random.js";
+import { Mat3 } from "./mat3.js";
+import { Mat4 } from "./mat4.js";
+import { Vec3 } from "./vec3.js";
+import { Vec4 } from "./vec4.js";
 export declare class QuaternionPool extends Pool<Quaternion> {
     constructObject(): Quaternion;
 }

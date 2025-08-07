@@ -1,9 +1,9 @@
-import { Pool } from "../pool";
-import { Srand } from "../random";
-import { Bivec } from "./bivec";
-import { Mat4 } from "./mat4";
-import { Quaternion } from "./quaternion";
-import { Vec4 } from "./vec4";
+import { Pool } from "../pool.js";
+import { Srand } from "../random.js";
+import { Bivec } from "./bivec.js";
+import { Mat4 } from "./mat4.js";
+import { Quaternion } from "./quaternion.js";
+import { Vec4 } from "./vec4.js";
 export declare class RotorPool extends Pool<Rotor> {
     constructObject(): Rotor;
 }

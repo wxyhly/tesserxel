@@ -1,7 +1,7 @@
-import { Bivec } from "./bivec";
-import { Mat4 } from "./mat4";
-import { Rotor } from "./rotor";
-import { Vec4 } from "./vec4";
+import { Bivec } from "./bivec.js";
+import { Mat4 } from "./mat4.js";
+import { Rotor } from "./rotor.js";
+import { Vec4 } from "./vec4.js";
 /** [A(4x4), b(1x4)]
  *
  *  [0(4x1), 1(1x1)]

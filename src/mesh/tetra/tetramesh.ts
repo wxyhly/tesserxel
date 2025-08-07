@@ -1,7 +1,7 @@
-import { AffineMat4, Obj4 } from "../../math/algebra/affine";
-import { Vec4 } from "../../math/algebra/vec4";
-import { _180, _360, _90 } from "../../math/const";
-import { toIndexbuffer, toNonIndex } from "../index";
+import { AffineMat4, Obj4 } from "../../math/algebra/affine.js";
+import { Vec4 } from "../../math/algebra/vec4.js";
+import { _180, _360, _90 } from "../../math/const.js";
+import { toIndexbuffer, toNonIndex } from "../index.js";
 
 /** Tetramesh store 4D mesh as tetrahedral list
  *  Each tetrahedral uses four vertices in the position list

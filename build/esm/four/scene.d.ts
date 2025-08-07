@@ -1,13 +1,13 @@
 /// <reference types="@webgpu/types" />
-import { AffineMat4, Obj4 } from "../math/algebra/affine";
-import { Vec4 } from "../math/algebra/vec4";
-import { OrthographicCamera as IOrthographicCamera, PerspectiveCamera as IPerspectiveCamera } from "../math/geometry/camera";
-import { AABB } from "../math/geometry/primitive";
-import { TetraMesh, TetraMeshData } from "../mesh/tetra";
-import { RaytracingPipeline, RaytracingPipelineDescriptor } from "../render/slice/slice";
-import { Material } from "./material";
-import { Renderer } from "./renderer";
-import { WireFrameScene } from "./wireframe";
+import { AffineMat4, Obj4 } from "../math/algebra/affine.js";
+import { Vec4 } from "../math/algebra/vec4.js";
+import { OrthographicCamera as IOrthographicCamera, PerspectiveCamera as IPerspectiveCamera } from "../math/geometry/camera.js";
+import { AABB } from "../math/geometry/primitive.js";
+import { TetraMesh, TetraMeshData } from "../mesh/tetra.js";
+import { RaytracingPipeline, RaytracingPipelineDescriptor } from "../render/slice/slice.js";
+import { Material } from "./material.js";
+import { Renderer } from "./renderer.js";
+import { WireFrameScene } from "./wireframe.js";
 export declare class Scene {
     child: Object[];
     backGroundColor: GPUColor;

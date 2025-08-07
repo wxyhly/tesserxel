@@ -1,11 +1,11 @@
-import { Bivec, bivecPool } from "../math/algebra/bivec";
-import { Mat4, mat4Pool } from "../math/algebra/mat4";
-import { rotorPool } from "../math/algebra/rotor";
-import { Vec4, vec4Pool } from "../math/algebra/vec4";
-import { _DEG2RAD } from "../math/const";
-import { Constrain, Material, mulBivec, PointConstrain } from "./engine";
-import { Collision } from "./narrowphase";
-import { Rigid, SubRigid } from "./rigid";
+import { Bivec, bivecPool } from "../math/algebra/bivec.js";
+import { Mat4, mat4Pool } from "../math/algebra/mat4.js";
+import { rotorPool } from "../math/algebra/rotor.js";
+import { Vec4, vec4Pool } from "../math/algebra/vec4.js";
+import { _DEG2RAD } from "../math/const.js";
+import { Constrain, Material, mulBivec, PointConstrain } from "./engine.js";
+import { Collision } from "./narrowphase.js";
+import { Rigid, SubRigid } from "./rigid.js";
 
 export interface SolverConstructor {
     new(): Solver;

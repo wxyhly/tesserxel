@@ -1,7 +1,7 @@
-import { Bivec } from "../math/algebra/bivec";
-import { Vec4 } from "../math/algebra/vec4";
-import { World } from "./engine";
-import { Rigid } from "./rigid";
+import { Bivec } from "../math/algebra/bivec.js";
+import { Vec4 } from "../math/algebra/vec4.js";
+import { World } from "./engine.js";
+import { Rigid } from "./rigid.js";
 export interface ForceAccumulatorConstructor {
     new (): ForceAccumulator;
 }

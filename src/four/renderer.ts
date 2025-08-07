@@ -1,9 +1,9 @@
-import { SliceRenderer, TetraSlicePipeline } from "../render/slice/slice";
-import { GPU } from "../render/gpu";
-import { AmbientLight, DirectionalLight, PointLight, SpotLight, _initLightShader, _updateWorldLight } from "./light";
-import { Camera, Mesh, Object, Scene } from "./scene";
-import { Material } from "./material";
-import { Vec3 } from "../math/algebra/vec3";
+import { SliceRenderer, TetraSlicePipeline } from "../render/slice/slice.js";
+import { GPU } from "../render/gpu.js";
+import { AmbientLight, DirectionalLight, PointLight, SpotLight, _initLightShader, _updateWorldLight } from "./light.js";
+import { Camera, Mesh, Object, Scene } from "./scene.js";
+import { Material } from "./material.js";
+import { Vec3 } from "../math/algebra/vec3.js";
 export interface RendererConfig {
     posdirLightsNumber?: number;
     spotLightsNumber?: number;

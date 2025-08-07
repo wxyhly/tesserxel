@@ -1,10 +1,10 @@
-import { AffineMat4, Obj4 } from "../math/algebra/affine";
-import { Vec4 } from "../math/algebra/vec4";
-import { generateUUID } from "../math/random";
-import { TetraSlicePipeline } from "../render/slice/slice";
-import { Renderer } from "./renderer";
-import { Geometry } from "./scene";
-import { _generateVertShader } from "./vertexshader";
+import { AffineMat4, Obj4 } from "../math/algebra/affine.js";
+import { Vec4 } from "../math/algebra/vec4.js";
+import { generateUUID } from "../math/random.js";
+import { TetraSlicePipeline } from "../render/slice/slice.js";
+import { Renderer } from "./renderer.js";
+import { Geometry } from "./scene.js";
+import { _generateVertShader } from "./vertexshader.js";
 
 export type ColorOutputNode = MaterialNode & { output: "color" };
 export type Vec4OutputNode = MaterialNode & { output: "vec4" };

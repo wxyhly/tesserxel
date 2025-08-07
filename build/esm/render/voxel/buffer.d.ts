@@ -1,5 +1,5 @@
 /// <reference types="@webgpu/types" />
-import { GPU } from "../gpu";
+import { GPU } from "../gpu.js";
 export declare type Size3DDict = {
     width: number;
     height: number;

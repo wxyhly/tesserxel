@@ -1,10 +1,10 @@
-import { _180, _360 } from "../const";
-import { Pool } from "../pool";
-import { Srand } from "../random";
-import { Mat3 } from "./mat3";
-import { Mat4 } from "./mat4";
-import { Vec3, _vec3, _vec3_1, _vec3_2 } from "./vec3";
-import { Vec4 } from "./vec4";
+import { _180, _360 } from "../const.js";
+import { Pool } from "../pool.js";
+import { Srand } from "../random.js";
+import { Mat3 } from "./mat3.js";
+import { Mat4 } from "./mat4.js";
+import { Vec3, _vec3, _vec3_1, _vec3_2 } from "./vec3.js";
+import { Vec4 } from "./vec4.js";
 
 export class QuaternionPool extends Pool<Quaternion> {
     constructObject() { return new Quaternion; }

@@ -1,9 +1,9 @@
-import { Vec2 } from "./vec2";
-import { Vec4 } from "./vec4";
-import { Quaternion, _Q } from "./quaternion";
-import { Pool } from "../pool";
-import { Srand } from "../random";
-import { _360 } from "../const";
+import { Vec2 } from "./vec2.js";
+import { Vec4 } from "./vec4.js";
+import { Quaternion, _Q } from "./quaternion.js";
+import { Pool } from "../pool.js";
+import { Srand } from "../random.js";
+import { _360 } from "../const.js";
 export class Vec3Pool extends Pool<Vec3>{
     constructObject() { return new Vec3; }
 }

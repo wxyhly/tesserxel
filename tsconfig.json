@@ -5,10 +5,14 @@
             "DOM"
         ],
         "target": "ES2022",
+        "module": "EsNext",
+        "moduleResolution": "Node",
         "sourceMap": true,
         "declaration": true,
         "declarationDir": "build/dts",
-        "types": ["@webgpu/types"]
+        "types": [
+            "@webgpu/types"
+        ]
     },
     "include": [
         "./src/**/*"

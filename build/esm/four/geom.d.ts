@@ -1,7 +1,7 @@
-import { Vec3 } from "../math/algebra/vec3";
-import { Vec4 } from "../math/algebra/vec4";
-import { CWMesh } from "../mesh/mesh";
-import { Geometry } from "./scene";
+import { Vec3 } from "../math/algebra/vec3.js";
+import { Vec4 } from "../math/algebra/vec4.js";
+import { CWMesh } from "../mesh/mesh.js";
+import { Geometry } from "./scene.js";
 export declare class TesseractGeometry extends Geometry {
     constructor(size?: number | Vec4);
 }

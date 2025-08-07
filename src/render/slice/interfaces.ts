@@ -1,8 +1,8 @@
-import { AffineMat4, Obj4 } from "../../math/algebra/affine";
-import { Vec4 } from "../../math/algebra/vec4";
-import { AABB } from "../../math/geometry/primitive";
-import { Mat4, OrthographicCamera, PerspectiveCamera } from "../../math/math";
-import { RaytracingPipeline, TetraSlicePipeline } from "./pipeline";
+import { AffineMat4, Obj4 } from "../../math/algebra/affine.js";
+import { Vec4 } from "../../math/algebra/vec4.js";
+import { AABB } from "../../math/geometry/primitive.js";
+import { Mat4, OrthographicCamera, PerspectiveCamera } from "../../math/math.js";
+import { RaytracingPipeline, TetraSlicePipeline } from "./pipeline.js";
 
 /** Base Configs for SliceRenderer, This can't be changed after renderer creation */
 export interface SliceRendererConfig {

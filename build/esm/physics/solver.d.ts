@@ -1,8 +1,8 @@
-import { Bivec } from "../math/algebra/bivec";
-import { Vec4 } from "../math/algebra/vec4";
-import { Constrain, Material, PointConstrain } from "./engine";
-import { Collision } from "./narrowphase";
-import { Rigid } from "./rigid";
+import { Bivec } from "../math/algebra/bivec.js";
+import { Vec4 } from "../math/algebra/vec4.js";
+import { Constrain, Material, PointConstrain } from "./engine.js";
+import { Collision } from "./narrowphase.js";
+import { Rigid } from "./rigid.js";
 export interface SolverConstructor {
     new (): Solver;
 }

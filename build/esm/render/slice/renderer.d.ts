@@ -1,13 +1,13 @@
 /// <reference types="@webgpu/types" />
-import { AffineMat4, Obj4 } from "../../math/algebra/affine";
-import { Mat4 } from "../../math/algebra/mat4";
-import { Vec4 } from "../../math/algebra/vec4";
-import { OrthographicCamera, PerspectiveCamera } from "../../math/geometry/camera";
-import { AABB } from "../../math/geometry/primitive";
-import { GPU } from "../gpu";
-import { DisplayConfig, IWireframeRenderState, RaytracingPipelineDescriptor, RetinaRenderPassDescriptor, RetinaSliceFacing, SectionConfig, SliceRendererConfig, TetraSlicePipelineDescriptor } from "./interfaces";
-import { RaytracingPipeline, TetraSlicePipeline } from "./pipeline";
-import { RenderState as IRenderState, RetinaRenderPass as IRetinaRenderPass } from "./interfaces";
+import { AffineMat4, Obj4 } from "../../math/algebra/affine.js";
+import { Mat4 } from "../../math/algebra/mat4.js";
+import { Vec4 } from "../../math/algebra/vec4.js";
+import { OrthographicCamera, PerspectiveCamera } from "../../math/geometry/camera.js";
+import { AABB } from "../../math/geometry/primitive.js";
+import { GPU } from "../gpu.js";
+import { DisplayConfig, IWireframeRenderState, RaytracingPipelineDescriptor, RetinaRenderPassDescriptor, RetinaSliceFacing, SectionConfig, SliceRendererConfig, TetraSlicePipelineDescriptor } from "./interfaces.js";
+import { RaytracingPipeline, TetraSlicePipeline } from "./pipeline.js";
+import { RenderState as IRenderState, RetinaRenderPass as IRetinaRenderPass } from "./interfaces.js";
 /** Internal use for SliceRenderer's Display Configs */
 export interface InternalDisplayConfig extends DisplayConfig {
     opacity: number;

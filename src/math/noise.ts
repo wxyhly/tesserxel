@@ -1,4 +1,4 @@
-import { Srand } from "./random";
+import { Srand } from "./random.js";
 
 export class Perlin3 {
     private _p = new Uint8Array(512);

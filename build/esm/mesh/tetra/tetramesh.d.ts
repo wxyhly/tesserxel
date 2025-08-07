@@ -1,4 +1,4 @@
-import { AffineMat4, Obj4 } from "../../math/algebra/affine";
+import { AffineMat4, Obj4 } from "../../math/algebra/affine.js";
 /** Tetramesh store 4D mesh as tetrahedral list
  *  Each tetrahedral uses four vertices in the position list
  */

@@ -1,10 +1,10 @@
 /// <reference types="@webgpu/types" />
-import { Vec4 } from "../math/algebra/vec4";
-import { Obj4 } from "../math/algebra/affine";
-import { PerspectiveCamera } from "./scene";
-import { AABB, Plane } from "../math/geometry/primitive";
+import { Vec4 } from "../math/algebra/vec4.js";
+import { Obj4 } from "../math/algebra/affine.js";
+import { PerspectiveCamera } from "./scene.js";
+import { AABB, Plane } from "../math/geometry/primitive.js";
 import { IWireframeRenderState } from "../render/slice/interfaces";
-import { CWMesh } from "../mesh/mesh";
+import { CWMesh } from "../mesh/mesh.js";
 export interface WireFrameObject extends Obj4 {
     lines: [Vec4, Vec4][];
     visible?: boolean;

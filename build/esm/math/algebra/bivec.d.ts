@@ -1,7 +1,7 @@
-import { Pool } from "../pool";
-import { Srand } from "../random";
-import { Rotor } from "./rotor";
-import { Vec4 } from "./vec4";
+import { Pool } from "../pool.js";
+import { Srand } from "../random.js";
+import { Rotor } from "./rotor.js";
+import { Vec4 } from "./vec4.js";
 export declare class BivecPool extends Pool<Bivec> {
     constructObject(): Bivec;
 }

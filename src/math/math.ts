@@ -13,7 +13,7 @@ export { Complex } from "./algebra/cplx";
 export { AffineMat4, Obj4 } from "./algebra/affine";
 export * from "./algebra/group";
 export { getPerspectiveProjectionMatrix, getOrthographicProjectionMatrix } from "./geometry/camera";
-import type { PerspectiveCamera, OrthographicCamera } from "./geometry/camera";
+import type { PerspectiveCamera, OrthographicCamera } from "./geometry/camera.js";
 export type { PerspectiveCamera, OrthographicCamera };
 export { AABB, Plane, Ray } from "./geometry/primitive";
 export { Spline } from "./geometry/spline";

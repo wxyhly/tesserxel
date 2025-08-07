@@ -1,11 +1,11 @@
-import { _180 } from "../const";
-import { Pool } from "../pool";
-import { Srand } from "../random";
-import { Bivec, _bivec } from "./bivec";
-import { Mat4, _mat4 } from "./mat4";
-import { Quaternion } from "./quaternion";
-import { Vec3, _vec3_1, _vec3_2, _vec3_3, _vec3_4, _vec3_5 } from "./vec3";
-import { Vec4, _vec4 } from "./vec4";
+import { _180 } from "../const.js";
+import { Pool } from "../pool.js";
+import { Srand } from "../random.js";
+import { Bivec, _bivec } from "./bivec.js";
+import { Mat4, _mat4 } from "./mat4.js";
+import { Quaternion } from "./quaternion.js";
+import { Vec3, _vec3_1, _vec3_2, _vec3_3, _vec3_4, _vec3_5 } from "./vec3.js";
+import { Vec4, _vec4 } from "./vec4.js";
 
 export class RotorPool extends Pool<Rotor> {
     constructObject() { return new Rotor; }

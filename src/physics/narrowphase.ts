@@ -1,9 +1,9 @@
-import { Rotor } from "../math/algebra/rotor";
-import { Vec4, vec4Pool } from "../math/algebra/vec4";
-import { _COS30, _TAN30 } from "../math/const";
-import { BroadPhaseList } from "./broadPhase";
-import { epaDiff, gjkDiffTest, gjkOutDistance } from "./gjk";
-import { rigid, Rigid } from "./rigid";
+import { Rotor } from "../math/algebra/rotor.js";
+import { Vec4, vec4Pool } from "../math/algebra/vec4.js";
+import { _COS30, _TAN30 } from "../math/const.js";
+import { BroadPhaseList } from "./broadPhase.js";
+import { epaDiff, gjkDiffTest, gjkOutDistance } from "./gjk.js";
+import { rigid, Rigid } from "./rigid.js";
 
 export interface Collision {
     point: Vec4;

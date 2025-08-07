@@ -1,6 +1,6 @@
-import { Vec4 } from "../math/algebra/vec4";
-import { BroadPhaseList } from "./broadPhase";
-import { Rigid } from "./rigid";
+import { Vec4 } from "../math/algebra/vec4.js";
+import { BroadPhaseList } from "./broadPhase.js";
+import { Rigid } from "./rigid.js";
 export interface Collision {
     point: Vec4;
     depth: number;

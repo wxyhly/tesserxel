@@ -1,6 +1,6 @@
-import { Vec2 } from "../../math/algebra/vec2";
-import { Vec4 } from "../../math/algebra/vec4";
-import { FaceIndexMesh, FaceIndexMeshData, FaceMesh } from "./facemesh";
+import { Vec2 } from "../../math/algebra/vec2.js";
+import { Vec4 } from "../../math/algebra/vec4.js";
+import { FaceIndexMesh, FaceIndexMeshData, FaceMesh } from "./facemesh.js";
 export declare let square: FaceMesh;
 export declare function cube(): FaceMesh;
 export declare function sphere(radius: number, u: number, v: number, uAngle?: number, vAngle?: number): FaceMesh;

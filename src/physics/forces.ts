@@ -1,10 +1,10 @@
-import { Bivec, bivecPool } from "../math/algebra/bivec";
-import { Mat4, mat4Pool } from "../math/algebra/mat4";
-import { Matrix } from "../math/algebra/matrix";
-import { Rotor } from "../math/algebra/rotor";
-import { Vec4, vec4Pool } from "../math/algebra/vec4";
-import { mulBivec, World } from "./engine";
-import { Rigid } from "./rigid";
+import { Bivec, bivecPool } from "../math/algebra/bivec.js";
+import { Mat4, mat4Pool } from "../math/algebra/mat4.js";
+import { Matrix } from "../math/algebra/matrix.js";
+import { Rotor } from "../math/algebra/rotor.js";
+import { Vec4, vec4Pool } from "../math/algebra/vec4.js";
+import { mulBivec, World } from "./engine.js";
+import { Rigid } from "./rigid.js";
 
 export interface ForceAccumulatorConstructor {
     new(): ForceAccumulator;

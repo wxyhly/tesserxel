@@ -1,5 +1,5 @@
-import { CosetTable } from "../algebra/group";
-import { Vec4 } from "../math";
+import { CosetTable } from "../algebra/group.js";
+import { Vec4 } from "../math.js";
 export declare class Polytope {
     private gens;
     private rels;

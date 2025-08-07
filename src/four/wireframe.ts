@@ -1,13 +1,13 @@
-import { Vec4 } from "../math/algebra/vec4";
-import { Obj4 } from "../math/algebra/affine";
-import { Camera, PerspectiveCamera } from "./scene";
-import { AABB, Plane } from "../math/geometry/primitive";
+import { Vec4 } from "../math/algebra/vec4.js";
+import { Obj4 } from "../math/algebra/affine.js";
+import { Camera, PerspectiveCamera } from "./scene.js";
+import { AABB, Plane } from "../math/geometry/primitive.js";
 import { IWireframeRenderState, RenderState } from "../render/slice/interfaces";
-import { Vec3, _vec3_4 } from "../math/algebra/vec3";
-import { _90, _DEG2RAD } from "../math/const";
-import { WireFrameRenderPass } from "../render/slice/renderer";
-import { CWMesh } from "../mesh/mesh";
-import { CWMeshSelection, Face } from "../mesh/cwmesh/cwmesh";
+import { Vec3, _vec3_4 } from "../math/algebra/vec3.js";
+import { _90, _DEG2RAD } from "../math/const.js";
+import { WireFrameRenderPass } from "../render/slice/renderer.js";
+import { CWMesh } from "../mesh/mesh.js";
+import { CWMeshSelection, Face } from "../mesh/cwmesh/cwmesh.js";
 export interface WireFrameObject extends Obj4 {
     lines: [Vec4, Vec4][];
     visible?: boolean;

@@ -1,10 +1,10 @@
-import { Bivec } from "../../math/algebra/bivec";
-import { Vec3 } from "../../math/algebra/vec3";
-import { Vec4 } from "../../math/algebra/vec4";
-import { Spline } from "../../math/geometry/spline";
+import { Bivec } from "../../math/algebra/bivec.js";
+import { Vec3 } from "../../math/algebra/vec3.js";
+import { Vec4 } from "../../math/algebra/vec4.js";
+import { Spline } from "../../math/geometry/spline.js";
 import * as face from "../../mesh/face";
-import { CWMesh } from "../cwmesh/cwmesh";
-import { TetraMesh } from "./tetramesh";
+import { CWMesh } from "../cwmesh/cwmesh.js";
+import { TetraMesh } from "./tetramesh.js";
 export declare let cube: TetraMesh;
 export declare function tesseract(): TetraMesh;
 export declare let hexadecachoron: TetraMesh;

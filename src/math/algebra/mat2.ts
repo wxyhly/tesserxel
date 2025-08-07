@@ -1,5 +1,5 @@
-import { Pool } from "../pool";
-import { Vec2 } from "./vec2";
+import { Pool } from "../pool.js";
+import { Vec2 } from "./vec2.js";
 
 export class Mat2Pool extends Pool<Mat2>{
     constructObject() { return new Mat2; }

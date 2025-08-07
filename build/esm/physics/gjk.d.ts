@@ -1,4 +1,4 @@
-import { Vec4 } from "../math/algebra/vec4";
+import { Vec4 } from "../math/algebra/vec4.js";
 declare type Convex = Vec4[];
 export declare function gjkOutDistance(convex: Convex, initSimplex?: Vec4[]): {
     simplex?: Vec4[];

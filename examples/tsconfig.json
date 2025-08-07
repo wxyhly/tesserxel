@@ -5,10 +5,19 @@
             "DOM"
         ],
         "target": "ES2022",
-        "sourceMap":true,
-        "outDir":"js",
+        "sourceMap": true,
+        "outDir": "js",
+        "baseUrl": ".", 
+        "paths": {
+            "wgsl_reflect": [
+                "../node_modules/wgsl_reflect/wgsl_reflect.module.js"
+            ]
+        }
     },
-    
-    "include":["./src/**/*"],
-    "exclude": ["../build/**/*"]
+    "include": [
+        "./src/**/*"
+    ],
+    "exclude": [
+        "../build/**/*"
+    ]
 }

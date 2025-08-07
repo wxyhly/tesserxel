@@ -1,5 +1,5 @@
-import { Vec4 } from "../../math/algebra/vec4";
-import { Bivec } from "../../math/math";
+import { Vec4 } from "../../math/algebra/vec4.js";
+import { Bivec } from "../../math/math.js";
 export declare type FaceId = number;
 export declare type Simplex = number[];
 export declare type Face = Array<FaceId>;
