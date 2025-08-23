@@ -68,18 +68,18 @@ function _initLightShader(config) {
     uWorldLightBufferSize = spotLightOffset + spotLightsNumber * structSpotLightLightSize;
     const lightCode = `
 struct PosDirLight{
-    density: vec4<f32>,
-    pos_dir: vec4<f32>,
+    density: vec4f,
+    pos_dir: vec4f,
 }
 struct SpotLight{
-    density: vec4<f32>,
-    pos: vec4<f32>,
-    dir: vec4<f32>,
-    params: vec4<f32>
+    density: vec4f,
+    pos: vec4f,
+    dir: vec4f,
+    params: vec4f
 }
 const blackColor = vec3<f32>(0.02);
 struct WorldLight{
-    ambientLightDensity: vec4<f32>,
+    ambientLightDensity: vec4f,
     posdirLights: array<PosDirLight,${posdirLightsNumber}>,
     spotLights: array<SpotLight,${spotLightsNumber}>,
 }

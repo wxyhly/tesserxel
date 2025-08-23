@@ -96,11 +96,11 @@ export var wave_eq;
             @ray fn mainRay(@builtin(voxel_coord) position: vec3<f32>) -> RayOutput{
                 return RayOutput(position);
             }
-            @fragment fn mainFrag(@location(0) position: vec3<f32>) -> @location(0) vec4<f32>{
+            @fragment fn mainFrag(@location(0) position: vec3<f32>) -> @location(0) vec4f{
                 let pos = vec3<u32>((position * 0.5 + vec3<f32>(0.5)) * vec3<f32>(input.size.xyz));
                 let offset = pos.x + input.size.x*(pos.y + input.size.y*pos.z);
                 let d_u = unpack2x16float(input.data[offset]);
-                return vec4<f32>(-cos(d_u.y)*0.5 + 0.5, sin(d_u.y)*0.5 + 0.5, sin(d_u.x)*0.5 + 0.5, d_u.x * d_u.x * 1000.0 + 0.02);
+                return vec4f(-cos(d_u.y)*0.5 + 0.5, sin(d_u.y)*0.5 + 0.5, sin(d_u.x)*0.5 + 0.5, d_u.x * d_u.x * 1000.0 + 0.02);
             }
             `;
         const device = gpu.device;
@@ -271,7 +271,7 @@ async function simulateTerrain(erosionRate, coriolis) {
     let computeCode = tesserxel.four.NoiseWGSLHeader + `
             struct Vec4Attachment{
                 size: vec4<u32>,
-                data: array<vec4<f32>> 
+                data: array<vec4f> 
             }
             struct Vec2Attachment{
                 size: vec4<u32>,
@@ -373,7 +373,7 @@ async function simulateTerrain(erosionRate, coriolis) {
                 let b_dzp = tx00.data[ioffset + offsetzp];
 
                 var fxy = tx02.data[offset];
-                fxy = max(vec4<f32>(0.0), fxy + flux_coeff * (
+                fxy = max(vec4f(0.0), fxy + flux_coeff * (
                     vec4(waterh) - vec4(b_dxm.x, b_dxp.x, b_dym.x, b_dyp.x) - vec4(b_dxm.y, b_dxp.y, b_dym.y, b_dyp.y)
                 ));
                 
@@ -511,13 +511,13 @@ async function simulateTerrain(erosionRate, coriolis) {
                 let rt = bdhere.w;
                 let ds = dt * mix(kd, ks * rt, step(s, c)) * (s - c);
                
-                tx01.data[offset] = vec4<f32>(
+                tx01.data[offset] = vec4f(
                     b + ds, d1, s - ds,
                     max(0.1, rt - dt * kh * ks * max(0.0, s - c))
                 );
                 tx02.data[offset] = newfxy * kdp;
                 tx03.data[offset] = tx05.data[offset] * kdp;
-                tx06.data[offset] = vec4<f32>(
+                tx06.data[offset] = vec4f(
                     w, c
                 );
             }
@@ -570,7 +570,7 @@ async function simulateTerrain(erosionRate, coriolis) {
                 let H = max(max(max(hxm,hxp),max(hym,hyp)),max(hzm,hzp));
                 var sCoeff = H * dt * kt * rt * 0.5 / (hxm + hxp + hym + hyp + hzm + hzp);
                 if( H == 0.0) {sCoeff = 0.0;}
-                tx04.data[ioffset] = vec4<f32>(hxm, hxp, hym, hyp) * sCoeff;
+                tx04.data[ioffset] = vec4f(hxm, hxp, hym, hyp) * sCoeff;
                 tx05.data[ioffset] = vec2<f32>(hzm, hzp) * sCoeff;
             }
             @compute @workgroup_size(8,8,4) 
@@ -603,7 +603,7 @@ async function simulateTerrain(erosionRate, coriolis) {
                 let hyp = tx04.data[ioffset + offsetyp].z;
                 let hzm = tx05.data[ioffset + offsetzm].y;
                 let hzp = tx05.data[ioffset + offsetzp].x;
-                tx00.data[ioffset] = vec4<f32>(b + (
+                tx00.data[ioffset] = vec4f(b + (
                         hxm + hxp + hym + hyp + hzm + hzp
                     ) - (
                         hxy.z + hxy.w + hxy.x + hxy.y + hz.x + hz.y
@@ -615,7 +615,7 @@ async function simulateTerrain(erosionRate, coriolis) {
     const raytracingShaderCode = `
             struct Vec4Attachment{
                 size: vec4<u32>,
-                data: array<vec4<f32>> 
+                data: array<vec4f> 
             }
             struct UniformBlock{
                 seed: f32,
@@ -626,8 +626,8 @@ async function simulateTerrain(erosionRate, coriolis) {
                 terrainOpacity: f32,
                 padding1: f32,
                 padding2: f32,
-                rotMat: mat4x4<f32>,
-                pos: vec4<f32>
+                rotMat: mat4x4f,
+                pos: vec4f
             }
             @group(1) @binding(0) var<storage,read> tx00: Vec4Attachment;
             @group(1) @binding(1) var<storage,read> tx06: Vec4Attachment;
@@ -638,8 +638,8 @@ async function simulateTerrain(erosionRate, coriolis) {
             @ray fn mainRay(@builtin(voxel_coord) position: vec3<f32>) -> RayOutput{
                 return RayOutput(position);
             }
-            @fragment fn mainFrag(@location(0) position: vec3<f32>) -> @location(0) vec4<f32>{
-                let screenPos = uBlock.rotMat * vec4<f32>(position,0.0) + uBlock.pos;
+            @fragment fn mainFrag(@location(0) position: vec3<f32>) -> @location(0) vec4f{
+                let screenPos = uBlock.rotMat * vec4f(position,0.0) + uBlock.pos;
                 let pos = vec3<u32>(fract(screenPos.xyz * 0.5 + vec3<f32>(0.5)) * vec3<f32>(tx00.size.xyz));
                 let offset = pos.x + tx00.size.x*(pos.y + tx00.size.y*pos.z);
                 let bdsr = tx00.data[offset];
@@ -661,7 +661,7 @@ async function simulateTerrain(erosionRate, coriolis) {
                 let waterColor = mix(vec3<f32>(0.0,0.0,1.0), vec3<f32>(1.0), v * 2.0);
                 let watermap = bdsr.y * 2.0 * uBlock.water - v * 10.0;
                 let terrainOpacityFactor = (heightmap * 0.5 - uBlock.terrainCenter) * uBlock.terrainQ;
-                return vec4<f32>(
+                return vec4f(
                     mix(
                         mix(heightColor, waterColor,
                             clamp(watermap, 0.0, 1.0)

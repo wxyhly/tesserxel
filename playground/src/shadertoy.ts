@@ -3,7 +3,8 @@ import { basicSetup } from "codemirror"
 import { Decoration, DecorationSet, EditorView, keymap, ViewPlugin, ViewUpdate } from "@codemirror/view"
 import { indentWithTab } from "@codemirror/commands"
 import { autocompletion, CompletionContext } from "@codemirror/autocomplete";
-import { StateField, RangeSetBuilder, StateEffect } from "@codemirror/state";
+import { StateField, RangeSetBuilder, StateEffect, EditorState } from "@codemirror/state";
+import { indentUnit } from "@codemirror/language";
 const setErrorLines = StateEffect.define<number[]>();
 
 const errorLineTheme = EditorView.baseTheme({
@@ -98,6 +99,8 @@ export const createCodemirrorEditor = (parent?: Element | DocumentFragment, doc?
   let v = new EditorView({
     extensions: [
       basicSetup, wgsl(),
+      EditorState.tabSize.of(4),
+      indentUnit.of("    "),
       keymap.of([indentWithTab]),
       autocompletion({ override: [wgslCompletionSource], }),
       errorLineTheme, errorLineField,

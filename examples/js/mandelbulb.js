@@ -6,13 +6,13 @@ class MandelApp {
     retinaController;
     headercode = `
         struct rayOut{
-            @location(0) o: vec4<f32>,
-            @location(1) d: vec4<f32>
+            @location(0) o: vec4f,
+            @location(1) d: vec4f
         }
         @group(1) @binding(0) var<uniform> camMat: tsxAffineMat;
         @ray fn mainRay(
-            @builtin(ray_direction) rd: vec4<f32>,
-            @builtin(ray_origin) ro: vec4<f32>
+            @builtin(ray_direction) rd: vec4f,
+            @builtin(ray_origin) ro: vec4f
         ) -> rayOut{
             return rayOut(camMat.matrix*ro+camMat.vector, camMat.matrix*rd);
         }
@@ -25,7 +25,7 @@ class MandelApp {
         const MAXMANDELBROTDIST = 1.5;
         const MANDELBROTSTEPS = 64;
 
-        // cosine based palette, 4 params: vec4<f32>
+        // cosine based palette, 4 params: vec4f
         fn cosineColor( t: f32, a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32> )-> vec3<f32>
         {
             return a + b*cos( 6.28318*(c*t+d) );
@@ -37,9 +37,9 @@ class MandelApp {
         // distance estimator to a mandelbulb set
         // returns the distance to the set on the x coordinate 
         // and the color on the y coordinate
-        fn DE(pos: vec4<f32>)->vec2<f32> {
+        fn DE(pos: vec4f)->vec2<f32> {
             const Power: f32 = 10.0;
-            var z: vec4<f32> = pos;
+            var z: vec4f = pos;
             var dr: f32 = 1.0;
             var r: f32 = 0.0;
             for (var i = 0; i < MANDELBROTSTEPS ; i++) {
@@ -53,7 +53,7 @@ class MandelApp {
         // MAPPING FUNCTION ... 
         // returns the distance of the nearest object in the direction p on the x coordinate 
         // and the color on the y coordinate
-        // vec2 map( p: vec4<f32> )
+        // vec2 map( p: vec4f )
         // {
         //     //p = fract(p); 
         //    	vec2 d = DE(p);
@@ -67,7 +67,7 @@ class MandelApp {
         // TRACING A PATH : 
         // measuring the distance to the nearest object on the x coordinate
         // and returning the color index on the y coordinate
-        fn trace  (origin: vec4<f32>, ray: vec4<f32>)->vec2<f32> {
+        fn trace  (origin: vec4f, ray: vec4f)->vec2<f32> {
             
             //t is the point at which we are in the measuring of the distance
             var t: f32 =0.0;
@@ -85,17 +85,17 @@ class MandelApp {
             return vec2<f32>(t,c);
         }
 
-        fn render(origin:vec4<f32>, ray:vec4<f32>)->vec4<f32>
+        fn render(origin:vec4f, ray:vec4f)->vec4f
         {
             let depth = trace(origin,ray);
             //rendering with a fog calculation (further is darker)
             let fog: f32 = 1.0 / (1.0 + depth.x * depth.x * 0.1);
             
             // Output to screen
-            return vec4<f32>(palette(depth.y + 12.0)*fog,fog);
+            return vec4f(palette(depth.y + 12.0)*fog,fog);
         }
 
-        @fragment fn mainFragment(@location(0) rayOrigin: vec4<f32>, @location(1) rayDir: vec4<f32>)->@location(0) vec4<f32>{
+        @fragment fn mainFragment(@location(0) rayOrigin: vec4f, @location(1) rayDir: vec4f)->@location(0) vec4f{
         return render(rayOrigin, rayDir);
         }
         `;
@@ -166,7 +166,7 @@ export var mandelbulb_hopf;
                 let st = sin(theta);
                 let ct = cos(theta);
                 // convert back to cartesian coordinates
-                z = zr*vec4<f32>(st*cos(phi1), st*sin(phi1), ct*cos(phi2), ct*sin(phi2));
+                z = zr*vec4f(st*cos(phi1), st*sin(phi1), ct*cos(phi2), ct*sin(phi2));
                 z += pos;
             `, (pos) => {
             const MAXMANDELBROTDIST = 1.5;
@@ -220,7 +220,7 @@ export var mandelbulb_spherical;
                 
                 let st1 = sin(theta1);
                 let st2 = sin(theta2);
-                z = zr*vec4<f32>(st1*st2*cos(phi), st1*st2*sin(phi), st1*cos(theta2), cos(theta1));
+                z = zr*vec4f(st1*st2*cos(phi), st1*st2*sin(phi), st1*cos(theta2), cos(theta1));
                 z += pos;
             `, (pos) => {
             const DISTANCE = 3.0;
@@ -266,8 +266,8 @@ export var julia_quaternion;
                 let q = z / r;
                 let s = acos(q.x) * Power;
                 let zr: f32 = pow( r,Power);
-                z = zr*vec4<f32>(cos(s),normalize(q.yzw)*sin(s));
-                z += vec4<f32>(-0.125,-0.256,0.847,0.0895);
+                z = zr*vec4f(cos(s),normalize(q.yzw)*sin(s));
+                z += vec4f(-0.125,-0.256,0.847,0.0895);
             `, (pos) => {
             const DISTANCE = 3.0;
             const MAXMANDELBROTDIST = 1.5;

@@ -218,16 +218,16 @@ export var aircraft;
         ]);
         const aircraft = new FOUR.Object();
         const aircraftMat = new FOUR.LambertMaterial([1, 1, 1, 1]);
-        const aircraftBodyMat = new FOUR.PhongMaterial(new FOUR.WgslTexture(`fn aircraftbody_texture(uvw:vec4<f32>)->vec4<f32>{
+        const aircraftBodyMat = new FOUR.PhongMaterial(new FOUR.WgslTexture(`fn aircraftbody_texture(uvw:vec4f)->vec4f{
                 let isWindow = uvw.y<0.45 && uvw.y>0.25 && (
                     (fract(uvw.z*3.0)<0.5 && fract(atan2(uvw.w,uvw.x)*${10 / Math.PI}) < 0.5 && uvw.z > -7.0 && uvw.z < 2.6) ||
                     (uvw.z > 4.0 && uvw.z < 4.5 && fract(atan2(uvw.w,uvw.x)*${5 / Math.PI}) < 0.8125) ||
                     (uvw.z > 4.55 && abs(uvw.w)>0.025 && abs(uvw.x)>0.025)
                 );
                 if(isWindow){
-                    return vec4<f32>(0.2,0.2,0.4,1.0);
+                    return vec4f(0.2,0.2,0.4,1.0);
                 }else{
-                    return vec4<f32>(1.0,1.0,1.0,1.0);
+                    return vec4f(1.0,1.0,1.0,1.0);
                 }
             }`, "aircraftbody_texture"));
         let aircraftBodyMesh3d = new tesserxel.mesh.FaceIndexMesh(new tesserxel.mesh.ObjFile(resources[0]).parse()).toNonIndexMesh();
@@ -343,7 +343,7 @@ export var aircraft;
         return aircraft;
     }
     function genAircraftTrack() {
-        const track = new FOUR.Mesh(new tesserxel.four.CubeGeometry(new tesserxel.math.Vec3(13, 300, 13)), new FOUR.LambertMaterial(new FOUR.WgslTexture(`fn track(uvw:vec4<f32>)->vec4<f32>{
+        const track = new FOUR.Mesh(new tesserxel.four.CubeGeometry(new tesserxel.math.Vec3(13, 300, 13)), new FOUR.LambertMaterial(new FOUR.WgslTexture(`fn track(uvw:vec4f)->vec4f{
                 let auvw = abs(uvw);
                 let distance = max(auvw.x,auvw.z);
                 let isWhite = (
@@ -362,9 +362,9 @@ export var aircraft;
                     ))
                 ;
                 if(isWhite){
-                    return vec4<f32>(1.0,1.0,1.0,5.0);
+                    return vec4f(1.0,1.0,1.0,5.0);
                 }else{
-                    return vec4<f32>(0.3,0.3,0.3,0.2);
+                    return vec4f(0.3,0.3,0.3,0.2);
                 }
             }
             `, "track")));

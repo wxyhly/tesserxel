@@ -854,22 +854,22 @@ const retinaRenderPassDescriptors: RetinaRenderPassDescriptor[] = [
     {},
     {
         alphaShader: {
-            code: `@group(1) @binding(0) var<uniform> alphaParams : vec4<f32>;
-            fn main(color:vec4<f32>, coord: vec3<f32>)->f32{
+            code: `@group(1) @binding(0) var<uniform> alphaParams : vec4f;
+            fn main(color:vec4f, coord: vec3<f32>)->f32{
                 return color.a * (1.0 - smoothstep(alphaParams.x,alphaParams.y,dot(coord,coord))) * alphaParams.z;
             }`, entryPoint: 'main'
         }
     }, {
         alphaShader: {
-            code: `@group(1) @binding(0) var<uniform> alphaParams : vec4<f32>;
-            fn main(color:vec4<f32>, coord  : vec3<f32>)->f32{
+            code: `@group(1) @binding(0) var<uniform> alphaParams : vec4f;
+            fn main(color:vec4f, coord  : vec3<f32>)->f32{
                 return color.a * max(step(abs(coord.x),alphaParams.x)*step(abs(coord.y),alphaParams.x)*step(abs(coord.z),alphaParams.x)* alphaParams.y,alphaParams.z);
             }`, entryPoint: 'main'
         }
     }, {
         alphaShader: {
-            code: `@group(1) @binding(0) var<uniform> alphaParams : vec4<f32>;
-            fn main(color:vec4<f32>, coord: vec3<f32>)->f32{ 
+            code: `@group(1) @binding(0) var<uniform> alphaParams : vec4f;
+            fn main(color:vec4f, coord: vec3<f32>)->f32{ 
                 return color.a * max(step(dot(coord,alphaParams.xyz),0.0),alphaParams.w); 
             }`, entryPoint: 'main'
         }

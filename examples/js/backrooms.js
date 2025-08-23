@@ -8,8 +8,8 @@ export var backrooms;
             return code + `
                     let ${outputToken}_carpet1 = sin(${token.uvw}.x*40.0)*0.4 + sin(dot(${token.uvw},vec4(64.0,42.0,85.0,53.0)))*0.2;
                     let ${outputToken}_carpet2 = sin(${token.uvw}.z*100.0)*0.4 + sin(dot(${token.uvw},vec4(644.0,422.0,285.0,253.0)))*0.2;
-                    let ${outputToken} = mix(vec4<f32>(0.65,0.55,0.0,0.5),vec4<f32>(0.6,0.45,0.15,0.5),${outputToken}_carpet1*0.5+0.5)*0.35 +
-                    mix(vec4<f32>(0.6,0.53,0.13,0.5),vec4<f32>(0.3,0.26,0.05,0.5),${outputToken}_carpet2*0.5+0.5)*0.24
+                    let ${outputToken} = mix(vec4f(0.65,0.55,0.0,0.5),vec4f(0.6,0.45,0.15,0.5),${outputToken}_carpet1*0.5+0.5)*0.35 +
+                    mix(vec4f(0.6,0.53,0.13,0.5),vec4f(0.3,0.26,0.05,0.5),${outputToken}_carpet2*0.5+0.5)*0.24
                     ;
                     `;
         }

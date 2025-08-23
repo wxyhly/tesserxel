@@ -126,37 +126,37 @@ export var city_freeway;
         roadmesh = roadmesh.concat(fencemesh);
         let roadvertCode = `
             struct InputType{
-                @location(0) pos: mat4x4<f32>,
-                @location(1) uvw: mat4x4<f32>,
-                @location(2) normal: mat4x4<f32>,
+                @location(0) pos: mat4x4f,
+                @location(1) uvw: mat4x4f,
+                @location(2) normal: mat4x4f,
             }
             struct OutputType{
-                @builtin(position) pos: mat4x4<f32>,
-                @location(0) normal_uvw: array<mat4x4<f32>,2>,
-                @location(1) camRay: mat4x4<f32>,
+                @builtin(position) pos: mat4x4f,
+                @location(0) normal_uvw: array<mat4x4f,2>,
+                @location(1) camRay: mat4x4f,
             }
             struct AffineMat{
-                matrix: mat4x4<f32>,
-                vector: vec4<f32>,
+                matrix: mat4x4f,
+                vector: vec4f,
             }
             @group(1) @binding(3) var<uniform> camMat: AffineMat;
-            fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
-                let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
+            fn apply(afmat: AffineMat, points: mat4x4f) -> mat4x4f{
+                let biais = mat4x4f(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
                 return afmat.matrix* points + biais;
             }
             @tetra fn main(input : InputType, @builtin(instance_index) index: u32) -> OutputType{
                 let camInvVec = transpose(camMat.matrix) * camMat.vector;
                 return OutputType(apply(camMat,input.pos),
-                    array<mat4x4<f32>,2>(input.uvw, input.normal),
-                    input.pos + mat4x4<f32>(camInvVec,camInvVec,camInvVec,camInvVec)
+                    array<mat4x4f,2>(input.uvw, input.normal),
+                    input.pos + mat4x4f(camInvVec,camInvVec,camInvVec,camInvVec)
                 );
             }
             `;
         let roadfragCode = `
             struct fInputType{
-                @location(0) uvw : vec4<f32>,
-                @location(1) normal : vec4<f32>,
-                @location(2) camRay : vec4<f32>
+                @location(0) uvw : vec4f,
+                @location(1) normal : vec4f,
+                @location(2) camRay : vec4f
             };
             const xLanes = ${xLanes};
             const yLanes = ${yLanes};
@@ -164,12 +164,12 @@ export var city_freeway;
             const lineWidthHalf = ${lineWidthHalf};
             const outterLine1 = ${1.0 - laneSide - lineWidthHalf};
             const outterLine2 = ${1.0 - laneSide + lineWidthHalf};
-            const roadBaseColor = vec4<f32>(0.5,0.5,0.5,0.3);
-            const roadLineColor = vec4<f32>(1.0,1.0,0.0,1.0);
+            const roadBaseColor = vec4f(0.5,0.5,0.5,0.3);
+            const roadLineColor = vec4f(1.0,1.0,0.0,1.0);
             fn maxComp(p: vec2<f32>)->f32{
                 return max(p.x,p.y);
             }
-            fn roadTexture(uvw:vec3<f32>, phong: f32)->vec4<f32>{
+            fn roadTexture(uvw:vec3<f32>, phong: f32)->vec4f{
                 let uv = vec3<f32>((abs(uvw.x) - 0.5)*2.0, uvw.yz);
                 // outter lines
                 var online = step(0.0,maxComp(abs(uv.xy) - outterLine1));
@@ -187,21 +187,21 @@ export var city_freeway;
                 online *= step(maxComp(abs(uv.xy) - outterLine2),0.0);
                 return mix(roadBaseColor * (0.3 + 1.0*pow(phong,2.0)),roadLineColor,online);
             }
-            const directionalLight_dir = vec4<f32>(${directionalLight_dir});
-            fn roadSeparatorTexture(normal:vec4<f32>,uvw_w:f32, phong: f32)->vec4<f32>{
+            const directionalLight_dir = vec4f(${directionalLight_dir});
+            fn roadSeparatorTexture(normal:vec4f,uvw_w:f32, phong: f32)->vec4f{
                 const color = vec3<f32>(0.1,0.9,0.3);
                 if(fract(uvw_w * 3.5) > 0.3){ discard; }
                 let blinnphong = pow(phong,2.0);
-                return vec4<f32>(((dot(normal, directionalLight_dir))*0.2 + 0.5)*color*(0.5+0.9*blinnphong),1.0);
+                return vec4f(((dot(normal, directionalLight_dir))*0.2 + 0.5)*color*(0.5+0.9*blinnphong),1.0);
             }
-            @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+            @fragment fn main(vary: fInputType) -> @location(0) vec4f {
                 let color = vec3<f32>(1.0,1.0,1.0);
                 if(vary.uvw.x > 1.1){
                     let normal = vary.normal * (step(dot(vary.normal,vary.camRay),0.0)*2.0 - 1.0);
                     let phong = max(0.0,dot(normal,normalize(directionalLight_dir - normalize(vary.camRay))));
                     return roadSeparatorTexture(normal,vary.uvw.w, phong);
                 }else if(vary.uvw.x > 0.1){
-                    return vec4<f32>(max(0.0,dot(vary.normal, directionalLight_dir)*0.2+0.5)*color,1.0);
+                    return vec4f(max(0.0,dot(vary.normal, directionalLight_dir)*0.2+0.5)*color,1.0);
                 }else{
                     let phong = max(0.0,dot(vary.normal,normalize(directionalLight_dir - normalize(vary.camRay))));
                     return roadTexture(vary.uvw.yzw, phong);
@@ -216,45 +216,45 @@ export var city_freeway;
         const buildingVertCode = `
             
             struct InputType{
-                @location(0) pos: mat4x4<f32>,
-                @location(1) uvw: mat4x4<f32>,
-                @location(2) normal: mat4x4<f32>,
+                @location(0) pos: mat4x4f,
+                @location(1) uvw: mat4x4f,
+                @location(2) normal: mat4x4f,
             }
             
             struct OutputType{
-                @builtin(position) pos: mat4x4<f32>,
-                @location(0) uvw: mat4x4<f32>,
-                @location(1) normal: mat4x4<f32>,
+                @builtin(position) pos: mat4x4f,
+                @location(0) uvw: mat4x4f,
+                @location(1) normal: mat4x4f,
             }
             struct AffineMat{
-                matrix: mat4x4<f32>,
-                vector: vec4<f32>,
+                matrix: mat4x4f,
+                vector: vec4f,
             }
             @group(1) @binding(3) var<uniform> camMat: AffineMat;
             @group(1) @binding(4) var<storage,read> modelMats: array<AffineMat>;
-            fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
-                let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
+            fn apply(afmat: AffineMat, points: mat4x4f) -> mat4x4f{
+                let biais = mat4x4f(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
                 return afmat.matrix* points + biais;
             }
-            fn addVec4(v: vec4<f32>, points: mat4x4<f32>) -> mat4x4<f32>{
-                return points + mat4x4<f32>(v,v,v,v);
+            fn addVec4(v: vec4f, points: mat4x4f) -> mat4x4f{
+                return points + mat4x4f(v,v,v,v);
             }
-            fn normalizeVec4(points: mat4x4<f32>) -> mat4x4<f32>{
-                return mat4x4<f32>(normalize(points[0]),normalize(points[1]),normalize(points[2]),normalize(points[3]));
+            fn normalizeVec4(points: mat4x4f) -> mat4x4f{
+                return mat4x4f(normalize(points[0]),normalize(points[1]),normalize(points[2]),normalize(points[3]));
             }
             @tetra fn main(input : InputType, @builtin(instance_index) index: u32) -> OutputType{
                 let modelMat = modelMats[index];
-                let uvw = addVec4(vec4<f32>(0.0,0.0,0.0, f32(index)),input.uvw);
+                let uvw = addVec4(vec4f(0.0,0.0,0.0, f32(index)),input.uvw);
                 return OutputType(apply(camMat,apply(modelMat,input.pos)), uvw, normalizeVec4(modelMat.matrix * input.normal));
             }
             `;
         const buildingFragCode = `
             struct fInputType{
-                @location(0) uvw : vec4<f32>,
-                @location(1) normal : vec4<f32>
+                @location(0) uvw : vec4f,
+                @location(1) normal : vec4f
             };
-            const directionalLight_dir = vec4<f32>(${directionalLight_dir});
-            fn buildTextureMap(uvw: vec4<f32>)->vec4<f32>{
+            const directionalLight_dir = vec4f(${directionalLight_dir});
+            fn buildTextureMap(uvw: vec4f)->vec4f{
                 let Id = u32(uvw.w);
                 let colorId = Id & 7;
                 let anotherId = f32(Id & 1);
@@ -271,7 +271,7 @@ export var city_freeway;
                 );
                 let XZ = step(vec2<f32>(0.3,0.2), fract(uvw.xz * 4.0));
                 let Y =  step(0.2+f32(floorId)*0.1, fract(uvw.y * 8.0 - f32(floorId)));
-                return vec4<f32>(
+                return vec4f(
                     mix(
                         mix(colorWallTable[colorId],vec3<f32>(0.5,0.8,0.9),XZ.x+XZ.y),
                         colorWallTable[colorId],
@@ -279,13 +279,13 @@ export var city_freeway;
                     ),
                 0.2);
             }
-            @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
-                var color = vec4<f32>(0.2,1.0,0.2,0.1);
+            @fragment fn main(vary: fInputType) -> @location(0) vec4f {
+                var color = vec4f(0.2,1.0,0.2,0.1);
                 if(vary.uvw.w > 1.0){
                     color = buildTextureMap(vary.uvw);
                 }
-                return vec4<f32>(max(0.0,dot(vary.normal, directionalLight_dir)*0.2+0.5)*color.rgb,color.a);
-                // return vec4<f32>(1.0,0.0,0.0,0.3);
+                return vec4f(max(0.0,dot(vary.normal, directionalLight_dir)*0.2+0.5)*color.rgb,color.a);
+                // return vec4f(1.0,0.0,0.0,0.3);
             }
             `;
         let buildingTransformBuffer = new Float32Array(20 * buildingCount);
@@ -329,12 +329,12 @@ export var city_freeway;
         @group(1) @binding(0) var<uniform> camMat: tsxAffineMat;
 
         struct rayOut{
-            @location(0) out: vec4<f32>,
+            @location(0) out: vec4f,
             @location(1) coord: vec3<f32>
         }
 
         @ray fn mainRay(
-            @builtin(ray_direction) rd: vec4<f32>,
+            @builtin(ray_direction) rd: vec4f,
             @builtin(voxel_coord) coord: vec3<f32>,
             @builtin(aspect_matrix) aspect: mat3x3<f32>
         ) -> rayOut {
@@ -344,7 +344,7 @@ export var city_freeway;
             );
         }
         struct fOut{
-            @location(0) color: vec4<f32>,
+            @location(0) color: vec4f,
             @builtin(frag_depth) depth: f32
         }
         
@@ -358,7 +358,7 @@ export var city_freeway;
             let tE = vec3<f32>(0.14);
             return clamp((x*(tA*x+tB))/(x*(tC*x+tD)+tE),vec3<f32>(0.0),vec3<f32>(1.0));
         }
-        const Ds = vec4<f32>(${directionalLight_dir});
+        const Ds = vec4f(${directionalLight_dir});
         const betaR = vec3<f32>(1.95e-2, 1.1e-1, 2.94e-1); 
         const betaM = vec3<f32>(4e-2, 4e-2, 4e-2);
         const Rayleigh = 1.0;
@@ -366,7 +366,7 @@ export var city_freeway;
         const RayleighAtt = 1.0;
         const MieAtt = 1.2;
         const g = -0.9;
-        fn sky (rd: vec4<f32>)->vec3<f32>{
+        fn sky (rd: vec4f)->vec3<f32>{
             let D = normalize(rd);
             let t = max(0.001, D.y)*0.92+0.08;
 
@@ -394,22 +394,22 @@ export var city_freeway;
             color *= vec3<f32>(1.4,1.7,1.2);
             return ACESFilm(color);
         }
-        @fragment fn mainFragment(@location(0) rd: vec4<f32>, @location(1) coord: vec3<f32>)->fOut{
+        @fragment fn mainFragment(@location(0) rd: vec4f, @location(1) coord: vec3<f32>)->fOut{
             let abscoord1 = step(abs(coord),vec3<f32>(0.03));
             let abscoord2 = step(abs(coord),vec3<f32>(0.2));
             if(false && abscoord1.x*abscoord1.y*abscoord1.z <= 0.0){
                 if(abscoord2.x*abscoord1.y*abscoord1.z > 0.0){
-                    return fOut(vec4<f32>(1.0,0.0,0.0,5.0),0.0);
+                    return fOut(vec4f(1.0,0.0,0.0,5.0),0.0);
                 }
                 if(abscoord1.x*abscoord2.y*abscoord1.z > 0.0){
-                    return fOut(vec4<f32>(0.2,0.2,1.0,5.0),0.0);
+                    return fOut(vec4f(0.2,0.2,1.0,5.0),0.0);
                 }
                 if(abscoord1.x*abscoord1.y*abscoord2.z > 0.0){
-                    return fOut(vec4<f32>(0.0,1.0,0.0,5.0),0.0);
+                    return fOut(vec4f(0.0,1.0,0.0,5.0),0.0);
                 }
             }
             
-            return fOut(vec4<f32>(sky(rd),0.1),0.999999);
+            return fOut(vec4f(sky(rd),0.1),0.999999);
         }
         `;
     const { roadmesh, roadfragCode, roadvertCode, path } = genRoad();

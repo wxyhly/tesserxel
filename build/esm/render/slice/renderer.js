@@ -547,7 +547,7 @@ class CrossRenderPass {
             }
         };
         let clearModule = gpu.device.createShaderModule({
-            code: "@vertex fn v()->@builtin(position) vec4<f32>{ return vec4<f32>();} @fragment fn f()->@location(0) vec4<f32>{ return vec4<f32>();}"
+            code: "@vertex fn v()->@builtin(position) vec4f{ return vec4f();} @fragment fn f()->@location(0) vec4f{ return vec4f();}"
         });
         this.clearRenderPipelinePromise = gpu.device.createRenderPipelineAsync({
             layout: 'auto',
@@ -645,23 +645,23 @@ class RetinaRenderPass {
         this.crossRenderPass = crossRenderPass;
         let retinaRenderCode = refacingMatsCode + StructDefSliceInfo + StructDefUniformBuffer + `
 struct tsxvOutputType{
-    @builtin(position) position : vec4<f32>,
+    @builtin(position) position : vec4f,
     @location(0) relativeFragPosition : vec3<f32>,
     @location(1) crossHair : f32,
-    @location(2) rayForCalOpacity : vec4<f32>,
+    @location(2) rayForCalOpacity : vec4f,
     @location(3) retinaCoord : vec3<f32>,
-    @location(4) normalForCalOpacity : vec4<f32>,
+    @location(4) normalForCalOpacity : vec4f,
 }
 struct tsxfInputType{
     @location(0) relativeFragPosition : vec3<f32>,
     @location(1) crossHair : f32,
-    @location(2) rayForCalOpacity : vec4<f32>,
+    @location(2) rayForCalOpacity : vec4f,
     @location(3) retinaCoord : vec3<f32>,
-    @location(4) normalForCalOpacity : vec4<f32>,
+    @location(4) normalForCalOpacity : vec4f,
 }
 @group(0) @binding(0) var<storage,read> slice : array<tsxSliceInfo,${this.config.maxSlicesNumber}>;
 @group(0) @binding(1) var<uniform> tsx_uniforms : tsxUniformBuffer;
-@group(0) @binding(2) var<uniform> thumbnailViewport : array<vec4<f32>,16>;
+@group(0) @binding(2) var<uniform> thumbnailViewport : array<vec4f,16>;
 
 @vertex fn mainVertex(@builtin(vertex_index) vindex : u32, @builtin(instance_index) iindex : u32) -> tsxvOutputType {
     const pos = array<vec2<f32>, 4>(
@@ -678,11 +678,11 @@ struct tsxfInputType{
     }
     let s = slice[sindex + tsx_uniforms.sliceOffset];
     // let coord = vec2<f32>(pos2d.x, -pos2d.y) * 0.5 + 0.5;
-    let ray = vec4<f32>(pos2d, s.slicePos, 1.0);
-    var retinaCoord: vec4<f32>;
-    var glPosition: vec4<f32>;
-    var camRay: vec4<f32>;
-    var normal: vec4<f32>;
+    let ray = vec4f(pos2d, s.slicePos, 1.0);
+    var retinaCoord: vec4f;
+    var glPosition: vec4f;
+    var camRay: vec4f;
+    var normal: vec4f;
     let x = f32(((s.viewport >> 24) & 0xFF) << ${this.config.viewportCompressShift}) * ${1 / this.config.sliceTextureWidth};
     let y = f32(((s.viewport >> 16) & 0xFF) << ${this.config.viewportCompressShift}) * ${1 / this.config.sliceTextureHeight};
     let w = f32(((s.viewport >> 8 ) & 0xFF) << ${this.config.viewportCompressShift}) * ${1 / this.config.sliceTextureWidth};
@@ -695,7 +695,7 @@ struct tsxfInputType{
         let ce = cos(stereoLR_offset);
         var pureRotationMvMat = tsx_uniforms.retinaMV;
         pureRotationMvMat[3].z = 0.0;
-        let eyeMat = mat4x4<f32>(
+        let eyeMat = mat4x4f(
             ce,0,se,0,
             0,1,0,0,
             -se,0,ce,0,
@@ -706,7 +706,7 @@ struct tsxfInputType{
         retinaCoord = tsx_refacingMats[tsx_uniforms.refacing & 7] * ray;
         glPosition = tsx_uniforms.retinaP * camRay;
         if(tsx_uniforms.retinaP[3].w > 0){ // Orthographic
-            camRay = vec4<f32>(0.0,0.0,-1.0,1.0);
+            camRay = vec4f(0.0,0.0,-1.0,1.0);
         }
         normal = omat[2];
         // todo: viewport of retina slices
@@ -714,8 +714,8 @@ struct tsxfInputType{
     }else{
         let vp = thumbnailViewport[sindex + tsx_uniforms.sliceOffset - (tsx_uniforms.refacing >> 5)];
         crossHair = tsx_uniforms.eyeCross.z / vp.w * step(abs(s.slicePos),0.1);
-        glPosition = vec4<f32>(ray.x * vp.z * tsx_uniforms.screenAspect + vp.x, ray.y * vp.w + vp.y,0.5,1.0);
-        camRay = vec4<f32>(pos[vindex].x * vp.z / vp.w,pos[vindex].y,0.0,1.0); // for rendering crosshair
+        glPosition = vec4f(ray.x * vp.z * tsx_uniforms.screenAspect + vp.x, ray.y * vp.w + vp.y,0.5,1.0);
+        camRay = vec4f(pos[vindex].x * vp.z / vp.w,pos[vindex].y,0.0,1.0); // for rendering crosshair
     }
     
     let texelCoord = array<vec2<f32>, 4>(
@@ -737,11 +737,11 @@ struct tsxfInputType{
 @group(0) @binding(3) var tsx_txt: texture_2d<f32>;
 @group(0) @binding(4) var tsx_splr: sampler;
 ${descriptor?.alphaShader?.code ?? `
-fn mainAlpha(color: vec4<f32>, retinaCoord: vec3<f32>) -> f32{
+fn mainAlpha(color: vec4f, retinaCoord: vec3<f32>) -> f32{
     return color.a;
 }
 `}
-@fragment fn mainFragment(input : tsxfInputType) -> @location(0) vec4<f32> {
+@fragment fn mainFragment(input : tsxfInputType) -> @location(0) vec4f {
     let color = textureSample(tsx_txt, tsx_splr, input.relativeFragPosition.xy);
     var alpha: f32 = 1.0;
     var factor = 0.0;
@@ -754,7 +754,7 @@ fn mainAlpha(color: vec4<f32>, retinaCoord: vec3<f32>) -> f32{
     factor = step(cross.x, input.crossHair * 0.05) + step(cross.y, input.crossHair * 0.05);
     factor *= step(cross.x, input.crossHair) * step(cross.y, input.crossHair);
 }
-return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1.0)), alpha);
+return vec4f(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1.0)), alpha);
 }
 `;
         const retinaRenderShaderModule = gpu.device.createShaderModule({
@@ -815,7 +815,7 @@ const screenRenderCode = StructDefUniformBuffer + `
 @group(0) @binding(1) var tsx_splr: sampler;
 @group(0) @binding(2) var<uniform>tsx_uniforms : tsxUniformBuffer;
 struct tsxvOutputType{
-    @builtin(position) position: vec4<f32>,
+    @builtin(position) position: vec4f,
     @location(0) fragPosition: vec2<f32>,
 }
 struct tsxfInputType{
@@ -834,7 +834,7 @@ struct tsxfInputType{
         vec2<f32>(1.0, 1.0),
         vec2<f32>(1.0, 0.0),
     );
-    return tsxvOutputType(vec4<f32>(pos[index], 0.0, 1.0), uv[index]);
+    return tsxvOutputType(vec4f(pos[index], 0.0, 1.0), uv[index]);
 }
 @fragment fn mainFragment(input: tsxfInputType) -> @location(0) vec4 < f32 > {
 let color = textureSample(tsx_txt, tsx_splr, input.fragPosition);
@@ -852,7 +852,7 @@ if(tsx_uniforms.eyeCross.z > 0.0 && tsx_uniforms.layerOpacity > 0.0){
         factor *= step(cross.y, tsx_uniforms.eyeCross.z) * step(cross.x, aspectedCross);
     }
 }
-return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1.0)), 1.0);
+return vec4f(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1.0)), 1.0);
 }
 `;
 class ScreenRenderPass {
@@ -947,14 +947,14 @@ class WireFrameRenderPass {
         const shaderModule = gpu.device.createShaderModule({
             code: StructDefUniformBuffer + `
 @group(0) @binding(0) var<uniform> tsx_uniforms : tsxUniformBuffer;
-@vertex fn tsxVMain(@location(0) inPos: vec4<f32>, @builtin(instance_index) idx: u32) -> @builtin(position) vec4<f32>{
+@vertex fn tsxVMain(@location(0) inPos: vec4f, @builtin(instance_index) idx: u32) -> @builtin(position) vec4f{
     let stereoLR = f32(idx & 1) - 0.5;
     let stereoLR_offset = -stereoLR * tsx_uniforms.eyeCross.y;
     let se = sin(stereoLR_offset);
     let ce = cos(stereoLR_offset);
     var pureRotationMvMat = tsx_uniforms.retinaMV;
     pureRotationMvMat[3].z = 0.0;
-    let eyeMat = mat4x4<f32>(
+    let eyeMat = mat4x4f(
         ce,0,se,0,
         0,1,0,0,
         -se,0,ce,0,
@@ -964,8 +964,8 @@ class WireFrameRenderPass {
     glPosition.x = (glPosition.x) * tsx_uniforms.screenAspect + step(0.0001, abs(tsx_uniforms.eyeCross.y)) * stereoLR * glPosition.w;
     return glPosition;
 }
-@fragment fn tsxFMain()->@location(0) vec4<f32>{
-    return vec4<f32>(1.0,0.0,0.0,1.0);
+@fragment fn tsxFMain()->@location(0) vec4f{
+    return vec4f(1.0,0.0,0.0,1.0);
 }`,
         });
         this.pipelinePromise = gpu.device.createRenderPipelineAsync({

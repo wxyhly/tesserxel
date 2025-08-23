@@ -26743,6 +26743,8 @@ const createCodemirrorEditor = (parent, doc, onchange, onfocus, onblur) => {
     let v = new EditorView({
         extensions: [
             basicSetup, wgsl(),
+            EditorState.tabSize.of(4),
+            indentUnit.of("    "),
             keymap.of([indentWithTab]),
             autocompletion({ override: [wgslCompletionSource], }),
             errorLineTheme, errorLineField,

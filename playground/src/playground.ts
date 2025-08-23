@@ -2,6 +2,7 @@ import { EditorState } from '@codemirror/state';
 import { EditorView, keymap, highlightActiveLine, lineNumbers } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { javascript } from '@codemirror/lang-javascript';
+import { indentUnit } from "@codemirror/language";
 import { html } from '@codemirror/lang-html';
 import { oneDark } from '@codemirror/theme-one-dark';
 import examples from './exampleList';
@@ -91,6 +92,8 @@ const htmlEditor = new EditorView({
             history(),
             keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
             html(),
+            EditorState.tabSize.of(4),
+            indentUnit.of("    "),
             oneDark,
             EditorView.updateListener.of(v => { if (v.docChanged && autorun.checked) scheduleRun(); })
         ]
@@ -105,6 +108,8 @@ const jsEditor = new EditorView({
             lineNumbers(),
             highlightActiveLine(),
             history(),
+            EditorState.tabSize.of(4),
+            indentUnit.of("    "),
             keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
             javascript(),
             oneDark,
@@ -115,7 +120,7 @@ const jsEditor = new EditorView({
 });
 
 const consoleEl = document.getElementById('console');
-function appendConsole(type:string, ...args:any[]) {
+function appendConsole(type: string, ...args: any[]) {
     const line = document.createElement('div');
     line.textContent = `[${type.toUpperCase()}] ` + args.map(pretty).join(' ');
     if (type === 'error') line.style.color = '#ff6b6b';
@@ -314,9 +319,9 @@ function renderMenu(container: HTMLElement, items: any[], lang: "zh" | "en") {
 
 run();
 document.addEventListener("click", (e) => {
-  const dropdown = document.getElementById("examplesMenu");
-  if (!dropdown.contains(e.target as Node)) {
-    document.querySelectorAll("details[open]").forEach(d => d.removeAttribute("open"));
-  }
+    const dropdown = document.getElementById("examplesMenu");
+    if (!dropdown.contains(e.target as Node)) {
+        document.querySelectorAll("details[open]").forEach(d => d.removeAttribute("open"));
+    }
 });
 renderMenu(document.querySelector(".dropdown"), examples, lang as "zh" | "en");

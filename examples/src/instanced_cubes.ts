@@ -2,23 +2,23 @@ import * as tesserxel from "../../build/esm/tesserxel.js"
 export namespace instanced_cubes {
     let vertCode = `
 struct InputType{
-    @location(0) pos: mat4x4<f32>,
-    @location(1) normal: mat4x4<f32>,
-    @location(2) uvw: mat4x4<f32>,
+    @location(0) pos: mat4x4f,
+    @location(1) normal: mat4x4f,
+    @location(2) uvw: mat4x4f,
 }
 struct OutputType{
-    @builtin(position) pos: mat4x4<f32>,
-    @location(0) normal: mat4x4<f32>,
-    @location(1) uvw: mat4x4<f32>,
+    @builtin(position) pos: mat4x4f,
+    @location(0) normal: mat4x4f,
+    @location(1) uvw: mat4x4f,
 }
 struct AffineMat{
-    matrix: mat4x4<f32>,
-    vector: vec4<f32>,
+    matrix: mat4x4f,
+    vector: vec4f,
 }
 @group(1) @binding(3) var<uniform> camMat: array<AffineMat,2>;
 @group(1) @binding(4) var<storage> modelMats: array<AffineMat>;
-fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
-    let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
+fn apply(afmat: AffineMat, points: mat4x4f) -> mat4x4f{
+    let biais = mat4x4f(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
     return afmat.matrix * points + biais;
 }
 @tetra fn main(input : InputType, @builtin(instance_index) index: u32) -> OutputType{
@@ -28,10 +28,10 @@ fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
 `;
     let fragCode = `
 struct fInputType{
-    @location(0) normal : vec4<f32>,
-    @location(1) uvw : vec4<f32>,
+    @location(0) normal : vec4f,
+    @location(1) uvw : vec4f,
 };
-@fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+@fragment fn main(vary: fInputType) -> @location(0) vec4f {
     const colors = array<vec3<f32>,8> (
         vec3<f32>(1, 0, 0),
         vec3<f32>(1, 1, 0),
@@ -46,7 +46,7 @@ struct fInputType{
     const ambientLight = vec3<f32>(0.1);
     const frontLightColor = vec3<f32>(5.0,4.6,3.5);
     const backLightColor = vec3<f32>(0.1,1.2,1.4);
-    const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
+    const directionalLight_dir = vec4f(0.1,0.5,0.4,1.0);
     var color:vec3<f32> = vec3(1.0,1.0,1.0);
     var count:f32 = 0;
     count += step(0.8,abs(vary.uvw.x));
@@ -58,7 +58,7 @@ struct fInputType{
     color = color * (
         frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
     );
-    return vec4<f32>(pow(color,vec3<f32>(0.6)), 0.5 + f32(count>=2.0));
+    return vec4f(pow(color,vec3<f32>(0.6)), 0.5 + f32(count>=2.0));
 }`;
     export async function load() {
         let gpu = await new tesserxel.render.GPU().init();

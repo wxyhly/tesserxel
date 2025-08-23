@@ -6,7 +6,7 @@ export async function load() {
     let voxelShaderCode = `
     struct Vec4Attachment{
         size: vec3<u32>,
-        data: array<vec4<f32>>
+        data: array<vec4f>
     }
     @group(0) @binding(1) var <uniform> size: f32;
     @group(0) @binding(0) var <storage, read_write> _attachment0: Vec4Attachment;
@@ -17,11 +17,11 @@ export async function load() {
         }
         let storageOffset = voxel_coord.x + _size.x * (voxel_coord.y + _size.y * voxel_coord.z);
         let position = vec3<f32>(voxel_coord)/vec3<f32>(_size)*2.0 - vec3<f32>(1.0);
-        var color:vec4<f32>;
+        var color:vec4f;
         if(dot(position,position) > size){
-            color=vec4<f32>(position*0.5+0.5,1.0);
+            color=vec4f(position*0.5+0.5,1.0);
         }else{
-            color=vec4<f32>(0.0);
+            color=vec4f(0.0);
         }
         _attachment0.data[storageOffset] = color;
     }
@@ -53,12 +53,12 @@ export async function load() {
             size: (4 + length * 4) * 4,
             usage: GPUBufferUsage.STORAGE,
             mappedAtCreation: true,
-            label: `VoxelBuffer<${width},${height},${depth},vec4<f32>>`
+            label: `VoxelBuffer<${width},${height},${depth},vec4f>`
         });
         let jsBuffer = new Uint32Array(buffer.getMappedRange(0, 12));
         jsBuffer.set([width, height, depth]);
         buffer.unmap();
-        return { buffer, width, height, depth, size: length, format: "vec4<f32>" };
+        return { buffer, width, height, depth, size: length, format: "vec4f" };
     }
     let voxelBuffer = createVoxelBuffer([128, 128, 128]);
     let uSizeJsBuffer = new Float32Array(1);
@@ -84,11 +84,11 @@ export async function load() {
             
             struct Vec4Attachment{
                 size: vec3<u32>,
-                data: array<vec4<f32>>
+                data: array<vec4f>
             }
             @group(1) @binding(0) var <storage, read> attachment0: Vec4Attachment;
 
-            fn voxelfetch(position: vec3<f32>)->vec4<f32>{
+            fn voxelfetch(position: vec3<f32>)->vec4f{
                 let coord = vec3<u32>(position * vec3<f32>(attachment0.size));
                 return attachment0.data[
                     coord.x+attachment0.size.x*(coord.y+attachment0.size.y*coord.z)
@@ -101,7 +101,7 @@ export async function load() {
             @ray fn mainRay(@builtin(voxel_coord) position: vec3<f32>) -> RayOutput{
                 return RayOutput(position);
             }
-            @fragment fn mainFrag(@location(0) position: vec3<f32>) -> @location(0) vec4<f32>{
+            @fragment fn mainFrag(@location(0) position: vec3<f32>) -> @location(0) vec4f{
                 // return ;
                 return voxelfetch(position*0.5+vec3<f32>(0.5));
             }
@@ -155,8 +155,8 @@ export var voxel_shadertoy;
             @ray fn mainRay(@builtin(voxel_coord) position: vec3<f32>) -> RayOutput{
                 return RayOutput(position);
             }
-            @fragment fn mainFrag(@location(0) position: vec3<f32>) -> @location(0) vec4<f32>{
-                return vec4<f32>(position * 0.5 + vec3<f32>(0.5), 1.0);
+            @fragment fn mainFrag(@location(0) position: vec3<f32>) -> @location(0) vec4f{
+                return vec4f(position * 0.5 + vec3<f32>(0.5), 1.0);
             }
             `;
         const pipeline = await renderer.createRaytracingPipeline({
@@ -203,18 +203,18 @@ export var rasterizer;
         const workgroupSizeZ = 8;
         let commonHeaderCode = `
             struct InternalTetra{
-                invPosition: mat4x4<f32>,
-                aabbMin: vec4<f32>,
-                aabbMax: vec4<f32>,
+                invPosition: mat4x4f,
+                aabbMin: vec4f,
+                aabbMax: vec4f,
             }
-            fn frustumTest(tetra: mat4x4<f32>, viewport: vec4<f32>){
+            fn frustumTest(tetra: mat4x4f, viewport: vec4f){
                 // todo
             }
             `;
         let declareInverseMat4x4F32 = `
-            fn inverseMat4x4F32(matrix : mat4x4<f32>)->mat4x4<f32>{
+            fn inverseMat4x4F32(matrix : mat4x4f)->mat4x4f{
                 let invdet = 1.0 / determinant(matrix);
-                let adjoint = transpose(mat4x4<f32>(
+                let adjoint = transpose(mat4x4f(
                     determinant(mat3x3<f32>(
                         matrix[1].yzw,
                         matrix[2].yzw,
@@ -304,7 +304,7 @@ export var rasterizer;
             `;
         let vertexShaderCode = commonHeaderCode + ` 
             
-            @group(0) @binding(0) var <storage, read> inputTetra: array<mat4x4<f32>>;
+            @group(0) @binding(0) var <storage, read> inputTetra: array<mat4x4f>;
             @group(0) @binding(1) var <storage, read_write> interTetra: array<InternalTetra>;
             ${declareInverseMat4x4F32}
             @compute @workgroup_size(256)
@@ -316,17 +316,17 @@ export var rasterizer;
 
                 // to do: frustum clip test in common header, if not pass, return ;
 
-                // var vmin:vec4<f32> = vec4<f32>(1.0,1.0,1.0,1.0);
-                // var vmax:vec4<f32> = vec4<f32>(-1.0,-1.0,-1.0,1.0);
-                var vmin:vec4<f32> = vec4<f32>(-1.0,-1.0,-1.0,1.0);
-                var vmax:vec4<f32> = vec4<f32>(1.0,1.0,1.0,1.0);
+                // var vmin:vec4f = vec4f(1.0,1.0,1.0,1.0);
+                // var vmax:vec4f = vec4f(-1.0,-1.0,-1.0,1.0);
+                var vmin:vec4f = vec4f(-1.0,-1.0,-1.0,1.0);
+                var vmax:vec4f = vec4f(1.0,1.0,1.0,1.0);
                 if (tetra[0].w > 0.0 && tetra[1].w > 0.0 && tetra[2].w > 0.0 && tetra[3].w > 0.0){
                     let v0 = tetra[0] / tetra[0].w;
                     let v1 = tetra[1] / tetra[1].w;
                     let v2 = tetra[2] / tetra[2].w;
                     let v3 = tetra[3] / tetra[3].w;
-                    vmin = max(vec4<f32>(-1.0,-1.0,-1.0,1.0),min(v0,min(v1,min(v2,v3))));
-                    vmax = min(vec4<f32>( 1.0, 1.0, 1.0,1.0),max(v0,max(v1,max(v2,v3))));
+                    vmin = max(vec4f(-1.0,-1.0,-1.0,1.0),min(v0,min(v1,min(v2,v3))));
+                    vmax = min(vec4f( 1.0, 1.0, 1.0,1.0),max(v0,max(v1,max(v2,v3))));
                 }
                 interTetra[invocationId.x] = InternalTetra(
                     inverseMat4x4F32(tetra),
@@ -341,10 +341,10 @@ export var rasterizer;
                 data: array<atomic<u32>>
             }
             const tileSize:u32 = ${tileSize};
-            const mat4x4One = mat4x4<f32>(1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,);
+            const mat4x4One = mat4x4f(1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,);
             ${declareInverseMat4x4F32}
             @group(0) @binding(0) var <storage, read> interTetra: array<InternalTetra>;
-            // @group(0) @binding(0) var <storage, read> inputTetra: array<mat4x4<f32>>;
+            // @group(0) @binding(0) var <storage, read> inputTetra: array<mat4x4f>;
             @group(0) @binding(1) var <storage, read_write> _attachment0: Vec4Attachment;
             @compute @workgroup_size(${workgroupSizeX},${workgroupSizeY},${workgroupSizeZ})
             fn main(@builtin(global_invocation_id) invocationId : vec3<u32>){
@@ -358,8 +358,8 @@ export var rasterizer;
 
                 // // to do: frustum clip test in common header, if not pass, return ;
 
-                // var vmin:vec4<f32> = vec4<f32>(-1.0,-1.0,-1.0,1.0);
-                // var vmax:vec4<f32> = vec4<f32>(1.0,1.0,1.0,1.0);
+                // var vmin:vec4f = vec4f(-1.0,-1.0,-1.0,1.0);
+                // var vmax:vec4f = vec4f(1.0,1.0,1.0,1.0);
                 // if (tetra[0].w > 0.0 && tetra[1].w > 0.0 && tetra[2].w > 0.0 && tetra[3].w > 0.0){
                 //     let v0 = tetra[0] / tetra[0].w;
                 //     let v1 = tetra[1] / tetra[1].w;
@@ -419,7 +419,7 @@ export var rasterizer;
                 // calculate tetrahedron barycenter coordinates ( in f32 NDC coord version )
 
                 let invTetra = internal.invPosition;
-                var barycenter =  invTetra * vec4<f32>(floopMin, 1.0);
+                var barycenter =  invTetra * vec4f(floopMin, 1.0);
                 let barycenterDx = invTetra[0] * invSizeHalf.x;
                 let barycenterDy = invTetra[1] * invSizeHalf.y - barycenterDx * floopSize.x;
                 let barycenterDz = invTetra[2] * invSizeHalf.z - invTetra[1] * invSizeHalf.y * floopSize.y;
@@ -463,7 +463,7 @@ export var rasterizer;
                 // tetra[3].xyz *= sizeHalf;
                 // let invTetra = inverseMat4x4F32(tetra);
                 // let fTileSize = f32(tileSize);
-                // var barycenter =  invTetra * vec4<f32>(vec3<f32>(tileOffset) * invSizeHalf - vec3<f32>(1.0), 1.0);
+                // var barycenter =  invTetra * vec4f(vec3<f32>(tileOffset) * invSizeHalf - vec3<f32>(1.0), 1.0);
                 // let barycenterDx = invTetra[0] * invSizeHalf.x;
                 // let barycenterDy = invTetra[1] * invSizeHalf.y - barycenterDx * fTileSize;
                 // let barycenterDz = invTetra[2] * invSizeHalf.z - invTetra[1] * invSizeHalf.y * fTileSize;
@@ -566,10 +566,10 @@ export var rasterizer;
             @ray fn mainRay(@builtin(voxel_coord) position: vec3<f32>) -> RayOutput{
                 return RayOutput(position);
             }
-            @fragment fn mainFrag(@location(0) position: vec3<f32>) -> @location(0) vec4<f32>{
+            @fragment fn mainFrag(@location(0) position: vec3<f32>) -> @location(0) vec4f{
                 // return ;
                 let depth = f32(voxelfetch(position*0.5+vec3<f32>(0.5))) / 65536.0;
-                return vec4<f32>(depth,depth,depth,step(0.000001,depth));
+                return vec4f(depth,depth,depth,step(0.000001,depth));
             }
             `;
         const pipeline = await renderer.createRaytracingPipeline({

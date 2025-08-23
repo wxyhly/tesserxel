@@ -271,7 +271,7 @@ export var navigation;
             return {
                 code: `
         @group(1) @binding(0) var<uniform> camMat: tsxAffineMat;
-        @group(1) @binding(1) var<uniform> sunDir: vec4<f32>;
+        @group(1) @binding(1) var<uniform> sunDir: vec4f;
         ${four.SkyBox.commonCode}
 
         // Based on:
@@ -288,7 +288,7 @@ export var navigation;
         
         // Dir must be normalized
         // Orig must be centered on sphere
-        fn raySphereIntersect(orig: vec4<f32>, dir: vec4<f32>, radius:f32)->vec2<f32> {
+        fn raySphereIntersect(orig: vec4f, dir: vec4f, radius:f32)->vec2<f32> {
             let b = dot(dir, orig);
             let c = dot(orig, orig) - (radius * radius);
             var test = b*b - c;
@@ -298,11 +298,11 @@ export var navigation;
             return vec2<f32>(-b - test,-b + test);
         }
         
-        fn computeIncidentLight(orig: vec4<f32>, dir: vec4<f32>,  tmin:f32, tmax:f32, sunDirection:vec4<f32>) ->vec4<f32>{
+        fn computeIncidentLight(orig: vec4f, dir: vec4f,  tmin:f32, tmax:f32, sunDirection:vec4f) ->vec4f{
             var vtmin = tmin;
             var vtmax = tmax;
             let intres = raySphereIntersect(orig, dir, Ra);
-            if (intres.y < 0.0) {return vec4<f32>(0.0);}
+            if (intres.y < 0.0) {return vec4f(0.0);}
             if (intres.x > vtmin && intres.x > 0.0){ vtmin = intres.x;}
             if (intres.y < vtmax) {vtmax = intres.y;}
             let segmentLength = (vtmax - vtmin) / ${SAMPLES}.0;
@@ -347,10 +347,10 @@ export var navigation;
                 }
                 tCurrent += segmentLength;
             }
-            return vec4<f32>(((sumR * betaR + phaseSun * vec3<f32>(1.0,0.9,0.6))* phaseR + sumM * betaM * phaseM) *${SUN_INTENSITY},0.09+phaseSun);
+            return vec4f(((sumR * betaR + phaseSun * vec3<f32>(1.0,0.9,0.6))* phaseR + sumM * betaM * phaseM) *${SUN_INTENSITY},0.09+phaseSun);
         }
         
-        @fragment fn mainFragment(@location(0) pos: vec4<f32>, @location(1) dir: vec4<f32>, @location(2) coord: vec3<f32>)->fOut{          
+        @fragment fn mainFragment(@location(0) pos: vec4f, @location(1) dir: vec4f, @location(2) coord: vec3<f32>)->fOut{          
             let ro = pos * (Re / ${planetRadius * 0.99});
             let rd = normalize(dir);
             let intres = raySphereIntersect(ro, rd, Re);

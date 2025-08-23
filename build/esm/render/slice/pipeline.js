@@ -3,44 +3,44 @@ import { WgslReflect as _t, ResourceType as i } from '../../node_modules/wgsl_re
 
 const tetraSliceBindGroup0declareIndex = 3;
 const refacingMatsCode = `
-const tsx_refacingMats = array<mat4x4<f32>,6>(
+const tsx_refacingMats = array<mat4x4f,6>(
 // +z
-mat4x4<f32>(
+mat4x4f(
 1,0,0,0,
 0,1,0,0,
 0,0,1,0,
 0,0,0,1,
 ),
 // -z
-mat4x4<f32>(
+mat4x4f(
 1,0,0,0,
 0,1,0,0,
 0,0,-1,0,
 0,0,0,1,
 ),
 // +y
-mat4x4<f32>(
+mat4x4f(
 1,0,0,0,
 0,0,1,0,
 0,1,0,0,
 0,0,0,1,
 ),
 // -y
-mat4x4<f32>(
+mat4x4f(
 1,0,0,0,
 0,0,-1,0,
 0,-1,0,0,
 0,0,0,1,
 ),
 // +x
-mat4x4<f32>(
+mat4x4f(
 0,0,1,0,
 0,1,0,0,
 1,0,0,0,
 0,0,0,1,
 ),
 // -x
-mat4x4<f32>(
+mat4x4f(
 0,0,-1,0,
 0,1,0,0,
 -1,0,0,0,
@@ -55,7 +55,7 @@ struct tsxSliceInfo{
 }`;
 const StructDefUniformBuffer = `
 struct tsxUniformBuffer{
-    retinaMV: mat4x4<f32>, retinaP: mat4x4<f32>, camProj: vec4<f32>,
+    retinaMV: mat4x4f, retinaP: mat4x4f, camProj: vec4f,
     eyeCross: vec3<f32>, sliceOffset: u32, refacing: u32, screenAspect: f32, layerOpacity: f32,
 }`;
 const expectTetraSlicePipelineInput = {
@@ -116,7 +116,7 @@ class TetraSlicePipeline {
             if (attr === "return")
                 continue;
             let packedType = output[attr].type; // unpack matrix4x4
-            let rawType = packedType.replace("mat4x4<f32>", "vec4<f32>");
+            let rawType = packedType.replace("mat4x4f", "vec4f");
             if (attr === "builtin(position)") {
                 id = 0;
             }
@@ -171,7 +171,7 @@ class TetraSlicePipeline {
             if (!attr.startsWith("location("))
                 continue;
             let i = attr.charAt(9);
-            bindGroup1declare += `@group(1) @binding(${i}) var<storage, read> _attribute${i} : array<mat4x4<f32>>;\n`;
+            bindGroup1declare += `@group(1) @binding(${i}) var<storage, read> _attribute${i} : array<mat4x4f>;\n`;
         }
         let parsedCode = vertexState.code.replace(/@tetra/g, " ").replace(/@location\s*\(\s*[0-9]+\s*\)\s*/g, " ").replace(/@builtin\s*\(\s*[^\)\s]+\s*\)\s*/g, " ");
         function makeInterpolate(a, b) {
@@ -195,7 +195,7 @@ class TetraSlicePipeline {
         }
         let cullOperator = descriptor.cullMode == "back" ? "<" : ">";
         let commonCameraSliceCode = `
-let sign = step(vec4<f32>(0.0,0.0,0.0,0.0),scalar);
+let sign = step(vec4f(0.0,0.0,0.0,0.0),scalar);
 let vertnum = sign.x + sign.y + sign.z + sign.w;
 if(!(vertnum == 0.0 || vertnum == 4.0)){ // if hit one slice
     if(sign.x + sign.y == 1.0){
@@ -249,7 +249,7 @@ struct _EmitIndex_Slice{
 
 @group(0) @binding(0) var<storage, read_write> _emitIndex_slice: _EmitIndex_Slice;
 @group(0) @binding(1) var<uniform> tsx_uniforms : tsxUniformBuffer;
-@group(0) @binding(2) var<uniform> thumbnailViewport : array<vec4<f32>,16>;
+@group(0) @binding(2) var<uniform> thumbnailViewport : array<vec4f,16>;
 ${bindGroup0declare}
 ${bindGroup1declare}
 
@@ -271,18 +271,18 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
     let cameraPosMat = ${output["builtin(position)"].expr};
     
     var instanceLength:u32 = ${config.sliceGroupSize};
-    var refPosMat : mat4x4<f32>;
-    var refCamMat : mat4x4<f32>;
+    var refPosMat : mat4x4f;
+    var refCamMat : mat4x4f;
     let sliceFlag = _emitIndex_slice.slice[tsx_uniforms.sliceOffset].flag;
 
     if(tsx_uniforms.camProj.x < 0){ // Orthographic
-        let projBiais:mat4x4<f32> = mat4x4<f32>(
+        let projBiais:mat4x4f = mat4x4f(
             0,0,tsx_uniforms.camProj.w,1,
             0,0,tsx_uniforms.camProj.w,1,
             0,0,tsx_uniforms.camProj.w,1,
             0,0,tsx_uniforms.camProj.w,1,
         );
-        let projMat = mat4x4<f32>(
+        let projMat = mat4x4f(
             -tsx_uniforms.camProj.x,0,0,0,
             0,tsx_uniforms.camProj.y,0,0,
             0,0,0,0,
@@ -292,7 +292,7 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
         ${(descriptor.cullMode == "back" || descriptor.cullMode == "front") ? `
         // cull face: if all slices in this group has no eye4D offset, cull here
         var cameraPosDetMat = transpose(cameraPosMat); 
-        cameraPosDetMat[3] = vec4<f32>(-1.0);
+        cameraPosDetMat[3] = vec4f(-1.0);
         if(determinant(cameraPosDetMat) ${cullOperator} 0){ return; }` : ""}
 
         // [uniform if] all slices are in retina, no eye4D
@@ -327,26 +327,26 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
                 refPosMat[3].x *= aspect;
             }
             // calculate cross section pos * plane.normal
-            let scalar = transpose(refCamMat)[2] + vec4<f32>(sliceInfo.slicePos / tsx_uniforms.camProj.x); 
+            let scalar = transpose(refCamMat)[2] + vec4f(sliceInfo.slicePos / tsx_uniforms.camProj.x); 
             ${commonCameraSliceCode}
             emitIndexOffset += tsx_emitIndexStride;
         } // end all hits
     }else{
         let preclipW = cameraPosMat[0].w >= 0 && cameraPosMat[1].w >= 0 && cameraPosMat[2].w >= 0  && cameraPosMat[3].w >= 0;
         if(preclipW){ return; }
-        let projBiais:mat4x4<f32> = mat4x4<f32>(
+        let projBiais:mat4x4f = mat4x4f(
             0,0,tsx_uniforms.camProj.w,0,
             0,0,tsx_uniforms.camProj.w,0,
             0,0,tsx_uniforms.camProj.w,0,
             0,0,tsx_uniforms.camProj.w,0
         );
-        let projMat = mat4x4<f32>(
+        let projMat = mat4x4f(
             tsx_uniforms.camProj.x,0,0,0,
             0,tsx_uniforms.camProj.y,0,0,
             0,0,0,0,
             0,0,tsx_uniforms.camProj.z,-1,
         );
-        let eyeMat = mat4x4<f32>(
+        let eyeMat = mat4x4f(
             tsx_uniforms.eyeCross.x,0,0,0,
             tsx_uniforms.eyeCross.x,0,0,0,
             tsx_uniforms.eyeCross.x,0,0,0,
@@ -420,8 +420,8 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
         }
         for (let i = 0; i < shaderLocationCounter; i++) {
             let attr = i ? `location(${i - 1})` : "builtin(position)";
-            vinputVert += `@location(${i}) member${i}: vec4<f32>,\n`;
-            voutputVert += `@${attr} member${i}: vec4<f32>,\n`;
+            vinputVert += `@location(${i}) member${i}: vec4f,\n`;
+            voutputVert += `@${attr} member${i}: vec4f,\n`;
             vcallVert += `data.member${i},`;
         }
         const vertexShaderModule = this.gpu.device.createShaderModule({
@@ -589,23 +589,23 @@ class RaytracingPipeline {
         // ${wgslreflect.parseAttr(mainRayFn.return.attributes)} userRayOut: ${wgslreflect.parseTypeName(mainRayFn.return)}
         let shaderCode = refacingMatsCode + StructDefSliceInfo + StructDefUniformBuffer + `
 struct tsxvOut{
-    @builtin(position) pos: vec4<f32>,
+    @builtin(position) pos: vec4f,
     ${retunTypeMembers}
 }
 struct tsxAffineMat{
-    matrix: mat4x4<f32>,
-    vector: vec4<f32>,
+    matrix: mat4x4f,
+    vector: vec4f,
 }
 @group(0) @binding(0) var<storage, read> tsx_slice: array<tsxSliceInfo, ${config.maxSlicesNumber}>;
 
 @group(0) @binding(1) var<uniform> tsx_uniforms : tsxUniformBuffer;
-@group(0) @binding(2) var<uniform> thumbnailViewport : array<vec4<f32>,16>;
-fn apply(afmat: tsxAffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
-    let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
+@group(0) @binding(2) var<uniform> thumbnailViewport : array<vec4f,16>;
+fn apply(afmat: tsxAffineMat, points: mat4x4f) -> mat4x4f{
+    let biais = mat4x4f(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
     return afmat.matrix * points + biais;
 }
-fn applyinv(afmat: tsxAffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
-    let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
+fn applyinv(afmat: tsxAffineMat, points: mat4x4f) -> mat4x4f{
+    let biais = mat4x4f(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
     return transpose(afmat.matrix) * (points - biais);
 }
 ${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_direction|voxel_coord|aspect_matrix)\s*\)\s*/g, " ")}
@@ -623,10 +623,10 @@ ${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_directi
     let posidx = pos[vindex];
     let coord = vec2<f32>(posidx.x, posidx.y);
     var aspect = 1.0;
-    var rayPos = vec4<f32>(0.0);// no eye offset for retina
-    var rayDir = vec4<f32>(0.0,0.0,0.0,-1.0);// point forward for Orthographic camera
+    var rayPos = vec4f(0.0);// no eye offset for retina
+    var rayDir = vec4f(0.0,0.0,0.0,-1.0);// point forward for Orthographic camera
     if(tsx_uniforms.camProj.x < 0){
-        rayPos = vec4<f32>(coord.x/tsx_uniforms.camProj.x * aspect, coord.y/tsx_uniforms.camProj.y, sliceInfo.slicePos/tsx_uniforms.camProj.x, -tsx_uniforms.camProj.w/tsx_uniforms.camProj.z);
+        rayPos = vec4f(coord.x/tsx_uniforms.camProj.x * aspect, coord.y/tsx_uniforms.camProj.y, sliceInfo.slicePos/tsx_uniforms.camProj.x, -tsx_uniforms.camProj.w/tsx_uniforms.camProj.z);
     }else{
         if(sliceFlag == 0){
             refacingEnum = tsx_uniforms.refacing;
@@ -634,14 +634,14 @@ ${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_directi
             refacingEnum = sliceInfo.refacing;
             let vp = thumbnailViewport[tsx_uniforms.sliceOffset + i_index - (tsx_uniforms.refacing >> 5)];
             aspect = vp.z / vp.w;
-            rayPos = vec4<f32>(-tsx_uniforms.eyeCross.x * (f32(sliceInfo.refacing >> 3) - 1.0), 0.0, 0.0, 0.0);
+            rayPos = vec4f(-tsx_uniforms.eyeCross.x * (f32(sliceInfo.refacing >> 3) - 1.0), 0.0, 0.0, 0.0);
         }
-        rayDir = vec4<f32>(coord.x/tsx_uniforms.camProj.x * aspect, coord.y/tsx_uniforms.camProj.y, sliceInfo.slicePos/tsx_uniforms.camProj.x, -1.0);
+        rayDir = vec4f(coord.x/tsx_uniforms.camProj.x * aspect, coord.y/tsx_uniforms.camProj.y, sliceInfo.slicePos/tsx_uniforms.camProj.x, -1.0);
     }
     let refacingMat = tsx_refacingMats[refacingEnum & 7];
     let camRayDir = refacingMat * rayDir;
     let camRayOri = refacingMat * rayPos;
-    let voxelCoord = (refacingMat * vec4<f32>(coord, sliceInfo.slicePos,0.0)).xyz;
+    let voxelCoord = (refacingMat * vec4f(coord, sliceInfo.slicePos,0.0)).xyz;
     ${dealRefacingCall}
     ${call}
     let x = f32(((sliceInfo.viewport >> 24) & 0xFF) << ${config.viewportCompressShift}) * ${1 / config.sliceTextureWidth};
@@ -657,12 +657,12 @@ ${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_directi
     
     if(sliceInfo.slicePos > 1.0){
         return tsxvOut(
-            vec4<f32>(0.0,0.0,0.0, -1.0),
+            vec4f(0.0,0.0,0.0, -1.0),
             ${outputMembers}
         );
     }else{
         return tsxvOut(
-            vec4<f32>(texelCoord.x,-texelCoord.y, 0.999999, 1.0),
+            vec4f(texelCoord.x,-texelCoord.y, 0.999999, 1.0),
             ${outputMembers}
         );
     }

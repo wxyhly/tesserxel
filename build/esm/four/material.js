@@ -118,16 +118,16 @@ class Material extends MaterialNode {
         }
         let header = headers + lightCode + `
     struct tsxAffineMat{
-        matrix: mat4x4<f32>,
-        vector: vec4<f32>,
+        matrix: mat4x4f,
+        vector: vec4f,
     }
-    @fragment fn main(${fsIn}) -> @location(0) vec4<f32> {
+    @fragment fn main(${fsIn}) -> @location(0) vec4f {
         let ambientLightDensity = uWorldLight.ambientLightDensity.xyz;`; // avoid basic material doesn't call this uniform at all
         // if frag shader has input, we need to construct a struct fourInputType
         if (fsIn) {
             let struct = `    struct fourInputType{\n`;
             for (let i = 0, l = this.declVarys.length; i < l; i++) {
-                struct += `        @location(${i}) ${this.declVarys[i]}: vec4<f32>,\n`;
+                struct += `        @location(${i}) ${this.declVarys[i]}: vec4f,\n`;
             }
             struct += "    }\n";
             header = struct + header;
@@ -160,12 +160,12 @@ class ColorConstValue extends ConstValue {
         let g = color?.g ?? color[1] ?? 0;
         let b = color?.b ?? color[2] ?? 0;
         let a = color?.a ?? color[3] ?? 1;
-        super(`vec4<f32>(${r.toFixed(MaterialNode.constFractionDigits)},${g.toFixed(MaterialNode.constFractionDigits)},${b.toFixed(MaterialNode.constFractionDigits)},${a.toFixed(MaterialNode.constFractionDigits)})`);
+        super(`vec4f(${r.toFixed(MaterialNode.constFractionDigits)},${g.toFixed(MaterialNode.constFractionDigits)},${b.toFixed(MaterialNode.constFractionDigits)},${a.toFixed(MaterialNode.constFractionDigits)})`);
     }
 }
 class Vec4ConstValue extends ConstValue {
     constructor(vec) {
-        super(`vec4<f32>(${vec.flat().map(n => n.toFixed(MaterialNode.constFractionDigits)).join(",")})`);
+        super(`vec4f(${vec.flat().map(n => n.toFixed(MaterialNode.constFractionDigits)).join(",")})`);
     }
 }
 class FloatConstValue extends ConstValue {
@@ -178,7 +178,7 @@ class TransformConstValue extends ConstValue {
         let afmat = v.getAffineMat4();
         let matEntries = afmat.mat.ts().elem.map(n => n.toFixed(MaterialNode.constFractionDigits)).join(",");
         let vecEntries = afmat.vec.flat().map(n => n.toFixed(MaterialNode.constFractionDigits)).join(",");
-        super(`tsxAffineMat(mat4x4<f32>(${matEntries}),vec4<f32>(${vecEntries}))`);
+        super(`tsxAffineMat(mat4x4f(${matEntries}),vec4f(${vecEntries}))`);
     }
 }
 /** the same UniformValue instance will share one uniform buffer */
@@ -213,7 +213,7 @@ class UniformValue extends MaterialNode {
     }
 }
 class ColorUniformValue extends UniformValue {
-    type = "vec4<f32>";
+    type = "vec4f";
     gpuBufferSize = 4 * 4;
     value;
     _update(r) {
@@ -228,7 +228,7 @@ class ColorUniformValue extends UniformValue {
     }
 }
 class Vec4UniformValue extends UniformValue {
-    type = "vec4<f32>";
+    type = "vec4f";
     gpuBufferSize = 4 * 4;
     value;
     _update(r) {
@@ -297,7 +297,7 @@ class LambertMaterial extends Material {
         return color + `
                 var radiance = ambientLightDensity;
                 for(var i=0;i<${r.lightShaderInfomation.posdirLightsNumber};i++){
-                    var N = vec4<f32>(0.0);
+                    var N = vec4f(0.0);
                     if(uWorldLight.posdirLights[i].density.w<-0.5){
                         N = uWorldLight.posdirLights[i].pos_dir;
                     }else if(uWorldLight.posdirLights[i].density.w>0.5){
@@ -315,7 +315,7 @@ class LambertMaterial extends Material {
                         radiance += uWorldLight.spotLights[i].density.rgb * max(0.0,dot(vary.normal,N));
                     }
                 }
-                return vec4<f32>(acesFilm((color.rgb + blackColor) * radiance), color.a);`;
+                return vec4f(acesFilm((color.rgb + blackColor) * radiance), color.a);`;
     }
     constructor(color) {
         color = makeColorOutput(color);
@@ -335,7 +335,7 @@ class PhongMaterial extends Material {
                 var specularRadiance = vec3<f32>(0.0);
                 let viewRay = -normalize(vary.pos - uCamMat[1].vector);
                 for(var i=0;i<${r.lightShaderInfomation.posdirLightsNumber};i++){
-                    var N = vec4<f32>(0.0);
+                    var N = vec4f(0.0);
                     var D = 0.0;
                     if(uWorldLight.posdirLights[i].density.w<-0.5){
                         D = 1.0;
@@ -366,7 +366,7 @@ class PhongMaterial extends Material {
                         specularRadiance += uWorldLight.spotLights[i].density.rgb *  D * max(0.0,pow(dot(vary.normal,halfvec),_shininess) ) ;
                     }
                 }
-                return vec4<f32>(acesFilm((_color.rgb+blackColor) * radiance + _specular.rgb * specularRadiance), _color.a);`;
+                return vec4f(acesFilm((_color.rgb+blackColor) * radiance + _specular.rgb * specularRadiance), _color.a);`;
     }
     constructor(color, shininess, specular) {
         color = makeColorOutput(color);
@@ -381,7 +381,7 @@ class CheckerTexture extends MaterialNode {
         // Tell root material that CheckerTexture needs deal dependency of vary input uvw
         let { token, code } = this.getInputCode(r, root, outputToken);
         return code + `
-                let ${outputToken}_checker = fract(${token.uvw}+vec4<f32>(0.001)) - vec4<f32>(0.5);
+                let ${outputToken}_checker = fract(${token.uvw}+vec4f(0.001)) - vec4f(0.5);
                 let ${outputToken} = mix(${token.color1},${token.color2},step( ${outputToken}_checker.x * ${outputToken}_checker.y * ${outputToken}_checker.z * ${outputToken}_checker.w, 0.0));
                 `;
     }
@@ -467,19 +467,19 @@ const NoiseWGSLHeader = `
         fn mod289v3(x:vec3<f32>)->vec3<f32> {
             return x - floor(x * (1.0 / 289.0)) * 289.0; 
         }
-        fn mod289v4(x:vec4<f32>)->vec4<f32> {
+        fn mod289v4(x:vec4f)->vec4f {
             return x - floor(x * (1.0 / 289.0)) * 289.0; 
         }
         fn mod289f(x:f32)->f32 {
             return x - floor(x * (1.0 / 289.0)) * 289.0; 
         }
-        fn permutev4(x:vec4<f32>)->vec4<f32> {
+        fn permutev4(x:vec4f)->vec4f {
             return mod289v4(((x * 34.0) + 1.0) * x);
         }
         fn permutef(x:f32)-> f32 {
             return mod289f(((x * 34.0) + 1.0) * x);
         }
-        fn taylorInvSqrtv4(r:vec4<f32>)->vec4<f32> {
+        fn taylorInvSqrtv4(r:vec4f)->vec4f {
             return vec4(1.79284291400159) - 0.85373472095314 * r;
         }
         fn taylorInvSqrtf(r:f32)->f32{

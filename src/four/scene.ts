@@ -119,13 +119,13 @@ export abstract class SkyBox {
     uuid: string;
     static readonly commonCode: string = `
     struct rayOut{
-        @location(0) outO: vec4<f32>,
-        @location(1) outR: vec4<f32>,
+        @location(0) outO: vec4f,
+        @location(1) outR: vec4f,
         @location(2) coord: vec3<f32>
     }
     @ray fn mainRay(
-        @builtin(ray_origin) ro: vec4<f32>,
-        @builtin(ray_direction) rd: vec4<f32>,
+        @builtin(ray_origin) ro: vec4f,
+        @builtin(ray_direction) rd: vec4f,
         @builtin(voxel_coord) coord: vec3<f32>,
         @builtin(aspect_matrix) aspect: mat3x3<f32>
     ) -> rayOut {
@@ -136,7 +136,7 @@ export abstract class SkyBox {
         );
     }
     struct fOut{
-        @location(0) color: vec4<f32>,
+        @location(0) color: vec4f,
         @builtin(frag_depth) depth: f32
     }
     
@@ -201,7 +201,7 @@ export class SimpleSkyBox extends SkyBox {
         return {
             code: `
         struct UIn{
-            sunDir: vec4<f32>,
+            sunDir: vec4f,
             opacity: f32
         }
         @group(1) @binding(0) var<uniform> camMat: tsxAffineMat;
@@ -214,7 +214,7 @@ export class SimpleSkyBox extends SkyBox {
         const RayleighAtt = 1.0;
         const MieAtt = 1.2;
         const g = -0.9;
-        fn sky (rd: vec4<f32>)->vec3<f32>{
+        fn sky (rd: vec4f)->vec3<f32>{
             let D = normalize(rd);
             let t = max(0.001, D.y)*0.92+0.08;
 
@@ -242,8 +242,8 @@ export class SimpleSkyBox extends SkyBox {
             color *= vec3<f32>(1.4,1.7,1.2);
             return ACESFilm(color);
         }
-        @fragment fn mainFragment(@location(0) ro: vec4<f32>, @location(1) rd: vec4<f32>, @location(2) coord: vec3<f32>)->fOut{            
-            return fOut(vec4<f32>(sky(rd),uIn.opacity),0.999999);
+        @fragment fn mainFragment(@location(0) ro: vec4f, @location(1) rd: vec4f, @location(2) coord: vec3<f32>)->fOut{            
+            return fOut(vec4f(sky(rd),uIn.opacity),0.999999);
         }`,
             rayEntryPoint: "mainRay",
             fragmentEntryPoint: "mainFragment"

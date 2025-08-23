@@ -10,16 +10,16 @@ let blockGap = 0.2;
 let hollowGap = 0.6;
 
 
-let cxm = "vec4<f32>(1.0,1.0,1.0,5.0)";
-let cxp = "vec4<f32>(1.0,1.0,0.0,5.0)";
-let cym = "vec4<f32>(0.02,0.02,0.02,5.0)";
-let cyp = "vec4<f32>(0.0,0.0,1.0,5.0)";
-let czm = "vec4<f32>(1.0,0.0,0.0,5.0)";
-let czp = "vec4<f32>(1.0,0.0,1.0,5.0)";
-let cwm = "vec4<f32>(0.0,1.0,1.0,5.0)";
-let cwp = "vec4<f32>(0.0,1.0,0.0,5.0)";
-let cbd = "vec4<f32>(0.5,0.5,0.5,0.03)";
-let cin = "vec4<f32>(0.7,0.7,0.7,0.03)";
+let cxm = "vec4f(1.0,1.0,1.0,5.0)";
+let cxp = "vec4f(1.0,1.0,0.0,5.0)";
+let cym = "vec4f(0.02,0.02,0.02,5.0)";
+let cyp = "vec4f(0.0,0.0,1.0,5.0)";
+let czm = "vec4f(1.0,0.0,0.0,5.0)";
+let czp = "vec4f(1.0,0.0,1.0,5.0)";
+let cwm = "vec4f(0.0,1.0,1.0,5.0)";
+let cwp = "vec4f(0.0,1.0,0.0,5.0)";
+let cbd = "vec4f(0.5,0.5,0.5,0.03)";
+let cin = "vec4f(0.7,0.7,0.7,0.03)";
 
 class RubicBlcColorNode extends four.MaterialNode {
     declare output: "color";
@@ -46,8 +46,8 @@ class RubicBlcColorNode extends four.MaterialNode {
             let colorx = yzw * mix(${cxm},${cxp},step(pos.x,0.0));
 
             let blcBd = step(
-                abs(fract(pos*0.5 + vec4<f32>(0.5)) - vec4<f32>(0.5)),
-                vec4<f32>(0.5 - ${blockGap / 2} - ${cellGap / 2})
+                abs(fract(pos*0.5 + vec4f(0.5)) - vec4f(0.5)),
+                vec4f(0.5 - ${blockGap / 2} - ${cellGap / 2})
             );
             let ${outputToken} = mix(${cin},mix(
                 colorw+colorz+colory+colorx,
@@ -71,7 +71,7 @@ class RubicHColorNode extends four.MaterialNode {
         // Tell root material that RubicBlcMaterial needs deal dependency of vary input uvw
         let { token, code } = this.getInputCode(r, root, outputToken);
         return code + `
-            const arr = array<vec4<f32>,8>(
+            const arr = array<vec4f,8>(
                 ${cxp},
                 ${cxm},
                 ${czm},

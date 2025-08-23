@@ -1,28 +1,28 @@
 //  tetra vertex shaders
 let commonHeader = `
 struct tsxAffineMat{
-    matrix: mat4x4<f32>,
-    vector: vec4<f32>,
+    matrix: mat4x4f,
+    vector: vec4f,
 }
 struct UObjMats{
     pos: tsxAffineMat,
-    normal: mat4x4<f32>,
+    normal: mat4x4f,
 }
 struct fourInputType{
-    @location(0) pos: mat4x4<f32>,{fourInputType}
+    @location(0) pos: mat4x4f,{fourInputType}
 }
 struct fourOutputType{
-    @builtin(position) position: mat4x4<f32>,
+    @builtin(position) position: mat4x4f,
     {fourOutputType}
 }
 @group(1) @binding({0}) var<uniform> uObjMat: UObjMats;
 @group(1) @binding({1}) var<uniform> uCamMat: tsxAffineMat;
-fn apply(afmat: tsxAffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
-    let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
+fn apply(afmat: tsxAffineMat, points: mat4x4f) -> mat4x4f{
+    let biais = mat4x4f(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
     return afmat.matrix * points + biais;
 }
-fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
-    return mat4x4<f32>(
+fn normalizeVec4s(vec4s: mat4x4f) -> mat4x4f{
+    return mat4x4f(
         normalize(vec4s[0]), normalize(vec4s[1]), normalize(vec4s[2]), normalize(vec4s[3]),
     );
 }
@@ -45,22 +45,22 @@ export function _generateVertShader(inputs: string[], outputs: string[]) {
     let fourOutputReturn = outputReturn.position;
     for (let i = 0, l = inputs.length; i < l; i++) {
         fourInputType += `
-        @location(${i + 1}) ${inputs[i]}: mat4x4<f32>,`;
+        @location(${i + 1}) ${inputs[i]}: mat4x4f,`;
     }
     if (outputs.length === 1) {
         fourOutputType = `
-        @location(0) ${outputs[0]}: mat4x4<f32>,`;
+        @location(0) ${outputs[0]}: mat4x4f,`;
         fourOutputReturn += "," + outputReturn[outputs[0]];
     } else if (outputs.length === 2) {
         fourOutputType = `
-        @location(0) ${outputs[0]}: mat4x4<f32>,
-        @location(1) ${outputs[1]}: mat4x4<f32>`;
+        @location(0) ${outputs[0]}: mat4x4f,
+        @location(1) ${outputs[1]}: mat4x4f`;
         fourOutputReturn += "," + outputReturn[outputs[0]] + "," + outputReturn[outputs[1]];
     } else if (outputs.length === 3) {
         fourOutputType = `
-        @location(0) ${outputs[0]}_${outputs[1]}: array<mat4x4<f32>,2>,
-        @location(1) ${outputs[2]}: mat4x4<f32>`;
-        fourOutputReturn += ", array<mat4x4<f32>,2>(" + outputReturn[outputs[0]] + "," +
+        @location(0) ${outputs[0]}_${outputs[1]}: array<mat4x4f,2>,
+        @location(1) ${outputs[2]}: mat4x4f`;
+        fourOutputReturn += ", array<mat4x4f,2>(" + outputReturn[outputs[0]] + "," +
             outputReturn[outputs[1]] + ")," + outputReturn[outputs[2]];
     }
     for (let i = 0; i < 32; i++) {

@@ -8,34 +8,34 @@ export namespace hh {
     class App {
         vertCode = `// vertex attributes, regard four vector4 for vertices of one tetrahedra as matrix4x4 
         struct InputType{
-            @location(0) pos: mat4x4<f32>,
-            @location(1) normal: mat4x4<f32>,
-            @location(2) uvw: mat4x4<f32>,
+            @location(0) pos: mat4x4f,
+            @location(1) normal: mat4x4f,
+            @location(2) uvw: mat4x4f,
         }
         // output position in camera space and data sent to fragment shader to be interpolated
         struct OutputType{
-            @builtin(position) pos: mat4x4<f32>,
-            @location(0) normal_uvw: array<mat4x4<f32>,2>,
-            @location(1) position: mat4x4<f32>,
+            @builtin(position) pos: mat4x4f,
+            @location(0) normal_uvw: array<mat4x4f,2>,
+            @location(1) position: mat4x4f,
         }
         // we define an affineMat to store rotation and transform since there's no mat5x5 in wgsl
         struct AffineMat{
-            matrix: mat4x4<f32>,
-            vector: vec4<f32>,
+            matrix: mat4x4f,
+            vector: vec4f,
             time: f32,
         }
         // remember that group(0) is occupied by internal usage and binding(0) to binding(2) are occupied by vertex attributes
         // so we start here by group(1) binding(3)
         @group(1) @binding(3) var<uniform> camMat: AffineMat;
         // apply affineMat to four points
-        fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
-            let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
+        fn apply(afmat: AffineMat, points: mat4x4f) -> mat4x4f{
+            let biais = mat4x4f(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
             return afmat.matrix * points + biais;
         }
         // tell compiler that this is tetra slice pipeline's entry function by '@tetra'
         @tetra fn main(input : InputType) -> OutputType{
             let campos = apply(camMat,input.pos);
-            return OutputType(campos, array<mat4x4<f32>,2>(
+            return OutputType(campos, array<mat4x4f,2>(
                 camMat.matrix * input.normal, input.pos), campos
             );
         }`;
@@ -43,11 +43,11 @@ export namespace hh {
         fragmentShaderCode = `
         // receive data from vertex output, these values are automatically interpolated for every fragment
         struct fInputType{
-            @location(0) normal : vec4<f32>,
-            @location(1) uvw : vec4<f32>,
-            @location(2) pos : vec4<f32>,
+            @location(0) normal : vec4f,
+            @location(1) uvw : vec4f,
+            @location(2) pos : vec4f,
         };
-        fn hh(p:vec4<f32>) -> f32{
+        fn hh(p:vec4f) -> f32{
             
             if(camMat.fn_id == 80){return p.x*p.y*p.z*p.w*4.0;}
             if(camMat.fn_id == 81){return (p.x+p.y)*(p.x-p.y)*(p.x+p.z)*(p.x-p.z)*(p.x+p.w)*(p.x-p.w)*(p.y+p.z)*(p.y-p.z)*(p.y+p.w)*(p.y-p.w)*(p.z+p.w)*(p.z-p.w)*420.0;}
@@ -114,18 +114,18 @@ export namespace hh {
             return 0.0;
         }
         struct AffineMat{
-            matrix: mat4x4<f32>,
-            vector: vec4<f32>,
+            matrix: mat4x4f,
+            vector: vec4f,
             time: f32,
             fn_id: u32,
             displayMode: u32
         }
         @group(0) @binding(0) var<uniform> camMat: AffineMat;
-        @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+        @fragment fn main(vary: fInputType) -> @location(0) vec4f {
             const ambientLight = vec3<f32>(0.2);
             const frontLightColor = vec3<f32>(5.0,4.8,4.5);
             const backLightColor = vec3<f32>(0.7,0.8,0.9);
-            const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
+            const directionalLight_dir = vec4f(0.1,0.5,0.4,1.0);
             let halfvec = normalize(directionalLight_dir - normalize(vary.pos));
             let highLight = pow(max(0.0,dot(vary.normal,halfvec)),30);
             const thd = 0.98;
@@ -141,9 +141,9 @@ export namespace hh {
                 color = color * (
                     frontLightColor * max(0, dot(directionalLight_dir , -dot(vary.pos,vary.normal)*vary.normal)+0.5)
                 )* (0.4 + 0.8*highLight);
-                return mix(vec4<f32>(clamp(pow(color,vec3<f32>(0.6))*0.5,vec3<f32>(0.0),vec3<f32>(1.0)), clamp(value*value*10.0,0.02,1.0)),vec4<f32>(pointColor,1.0),point);
+                return mix(vec4f(clamp(pow(color,vec3<f32>(0.6))*0.5,vec3<f32>(0.0),vec3<f32>(1.0)), clamp(value*value*10.0,0.02,1.0)),vec4f(pointColor,1.0),point);
             }else{
-                return vec4<f32>(clamp(pow(color,vec3<f32>(0.6))*0.5,vec3<f32>(0.0),vec3<f32>(1.0)), clamp(value*value*10.0,0.02,1.0));
+                return vec4f(clamp(pow(color,vec3<f32>(0.6))*0.5,vec3<f32>(0.0),vec3<f32>(1.0)), clamp(value*value*10.0,0.02,1.0));
             }
         }`;
         gpu: tesserxel.render.GPU;

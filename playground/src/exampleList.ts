@@ -262,8 +262,8 @@ const hello201: ExampleCode = {
         zh: hello20xHeader.zh + `
 // 顶点着色器代码：这段代码通过一个4x4的矩阵定义了一个四面体的4个顶点坐标
 const vertexShaderCode = \`
-@tetra fn main() -> @builtin(position) mat4x4<f32> {
-    return mat4x4<f32> (
+@tetra fn main() -> @builtin(position) mat4x4f {
+    return mat4x4f (
         1.0, 1.0, 1.0, -1.0,
         -1.0,-1.0, 1.0, -1.0,
         1.0,-1.0,-1.0, -1.0,
@@ -273,8 +273,8 @@ const vertexShaderCode = \`
 \`;
 // 片元着色器代码：这段代码指定了四面体的颜色是纯红色。
 const fragmentShaderCode = \`
-@fragment fn main() -> @location(0) vec4<f32> {
-    return vec4<f32> (1.0,0.0,0.0,1.0);
+@fragment fn main() -> @location(0) vec4f {
+    return vec4f (1.0,0.0,0.0,1.0);
 }
 \`;
 // 有了顶点着色器和片段着色器，我们将它们串起来编译成可执行的渲染管线。注意该编译方法是异步的
@@ -300,8 +300,8 @@ renderer.render(context, (renderState) => {
 // Vertex shader code: this code defines the 4 vertices of a tetrahedron
 // using a 4x4 matrix
 const vertexShaderCode = \`
-@tetra fn main() -> @builtin(position) mat4x4<f32> {
-    return mat4x4<f32> (
+@tetra fn main() -> @builtin(position) mat4x4f {
+    return mat4x4f (
         1.0, 1.0, 1.0, -1.0,
         -1.0,-1.0, 1.0, -1.0,
         1.0,-1.0,-1.0, -1.0,
@@ -311,8 +311,8 @@ const vertexShaderCode = \`
 \`;
 // Fragment shader code: this code specifies that the tetrahedron’s color is pure red
 const fragmentShaderCode = \`
-@fragment fn main() -> @location(0) vec4<f32> {
-    return vec4<f32> (1.0,0.0,0.0,1.0);
+@fragment fn main() -> @location(0) vec4f {
+    return vec4f (1.0,0.0,0.0,1.0);
 }
 \`;
 // With the vertex shader and fragment shader ready,
@@ -344,19 +344,19 @@ renderer.render(context, (renderState) => {
 const hello202_common = `const vertexShaderCode = \`
 struct TetraOutput{
     // 这是原来的四面体顶点输出
-    @builtin(position) position: mat4x4<f32>,
+    @builtin(position) position: mat4x4f,
     // 这是新加入的顶点颜色输出，用@location(0)修饰它以便在后面的片元着色器中访问
-    @location(0) color: mat4x4<f32>,
+    @location(0) color: mat4x4f,
 }
 @tetra fn main() -> TetraOutput {
     return TetraOutput(
-        mat4x4<f32> (
+        mat4x4f (
             1.0, 1.0, 1.0, -1.0,
             -1.0,-1.0, 1.0, -1.0,
             1.0,-1.0,-1.0, -1.0,
             -1.0, 1.0,-1.0, -1.0
         ),
-        mat4x4<f32> (
+        mat4x4f (
             0.0, 0.0, 1.0, 1.0, // blue
             0.0, 1.0, 0.0, 1.0, // green
             1.0, 0.0, 0.0, 1.0, // red
@@ -366,7 +366,7 @@ struct TetraOutput{
 }
 \`;
 const fragmentShaderCode = \`
-@fragment fn main(@location(0) color: vec4<f32>) -> @location(0) vec4<f32> {
+@fragment fn main(@location(0) color: vec4f) -> @location(0) vec4f {
     return color;
 }
 \`;
@@ -399,22 +399,22 @@ const hello202: ExampleCode = {
 }
 
 const hello203_common = `const vertexShaderCode = \`
-// 声明一个类型为mat4x4<f32>的Uniform变量，并通过修饰符指定其位于第一组的第0个绑定位置
-@group(1) @binding(0) var<uniform> viewMat: mat4x4<f32>;
+// 声明一个类型为mat4x4f的Uniform变量，并通过修饰符指定其位于第一组的第0个绑定位置
+@group(1) @binding(0) var<uniform> viewMat: mat4x4f;
 struct TetraOutput{
-    @builtin(position) position: mat4x4<f32>,
-    @location(0) color: mat4x4<f32>,
+    @builtin(position) position: mat4x4f,
+    @location(0) color: mat4x4f,
 }
 @tetra fn main() -> TetraOutput {
     return TetraOutput(
         // 通过矩阵乘法来旋转四面体
-        viewMat * mat4x4<f32> (
+        viewMat * mat4x4f (
             1.0, 1.0, 1.0, -1.0,
             -1.0,-1.0, 1.0, -1.0,
             1.0,-1.0,-1.0, -1.0,
             -1.0, 1.0,-1.0, -1.0
         ),
-        mat4x4<f32> (
+        mat4x4f (
             0.0, 0.0, 1.0, 1.0, // blue
             0.0, 1.0, 0.0, 1.0, // green
             1.0, 0.0, 0.0, 1.0, // red
@@ -424,7 +424,7 @@ struct TetraOutput{
 }
 \`;
 const fragmentShaderCode = \`
-@fragment fn main(@location(0) color: vec4<f32>) -> @location(0) vec4<f32> {
+@fragment fn main(@location(0) color: vec4f) -> @location(0) vec4f {
     return color;
 }
 \`;
@@ -475,8 +475,8 @@ const hello203: ExampleCode = {
     html: defaultHTML,
     js: {
         zh: hello20xHeader.zh + hello203_common, en: hello20xHeader.en + hello203_common
-            .replace("声明一个类型为mat4x4<f32>的Uniform变量，并通过修饰符指定其位于第一组的第0个绑定位置",
-                "Declare a uniform variable of type mat4x4<f32> and specify its binding at group 1, binding 0 via decorators")
+            .replace("声明一个类型为mat4x4f的Uniform变量，并通过修饰符指定其位于第一组的第0个绑定位置",
+                "Declare a uniform variable of type mat4x4f and specify its binding at group 1, binding 0 via decorators")
             .replace("通过矩阵乘法来旋转四面体",
                 "Rotate the tetrahedron using matrix multiplication")
             .replace("告诉这块缓冲区的用途：1.用于Uniform变量, 2.可写入",

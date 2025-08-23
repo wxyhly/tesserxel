@@ -168,7 +168,7 @@ var wgslreflect;
             for (;;) {
                 let matchedToken = this._findToken(lexeme);
                 // The exception to "longest lexeme" rule is '>>'. In the case of 1>>2, it's a shift_right.
-                // In the case of array<vec4<f32>>, it's two greater_than's (one to close the vec4,
+                // In the case of array<vec4f>, it's two greater_than's (one to close the vec4,
                 // and one to close the array).
                 // I don't know of a great way to resolve this, so '>>' is special-cased and if
                 // there was a less_than up to some number of tokens previously, and the token prior to
@@ -1949,9 +1949,9 @@ var wgslreflect;
     // mat2x3<f32>          16                  32
     // mat3x3<f32>          16                  48
     // mat4x3<f32>          16                  64
-    // mat2x4<f32>          16                  32
-    // mat3x4<f32>          16                  48
-    // mat4x4<f32>          16                  64
+    // mat2x4f          16                  32
+    // mat3x4f          16                  48
+    // mat4x4f          16                  64
     WgslReflect.TypeInfo = {
         "i32": { align: 4, size: 4 },
         "u32": { align: 4, size: 4 },

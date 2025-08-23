@@ -5,39 +5,39 @@ const lang = urlp.get("lang") ?? (navigator.languages.join(",").includes("zh") ?
 
 type Examples = { [name: string]: string };
 const voxelExamples = {
-    "Color-Cube": `fn mainVoxel(pos: vec3<f32>)->vec4<f32>{
-  return vec4<f32>(pos*0.5+0.5, 1.0);
+    "Color-Cube": `fn mainVoxel(pos: vec3<f32>)->vec4f{
+    return vec4f(pos*0.5+0.5, 1.0);
 }`,
     "Shader-Art": `/// @background: black
 fn palette(t: f32) -> vec3f {
-  const a = vec3f(0.5, 0.5, 0.5);
-  const b = vec3f(0.5, 0.5, 0.5);
-  const c = vec3f(1.0, 1.0, 1.0);
-  const d = vec3f(0.263, 0.416, 0.557);
-  return a + (b * cos(6.28318 * ((c*t) + d)));
+    const a = vec3f(0.5, 0.5, 0.5);
+    const b = vec3f(0.5, 0.5, 0.5);
+    const c = vec3f(1.0, 1.0, 1.0);
+    const d = vec3f(0.263, 0.416, 0.557);
+    return a + (b * cos(6.28318 * ((c*t) + d)));
 }
 
 fn mainVoxel(pos: vec3f) -> vec4f {
-  var uv = pos;
-  let uv0 = uv;
-  var finalColor = vec3f(0.0);
+    var uv = pos;
+    let uv0 = uv;
+    var finalColor = vec3f(0.0);
 
-  for(var i = 0; i < 4; i++) {
-    uv = fract(uv * 1.5) - 0.5;
+    for(var i = 0; i < 4; i++) {
+        uv = fract(uv * 1.5) - 0.5;
 
-    var d = length(uv) * exp(-length(uv0));
+        var d = length(uv) * exp(-length(uv0));
 
-    var col = palette(length(uv0) + f32(i) * 0.4 + shadertoyTime * 0.4);
+        var col = palette(length(uv0) + f32(i) * 0.4 + shadertoyTime * 0.4);
 
-    d = sin(d * 8.0 + shadertoyTime) / 8.0;
-    d = abs(d);
+        d = sin(d * 8.0 + shadertoyTime) / 8.0;
+        d = abs(d);
 
-    d = pow(0.01 / d, 1.2);
+        d = pow(0.01 / d, 1.2);
 
-    finalColor += col * d;
-  }
+        finalColor += col * d;
+    }
 
-  return vec4f(finalColor, finalColor.x + finalColor.y + finalColor.z);
+    return vec4f(finalColor, finalColor.x + finalColor.y + finalColor.z);
 }
 
 // // Ported from Shader Art Coding (https://www.youtube.com/watch?v=f4s1h2YETNY)
@@ -55,7 +55,7 @@ fn voronoi(x: vec3<f32>) -> vec2<f32> {
     let n = floor(x);
     let f = fract(x);
 
-    var m = vec4<f32>(8.0, 0.0, 0.0, 0.0);
+    var m = vec4f(8.0, 0.0, 0.0, 0.0);
     for (var j: i32 = -1; j <= 1; j = j + 1) {
         for (var i: i32 = -1; i <= 1; i = i + 1) {
             for (var k: i32 = -1; k <= 1; k = k + 1) {
@@ -64,7 +64,7 @@ fn voronoi(x: vec3<f32>) -> vec2<f32> {
                 let r = g - f + (0.5 + 0.5 * sin(shadertoyTime + 6.2831 * o));
                 let d = dot(r, r);
                 if (d < m.x) {
-                    m = vec4<f32>(d, o.x, o.y, o.z);
+                    m = vec4f(d, o.x, o.y, o.z);
                 }
             }
         }
@@ -73,7 +73,7 @@ fn voronoi(x: vec3<f32>) -> vec2<f32> {
     return vec2<f32>(sqrt(m.x), m.y + m.z + m.w);
 }
 
-fn mainVoxel(pos: vec3<f32>)->vec4<f32>{
+fn mainVoxel(pos: vec3<f32>)->vec4f{
     let p = pos*0.1;
 
     let scale = 14.0 + 6.0 * sin(0.2 * shadertoyTime);
@@ -83,12 +83,12 @@ fn mainVoxel(pos: vec3<f32>)->vec4<f32>{
     col = col * clamp(1.0 - 0.4 * c.x * c.x, 0.0, 1.0);
     col = col - (1.0 - smoothstep(0.08, 0.09, c.x));
 
-    return vec4<f32>(col, 1.0);
+    return vec4f(col, 1.0);
 }
 // Ported from https://www.shadertoy.com/view/MslGD8 by Inigo Quilez 
 `,
     "Inversion": `/// @background: black
-fn mainVoxel(coord: vec3<f32>) -> vec4<f32> {
+fn mainVoxel(coord: vec3<f32>) -> vec4f {
     let offset = shadertoyTime*10;
     var coord2 = coord * (2.6 + sin(offset * 0.01)) + sin(offset * 0.04) * vec3<f32>(1.0, 2.4, 3.5) * 1.0;
     coord2 = 5.0 * coord2 / dot(coord2, coord2) + sin(offset * 3.0) * vec3<f32>(1.1, 0.2, 0.4) * 0.05;
@@ -100,9 +100,9 @@ fn mainVoxel(coord: vec3<f32>) -> vec4<f32> {
         dot(coord, coord) < 1.0
     ) {
         let color = clamp(pow(coord + vec3<f32>(0.5, 0.5, 0.5), vec3<f32>(0.4, 0.4, 0.4)), vec3<f32>(0.0), vec3<f32>(1.0));
-        return vec4<f32>(color, 1.0 - dot(coord, coord));
+        return vec4f(color, 1.0 - dot(coord, coord));
     } else {
-        return vec4<f32>(0.0,0.0,0.0,0.0);
+        return vec4f(0.0,0.0,0.0,0.0);
     }
 }
 `
@@ -138,29 +138,29 @@ fn opSmoothIntersection(d1: f32, d2: f32, k: f32) -> f32 {
 
 // ----- Primitives -----
 
-fn sdGlome(p: vec4<f32>, r: f32) -> f32 {
+fn sdGlome(p: vec4f, r: f32) -> f32 {
     return length(p) - r;
 }
 
-fn sdRoundBox(p: vec4<f32>, b: vec4<f32>, r: f32) -> f32 {
+fn sdRoundBox(p: vec4f, b: vec4f, r: f32) -> f32 {
     let d = abs(p) - b;
-    return min(max(max(max(d.x, d.w), d.y), d.z), 0.0) + length(max(d, vec4<f32>(0.0))) - r;
+    return min(max(max(max(d.x, d.w), d.y), d.z), 0.0) + length(max(d, vec4f(0.0))) - r;
 }
 
 // ----- Map -----
 
-fn map(p: vec4<f32>) -> f32 {
-  let pos = p - vec4f(0,0,0,-1);
-  let an = sin(shadertoyTime);
-  return opSmoothSubtraction(sdGlome(pos, 0.22*an+0.72),
-    opIntersection(sdGlome(pos, 0.22*an+0.82),sdRoundBox(pos, vec4<f32>(0.5), 0.1))
-  ,0.1);
-  
+fn map(p: vec4f) -> f32 {
+    let pos = p - vec4f(0,0,0,-1);
+    let an = sin(shadertoyTime);
+    return opSmoothSubtraction(sdGlome(pos, 0.22*an+0.72),
+    opIntersection(sdGlome(pos, 0.22*an+0.82),sdRoundBox(pos, vec4f(0.5), 0.1))
+    ,0.1);
+
 }
 
-fn calcNormal(pos: vec4<f32>) -> vec4<f32> {
+fn calcNormal(pos: vec4f) -> vec4f {
     let ep: f32 = 0.0001;
-    let e = vec4<f32>(0.5,-0.5, 0.0, 1.0);
+    let e = vec4f(0.5,-0.5, 0.0, 1.0);
     // 5-cell
     return normalize(
         e.xyyy * map(pos + e.xyyy * ep) +
@@ -171,7 +171,7 @@ fn calcNormal(pos: vec4<f32>) -> vec4<f32> {
     );
 }
 
-fn calcSoftshadow(ro: vec4<f32>, rd: vec4<f32>, tmin: f32, tmax: f32, k: f32) -> f32 {
+fn calcSoftshadow(ro: vec4f, rd: vec4f, tmin: f32, tmax: f32, k: f32) -> f32 {
     var res: f32 = 1.0;
     var t: f32 = tmin;
     for (var i: i32 = 0; i < 50; i = i + 1) {
@@ -186,9 +186,9 @@ fn calcSoftshadow(ro: vec4<f32>, rd: vec4<f32>, tmin: f32, tmax: f32, k: f32) ->
 }
 const near = 0.0;
 const far = 15.0;
-fn mainRay(ro: vec4<f32>, rayDir: vec4<f32>)->vec4<f32>{
-  let rd = normalize(rayDir);
-   var t = near;
+fn mainRay(ro: vec4f, rayDir: vec4f)->vec4f{
+    let rd = normalize(rayDir);
+    var t = near;
     for (var i = 0; i < 64; i = i + 1) {
         let pos = ro + rd * t;
         let h = map(pos);
@@ -202,7 +202,7 @@ fn mainRay(ro: vec4<f32>, rayDir: vec4<f32>)->vec4<f32>{
     if (t < far) {
         let pos = ro + rd * t;
         let nor = calcNormal(pos);
-        let lig = normalize(vec4<f32>(1.0, 0.8, -0.2,0.3));
+        let lig = normalize(vec4f(1.0, 0.8, -0.2,0.3));
         let dif = clamp(dot(nor, lig), 0.0, 1.0);
         let sha = calcSoftshadow(pos, lig, 0.001, 1.0, 16.0);
         let amb = 0.5 + 0.5 * nor.y;
@@ -214,7 +214,7 @@ fn mainRay(ro: vec4<f32>, rayDir: vec4<f32>)->vec4<f32>{
 
     col = sqrt(col);
 
-    return vec4<f32>(col, alpha);
+    return vec4f(col, alpha);
 }
 `,
     "Seascape": `// Ported from https://www.shadertoy.com/view/Ms2SD1
@@ -274,16 +274,16 @@ fn noise(p: vec3<f32>) -> f32 {
     return -1.0 + 2.0 * mix(mix(mix_x1, mix_x2, u.y), mix(mix_x12, mix_x22, u.y), u.z);
 }
 
-fn diffuse(n: vec4<f32>, l: vec4<f32>, p: f32) -> f32 {
+fn diffuse(n: vec4f, l: vec4f, p: f32) -> f32 {
     return pow(dot(n, l) * 0.4 + 0.6, p);
 }
 
-fn specular(n: vec4<f32>, l: vec4<f32>, e: vec4<f32>, s: f32) -> f32 {
+fn specular(n: vec4f, l: vec4f, e: vec4f, s: f32) -> f32 {
     let nrm = (s + 8.0) / (PI * 8.0);
     return pow(max(dot(reflect(e, n), l), 0.0), s) * nrm;
 }
 
-fn getSkyColor(e: vec4<f32>) -> vec3<f32> {
+fn getSkyColor(e: vec4f) -> vec3<f32> {
     var y = max(e.y, 0.0);
     y = (y * 0.8 + 0.2) * 0.8;
     return vec3<f32>(
@@ -301,7 +301,7 @@ fn sea_octave(uv: vec3<f32>, choppy: f32) -> f32 {
     return pow(1.0 - pow(wv.x * wv.y, 0.65), choppy);
 }
 
-fn map(p: vec4<f32>, iTime: f32) -> f32 {
+fn map(p: vec4f, iTime: f32) -> f32 {
     var freq = SEA_FREQ;
     var amp = SEA_HEIGHT;
     var choppy = SEA_CHOPPY;
@@ -323,7 +323,7 @@ fn map(p: vec4<f32>, iTime: f32) -> f32 {
     return p.y - h;
 }
 
-fn map_detailed(p: vec4<f32>, iTime: f32) -> f32 {
+fn map_detailed(p: vec4f, iTime: f32) -> f32 {
     var freq = SEA_FREQ;
     var amp = SEA_HEIGHT;
     var choppy = SEA_CHOPPY;
@@ -345,7 +345,7 @@ fn map_detailed(p: vec4<f32>, iTime: f32) -> f32 {
     return p.y - h;
 }
 
-fn getSeaColor(p: vec4<f32>, n: vec4<f32>, l: vec4<f32>, eye: vec4<f32>, dist: vec4<f32>) -> vec3<f32> {
+fn getSeaColor(p: vec4f, n: vec4f, l: vec4f, eye: vec4f, dist: vec4f) -> vec3<f32> {
     var fresnel = clamp(1.0 - dot(n, -eye), 0.0, 1.0);
     fresnel = min(fresnel * fresnel * fresnel, 0.5);
 
@@ -362,15 +362,15 @@ fn getSeaColor(p: vec4<f32>, n: vec4<f32>, l: vec4<f32>, eye: vec4<f32>, dist: v
     return color;
 }
 
-fn getNormal(p: vec4<f32>, eps: f32, iTime: f32) -> vec4<f32> {
+fn getNormal(p: vec4f, eps: f32, iTime: f32) -> vec4f {
     let ny = map_detailed(p, iTime);
-    let nx = map_detailed(vec4<f32>(p.x + eps, p.y, p.z,p.w), iTime) - ny;
-    let nz = map_detailed(vec4<f32>(p.x, p.y, p.z + eps,p.w), iTime) - ny;
-    let nw = map_detailed(vec4<f32>(p.x, p.y, p.z,p.w + eps), iTime) - ny;
-    return normalize(vec4<f32>(nx, eps, nz,nw));
+    let nx = map_detailed(vec4f(p.x + eps, p.y, p.z,p.w), iTime) - ny;
+    let nz = map_detailed(vec4f(p.x, p.y, p.z + eps,p.w), iTime) - ny;
+    let nw = map_detailed(vec4f(p.x, p.y, p.z,p.w + eps), iTime) - ny;
+    return normalize(vec4f(nx, eps, nz,nw));
 }
 
-fn heightMapTracing(ori: vec4<f32>, dir: vec4<f32>, iTime: f32, p: ptr<function, vec4<f32>>) -> f32 {
+fn heightMapTracing(ori: vec4f, dir: vec4f, iTime: f32, p: ptr<function, vec4f>) -> f32 {
     var tm: f32 = 0.0;
     var tx: f32 = 1000.0;
     var hx: f32 = map(ori + dir * tx, iTime);
@@ -400,27 +400,27 @@ fn heightMapTracing(ori: vec4<f32>, dir: vec4<f32>, iTime: f32, p: ptr<function,
 
     return mix(tm, tx, hm / (hm - hx));
 }
-fn mainRay(rayOrigin: vec4<f32>, rayDir: vec4<f32>)->vec4<f32>{
+fn mainRay(rayOrigin: vec4f, rayDir: vec4f)->vec4f{
     let ro = rayOrigin + vec4f(0,10,0,0);
     let dir = normalize(rayDir+vec4f(0.00001));
     const EPSILON_NRM = 0.1/300;
 
     let time = shadertoyTime*2.0;
 
-    var p: vec4<f32>;
+    var p: vec4f;
 
     _ = heightMapTracing(ro, dir, time, &p);
 
     let dist = p - ro;
     let n = getNormal(p, dot(dist, dist) * EPSILON_NRM, time);
-    let light = normalize(vec4<f32>(0.0, 1.0, 0.8,0.1));
+    let light = normalize(vec4f(0.0, 1.0, 0.8,0.1));
     let color =  mix(
         vec4f(getSkyColor(dir),0.2),
         vec4f(getSeaColor(p, n, light, dir, dist),1.0),
         pow(smoothstep(0.0, -0.02, dir.y), 0.2)
     );
 
-    return vec4<f32>(pow(color.xyz, vec3<f32>(0.65)), color.w);
+    return vec4f(pow(color.xyz, vec3<f32>(0.65)), color.w);
 }
 `,
     "Rainforest": `// Ported from https://www.shadertoy.com/view/4ttSWf by Inigo Quilez 
@@ -429,13 +429,13 @@ fn mainRay(rayOrigin: vec4<f32>, rayDir: vec4<f32>)->vec4<f32>{
 /// @stereoEyeOffset: 10
 /// @background: (120,170,255)
 const LOWQUALITY: bool = true; // set false for higher quality (but loops/constants would need adjustment)
-const kSunDir: vec4<f32> = vec4<f32>(-0.5, 0.5, -0.5, 0.5);
+const kSunDir: vec4f = vec4f(-0.5, 0.5, -0.5, 0.5);
 const kMaxTreeHeight: f32 = 4.8;
 const kMaxHeight: f32 = 840.0;
 
 struct vec5{
-  t:f32,
-  xyzw:vec4f,
+    t:f32,
+    xyzw:vec4f,
 }
 
 // helper wide-math constants
@@ -443,9 +443,9 @@ const PI: f32 = 3.14159265358979323846;
 
 // small utility functions (WGSL builtin functions used where possible)
 
-fn sdEllipsoidY(p: vec4<f32>, r: vec2<f32>) -> f32 {
-    let k0 = length(p / vec4<f32>(r.x, r.y, r.x,r.x));
-    let k1 = length(p / vec4<f32>(r.x*r.x, r.y*r.y, r.x*r.x,r.x*r.x));
+fn sdEllipsoidY(p: vec4f, r: vec2<f32>) -> f32 {
+    let k0 = length(p / vec4f(r.x, r.y, r.x,r.x));
+    let k1 = length(p / vec4f(r.x*r.x, r.y*r.y, r.x*r.x,r.x*r.x));
     return k0 * (k0 - 1.0) / k1;
 }
 fn sdEllipsoid(p: vec3<f32>, r: vec3<f32>) -> f32 {
@@ -488,7 +488,7 @@ fn hash3(p: vec3<f32>) -> vec3<f32> {
 }
 
 // value noise with derivative for 4D
-fn noised4(x: vec4<f32>) -> vec5 {
+fn noised4(x: vec4f) -> vec5 {
     let p = floor(x);
     let w = fract(x);
     // quintic interpolation
@@ -557,7 +557,7 @@ fn noised4(x: vec4<f32>) -> vec5 {
 }
 
 // value noise for 4D (no derivative)
-fn noise4(x: vec4<f32>) -> f32 {
+fn noise4(x: vec4f) -> f32 {
     let p = floor(x);
     let w = fract(x);
     // quintic interpolation
@@ -619,7 +619,7 @@ fn noise4(x: vec4<f32>) -> f32 {
 
 // 3D variants
 // value noise with derivative for 3D
-fn noised3(x: vec3<f32>) -> vec4<f32> {
+fn noised3(x: vec3<f32>) -> vec4f {
     let p = floor(x);
     let w = fract(x);
     // quintic interpolation
@@ -654,7 +654,7 @@ fn noised3(x: vec3<f32>) -> vec4<f32> {
         k2 + k5 * u.z + k4 * u.x + k7 * u.z * u.x,
         k3 + k6 * u.x + k5 * u.y + k7 * u.x * u.y);
 
-    return vec4<f32>(val, dx.x, dx.y, dx.z);
+    return vec4f(val, dx.x, dx.y, dx.z);
 }
 
 // value noise for 3D (no derivative)
@@ -688,13 +688,13 @@ fn noise3(x: vec3<f32>) -> f32 {
 }
 
 // FBM matrices and functions
-const m4: mat4x4<f32> = mat4x4<f32>(
+const m4: mat4x4f = mat4x4f(
     0.50,  0.50,  0.50,  0.50,
    -0.66,  0.33,  0.66, -0.33,
     0.50, -0.50,  0.50, -0.50,
    -0.33, -0.66,  0.33,  0.66
 );
-const m4i: mat4x4<f32> = mat4x4<f32>(
+const m4i: mat4x4f = mat4x4f(
     0.50, -0.66,  0.50, -0.33,
     0.50,  0.33, -0.50, -0.66,
     0.50,  0.66,  0.50,  0.33,
@@ -710,14 +710,6 @@ const m3i: mat3x3<f32> = mat3x3<f32>(
     0.80,  0.36, -0.48,
     0.60, -0.48,  0.64
 );
-// const m2: mat2x2<f32> = mat2x2<f32>(
-//     0.80, 0.60,
-//    -0.60, 0.80
-// );
-// const m2i: mat2x2<f32> = mat2x2<f32>(
-//     0.80, -0.60,
-//     0.60,  0.80
-// );
 
 fn fbm_4_3(x_in: vec3<f32>) -> f32 {
     var x = x_in;
@@ -733,7 +725,7 @@ fn fbm_4_3(x_in: vec3<f32>) -> f32 {
     }
     return a;
 }
-fn fbm_4_4(x_in: vec4<f32>) -> f32 {
+fn fbm_4_4(x_in: vec4f) -> f32 {
     var x = x_in;
     let f: f32 = 2.0;
     let s: f32 = 0.5;
@@ -748,14 +740,14 @@ fn fbm_4_4(x_in: vec4<f32>) -> f32 {
     return a;
 }
 
-fn fbmd_7(x_in: vec4<f32>) -> vec5 {
+fn fbmd_7(x_in: vec4f) -> vec5 {
     var x = x_in;
     let f: f32 = 1.92;
     let s: f32 = 0.5;
     var a: f32 = 0.0;
     var b: f32 = 0.5;
-    var d: vec4<f32> = vec4<f32>();
-    var m: mat4x4<f32> = mat4x4<f32>(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1);
+    var d: vec4f = vec4f();
+    var m: mat4x4f = mat4x4f(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1);
     for (var i: i32 = 0; i < 7; i = i + 1) {
         let n = noised4(x);
         a = a + b * n.t;
@@ -767,14 +759,14 @@ fn fbmd_7(x_in: vec4<f32>) -> vec5 {
     return vec5(a,d);
 }
 
-fn fbmd_8(x_in: vec4<f32>) -> vec5 {
+fn fbmd_8(x_in: vec4f) -> vec5 {
     var x = x_in;
     let f: f32 = 2.0;
     let s: f32 = 0.65;
     var a: f32 = 0.0;
     var b: f32 = 0.5;
-    var d: vec4<f32> = vec4<f32>();
-    var m: mat4x4<f32> = mat4x4<f32>(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1);
+    var d: vec4f = vec4f();
+    var m: mat4x4f = mat4x4f(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1);
     for (var i: i32 = 0; i < 8; i = i + 1) {
         let n = noised4(x);
         a = a + b * n.t;
@@ -787,7 +779,7 @@ fn fbmd_8(x_in: vec4<f32>) -> vec5 {
     }
     return vec5(a, d);
 }
-fn fbmd_9(x_in: vec3<f32>) -> vec4<f32> {
+fn fbmd_9(x_in: vec3<f32>) -> vec4f {
     var x = x_in;
     let f: f32 = 1.92;
     let s: f32 = 0.5;
@@ -803,7 +795,7 @@ fn fbmd_9(x_in: vec3<f32>) -> vec4<f32> {
         x = f * (m3 * x);
         m = f * (m3i * m);
     }
-    return vec4<f32>(a, d.xyz);
+    return vec4f(a, d.xyz);
 }
 
 fn fbm_9(x_in: vec3<f32>) -> f32 {
@@ -827,17 +819,17 @@ fn fog(col: vec3<f32>, t: f32) -> vec3<f32> {
     return col * ext + (1.0 - ext) * vec3<f32>(0.55, 0.55, 0.58);
 }
 
-fn cloudsFbm(pos: vec4<f32>) -> vec5 {
-    return fbmd_8(pos * 0.0015 + vec4<f32>(2.0, 1.1, 1.0,1.4) + 0.04 * vec4<f32>(shadertoyTime, 0.5 * shadertoyTime, -0.15 * shadertoyTime,0.213*shadertoyTime));
+fn cloudsFbm(pos: vec4f) -> vec5 {
+    return fbmd_8(pos * 0.0015 + vec4f(2.0, 1.1, 1.0,1.4) + 0.04 * vec4f(shadertoyTime, 0.5 * shadertoyTime, -0.15 * shadertoyTime,0.213*shadertoyTime));
 }
 
 struct CloudsMapRes {
     val: vec5,
     nnd: f32
 }
-fn cloudsMap(pos: vec4<f32>) -> CloudsMapRes {
+fn cloudsMap(pos: vec4f) -> CloudsMapRes {
     var d = abs(pos.y - 900.0) - 40.0;
-    var gra = vec4<f32>(0.0, sign(pos.y - 900.0), 0.0,0.0);
+    var gra = vec4f(0.0, sign(pos.y - 900.0), 0.0,0.0);
 
     let n = cloudsFbm(pos);
     d = d + 400.0 * n.t * (0.7 + 0.3 * gra.y);
@@ -850,7 +842,7 @@ fn cloudsMap(pos: vec4<f32>) -> CloudsMapRes {
     return CloudsMapRes(vec5(d, gra), -d);
 }
 
-fn cloudsShadowFlat(ro: vec4<f32>, rd: vec4<f32>) -> f32 {
+fn cloudsShadowFlat(ro: vec4f, rd: vec4f) -> f32 {
     let t = (900.0 - ro.y) / rd.y;
     if (t < 0.0) {
         return 1.0;
@@ -860,11 +852,11 @@ fn cloudsShadowFlat(ro: vec4<f32>, rd: vec4<f32>) -> f32 {
 }
 
 struct CloudRenderRes {
-    color: vec4<f32>,
+    color: vec4f,
     resT: f32
 }
-fn renderClouds(ro: vec4<f32>, rd: vec4<f32>, tmin: f32, tmax: f32, resT_in: f32) -> CloudRenderRes {
-    var sum = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+fn renderClouds(ro: vec4f, rd: vec4f, tmin: f32, tmax: f32, resT_in: f32) -> CloudRenderRes {
+    var sum = vec4f(0.0, 0.0, 0.0, 0.0);
 
     // bounding plane
     var tmin_loc = tmin;
@@ -912,7 +904,7 @@ fn renderClouds(ro: vec4<f32>, rd: vec4<f32>, tmin: f32, tmax: f32, resT_in: f32
 
             // front to back blending
             let alp = clamp(den * 0.5 * 0.125 * dt, 0.0, 1.0);
-            var colv = vec4<f32>(col*alp, alp);
+            var colv = vec4f(col*alp, alp);
             sum = sum + colv * (1.0 - sum.a);
 
             thickness = thickness + dt * den;
@@ -939,7 +931,7 @@ fn renderClouds(ro: vec4<f32>, rd: vec4<f32>, tmin: f32, tmax: f32, resT_in: f32
         out_sum.w
     );
     // clamp
-    out_sum = clamp(out_sum, vec4<f32>(0.0), vec4<f32>(1.0));
+    out_sum = clamp(out_sum, vec4f(0.0), vec4f(1.0));
     return CloudRenderRes(out_sum, resT_out);
 }
 
@@ -965,15 +957,15 @@ fn terrainMapD(p: vec3<f32>) -> vec5 {
     eyz = eyz + 90.0 * c.y * eyz;
 
     eyz = eyz / 2000.0;
-    let normal = normalize(vec4<f32>(-eyz.x, 1.0, -eyz.y, -eyz.z));
+    let normal = normalize(vec4f(-eyz.x, 1.0, -eyz.y, -eyz.z));
     return vec5(ex, normal);
 }
 
-fn terrainNormal(pos: vec3<f32>) -> vec4<f32> {
+fn terrainNormal(pos: vec3<f32>) -> vec4f {
     return terrainMapD(pos).xyzw;
 }
 
-fn terrainShadow(ro: vec4<f32>, rd: vec4<f32>, mint: f32) -> f32 {
+fn terrainShadow(ro: vec4f, rd: vec4f, mint: f32) -> f32 {
     var res: f32 = 1.0;
     var t: f32 = mint;
     if (LOWQUALITY) {
@@ -1002,7 +994,7 @@ fn terrainShadow(ro: vec4<f32>, rd: vec4<f32>, mint: f32) -> f32 {
     return clamp(res, 0.0, 1.0);
 }
 
-fn raymarchTerrain(ro: vec4<f32>, rd: vec4<f32>, tmin: f32, tmax: f32) -> vec2<f32> {
+fn raymarchTerrain(ro: vec4f, rd: vec4f, tmin: f32, tmax: f32) -> vec2<f32> {
     var tmax_loc = tmax;
     // bounding volume
     let tp = (kMaxHeight + kMaxTreeHeight - ro.y) / rd.y;
@@ -1062,7 +1054,7 @@ struct TreesMapRes {
     oMat: f32,
     oDis: f32
 }
-fn treesMap(p_in: vec4<f32>, rt: f32) -> TreesMapRes {
+fn treesMap(p_in: vec4f, rt: f32) -> TreesMapRes {
     var p = p_in;
     var oHei: f32 = 1.0;
     var oDis: f32 = 0.0;
@@ -1091,7 +1083,7 @@ fn treesMap(p_in: vec4<f32>, rt: f32) -> TreesMapRes {
                     height *= 0.7;
                 }
     
-                let q = vec4<f32>(r.x, p.y - base - height * 0.5, r.y, r.z);
+                let q = vec4f(r.x, p.y - base - height * 0.5, r.y, r.z);
                 let k = sdEllipsoidY(q, vec2<f32>(width, 0.5 * height));
                 if (k < d) {
                     d = k;
@@ -1123,7 +1115,7 @@ fn treesMap(p_in: vec4<f32>, rt: f32) -> TreesMapRes {
     return TreesMapRes(d, oHei, oMat, oDis);
 }
 
-fn treesShadow(ro: vec4<f32>, rd: vec4<f32>) -> f32 {
+fn treesShadow(ro: vec4f, rd: vec4f) -> f32 {
     var res: f32 = 1.0;
     var t: f32 = 0.02;
     if (LOWQUALITY) {
@@ -1151,16 +1143,16 @@ fn treesShadow(ro: vec4<f32>, rd: vec4<f32>) -> f32 {
     }
     return clamp(res, 0.0, 1.0);
 }
-const dirs = array<vec4<f32>, 5>(
-        vec4<f32>( 0.5, -0.5,  -0.5,-0.5), // e.xyyy
-        vec4<f32>(-0.5,  -0.5,  0.5,-0.5), // e.yyxy
-        vec4<f32>( 0.0, -0.5, -0.5,-0.5), // e.yxyy
-        vec4<f32>( 0.5,  0.5, 0.5,-0.5), // e.xxxy
-        vec4<f32>( 0.0,  0.0,  0.0,  1.0)  // e.zzzw
+const dirs = array<vec4f, 5>(
+        vec4f( 0.5, -0.5,  -0.5,-0.5), // e.xyyy
+        vec4f(-0.5,  -0.5,  0.5,-0.5), // e.yyxy
+        vec4f( 0.0, -0.5, -0.5,-0.5), // e.yxyy
+        vec4f( 0.5,  0.5, 0.5,-0.5), // e.xxxy
+        vec4f( 0.0,  0.0,  0.0,  1.0)  // e.zzzw
     );
-fn treesNormal(pos: vec4<f32>, t: f32) -> vec4<f32> {
+fn treesNormal(pos: vec4f, t: f32) -> vec4f {
     // compute gradient-like normal by sampling map around pos
-    var nrm = vec4<f32>();
+    var nrm = vec4f();
     for (var i: i32 = 0; i < 4; i = i + 1) {
         let e=dirs[i];
         let mm = treesMap(pos + 0.005 * e, t);
@@ -1170,7 +1162,7 @@ fn treesNormal(pos: vec4<f32>, t: f32) -> vec4<f32> {
 }
 
 // sky
-fn renderSky(ro: vec4<f32>, rd: vec4<f32>) -> vec3<f32> {
+fn renderSky(ro: vec4f, rd: vec4f) -> vec3<f32> {
     var col = vec3<f32>(0.42, 0.62, 1.1) - rd.y * 0.4;
     let t = (2500.0 - ro.y) / rd.y;
     if (t > 0.0) {
@@ -1187,7 +1179,7 @@ fn renderSky(ro: vec4<f32>, rd: vec4<f32>) -> vec3<f32> {
 }
 
 // mainRay entry
-fn mainRay(rayo: vec4<f32>, rayd: vec4<f32>) -> vec4<f32> {
+fn mainRay(rayo: vec4f, rayd: vec4f) -> vec4f {
     var rayDir = normalize(rayd+vec4f(0.00001));
     let ro= rayo+vec4f(1897,530,862,-927);
     var resT: f32 = 2000.0;
@@ -1230,24 +1222,24 @@ fn mainRay(rayo: vec4<f32>, rayd: vec4<f32>) -> vec4<f32> {
     if (obj > 0) {
         opacity = 1.0;
         let pos = ro + resT * rayDir;
-        let epos = pos + vec4<f32>(0.0, 4.8, 0.0, 0.0);
+        let epos = pos + vec4f(0.0, 4.8, 0.0, 0.0);
 
-        var sha1 = terrainShadow(pos + vec4<f32>(0.0, 0.02, 0.0, 0.0), kSunDir, 0.02);
+        var sha1 = terrainShadow(pos + vec4f(0.0, 0.02, 0.0, 0.0), kSunDir, 0.02);
         sha1 = sha1 * smoothstep(-0.5, -0.05, cloudsShadowFlat(epos, kSunDir));
 
         var sha2: f32 = 1.0;
         if (!LOWQUALITY) {
-            sha2 = treesShadow(pos + vec4<f32>(0.0, 0.02, 0.0,0.0), kSunDir);
+            sha2 = treesShadow(pos + vec4f(0.0, 0.02, 0.0,0.0), kSunDir);
         }
 
         let tnor = terrainNormal(pos.xzw);
-        var nor = vec4<f32>();
+        var nor = vec4f();
 
         var speC = vec3<f32>(1.0);
 
         if (obj == 1) {
             // terrain
-            let bump = fbmd_7((pos - vec4<f32>(0.0, 600.0, 0.0,0.0)) * 0.15 * vec4<f32>(1.0, 0.2, 1.0,1.0));
+            let bump = fbmd_7((pos - vec4f(0.0, 600.0, 0.0,0.0)) * 0.15 * vec4f(1.0, 0.2, 1.0,1.0));
             nor = normalize(tnor + 0.8 * (1.0 - abs(tnor.y)) * 0.8 * bump.xyzw);
 
             col = vec3<f32>(0.18, 0.12, 0.10) * 0.85;
@@ -1259,7 +1251,7 @@ fn mainRay(rayo: vec4<f32>, rayd: vec4<f32>) -> vec4<f32> {
                 dif = dif * sha2;
             }
 
-            let bac = clamp(dot(normalize(vec4<f32>(-kSunDir.x, 0.0, -kSunDir.z,-kSunDir.w)), nor), 0.0, 1.0);
+            let bac = clamp(dot(normalize(vec4f(-kSunDir.x, 0.0, -kSunDir.z,-kSunDir.w)), nor), 0.0, 1.0);
             let foc = clamp((pos.y / 2.0 - 180.0) / 130.0, 0.0, 1.0);
             let dom = clamp(0.5 + 0.5 * nor.y, 0.0, 1.0);
             var lin = 0.2 * mix(vec3<f32>(0.1, 0.2, 0.1) * 0.1, vec3<f32>(0.7, 0.9, 1.5) * 3.0, dom) * foc;
@@ -1289,7 +1281,7 @@ fn mainRay(rayo: vec4<f32>, rayd: vec4<f32>) -> vec4<f32> {
                 dif = dif * (a + (1.0 - a) * sha2_local);
             }
             let dom = clamp(0.5 + 0.5 * nor.y, 0.0, 1.0);
-            let bac = clamp(0.5 + 0.5 * dot(normalize(vec4<f32>(-kSunDir.x, 0.0, -kSunDir.z, -kSunDir.w)), nor), 0.0, 1.0);
+            let bac = clamp(0.5 + 0.5 * dot(normalize(vec4f(-kSunDir.x, 0.0, -kSunDir.z, -kSunDir.w)), nor), 0.0, 1.0);
             let fre = clamp(1.0 + dot(nor, rayDir), 0.0, 1.0);
 
             var lin = 12.0 * vec3<f32>(1.2, 1.0, 0.7) * dif * occ * (2.5 - 1.5 * smoothstep(0.0, 120.0, resT));
@@ -1342,7 +1334,7 @@ fn mainRay(rayo: vec4<f32>, rayd: vec4<f32>) -> vec4<f32> {
     col = col * vec3<f32>(1.02, 0.99, 0.9);
     col.z = col.z + 0.1;
 
-    return vec4<f32>(col, opacity);
+    return vec4f(col, opacity);
 }
 `
 };
@@ -1444,6 +1436,7 @@ class ResizeDivHandler {
         font-family: "DejaVu Sans Mono", "Fira Mono", "Consolas", "Courier New", monospace;
         text-align: center;
         font-size: 0.6em;
+        vertical-align: middle;
         width: 2.5em;
         `;
         this.runBtn = runBtn;
@@ -1746,18 +1739,18 @@ export namespace cam {
     export async function load() {
         const app = await new ShadertoyApp(`
 struct shadertoyRayOut{
-    @location(0) o: vec4<f32>,
-    @location(1) d: vec4<f32>
+    @location(0) o: vec4f,
+    @location(1) d: vec4f
 }
 ${DeclareGroup1}
 @ray fn shadertoyMainRay(
-    @builtin(ray_direction) rd: vec4<f32>,
-    @builtin(ray_origin) ro: vec4<f32>
+    @builtin(ray_direction) rd: vec4f,
+    @builtin(ray_origin) ro: vec4f
 ) -> shadertoyRayOut{
     return shadertoyRayOut(shadertoyCamMat.matrix*ro+shadertoyCamMat.vector, shadertoyCamMat.matrix*rd);
 }
 
-@fragment fn shadertoyMainFragment(@location(0) rayOrigin: vec4<f32>, @location(1) rayDir: vec4<f32>)->@location(0) vec4<f32>{
+@fragment fn shadertoyMainFragment(@location(0) rayOrigin: vec4f, @location(1) rayDir: vec4f)->@location(0) vec4f{
     let t = shadertoyTime; return mainRay(rayOrigin, rayDir);
 }
 `, 91, 16, rayExamples).load();
@@ -1778,7 +1771,7 @@ ${DeclareGroup1}
     return shadertoyVoxelOut(position);
 }
 
-@fragment fn shadertoyMainFragment(@location(0) position: vec3<f32>)->@location(0) vec4<f32>{
+@fragment fn shadertoyMainFragment(@location(0) position: vec3<f32>)->@location(0) vec4f{
     return mainVoxel(position);
 }
 `, 89, 15, voxelExamples).load();

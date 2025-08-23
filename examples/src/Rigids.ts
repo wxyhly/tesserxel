@@ -1682,12 +1682,12 @@ export namespace m_dipole {
         });
     }
 }
-const renderMatMDipoleDual = new FOUR.LambertMaterial(new FOUR.WgslTexture(`fn hopfA(uvw:vec4<f32>)->vec4<f32>{
-                return mix(vec4<f32>(1.0, 0.5, 0.5, 0.2),vec4<f32>(0.02,0.02,1.0,1.0),step(1.5,fract((uvw.x+uvw.y)*4.0)*2.0)*step(1.5,fract((uvw.z)*4.0)*2.0)) ;
+const renderMatMDipoleDual = new FOUR.LambertMaterial(new FOUR.WgslTexture(`fn hopfA(uvw:vec4f)->vec4f{
+                return mix(vec4f(1.0, 0.5, 0.5, 0.2),vec4f(0.02,0.02,1.0,1.0),step(1.5,fract((uvw.x+uvw.y)*4.0)*2.0)*step(1.5,fract((uvw.z)*4.0)*2.0)) ;
             }    
             `, `hopfA`));
-const renderMatMDipoleAntiDual = new FOUR.LambertMaterial(new FOUR.WgslTexture(`fn hopfB(uvw:vec4<f32>)->vec4<f32>{
-                return mix(vec4<f32>(0.5, 0.5, 1.0, 0.2),vec4<f32>(1.0,0.02,0.02,1.0),step(1.5,fract((uvw.x-uvw.y)*4.0)*2.0)*step(1.5,fract((uvw.z)*4.0)*2.0)) ;
+const renderMatMDipoleAntiDual = new FOUR.LambertMaterial(new FOUR.WgslTexture(`fn hopfB(uvw:vec4f)->vec4f{
+                return mix(vec4f(0.5, 0.5, 1.0, 0.2),vec4f(1.0,0.02,0.02,1.0),step(1.5,fract((uvw.x-uvw.y)*4.0)*2.0)*step(1.5,fract((uvw.z)*4.0)*2.0)) ;
             }    
             `, `hopfB`));
 export namespace m_dipole_dual1 {
@@ -1771,8 +1771,8 @@ export namespace dice_yugu233 {
         }));
         // draw dots on the dice using wgsl shader
         const diceM = new tesserxel.four.LambertMaterial(new tesserxel.four.WgslTexture(`
-            const arr:array<vec4<f32>,8> = array<vec4<f32>,8>(vec4<f32>(1.0,0.0,0.0,1.0),vec4<f32>(1.0,0.0,0.0,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(1.0,0.0,0.0,1.0),vec4<f32>(0.0,0.0,0.8,1.0),vec4<f32>(0.0,0.0,0.8,1.0));
-            fn mainfr(uvw:vec4<f32>)->vec4<f32>{
+            const arr:array<vec4f,8> = array<vec4f,8>(vec4f(1.0,0.0,0.0,1.0),vec4f(1.0,0.0,0.0,1.0),vec4f(0.0,0.0,0.8,1.0),vec4f(0.0,0.0,0.8,1.0),vec4f(0.0,0.0,0.8,1.0),vec4f(1.0,0.0,0.0,1.0),vec4f(0.0,0.0,0.8,1.0),vec4f(0.0,0.0,0.8,1.0));
+            fn mainfr(uvw:vec4f)->vec4f{
                 var pattern:f32;
                 if(uvw.w<0.5){pattern=step(length(uvw.xyz),0.5);}
                 else if(uvw.w<1.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,0.35,-0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.35,-0.35,0.35)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,-0.35)),0.28);}
@@ -1783,7 +1783,7 @@ export namespace dice_yugu233 {
                  else if(uvw.w<6.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.38,0.38,0.38)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.38,0.38,-0.38)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.38,-0.38,-0.38)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.38,-0.38,0.38)),0.28)+step(distance(uvw.xyz,vec3<f32>(0.46,0.0,-0.46)),0.28)+step(distance(uvw.xyz,vec3<f32>(-0.46,0.0,0.46)),0.28)+step(length(uvw.xyz),0.28);}
                  else if(uvw.w<7.5){pattern=step(distance(uvw.xyz,vec3<f32>(0.35,0.35,0.35)),0.3)+step(distance(uvw.xyz,vec3<f32>(-0.35,-0.35,-0.35)),0.3);}
 
-                return mix(vec4<f32>(1.0,1.0,1.0,0.1),arr[u32(uvw.w+0.5)],pattern);
+                return mix(vec4f(1.0,1.0,1.0,0.1),arr[u32(uvw.w+0.5)],pattern);
                 
             }
             `, 'mainfr'));

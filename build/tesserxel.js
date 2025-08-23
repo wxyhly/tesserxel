@@ -3658,44 +3658,44 @@
 
     const tetraSliceBindGroup0declareIndex = 3;
     const refacingMatsCode = `
-const tsx_refacingMats = array<mat4x4<f32>,6>(
+const tsx_refacingMats = array<mat4x4f,6>(
 // +z
-mat4x4<f32>(
+mat4x4f(
 1,0,0,0,
 0,1,0,0,
 0,0,1,0,
 0,0,0,1,
 ),
 // -z
-mat4x4<f32>(
+mat4x4f(
 1,0,0,0,
 0,1,0,0,
 0,0,-1,0,
 0,0,0,1,
 ),
 // +y
-mat4x4<f32>(
+mat4x4f(
 1,0,0,0,
 0,0,1,0,
 0,1,0,0,
 0,0,0,1,
 ),
 // -y
-mat4x4<f32>(
+mat4x4f(
 1,0,0,0,
 0,0,-1,0,
 0,-1,0,0,
 0,0,0,1,
 ),
 // +x
-mat4x4<f32>(
+mat4x4f(
 0,0,1,0,
 0,1,0,0,
 1,0,0,0,
 0,0,0,1,
 ),
 // -x
-mat4x4<f32>(
+mat4x4f(
 0,0,-1,0,
 0,1,0,0,
 -1,0,0,0,
@@ -3710,7 +3710,7 @@ struct tsxSliceInfo{
 }`;
     const StructDefUniformBuffer = `
 struct tsxUniformBuffer{
-    retinaMV: mat4x4<f32>, retinaP: mat4x4<f32>, camProj: vec4<f32>,
+    retinaMV: mat4x4f, retinaP: mat4x4f, camProj: vec4f,
     eyeCross: vec3<f32>, sliceOffset: u32, refacing: u32, screenAspect: f32, layerOpacity: f32,
 }`;
     const expectTetraSlicePipelineInput = {
@@ -3771,7 +3771,7 @@ struct tsxUniformBuffer{
                 if (attr === "return")
                     continue;
                 let packedType = output[attr].type; // unpack matrix4x4
-                let rawType = packedType.replace("mat4x4<f32>", "vec4<f32>");
+                let rawType = packedType.replace("mat4x4f", "vec4f");
                 if (attr === "builtin(position)") {
                     id = 0;
                 }
@@ -3826,7 +3826,7 @@ struct tsxUniformBuffer{
                 if (!attr.startsWith("location("))
                     continue;
                 let i = attr.charAt(9);
-                bindGroup1declare += `@group(1) @binding(${i}) var<storage, read> _attribute${i} : array<mat4x4<f32>>;\n`;
+                bindGroup1declare += `@group(1) @binding(${i}) var<storage, read> _attribute${i} : array<mat4x4f>;\n`;
             }
             let parsedCode = vertexState.code.replace(/@tetra/g, " ").replace(/@location\s*\(\s*[0-9]+\s*\)\s*/g, " ").replace(/@builtin\s*\(\s*[^\)\s]+\s*\)\s*/g, " ");
             function makeInterpolate(a, b) {
@@ -3850,7 +3850,7 @@ struct tsxUniformBuffer{
             }
             let cullOperator = descriptor.cullMode == "back" ? "<" : ">";
             let commonCameraSliceCode = `
-let sign = step(vec4<f32>(0.0,0.0,0.0,0.0),scalar);
+let sign = step(vec4f(0.0,0.0,0.0,0.0),scalar);
 let vertnum = sign.x + sign.y + sign.z + sign.w;
 if(!(vertnum == 0.0 || vertnum == 4.0)){ // if hit one slice
     if(sign.x + sign.y == 1.0){
@@ -3904,7 +3904,7 @@ struct _EmitIndex_Slice{
 
 @group(0) @binding(0) var<storage, read_write> _emitIndex_slice: _EmitIndex_Slice;
 @group(0) @binding(1) var<uniform> tsx_uniforms : tsxUniformBuffer;
-@group(0) @binding(2) var<uniform> thumbnailViewport : array<vec4<f32>,16>;
+@group(0) @binding(2) var<uniform> thumbnailViewport : array<vec4f,16>;
 ${bindGroup0declare}
 ${bindGroup1declare}
 
@@ -3926,18 +3926,18 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
     let cameraPosMat = ${output["builtin(position)"].expr};
     
     var instanceLength:u32 = ${config.sliceGroupSize};
-    var refPosMat : mat4x4<f32>;
-    var refCamMat : mat4x4<f32>;
+    var refPosMat : mat4x4f;
+    var refCamMat : mat4x4f;
     let sliceFlag = _emitIndex_slice.slice[tsx_uniforms.sliceOffset].flag;
 
     if(tsx_uniforms.camProj.x < 0){ // Orthographic
-        let projBiais:mat4x4<f32> = mat4x4<f32>(
+        let projBiais:mat4x4f = mat4x4f(
             0,0,tsx_uniforms.camProj.w,1,
             0,0,tsx_uniforms.camProj.w,1,
             0,0,tsx_uniforms.camProj.w,1,
             0,0,tsx_uniforms.camProj.w,1,
         );
-        let projMat = mat4x4<f32>(
+        let projMat = mat4x4f(
             -tsx_uniforms.camProj.x,0,0,0,
             0,tsx_uniforms.camProj.y,0,0,
             0,0,0,0,
@@ -3947,7 +3947,7 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
         ${(descriptor.cullMode == "back" || descriptor.cullMode == "front") ? `
         // cull face: if all slices in this group has no eye4D offset, cull here
         var cameraPosDetMat = transpose(cameraPosMat); 
-        cameraPosDetMat[3] = vec4<f32>(-1.0);
+        cameraPosDetMat[3] = vec4f(-1.0);
         if(determinant(cameraPosDetMat) ${cullOperator} 0){ return; }` : ""}
 
         // [uniform if] all slices are in retina, no eye4D
@@ -3982,26 +3982,26 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
                 refPosMat[3].x *= aspect;
             }
             // calculate cross section pos * plane.normal
-            let scalar = transpose(refCamMat)[2] + vec4<f32>(sliceInfo.slicePos / tsx_uniforms.camProj.x); 
+            let scalar = transpose(refCamMat)[2] + vec4f(sliceInfo.slicePos / tsx_uniforms.camProj.x); 
             ${commonCameraSliceCode}
             emitIndexOffset += tsx_emitIndexStride;
         } // end all hits
     }else{
         let preclipW = cameraPosMat[0].w >= 0 && cameraPosMat[1].w >= 0 && cameraPosMat[2].w >= 0  && cameraPosMat[3].w >= 0;
         if(preclipW){ return; }
-        let projBiais:mat4x4<f32> = mat4x4<f32>(
+        let projBiais:mat4x4f = mat4x4f(
             0,0,tsx_uniforms.camProj.w,0,
             0,0,tsx_uniforms.camProj.w,0,
             0,0,tsx_uniforms.camProj.w,0,
             0,0,tsx_uniforms.camProj.w,0
         );
-        let projMat = mat4x4<f32>(
+        let projMat = mat4x4f(
             tsx_uniforms.camProj.x,0,0,0,
             0,tsx_uniforms.camProj.y,0,0,
             0,0,0,0,
             0,0,tsx_uniforms.camProj.z,-1,
         );
-        let eyeMat = mat4x4<f32>(
+        let eyeMat = mat4x4f(
             tsx_uniforms.eyeCross.x,0,0,0,
             tsx_uniforms.eyeCross.x,0,0,0,
             tsx_uniforms.eyeCross.x,0,0,0,
@@ -4075,8 +4075,8 @@ fn _mainCompute(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>){
             }
             for (let i = 0; i < shaderLocationCounter; i++) {
                 let attr = i ? `location(${i - 1})` : "builtin(position)";
-                vinputVert += `@location(${i}) member${i}: vec4<f32>,\n`;
-                voutputVert += `@${attr} member${i}: vec4<f32>,\n`;
+                vinputVert += `@location(${i}) member${i}: vec4f,\n`;
+                voutputVert += `@${attr} member${i}: vec4f,\n`;
                 vcallVert += `data.member${i},`;
             }
             const vertexShaderModule = this.gpu.device.createShaderModule({
@@ -4244,23 +4244,23 @@ struct tsxvOutputType{
             // ${wgslreflect.parseAttr(mainRayFn.return.attributes)} userRayOut: ${wgslreflect.parseTypeName(mainRayFn.return)}
             let shaderCode = refacingMatsCode + StructDefSliceInfo + StructDefUniformBuffer + `
 struct tsxvOut{
-    @builtin(position) pos: vec4<f32>,
+    @builtin(position) pos: vec4f,
     ${retunTypeMembers}
 }
 struct tsxAffineMat{
-    matrix: mat4x4<f32>,
-    vector: vec4<f32>,
+    matrix: mat4x4f,
+    vector: vec4f,
 }
 @group(0) @binding(0) var<storage, read> tsx_slice: array<tsxSliceInfo, ${config.maxSlicesNumber}>;
 
 @group(0) @binding(1) var<uniform> tsx_uniforms : tsxUniformBuffer;
-@group(0) @binding(2) var<uniform> thumbnailViewport : array<vec4<f32>,16>;
-fn apply(afmat: tsxAffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
-    let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
+@group(0) @binding(2) var<uniform> thumbnailViewport : array<vec4f,16>;
+fn apply(afmat: tsxAffineMat, points: mat4x4f) -> mat4x4f{
+    let biais = mat4x4f(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
     return afmat.matrix * points + biais;
 }
-fn applyinv(afmat: tsxAffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
-    let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
+fn applyinv(afmat: tsxAffineMat, points: mat4x4f) -> mat4x4f{
+    let biais = mat4x4f(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
     return transpose(afmat.matrix) * (points - biais);
 }
 ${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_direction|voxel_coord|aspect_matrix)\s*\)\s*/g, " ")}
@@ -4278,10 +4278,10 @@ ${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_directi
     let posidx = pos[vindex];
     let coord = vec2<f32>(posidx.x, posidx.y);
     var aspect = 1.0;
-    var rayPos = vec4<f32>(0.0);// no eye offset for retina
-    var rayDir = vec4<f32>(0.0,0.0,0.0,-1.0);// point forward for Orthographic camera
+    var rayPos = vec4f(0.0);// no eye offset for retina
+    var rayDir = vec4f(0.0,0.0,0.0,-1.0);// point forward for Orthographic camera
     if(tsx_uniforms.camProj.x < 0){
-        rayPos = vec4<f32>(coord.x/tsx_uniforms.camProj.x * aspect, coord.y/tsx_uniforms.camProj.y, sliceInfo.slicePos/tsx_uniforms.camProj.x, -tsx_uniforms.camProj.w/tsx_uniforms.camProj.z);
+        rayPos = vec4f(coord.x/tsx_uniforms.camProj.x * aspect, coord.y/tsx_uniforms.camProj.y, sliceInfo.slicePos/tsx_uniforms.camProj.x, -tsx_uniforms.camProj.w/tsx_uniforms.camProj.z);
     }else{
         if(sliceFlag == 0){
             refacingEnum = tsx_uniforms.refacing;
@@ -4289,14 +4289,14 @@ ${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_directi
             refacingEnum = sliceInfo.refacing;
             let vp = thumbnailViewport[tsx_uniforms.sliceOffset + i_index - (tsx_uniforms.refacing >> 5)];
             aspect = vp.z / vp.w;
-            rayPos = vec4<f32>(-tsx_uniforms.eyeCross.x * (f32(sliceInfo.refacing >> 3) - 1.0), 0.0, 0.0, 0.0);
+            rayPos = vec4f(-tsx_uniforms.eyeCross.x * (f32(sliceInfo.refacing >> 3) - 1.0), 0.0, 0.0, 0.0);
         }
-        rayDir = vec4<f32>(coord.x/tsx_uniforms.camProj.x * aspect, coord.y/tsx_uniforms.camProj.y, sliceInfo.slicePos/tsx_uniforms.camProj.x, -1.0);
+        rayDir = vec4f(coord.x/tsx_uniforms.camProj.x * aspect, coord.y/tsx_uniforms.camProj.y, sliceInfo.slicePos/tsx_uniforms.camProj.x, -1.0);
     }
     let refacingMat = tsx_refacingMats[refacingEnum & 7];
     let camRayDir = refacingMat * rayDir;
     let camRayOri = refacingMat * rayPos;
-    let voxelCoord = (refacingMat * vec4<f32>(coord, sliceInfo.slicePos,0.0)).xyz;
+    let voxelCoord = (refacingMat * vec4f(coord, sliceInfo.slicePos,0.0)).xyz;
     ${dealRefacingCall}
     ${call}
     let x = f32(((sliceInfo.viewport >> 24) & 0xFF) << ${config.viewportCompressShift}) * ${1 / config.sliceTextureWidth};
@@ -4312,12 +4312,12 @@ ${code.replace(/@vertex/g, " ").replace(/@builtin\s*\(\s*(ray_origin|ray_directi
     
     if(sliceInfo.slicePos > 1.0){
         return tsxvOut(
-            vec4<f32>(0.0,0.0,0.0, -1.0),
+            vec4f(0.0,0.0,0.0, -1.0),
             ${outputMembers}
         );
     }else{
         return tsxvOut(
-            vec4<f32>(texelCoord.x,-texelCoord.y, 0.999999, 1.0),
+            vec4f(texelCoord.x,-texelCoord.y, 0.999999, 1.0),
             ${outputMembers}
         );
     }
@@ -4900,7 +4900,7 @@ fn calDepth(distance: f32)->f32{
                 }
             };
             let clearModule = gpu.device.createShaderModule({
-                code: "@vertex fn v()->@builtin(position) vec4<f32>{ return vec4<f32>();} @fragment fn f()->@location(0) vec4<f32>{ return vec4<f32>();}"
+                code: "@vertex fn v()->@builtin(position) vec4f{ return vec4f();} @fragment fn f()->@location(0) vec4f{ return vec4f();}"
             });
             this.clearRenderPipelinePromise = gpu.device.createRenderPipelineAsync({
                 layout: 'auto',
@@ -4998,23 +4998,23 @@ fn calDepth(distance: f32)->f32{
             this.crossRenderPass = crossRenderPass;
             let retinaRenderCode = refacingMatsCode + StructDefSliceInfo + StructDefUniformBuffer + `
 struct tsxvOutputType{
-    @builtin(position) position : vec4<f32>,
+    @builtin(position) position : vec4f,
     @location(0) relativeFragPosition : vec3<f32>,
     @location(1) crossHair : f32,
-    @location(2) rayForCalOpacity : vec4<f32>,
+    @location(2) rayForCalOpacity : vec4f,
     @location(3) retinaCoord : vec3<f32>,
-    @location(4) normalForCalOpacity : vec4<f32>,
+    @location(4) normalForCalOpacity : vec4f,
 }
 struct tsxfInputType{
     @location(0) relativeFragPosition : vec3<f32>,
     @location(1) crossHair : f32,
-    @location(2) rayForCalOpacity : vec4<f32>,
+    @location(2) rayForCalOpacity : vec4f,
     @location(3) retinaCoord : vec3<f32>,
-    @location(4) normalForCalOpacity : vec4<f32>,
+    @location(4) normalForCalOpacity : vec4f,
 }
 @group(0) @binding(0) var<storage,read> slice : array<tsxSliceInfo,${this.config.maxSlicesNumber}>;
 @group(0) @binding(1) var<uniform> tsx_uniforms : tsxUniformBuffer;
-@group(0) @binding(2) var<uniform> thumbnailViewport : array<vec4<f32>,16>;
+@group(0) @binding(2) var<uniform> thumbnailViewport : array<vec4f,16>;
 
 @vertex fn mainVertex(@builtin(vertex_index) vindex : u32, @builtin(instance_index) iindex : u32) -> tsxvOutputType {
     const pos = array<vec2<f32>, 4>(
@@ -5031,11 +5031,11 @@ struct tsxfInputType{
     }
     let s = slice[sindex + tsx_uniforms.sliceOffset];
     // let coord = vec2<f32>(pos2d.x, -pos2d.y) * 0.5 + 0.5;
-    let ray = vec4<f32>(pos2d, s.slicePos, 1.0);
-    var retinaCoord: vec4<f32>;
-    var glPosition: vec4<f32>;
-    var camRay: vec4<f32>;
-    var normal: vec4<f32>;
+    let ray = vec4f(pos2d, s.slicePos, 1.0);
+    var retinaCoord: vec4f;
+    var glPosition: vec4f;
+    var camRay: vec4f;
+    var normal: vec4f;
     let x = f32(((s.viewport >> 24) & 0xFF) << ${this.config.viewportCompressShift}) * ${1 / this.config.sliceTextureWidth};
     let y = f32(((s.viewport >> 16) & 0xFF) << ${this.config.viewportCompressShift}) * ${1 / this.config.sliceTextureHeight};
     let w = f32(((s.viewport >> 8 ) & 0xFF) << ${this.config.viewportCompressShift}) * ${1 / this.config.sliceTextureWidth};
@@ -5048,7 +5048,7 @@ struct tsxfInputType{
         let ce = cos(stereoLR_offset);
         var pureRotationMvMat = tsx_uniforms.retinaMV;
         pureRotationMvMat[3].z = 0.0;
-        let eyeMat = mat4x4<f32>(
+        let eyeMat = mat4x4f(
             ce,0,se,0,
             0,1,0,0,
             -se,0,ce,0,
@@ -5059,7 +5059,7 @@ struct tsxfInputType{
         retinaCoord = tsx_refacingMats[tsx_uniforms.refacing & 7] * ray;
         glPosition = tsx_uniforms.retinaP * camRay;
         if(tsx_uniforms.retinaP[3].w > 0){ // Orthographic
-            camRay = vec4<f32>(0.0,0.0,-1.0,1.0);
+            camRay = vec4f(0.0,0.0,-1.0,1.0);
         }
         normal = omat[2];
         // todo: viewport of retina slices
@@ -5067,8 +5067,8 @@ struct tsxfInputType{
     }else{
         let vp = thumbnailViewport[sindex + tsx_uniforms.sliceOffset - (tsx_uniforms.refacing >> 5)];
         crossHair = tsx_uniforms.eyeCross.z / vp.w * step(abs(s.slicePos),0.1);
-        glPosition = vec4<f32>(ray.x * vp.z * tsx_uniforms.screenAspect + vp.x, ray.y * vp.w + vp.y,0.5,1.0);
-        camRay = vec4<f32>(pos[vindex].x * vp.z / vp.w,pos[vindex].y,0.0,1.0); // for rendering crosshair
+        glPosition = vec4f(ray.x * vp.z * tsx_uniforms.screenAspect + vp.x, ray.y * vp.w + vp.y,0.5,1.0);
+        camRay = vec4f(pos[vindex].x * vp.z / vp.w,pos[vindex].y,0.0,1.0); // for rendering crosshair
     }
     
     let texelCoord = array<vec2<f32>, 4>(
@@ -5090,11 +5090,11 @@ struct tsxfInputType{
 @group(0) @binding(3) var tsx_txt: texture_2d<f32>;
 @group(0) @binding(4) var tsx_splr: sampler;
 ${descriptor?.alphaShader?.code ?? `
-fn mainAlpha(color: vec4<f32>, retinaCoord: vec3<f32>) -> f32{
+fn mainAlpha(color: vec4f, retinaCoord: vec3<f32>) -> f32{
     return color.a;
 }
 `}
-@fragment fn mainFragment(input : tsxfInputType) -> @location(0) vec4<f32> {
+@fragment fn mainFragment(input : tsxfInputType) -> @location(0) vec4f {
     let color = textureSample(tsx_txt, tsx_splr, input.relativeFragPosition.xy);
     var alpha: f32 = 1.0;
     var factor = 0.0;
@@ -5107,7 +5107,7 @@ fn mainAlpha(color: vec4<f32>, retinaCoord: vec3<f32>) -> f32{
     factor = step(cross.x, input.crossHair * 0.05) + step(cross.y, input.crossHair * 0.05);
     factor *= step(cross.x, input.crossHair) * step(cross.y, input.crossHair);
 }
-return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1.0)), alpha);
+return vec4f(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1.0)), alpha);
 }
 `;
             const retinaRenderShaderModule = gpu.device.createShaderModule({
@@ -5168,7 +5168,7 @@ return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1
 @group(0) @binding(1) var tsx_splr: sampler;
 @group(0) @binding(2) var<uniform>tsx_uniforms : tsxUniformBuffer;
 struct tsxvOutputType{
-    @builtin(position) position: vec4<f32>,
+    @builtin(position) position: vec4f,
     @location(0) fragPosition: vec2<f32>,
 }
 struct tsxfInputType{
@@ -5187,7 +5187,7 @@ struct tsxfInputType{
         vec2<f32>(1.0, 1.0),
         vec2<f32>(1.0, 0.0),
     );
-    return tsxvOutputType(vec4<f32>(pos[index], 0.0, 1.0), uv[index]);
+    return tsxvOutputType(vec4f(pos[index], 0.0, 1.0), uv[index]);
 }
 @fragment fn mainFragment(input: tsxfInputType) -> @location(0) vec4 < f32 > {
 let color = textureSample(tsx_txt, tsx_splr, input.fragPosition);
@@ -5205,7 +5205,7 @@ if(tsx_uniforms.eyeCross.z > 0.0 && tsx_uniforms.layerOpacity > 0.0){
         factor *= step(cross.y, tsx_uniforms.eyeCross.z) * step(cross.x, aspectedCross);
     }
 }
-return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1.0)), 1.0);
+return vec4f(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1.0)), 1.0);
 }
 `;
     class ScreenRenderPass {
@@ -5300,14 +5300,14 @@ return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1
             const shaderModule = gpu.device.createShaderModule({
                 code: StructDefUniformBuffer + `
 @group(0) @binding(0) var<uniform> tsx_uniforms : tsxUniformBuffer;
-@vertex fn tsxVMain(@location(0) inPos: vec4<f32>, @builtin(instance_index) idx: u32) -> @builtin(position) vec4<f32>{
+@vertex fn tsxVMain(@location(0) inPos: vec4f, @builtin(instance_index) idx: u32) -> @builtin(position) vec4f{
     let stereoLR = f32(idx & 1) - 0.5;
     let stereoLR_offset = -stereoLR * tsx_uniforms.eyeCross.y;
     let se = sin(stereoLR_offset);
     let ce = cos(stereoLR_offset);
     var pureRotationMvMat = tsx_uniforms.retinaMV;
     pureRotationMvMat[3].z = 0.0;
-    let eyeMat = mat4x4<f32>(
+    let eyeMat = mat4x4f(
         ce,0,se,0,
         0,1,0,0,
         -se,0,ce,0,
@@ -5317,8 +5317,8 @@ return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1
     glPosition.x = (glPosition.x) * tsx_uniforms.screenAspect + step(0.0001, abs(tsx_uniforms.eyeCross.y)) * stereoLR * glPosition.w;
     return glPosition;
 }
-@fragment fn tsxFMain()->@location(0) vec4<f32>{
-    return vec4<f32>(1.0,0.0,0.0,1.0);
+@fragment fn tsxFMain()->@location(0) vec4f{
+    return vec4f(1.0,0.0,0.0,1.0);
 }`,
             });
             this.pipelinePromise = gpu.device.createRenderPipelineAsync({
@@ -8009,13 +8009,13 @@ return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1
         uuid;
         static commonCode = `
     struct rayOut{
-        @location(0) outO: vec4<f32>,
-        @location(1) outR: vec4<f32>,
+        @location(0) outO: vec4f,
+        @location(1) outR: vec4f,
         @location(2) coord: vec3<f32>
     }
     @ray fn mainRay(
-        @builtin(ray_origin) ro: vec4<f32>,
-        @builtin(ray_direction) rd: vec4<f32>,
+        @builtin(ray_origin) ro: vec4f,
+        @builtin(ray_direction) rd: vec4f,
         @builtin(voxel_coord) coord: vec3<f32>,
         @builtin(aspect_matrix) aspect: mat3x3<f32>
     ) -> rayOut {
@@ -8026,7 +8026,7 @@ return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1
         );
     }
     struct fOut{
-        @location(0) color: vec4<f32>,
+        @location(0) color: vec4f,
         @builtin(frag_depth) depth: f32
     }
     
@@ -8091,7 +8091,7 @@ return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1
             return {
                 code: `
         struct UIn{
-            sunDir: vec4<f32>,
+            sunDir: vec4f,
             opacity: f32
         }
         @group(1) @binding(0) var<uniform> camMat: tsxAffineMat;
@@ -8104,7 +8104,7 @@ return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1
         const RayleighAtt = 1.0;
         const MieAtt = 1.2;
         const g = -0.9;
-        fn sky (rd: vec4<f32>)->vec3<f32>{
+        fn sky (rd: vec4f)->vec3<f32>{
             let D = normalize(rd);
             let t = max(0.001, D.y)*0.92+0.08;
 
@@ -8132,8 +8132,8 @@ return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1
             color *= vec3<f32>(1.4,1.7,1.2);
             return ACESFilm(color);
         }
-        @fragment fn mainFragment(@location(0) ro: vec4<f32>, @location(1) rd: vec4<f32>, @location(2) coord: vec3<f32>)->fOut{            
-            return fOut(vec4<f32>(sky(rd),uIn.opacity),0.999999);
+        @fragment fn mainFragment(@location(0) ro: vec4f, @location(1) rd: vec4f, @location(2) coord: vec3<f32>)->fOut{            
+            return fOut(vec4f(sky(rd),uIn.opacity),0.999999);
         }`,
                 rayEntryPoint: "mainRay",
                 fragmentEntryPoint: "mainFragment"
@@ -8206,18 +8206,18 @@ return vec4<f32>(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1
         uWorldLightBufferSize = spotLightOffset + spotLightsNumber * structSpotLightLightSize;
         const lightCode = `
 struct PosDirLight{
-    density: vec4<f32>,
-    pos_dir: vec4<f32>,
+    density: vec4f,
+    pos_dir: vec4f,
 }
 struct SpotLight{
-    density: vec4<f32>,
-    pos: vec4<f32>,
-    dir: vec4<f32>,
-    params: vec4<f32>
+    density: vec4f,
+    pos: vec4f,
+    dir: vec4f,
+    params: vec4f
 }
 const blackColor = vec3<f32>(0.02);
 struct WorldLight{
-    ambientLightDensity: vec4<f32>,
+    ambientLightDensity: vec4f,
     posdirLights: array<PosDirLight,${posdirLightsNumber}>,
     spotLights: array<SpotLight,${spotLightsNumber}>,
 }
@@ -8585,28 +8585,28 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
     //  tetra vertex shaders
     let commonHeader = `
 struct tsxAffineMat{
-    matrix: mat4x4<f32>,
-    vector: vec4<f32>,
+    matrix: mat4x4f,
+    vector: vec4f,
 }
 struct UObjMats{
     pos: tsxAffineMat,
-    normal: mat4x4<f32>,
+    normal: mat4x4f,
 }
 struct fourInputType{
-    @location(0) pos: mat4x4<f32>,{fourInputType}
+    @location(0) pos: mat4x4f,{fourInputType}
 }
 struct fourOutputType{
-    @builtin(position) position: mat4x4<f32>,
+    @builtin(position) position: mat4x4f,
     {fourOutputType}
 }
 @group(1) @binding({0}) var<uniform> uObjMat: UObjMats;
 @group(1) @binding({1}) var<uniform> uCamMat: tsxAffineMat;
-fn apply(afmat: tsxAffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
-    let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
+fn apply(afmat: tsxAffineMat, points: mat4x4f) -> mat4x4f{
+    let biais = mat4x4f(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
     return afmat.matrix * points + biais;
 }
-fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
-    return mat4x4<f32>(
+fn normalizeVec4s(vec4s: mat4x4f) -> mat4x4f{
+    return mat4x4f(
         normalize(vec4s[0]), normalize(vec4s[1]), normalize(vec4s[2]), normalize(vec4s[3]),
     );
 }
@@ -8629,24 +8629,24 @@ fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
         let fourOutputReturn = outputReturn.position;
         for (let i = 0, l = inputs.length; i < l; i++) {
             fourInputType += `
-        @location(${i + 1}) ${inputs[i]}: mat4x4<f32>,`;
+        @location(${i + 1}) ${inputs[i]}: mat4x4f,`;
         }
         if (outputs.length === 1) {
             fourOutputType = `
-        @location(0) ${outputs[0]}: mat4x4<f32>,`;
+        @location(0) ${outputs[0]}: mat4x4f,`;
             fourOutputReturn += "," + outputReturn[outputs[0]];
         }
         else if (outputs.length === 2) {
             fourOutputType = `
-        @location(0) ${outputs[0]}: mat4x4<f32>,
-        @location(1) ${outputs[1]}: mat4x4<f32>`;
+        @location(0) ${outputs[0]}: mat4x4f,
+        @location(1) ${outputs[1]}: mat4x4f`;
             fourOutputReturn += "," + outputReturn[outputs[0]] + "," + outputReturn[outputs[1]];
         }
         else if (outputs.length === 3) {
             fourOutputType = `
-        @location(0) ${outputs[0]}_${outputs[1]}: array<mat4x4<f32>,2>,
-        @location(1) ${outputs[2]}: mat4x4<f32>`;
-            fourOutputReturn += ", array<mat4x4<f32>,2>(" + outputReturn[outputs[0]] + "," +
+        @location(0) ${outputs[0]}_${outputs[1]}: array<mat4x4f,2>,
+        @location(1) ${outputs[2]}: mat4x4f`;
+            fourOutputReturn += ", array<mat4x4f,2>(" + outputReturn[outputs[0]] + "," +
                 outputReturn[outputs[1]] + ")," + outputReturn[outputs[2]];
         }
         for (let i = 0; i < 32; i++) {
@@ -8770,16 +8770,16 @@ fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
             }
             let header = headers + lightCode + `
     struct tsxAffineMat{
-        matrix: mat4x4<f32>,
-        vector: vec4<f32>,
+        matrix: mat4x4f,
+        vector: vec4f,
     }
-    @fragment fn main(${fsIn}) -> @location(0) vec4<f32> {
+    @fragment fn main(${fsIn}) -> @location(0) vec4f {
         let ambientLightDensity = uWorldLight.ambientLightDensity.xyz;`; // avoid basic material doesn't call this uniform at all
             // if frag shader has input, we need to construct a struct fourInputType
             if (fsIn) {
                 let struct = `    struct fourInputType{\n`;
                 for (let i = 0, l = this.declVarys.length; i < l; i++) {
-                    struct += `        @location(${i}) ${this.declVarys[i]}: vec4<f32>,\n`;
+                    struct += `        @location(${i}) ${this.declVarys[i]}: vec4f,\n`;
                 }
                 struct += "    }\n";
                 header = struct + header;
@@ -8812,12 +8812,12 @@ fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
             let g = color?.g ?? color[1] ?? 0;
             let b = color?.b ?? color[2] ?? 0;
             let a = color?.a ?? color[3] ?? 1;
-            super(`vec4<f32>(${r.toFixed(MaterialNode.constFractionDigits)},${g.toFixed(MaterialNode.constFractionDigits)},${b.toFixed(MaterialNode.constFractionDigits)},${a.toFixed(MaterialNode.constFractionDigits)})`);
+            super(`vec4f(${r.toFixed(MaterialNode.constFractionDigits)},${g.toFixed(MaterialNode.constFractionDigits)},${b.toFixed(MaterialNode.constFractionDigits)},${a.toFixed(MaterialNode.constFractionDigits)})`);
         }
     }
     class Vec4ConstValue extends ConstValue {
         constructor(vec) {
-            super(`vec4<f32>(${vec.flat().map(n => n.toFixed(MaterialNode.constFractionDigits)).join(",")})`);
+            super(`vec4f(${vec.flat().map(n => n.toFixed(MaterialNode.constFractionDigits)).join(",")})`);
         }
     }
     class FloatConstValue extends ConstValue {
@@ -8830,7 +8830,7 @@ fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
             let afmat = v.getAffineMat4();
             let matEntries = afmat.mat.ts().elem.map(n => n.toFixed(MaterialNode.constFractionDigits)).join(",");
             let vecEntries = afmat.vec.flat().map(n => n.toFixed(MaterialNode.constFractionDigits)).join(",");
-            super(`tsxAffineMat(mat4x4<f32>(${matEntries}),vec4<f32>(${vecEntries}))`);
+            super(`tsxAffineMat(mat4x4f(${matEntries}),vec4f(${vecEntries}))`);
         }
     }
     /** the same UniformValue instance will share one uniform buffer */
@@ -8865,7 +8865,7 @@ fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
         }
     }
     class ColorUniformValue extends UniformValue {
-        type = "vec4<f32>";
+        type = "vec4f";
         gpuBufferSize = 4 * 4;
         value;
         _update(r) {
@@ -8880,7 +8880,7 @@ fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
         }
     }
     class Vec4UniformValue extends UniformValue {
-        type = "vec4<f32>";
+        type = "vec4f";
         gpuBufferSize = 4 * 4;
         value;
         _update(r) {
@@ -8949,7 +8949,7 @@ fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
             return color + `
                 var radiance = ambientLightDensity;
                 for(var i=0;i<${r.lightShaderInfomation.posdirLightsNumber};i++){
-                    var N = vec4<f32>(0.0);
+                    var N = vec4f(0.0);
                     if(uWorldLight.posdirLights[i].density.w<-0.5){
                         N = uWorldLight.posdirLights[i].pos_dir;
                     }else if(uWorldLight.posdirLights[i].density.w>0.5){
@@ -8967,7 +8967,7 @@ fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
                         radiance += uWorldLight.spotLights[i].density.rgb * max(0.0,dot(vary.normal,N));
                     }
                 }
-                return vec4<f32>(acesFilm((color.rgb + blackColor) * radiance), color.a);`;
+                return vec4f(acesFilm((color.rgb + blackColor) * radiance), color.a);`;
         }
         constructor(color) {
             color = makeColorOutput(color);
@@ -8987,7 +8987,7 @@ fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
                 var specularRadiance = vec3<f32>(0.0);
                 let viewRay = -normalize(vary.pos - uCamMat[1].vector);
                 for(var i=0;i<${r.lightShaderInfomation.posdirLightsNumber};i++){
-                    var N = vec4<f32>(0.0);
+                    var N = vec4f(0.0);
                     var D = 0.0;
                     if(uWorldLight.posdirLights[i].density.w<-0.5){
                         D = 1.0;
@@ -9018,7 +9018,7 @@ fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
                         specularRadiance += uWorldLight.spotLights[i].density.rgb *  D * max(0.0,pow(dot(vary.normal,halfvec),_shininess) ) ;
                     }
                 }
-                return vec4<f32>(acesFilm((_color.rgb+blackColor) * radiance + _specular.rgb * specularRadiance), _color.a);`;
+                return vec4f(acesFilm((_color.rgb+blackColor) * radiance + _specular.rgb * specularRadiance), _color.a);`;
         }
         constructor(color, shininess, specular) {
             color = makeColorOutput(color);
@@ -9033,7 +9033,7 @@ fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
             // Tell root material that CheckerTexture needs deal dependency of vary input uvw
             let { token, code } = this.getInputCode(r, root, outputToken);
             return code + `
-                let ${outputToken}_checker = fract(${token.uvw}+vec4<f32>(0.001)) - vec4<f32>(0.5);
+                let ${outputToken}_checker = fract(${token.uvw}+vec4f(0.001)) - vec4f(0.5);
                 let ${outputToken} = mix(${token.color1},${token.color2},step( ${outputToken}_checker.x * ${outputToken}_checker.y * ${outputToken}_checker.z * ${outputToken}_checker.w, 0.0));
                 `;
         }
@@ -9119,19 +9119,19 @@ fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
         fn mod289v3(x:vec3<f32>)->vec3<f32> {
             return x - floor(x * (1.0 / 289.0)) * 289.0; 
         }
-        fn mod289v4(x:vec4<f32>)->vec4<f32> {
+        fn mod289v4(x:vec4f)->vec4f {
             return x - floor(x * (1.0 / 289.0)) * 289.0; 
         }
         fn mod289f(x:f32)->f32 {
             return x - floor(x * (1.0 / 289.0)) * 289.0; 
         }
-        fn permutev4(x:vec4<f32>)->vec4<f32> {
+        fn permutev4(x:vec4f)->vec4f {
             return mod289v4(((x * 34.0) + 1.0) * x);
         }
         fn permutef(x:f32)-> f32 {
             return mod289f(((x * 34.0) + 1.0) * x);
         }
-        fn taylorInvSqrtv4(r:vec4<f32>)->vec4<f32> {
+        fn taylorInvSqrtv4(r:vec4f)->vec4f {
             return vec4(1.79284291400159) - 0.85373472095314 * r;
         }
         fn taylorInvSqrtf(r:f32)->f32{
@@ -11456,22 +11456,22 @@ fn normalizeVec4s(vec4s: mat4x4<f32>) -> mat4x4<f32>{
         {},
         {
             alphaShader: {
-                code: `@group(1) @binding(0) var<uniform> alphaParams : vec4<f32>;
-            fn main(color:vec4<f32>, coord: vec3<f32>)->f32{
+                code: `@group(1) @binding(0) var<uniform> alphaParams : vec4f;
+            fn main(color:vec4f, coord: vec3<f32>)->f32{
                 return color.a * (1.0 - smoothstep(alphaParams.x,alphaParams.y,dot(coord,coord))) * alphaParams.z;
             }`, entryPoint: 'main'
             }
         }, {
             alphaShader: {
-                code: `@group(1) @binding(0) var<uniform> alphaParams : vec4<f32>;
-            fn main(color:vec4<f32>, coord  : vec3<f32>)->f32{
+                code: `@group(1) @binding(0) var<uniform> alphaParams : vec4f;
+            fn main(color:vec4f, coord  : vec3<f32>)->f32{
                 return color.a * max(step(abs(coord.x),alphaParams.x)*step(abs(coord.y),alphaParams.x)*step(abs(coord.z),alphaParams.x)* alphaParams.y,alphaParams.z);
             }`, entryPoint: 'main'
             }
         }, {
             alphaShader: {
-                code: `@group(1) @binding(0) var<uniform> alphaParams : vec4<f32>;
-            fn main(color:vec4<f32>, coord: vec3<f32>)->f32{ 
+                code: `@group(1) @binding(0) var<uniform> alphaParams : vec4f;
+            fn main(color:vec4f, coord: vec3<f32>)->f32{ 
                 return color.a * max(step(dot(coord,alphaParams.xyz),0.0),alphaParams.w); 
             }`, entryPoint: 'main'
             }

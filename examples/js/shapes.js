@@ -3,33 +3,33 @@ class ShapesApp {
     vertCode = `
         // vertex attributes, regard four vector4 for vertices of one tetrahedra as matrix4x4 
         struct InputType{
-            @location(0) pos: mat4x4<f32>,
-            @location(1) normal: mat4x4<f32>,
-            @location(2) uvw: mat4x4<f32>,
+            @location(0) pos: mat4x4f,
+            @location(1) normal: mat4x4f,
+            @location(2) uvw: mat4x4f,
         }
         // output position in camera space and data sent to fragment shader to be interpolated
         struct OutputType{
-            @builtin(position) pos: mat4x4<f32>,
-            @location(0) normal_uvw: array<mat4x4<f32>,2>,
-            @location(1) position: mat4x4<f32>,
+            @builtin(position) pos: mat4x4f,
+            @location(0) normal_uvw: array<mat4x4f,2>,
+            @location(1) position: mat4x4f,
         }
         // we define an affineMat to store rotation and transform since there's no mat5x5 in wgsl
         struct AffineMat{
-            matrix: mat4x4<f32>,
-            vector: vec4<f32>,
+            matrix: mat4x4f,
+            vector: vec4f,
         }
         // remember that group(0) is occupied by internal usage and binding(0) to binding(2) are occupied by vertex attributes
         // so we start here by group(1) binding(3)
         @group(1) @binding(3) var<uniform> camMat: AffineMat;
         // apply affineMat to four points
-        fn apply(afmat: AffineMat, points: mat4x4<f32>) -> mat4x4<f32>{
-            let biais = mat4x4<f32>(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
+        fn apply(afmat: AffineMat, points: mat4x4f) -> mat4x4f{
+            let biais = mat4x4f(afmat.vector, afmat.vector, afmat.vector, afmat.vector);
             return afmat.matrix * points + biais;
         }
         // tell compiler that this is tetra slice pipeline's entry function by '@tetra'
         @tetra fn main(input : InputType) -> OutputType{
             let campos = apply(camMat,input.pos);
-            return OutputType(campos, array<mat4x4<f32>,2>(
+            return OutputType(campos, array<mat4x4f,2>(
                 camMat.matrix * input.normal, input.uvw), campos
             );
         }
@@ -37,9 +37,9 @@ class ShapesApp {
     fragHeaderCode = `
         // receive data from vertex output, these values are automatically interpolated for every fragment
         struct fInputType{
-            @location(0) normal : vec4<f32>,
-            @location(1) uvw : vec4<f32>,
-            @location(2) pos : vec4<f32>,
+            @location(0) normal : vec4f,
+            @location(1) uvw : vec4f,
+            @location(2) pos : vec4f,
         };
         // a color space conversion function
         fn hsb2rgb( c:vec3<f32> )->vec3<f32>{
@@ -147,11 +147,11 @@ class ShapesApp {
     }
 }
 let commonFragCode = `
-    @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+    @fragment fn main(vary: fInputType) -> @location(0) vec4f {
         const ambientLight = vec3<f32>(0.1);
         const frontLightColor = vec3<f32>(5.0,4.6,3.5);
         const backLightColor = vec3<f32>(0.1,1.2,1.4);
-        const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
+        const directionalLight_dir = vec4f(0.1,0.5,0.4,1.0);
         let halfvec = normalize(directionalLight_dir - normalize(vary.pos));
         let highLight = pow(max(0.0,dot(vary.normal,halfvec)),30);
         let checkerboard = fract(vary.uvw.xyz *vec3<f32>(40.0, 40.0, 20.0)) - vec3<f32>(0.5);
@@ -160,7 +160,7 @@ let commonFragCode = `
         color = color * (
             frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
         )* (0.4 + 0.8*highLight);
-        return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
+        return vec4f(pow(color,vec3<f32>(0.6))*0.5, 1.0);
     }`;
 export var tiger;
 (function (tiger) {
@@ -197,18 +197,18 @@ export var duocylinder;
     async function load() {
         let mesh = tesserxel.mesh.tetra.duocylinder(1, 16, 1, 16);
         let app = await new ShapesApp().init(`
-        @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+        @fragment fn main(vary: fInputType) -> @location(0) vec4f {
             const ambientLight = vec3<f32>(0.1);
             let colour = step(fract(vary.uvw.z * 3.0),0.5);
             let frontLightColor = mix(vec3<f32>(5.0,4.6,5.0*colour),vec3<f32>(5.0*colour,4.6,5.0), vary.uvw.w);
             let backLightColor = mix(vec3<f32>(0.1,1.2,1.4*colour),vec3<f32>(0.1*colour,1.2,1.4),vary.uvw.w);
-            const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
+            const directionalLight_dir = vec4f(0.1,0.5,0.4,1.0);
             let halfvec = normalize(directionalLight_dir - normalize(vary.pos));
             let highLight = pow(max(0.0,dot(vary.normal,halfvec)),30);
             let color = (
                 frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
             )* (0.4 + 0.8*highLight);
-            return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
+            return vec4f(pow(color,vec3<f32>(0.6))*0.5, 1.0);
         }`, mesh);
         app.retinaController.setOpacity(10.0);
         app.renderer.setDisplayConfig({ camera4D: { fov: 80, near: 0.01, far: 50.0 } });
@@ -232,18 +232,18 @@ export var glome;
 (function (glome) {
     async function load() {
         let fragCode = `
-            @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+            @fragment fn main(vary: fInputType) -> @location(0) vec4f {
                 const ambientLight = vec3<f32>(0.1);
                 const frontLightColor = vec3<f32>(5.0,4.6,3.5);
                 const backLightColor = vec3<f32>(0.1,1.2,1.4);
-                const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,-1.0);
+                const directionalLight_dir = vec4f(0.1,0.5,0.4,-1.0);
                 let checkerboard = fract(vary.uvw.z * 4.0) - 0.5;
                 let factor = step(checkerboard, 0.0);
                 var color:vec3<f32> = mix(hsb2rgb(vec3<f32>(vary.uvw.x,0.7,1.0)), hsb2rgb(vec3<f32>(vary.uvw.y,1.0,0.7)), factor);
                 color = color * (
                     frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
                 );
-                return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, mix(0.2,1.0,factor));
+                return vec4f(pow(color,vec3<f32>(0.6))*0.5, mix(0.2,1.0,factor));
             }`;
         let app = await new ShapesApp().init(fragCode, tesserxel.mesh.tetra.glome(1.5, 32, 32, 16));
         app.retinaController.setOpacity(10.0);
@@ -252,7 +252,7 @@ export var glome;
     glome.load = load;
 })(glome || (glome = {}));
 let HypercubeFragCode = `
-    @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+    @fragment fn main(vary: fInputType) -> @location(0) vec4f {
         const colors = array<vec3<f32>,8> (
             vec3<f32>(1, 0, 0),
             vec3<f32>(1, 1, 0),
@@ -267,7 +267,7 @@ let HypercubeFragCode = `
         const ambientLight = vec3<f32>(0.8);
         const frontLightColor = vec3<f32>(5.0,4.6,3.5);
         const backLightColor = vec3<f32>(1.9,2.4,2.8);
-        const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
+        const directionalLight_dir = vec4f(0.1,0.5,0.4,1.0);
         var color:vec3<f32> = vec3<f32>(1.0,1.0,1.0);
         var count:f32 = 0;
         count += step({edge},abs(vary.uvw.x));
@@ -281,7 +281,7 @@ let HypercubeFragCode = `
             ambientLight + frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
         );
         {discard}
-        return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 0.2 + f32(count>=2.0));
+        return vec4f(pow(color,vec3<f32>(0.6))*0.5, 0.2 + f32(count>=2.0));
     }`;
 export var tesseract;
 (function (tesseract) {
@@ -388,18 +388,18 @@ async function makeProduct(src1, src2) {
     let meshFile2 = new tesserxel.mesh.ObjFile(meshfiles[1]).parse();
     let mesh = tesserxel.mesh.tetra.directProduct(meshFile1, meshFile2);
     let app = await new ShapesApp().init(`
-        @fragment fn main(vary: fInputType) -> @location(0) vec4<f32> {
+        @fragment fn main(vary: fInputType) -> @location(0) vec4f {
             const ambientLight = vec3<f32>(0.1);
             const frontLightColor = vec3<f32>(5.0,4.6,3.5);
             const backLightColor = vec3<f32>(0.1,1.2,1.4);
-            const directionalLight_dir = vec4<f32>(0.1,0.5,0.4,1.0);
+            const directionalLight_dir = vec4f(0.1,0.5,0.4,1.0);
             let halfvec = normalize(directionalLight_dir - normalize(vary.pos));
             let highLight = pow(max(0.0,dot(vary.normal,halfvec)),30);
             var color:vec3<f32> = mix(vec3<f32>(1.0),vec3<f32>(1.0,0.0,0.0), vary.uvw.w);
             color = color * (
                 frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
             )* (0.4 + 0.8*highLight);
-            return vec4<f32>(pow(color,vec3<f32>(0.6))*0.5, 1.0);
+            return vec4f(pow(color,vec3<f32>(0.6))*0.5, 1.0);
         }`, mesh);
     app.retinaController.setOpacity(10.0);
     app.renderer.setDisplayConfig({ camera4D: { fov: 80, near: 0.01, far: 50.0 } });

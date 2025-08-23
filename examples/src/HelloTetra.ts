@@ -6,8 +6,8 @@ export namespace hello_tetra1 {
         const context = gpu.getContext(canvas);
         const renderer = new tesserxel.render.SliceRenderer(gpu);
         const vertexShaderCode = `
-            @tetra fn main() -> @builtin(position) mat4x4<f32> {
-                return mat4x4<f32> (
+            @tetra fn main() -> @builtin(position) mat4x4f {
+                return mat4x4f (
                      1.0, 1.0, 1.0, -1.0,
                     -1.0,-1.0, 1.0, -1.0,
                      1.0,-1.0,-1.0, -1.0,
@@ -16,8 +16,8 @@ export namespace hello_tetra1 {
             }
             `;
         const fragmentShaderCode = `
-            @fragment fn main() -> @location(0) vec4<f32> {
-                return vec4<f32> (1.0,0.0,0.0,1.0);
+            @fragment fn main() -> @location(0) vec4f {
+                return vec4f (1.0,0.0,0.0,1.0);
             }
             `;
         const pipeline = await renderer.createTetraSlicePipeline({
@@ -50,18 +50,18 @@ export namespace hello_tetra2 {
         const renderer = new tesserxel.render.SliceRenderer(gpu);
         const vertexShaderCode = `
             struct TetraOutput{
-                @builtin(position) position: mat4x4<f32>,
-                @location(0) color: mat4x4<f32>,
+                @builtin(position) position: mat4x4f,
+                @location(0) color: mat4x4f,
             }
             @tetra fn main() -> TetraOutput {
                 return TetraOutput(
-                    mat4x4<f32> (
+                    mat4x4f (
                         1.0, 1.0, 1.0, -1.0,
                         -1.0,-1.0, 1.0, -1.0,
                         1.0,-1.0,-1.0, -1.0,
                         -1.0, 1.0,-1.0, -1.0
                     ),
-                    mat4x4<f32> (
+                    mat4x4f (
                         0.0, 0.0, 1.0, 1.0, // blue
                         0.0, 1.0, 0.0, 1.0, // green
                         1.0, 0.0, 0.0, 1.0, // red
@@ -71,7 +71,7 @@ export namespace hello_tetra2 {
             }
             `;
         const fragmentShaderCode = `
-            @fragment fn main(@location(0) color: vec4<f32>) -> @location(0) vec4<f32> {
+            @fragment fn main(@location(0) color: vec4f) -> @location(0) vec4f {
                 return color;
             }
             `;
@@ -105,20 +105,20 @@ export namespace hello_tetra3 {
         const renderer = new tesserxel.render.SliceRenderer(gpu);
 
         const vertexShaderCode = `
-            @group(1) @binding(0) var<uniform> viewMat: mat4x4<f32>;
+            @group(1) @binding(0) var<uniform> viewMat: mat4x4f;
             struct TetraOutput{
-                @builtin(position) position: mat4x4<f32>,
-                @location(0) color: mat4x4<f32>,
+                @builtin(position) position: mat4x4f,
+                @location(0) color: mat4x4f,
             }
             @tetra fn main() -> TetraOutput {
                 return TetraOutput(
-                    viewMat * mat4x4<f32> (
+                    viewMat * mat4x4f (
                         1.0, 1.0, 1.0, -1.0,
                         -1.0,-1.0, 1.0, -1.0,
                         1.0,-1.0,-1.0, -1.0,
                         -1.0, 1.0,-1.0, -1.0
                     ),
-                    mat4x4<f32> (
+                    mat4x4f (
                         0.0, 0.0, 1.0, 1.0, // blue
                         0.0, 1.0, 0.0, 1.0, // green
                         1.0, 0.0, 0.0, 1.0, // red
@@ -128,7 +128,7 @@ export namespace hello_tetra3 {
             }
             `;
         const fragmentShaderCode = `
-            @fragment fn main(@location(0) color: vec4<f32>) -> @location(0) vec4<f32> {
+            @fragment fn main(@location(0) color: vec4f) -> @location(0) vec4f {
                 return color;
             }
             `;
