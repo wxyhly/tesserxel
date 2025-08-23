@@ -1,4 +1,3 @@
-/// <reference types="@webgpu/types" />
 import { AffineMat4, Obj4 } from "../../math/algebra/affine.js";
 import { Vec4 } from "../../math/algebra/vec4.js";
 import { AABB } from "../../math/geometry/primitive.js";
@@ -81,7 +80,7 @@ export interface DisplayConfig {
     retinaViewMatrix?: Mat4;
 }
 export declare const DefaultDisplayConfig: DisplayConfig;
-export declare type DisplayConfigName = keyof DisplayConfig;
+export type DisplayConfigName = keyof DisplayConfig;
 export interface RenderState {
     /** Set TetraSlicePipeline and prepare GPU resources.
      *  Next calls should be function sliceTetras or setBindGroup.
@@ -131,8 +130,8 @@ export interface GeneralShaderState {
 export interface TetraVertexState extends GeneralShaderState {
     workgroupSize?: number;
 }
-declare type SinglePipelineLayout = GPUPipelineLayout | GPUAutoLayoutMode | GPUBindGroupLayoutDescriptor[];
-export declare type SlicePipelineLayout = GPUAutoLayoutMode | {
+type SinglePipelineLayout = GPUPipelineLayout | GPUAutoLayoutMode | GPUBindGroupLayoutDescriptor[];
+export type SlicePipelineLayout = GPUAutoLayoutMode | {
     computeLayout: SinglePipelineLayout;
     renderLayout: SinglePipelineLayout;
 };

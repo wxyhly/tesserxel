@@ -95,7 +95,7 @@ export var navigation;
         function run() {
             app.controllerRegistry.update();
             if (!timeCtrl.timePaused)
-                time += app.controllerRegistry.states.mspf / 6000;
+                time += app.controllerRegistry.states.mspf / 60_00;
             sunLight.direction = solar_sys.getRelSunPos(time);
             skyBox.setSunPosition(sunLight.direction);
             // calculate camera's and world's y-w planes, whether they are aligned

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tesserxel Playground</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+    <header>
+        <h1 data-i18n="title">Tesserxel Playground</h1>
+        <span class="small"></span>
+        <details class="menu" id="examplesMenu">
+            <summary data-i18n="examplesMenu">示例场景</summary>
+            <ul class="dropdown"> </ul>
+        </details>
+        <div class="spacer"></div>
+        <label class="toggle">
+            <input id="autorun" type="checkbox" checked>
+            <span data-i18n="autorun">自动运行</span>
+        </label>
+        <button id="runBtn" title="运行 (Ctrl/⌘+Enter)" data-i18n="runBtn">▶ 运行</button>
+    </header>
+
+    <main class="grid" id="grid">
+        <section class="card" id="card-html">
+            <header>
+                <h2 data-i18n="htmlSource">HTML 源码</h2>
+                <div class="switch-buttons"></div>
+                <button class="maximize-btn" data-card="card-html" data-i18n="maximize">⛶</button>
+            </header>
+            <div id="htmlEditor" class="content"></div>
+            <div class="footer">
+                <span class="small" data-i18n="htmlFooter">语言：HTML</span>
+                <a id="saveHtml" href="#" data-i18n="save">保存</a>
+            </div>
+        </section>
+
+        <section class="card" id="card-js">
+            <header>
+                <h2 data-i18n="jsSource">JS 源码</h2>
+                <div class="switch-buttons"></div>
+                <button class="maximize-btn" data-card="card-js" data-i18n="maximize">⛶</button>
+            </header>
+            <div id="jsEditor" class="content"></div>
+            <div class="footer">
+                <span class="small" data-i18n="jsFooter">语言：JavaScript</span>
+                <a id="saveJs" href="#" data-i18n="save">保存</a>
+            </div>
+        </section>
+
+        <section class="card" id="card-preview">
+            <header>
+                <h2 data-i18n="preview">网页预览</h2>
+                <div class="switch-buttons"></div>
+                <button class="maximize-btn" data-card="card-preview" data-i18n="maximize">⛶</button>
+            </header>
+            <div class="content">
+                <iframe id="preview" sandbox="allow-scripts allow-same-origin" title="Preview"></iframe>
+            </div>
+            <div class="footer">
+                <span class="small" data-i18n="previewFooter">在隔离的 iframe 中渲染</span>
+                <a id="openWin" href="#" data-i18n="openWin">新窗口打开</a>
+            </div>
+        </section>
+
+        <section class="card" id="card-console">
+            <header>
+                <h2 data-i18n="console">控制台输出</h2>
+                <div class="switch-buttons"></div>
+                <div class="toolbar">
+                    <button id="clearConsole" class="btn" style="padding:4px 10px" data-i18n="clear">清空</button>
+                    <button class="maximize-btn" data-card="card-console" data-i18n="maximize">⛶</button>
+                </div>
+            </header>
+            <pre id="console" class="content"></pre>
+            <div class="footer">
+                <span class="small" data-i18n="consoleFooter">捕获 console.log / warn / error 以及未捕获异常</span>
+            </div>
+        </section>
+    </main>
+    <script type="module" src="build/playground.js">
+    </script>
+</body>
+
+</html>

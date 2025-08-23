@@ -1,6 +1,6 @@
 import { Vec4 } from '../math/algebra/vec4.js';
 import { BoundingGlomeBroadPhase } from './broadPhase.js';
-import { force_accumulator, Force } from './forces.js';
+import { Force, force_accumulator } from './forces.js';
 import { NarrowPhase } from './narrowphase.js';
 import { Rigid, rigid } from './rigid.js';
 import { IterativeImpulseSolver } from './solver.js';

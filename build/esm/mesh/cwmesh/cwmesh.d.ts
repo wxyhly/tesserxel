@@ -1,14 +1,14 @@
 import { Vec4 } from "../../math/algebra/vec4.js";
 import { Bivec } from "../../math/math.js";
-export declare type FaceId = number;
-export declare type Simplex = number[];
-export declare type Face = Array<FaceId>;
-export declare type FaceOrientaion = Array<boolean>;
-export declare type DimList<T> = Array<T>;
-export declare type CWMeshStructData = DimList<Face[] | Vec4[]>;
-export declare type OrientaionData = DimList<FaceOrientaion[]>;
-export declare type CWMeshSelectionData = DimList<Set<FaceId>>;
-export declare type RankedCWMap = DimList<Map<FaceId, FaceId>>;
+export type FaceId = number;
+export type Simplex = number[];
+export type Face = Array<FaceId>;
+export type FaceOrientaion = Array<boolean>;
+export type DimList<T> = Array<T>;
+export type CWMeshStructData = DimList<Face[] | Vec4[]>;
+export type OrientaionData = DimList<FaceOrientaion[]>;
+export type CWMeshSelectionData = DimList<Set<FaceId>>;
+export type RankedCWMap = DimList<Map<FaceId, FaceId>>;
 export declare class CWMeshSelection {
     cwmesh: CWMesh;
     selData: CWMeshSelectionData;

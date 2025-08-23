@@ -48,7 +48,7 @@ export declare class Matrix {
     get(r: number, c: number): number;
     set(r: number, c: number, value: number): this;
     setFromSubMatrix(srcMat: Matrix, rows?: number, cols?: number, srcRowOffset?: number, srcColOffset?: number, dstRowOffset?: number, dstColOffset?: number): this;
-    colVector(k: number): any;
+    colVector(k: number): ColumnVector;
     rowVector(k: number): RowVector;
     subMatrix(rowOffset: number, colOffset: number, row?: number, col?: number): Matrix;
     det(): number;

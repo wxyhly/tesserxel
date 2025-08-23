@@ -4,7 +4,7 @@ import resolve from '@rollup/plugin-node-resolve';
 import dts from 'rollup-plugin-dts';
 export default [
   {
-    input: ['src/**/*.ts'],
+    input: 'src/**/*.ts',
     output: {
       dir: 'build/esm',
       format: 'esm',

@@ -1,4 +1,3 @@
-/// <reference types="@webgpu/types" />
 import { AffineMat4, Obj4 } from "../math/algebra/affine.js";
 import { Vec4 } from "../math/algebra/vec4.js";
 import { OrthographicCamera as IOrthographicCamera, PerspectiveCamera as IPerspectiveCamera } from "../math/geometry/camera.js";
@@ -42,7 +41,7 @@ export declare class OrthographicCamera extends Object implements IOrthographicC
     alwaysUpdateCoord: boolean;
     needsUpdate: boolean;
 }
-export declare type Camera = PerspectiveCamera | OrthographicCamera;
+export type Camera = PerspectiveCamera | OrthographicCamera;
 export declare class Mesh extends Object {
     geometry: Geometry;
     material: Material;

@@ -226,7 +226,7 @@ class ErosionDisplayController {
             this.terrainOpacity /= 1 + this.terrainOSpeed;
         }
         this.buffer.set([
-            0,
+            0, // preserved maybe for seed
             this.water,
             this.sediment,
             this.terrainQ,

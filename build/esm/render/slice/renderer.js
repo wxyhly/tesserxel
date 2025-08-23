@@ -3,7 +3,7 @@ import { _RAD2DEG } from '../../math/const.js';
 import { getPerspectiveProjectionMatrix, getOrthographicProjectionMatrix } from '../../math/geometry/camera.js';
 import { Plane } from '../../math/geometry/primitive.js';
 import { DefaultDisplayConfig, EyeStereo, RetinaSliceFacing } from './interfaces.js';
-import { TetraSlicePipeline, RaytracingPipeline, refacingMatsCode, StructDefSliceInfo, StructDefUniformBuffer } from './pipeline.js';
+import { TetraSlicePipeline, RaytracingPipeline, StructDefUniformBuffer, refacingMatsCode, StructDefSliceInfo } from './pipeline.js';
 
 const DefaultWorkGroupSize = 256;
 const DefaultSliceGroupSize = 16;

@@ -2,7 +2,7 @@ import { Vec3 } from "../math/algebra/vec3.js";
 import { Vec4 } from "../math/algebra/vec4.js";
 import { Renderer, RendererConfig } from "./renderer.js";
 import { Object } from "./scene.js";
-declare type LightDensity = {
+type LightDensity = {
     r: number;
     g: number;
     b: number;

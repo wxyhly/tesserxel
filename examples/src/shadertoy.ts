@@ -1,11 +1,15 @@
-import { render, util } from "../../build/esm/tesserxel.js";
-import { createCodemirrorEditor } from "../codemirror.js"
+import { render, util, math } from "../../build/esm/tesserxel.js";
+import { createCodemirrorEditor } from "../../playground/build/shadertoy.js"
+const urlp = new URLSearchParams(window.location.search.slice(1));
+const lang = urlp.get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en");
+
 type Examples = { [name: string]: string };
 const voxelExamples = {
     "Color-Cube": `fn mainVoxel(pos: vec3<f32>)->vec4<f32>{
   return vec4<f32>(pos*0.5+0.5, 1.0);
 }`,
-    "Shader-Art": `fn palette(t: f32) -> vec3f {
+    "Shader-Art": `/// @background: black
+fn palette(t: f32) -> vec3f {
   const a = vec3f(0.5, 0.5, 0.5);
   const b = vec3f(0.5, 0.5, 0.5);
   const c = vec3f(1.0, 1.0, 1.0);
@@ -33,7 +37,7 @@ fn mainVoxel(pos: vec3f) -> vec4f {
     finalColor += col * d;
   }
 
-  return vec4f(finalColor, 1.0);
+  return vec4f(finalColor, finalColor.x + finalColor.y + finalColor.z);
 }
 
 // // Ported from Shader Art Coding (https://www.youtube.com/watch?v=f4s1h2YETNY)
@@ -83,7 +87,8 @@ fn mainVoxel(pos: vec3<f32>)->vec4<f32>{
 }
 // Ported from https://www.shadertoy.com/view/MslGD8 by Inigo Quilez 
 `,
-    "Inversion": `fn mainVoxel(coord: vec3<f32>) -> vec4<f32> {
+    "Inversion": `/// @background: black
+fn mainVoxel(coord: vec3<f32>) -> vec4<f32> {
     let offset = shadertoyTime*10;
     var coord2 = coord * (2.6 + sin(offset * 0.01)) + sin(offset * 0.04) * vec3<f32>(1.0, 2.4, 3.5) * 1.0;
     coord2 = 5.0 * coord2 / dot(coord2, coord2) + sin(offset * 3.0) * vec3<f32>(1.1, 0.2, 0.4) * 0.05;
@@ -97,127 +102,16 @@ fn mainVoxel(pos: vec3<f32>)->vec4<f32>{
         let color = clamp(pow(coord + vec3<f32>(0.5, 0.5, 0.5), vec3<f32>(0.4, 0.4, 0.4)), vec3<f32>(0.0), vec3<f32>(1.0));
         return vec4<f32>(color, 1.0 - dot(coord, coord));
     } else {
-        return vec4<f32>(0.0,0.0,0.0,0.3);
+        return vec4<f32>(0.0,0.0,0.0,0.0);
     }
 }
 `
 };
 const rayExamples = {
-//     "Glome": `
-// struct Glome{
-//     r: f32,
-//     o: vec4<f32>
-// }
-// struct Cylinder{
-//     r: f32,
-//     o: vec4<f32>,
-//     d: vec4<f32>
-// }
-// struct Ray{
-//     r: vec4<f32>,
-//     o: vec4<f32>
-// }
-// struct intres{
-//     t: f32,
-//     normal: vec4<f32>,
-//     id: u32
-// }
-// fn intCube(r:Ray, c:vec4<f32>, id:u32)-> intres{
-//     let m = vec4<f32>(1.0, 1.0, 1.0, 1.0) / r.r;
-//     let n = m*r.o;
-//     let k = abs(m)*c;
-//     let t1 = -n-k;
-//     let t2 = -n+k;
-//     let tN = max(max(t1.x, t1.y), max(t1.z, t1.w));
-//     let tF = min(min(t2.x, t2.y), min(t2.z, t2.w));
-//     if (tN>tF || tF<0.0) {
-//         return intres(-1.0,vec4<f32>(0.0),0); // No intersection
-//     }
-//     return intres(tN,-sign(r.r)*step(t1.yzwx,t1)*step(t1.zwxy,t1)*step(t1.wxyz,t1),id);
-// }
-// fn intCubeInside(r:Ray, c:vec4<f32>,id:u32)-> intres{
-//     let m = vec4<f32>(1.0, 1.0, 1.0, 1.0) / r.r;
-//     let n = m*r.o;
-//     let k = abs(m)*c;
-//     let t1 = -n-k;
-//     let t2 = -n+k;
-//     let tN = max(max(t1.x, t1.y), max(t1.z, t1.w));
-//     let tF = min(min(t2.x, t2.y), min(t2.z, t2.w));
-//     if (tN>tF || tF<0.0) {
-//         return intres(-1.0,vec4<f32>(0.0),0); // No intersection
-//     }
-//     return intres(tF,-sign(r.r)*step(t2,t2.yzwx)*step(t2,t2.zwxy)*step(t2,t2.wxyz),id);
-// }
-// // fn intCylinder(r:Ray,c:Cylinder)-> vec4<f32>{
-    
-// // }
-// fn unionRes(a:intres, b:intres)->intres{
-//     if ((a.t < b.t&&a.t>=0.0) || b.t < 0.0) {
-//         return a; // a is closer
-//     } else {
-//         return b; // b is closer
-//     }
-// }
-// fn intRes(a:intres, b:intres)->intres{
-//     if (a.t < 0.0  || b.t < 0.0) {
-//         return intres(-1.0, vec4<f32>(0.0),0); // No intersection
-//     }
-//     if (a.t < b.t) {
-//         return b;
-//     }else{
-//         return a;
-//     }
-// }
-// // fn subRes(a:intres, b:intres)->intres{
-// //     if(a.t>0.0 && b.t < 0.0){
-// //         return a;
-// //     }
-// //     if()
-// // }
-// fn intGlome(r:Ray,g:Glome,id:u32)-> intres{
-//     let oc = r.o - g.o;
-//     let a = dot(r.r, r.r);
-//     let b = 2.0 * dot(oc, r.r);
-//     let c = dot(oc, oc) - g.r * g.r;
-//     let d = b * b - 4.0 * a * c;
-//     if (d < 0.0) {
-//         return intres(-1.0, vec4<f32>(0.0),0); // No intersection
-//     }
-//     let t = (-b - sqrt(d)) / (2.0 * a);
-//     if(t < 0.0001){
-//         return intres(-1.0, vec4<f32>(0.0),0); // No intersection
-//     }
-//     return intres(t, normalize(r.o + r.r * t - g.o),id);
-// }
-// fn mainRay(rayOrigin: vec4<f32>, rayDir: vec4<f32>)->vec4<f32>{
-//     var ray = Ray(normalize(rayDir), rayOrigin);
-//     var radianceCoeff = vec3<f32>(1.0, 1.0, 1.0);
-//     var biais = vec3<f32>(0.0, 0.0, 0.0);
-//     const glome1 = Glome(2.0, vec4<f32>(2.8, -0.5, 0.0, 0.5));
-//     const glome2 = Glome(0.5, vec4<f32>(-0.8, 0.0, 0.3, 0.0));
-//     let resG = intGlome(ray, glome1,2);
-//     var reflectedColor = vec3<f32>(0.0, 0.0, 0.0);
-//     if(resG.t>0.0){
-//         ray = Ray(ray.o + ray.r * resG.t, reflect(ray.r, vec4<f32>(1.0, 0.0, 0.0, 0.0)));
-//         biais += radianceCoeff*vec3<f32>(0.2, 0.2, 0.4);
-//         radianceCoeff *= vec3<f32>(0.5, 0.5, 0.8);
-//     }
-//     let resG2 = intGlome(ray, glome2,3);
-//     let resroom = intCubeInside(ray,vec4<f32>(1.0),1);
-//     let uvw = (ray.o + ray.r * resroom.t + vec4<f32>(0.32, 0.31,0.34,0.36))*4.0;
-//     let checker = (floor(uvw.x) + floor(uvw.y) + floor(uvw.z)+ floor(uvw.w)+1000.0) % 2.0;
-//     let res = unionRes(resG2, resroom);
-//     if(res.t < 0.0){return vec4<f32>(0.0, 0.0, 0.0, 1.0);} // No intersection
-//     var color=vec3<f32>(0.0, 0.0, 0.0);
-//     if(res.id==1){color=mix(vec3<f32>(1.0, 1.0, 1.0),vec3<f32>(1.0, 0.4, 0.3) , checker);}
-//     if(res.id==2){color=vec3<f32>(0.0,0.0,1.0);}
-//     if(res.id==3){color=vec3<f32>(0.4,1.0,0.0);}
-
-
-//     let brightness = clamp(dot(res.normal,vec4<f32>(0.6,0.9,0.3,0.4)),0.0,1.0)+clamp(dot(res.normal,vec4<f32>(-0.1,0.0,-0.3,-0.5)),0.0,1.0)+0.2;
-//     return vec4<f32>(radianceCoeff*(brightness*color*0.8+reflectedColor*0.3),1.0);
-// }`,
-    "SDF": `fn opUnion(d1: f32, d2: f32) -> f32 {
+    "SDF": `// Ported from https://www.shadertoy.com/view/lt3BW2 by Inigo Quilez
+/// @background: black
+/// @camCtrl: trackball(0,0,0,-1)
+fn opUnion(d1: f32, d2: f32) -> f32 {
     return min(d1, d2);
 }
 
@@ -256,9 +150,11 @@ fn sdRoundBox(p: vec4<f32>, b: vec4<f32>, r: f32) -> f32 {
 // ----- Map -----
 
 fn map(p: vec4<f32>) -> f32 {
-  let pos = p - vec4f(0,-0.5,0,-1.5);
+  let pos = p - vec4f(0,0,0,-1);
   let an = sin(shadertoyTime);
-  return opSmoothSubtraction(sdGlome(pos-vec4<f32>(0.0, 0.5 + 0.3 * an, 0.0,0.0), 0.55),sdRoundBox(pos, vec4<f32>(0.6, 0.2, 0.7,0.4), 0.1),0.1);
+  return opSmoothSubtraction(sdGlome(pos, 0.22*an+0.72),
+    opIntersection(sdGlome(pos, 0.22*an+0.82),sdRoundBox(pos, vec4<f32>(0.5), 0.1))
+  ,0.1);
   
 }
 
@@ -302,7 +198,7 @@ fn mainRay(ro: vec4<f32>, rayDir: vec4<f32>)->vec4<f32>{
         t = t + h;
     }
     var col=vec3f(0);
-    var alpha = 0.3;
+    var alpha = 0.01;
     if (t < far) {
         let pos = ro + rd * t;
         let nor = calcNormal(pos);
@@ -311,8 +207,8 @@ fn mainRay(ro: vec4<f32>, rayDir: vec4<f32>)->vec4<f32>{
         let sha = calcSoftshadow(pos, lig, 0.001, 1.0, 16.0);
         let amb = 0.5 + 0.5 * nor.y;
 
-        col = vec3<f32>(0.05, 0.1, 0.15) * amb +
-              vec3<f32>(1.0, 0.9, 0.8) * dif * sha;
+        col = (vec3<f32>(0.05, 0.1, 0.15) * amb +
+              vec3<f32>(1.0, 0.9, 0.8) * dif * sha)*(0.5+0.5*sin((pos.xyz)*(pos.wzy)*15+vec3f(1.0,1.414,1.732)*shadertoyTime));
         alpha = 1.0;
     }
 
@@ -320,9 +216,12 @@ fn mainRay(ro: vec4<f32>, rayDir: vec4<f32>)->vec4<f32>{
 
     return vec4<f32>(col, alpha);
 }
-// Ported from https://www.shadertoy.com/view/lt3BW2 by Inigo Quilez
 `,
-"Seascape":`const NUM_STEPS: i32 = 32;
+    "Seascape": `// Ported from https://www.shadertoy.com/view/Ms2SD1
+/// @resolution: 64
+/// @stereoEyeOffset: 1
+/// @moveSpeed: 0.01
+const NUM_STEPS: i32 = 32;
 const PI: f32 = 3.141592;
 const EPSILON: f32 = 1e-3;
 
@@ -503,7 +402,7 @@ fn heightMapTracing(ori: vec4<f32>, dir: vec4<f32>, iTime: f32, p: ptr<function,
 }
 fn mainRay(rayOrigin: vec4<f32>, rayDir: vec4<f32>)->vec4<f32>{
     let ro = rayOrigin + vec4f(0,10,0,0);
-    let dir = normalize(rayDir);
+    let dir = normalize(rayDir+vec4f(0.00001));
     const EPSILON_NRM = 0.1/300;
 
     let time = shadertoyTime*2.0;
@@ -523,11 +422,933 @@ fn mainRay(rayOrigin: vec4<f32>, rayDir: vec4<f32>)->vec4<f32>{
 
     return vec4<f32>(pow(color.xyz, vec3<f32>(0.65)), color.w);
 }
-// Ported from https://www.shadertoy.com/view/Ms2SD1    
+`,
+    "Rainforest": `// Ported from https://www.shadertoy.com/view/4ttSWf by Inigo Quilez 
+/// @resolution: 64
+/// @moveSpeed: 0.02
+/// @stereoEyeOffset: 10
+/// @background: (120,170,255)
+const LOWQUALITY: bool = true; // set false for higher quality (but loops/constants would need adjustment)
+const kSunDir: vec4<f32> = vec4<f32>(-0.5, 0.5, -0.5, 0.5);
+const kMaxTreeHeight: f32 = 4.8;
+const kMaxHeight: f32 = 840.0;
+
+struct vec5{
+  t:f32,
+  xyzw:vec4f,
+}
+
+// helper wide-math constants
+const PI: f32 = 3.14159265358979323846;
+
+// small utility functions (WGSL builtin functions used where possible)
+
+fn sdEllipsoidY(p: vec4<f32>, r: vec2<f32>) -> f32 {
+    let k0 = length(p / vec4<f32>(r.x, r.y, r.x,r.x));
+    let k1 = length(p / vec4<f32>(r.x*r.x, r.y*r.y, r.x*r.x,r.x*r.x));
+    return k0 * (k0 - 1.0) / k1;
+}
+fn sdEllipsoid(p: vec3<f32>, r: vec3<f32>) -> f32 {
+    let k0 = length(p / r);
+    let k1 = length(p / (r * r));
+    return k0 * (k0 - 1.0) / k1;
+}
+
+fn smoothstepd(a: f32, b: f32, x: f32) -> vec2<f32> {
+    if (x < a) {
+        return vec2<f32>(0.0, 0.0);
+    }
+    if (x > b) {
+        return vec2<f32>(1.0, 0.0);
+    }
+    let ir = 1.0 / (b - a);
+    var xx = (x - a) * ir;
+    return vec2<f32>(xx * xx * (3.0 - 2.0 * xx), 6.0 * xx * (1.0 - xx) * ir);
+}
+
+// Hashes (low-quality)
+fn hash1_v3(p: vec3<f32>) -> f32 {
+    let t = fract(p * 0.3183099) * 50.0;
+    return fract(t.x * t.y * t.z * (t.x + t.y + t.z));
+}
+fn hash1_f(n: f32) -> f32 {
+    return fract(n * 17.0 * fract(n * 0.3183099));
+}
+fn hash2(p: vec2<f32>) -> vec2<f32> {
+    let k = vec2<f32>(0.3183099, 0.3678794);
+    let n = 111.0 * p.x + 113.0 * p.y;
+    let t = fract(n * fract(k.x * n)); // note: original used k*n; small rearrangement
+    return vec2<f32>(fract(t), fract(t * 1.3243));
+}
+fn hash3(p: vec3<f32>) -> vec3<f32> {
+    let k = vec2<f32>(0.3183099, 0.3678794);
+    let n = 111.0 * p.x + 113.0 * p.y + 173.2*p.z;
+    let t = fract(n * fract(k.x * n)+k.y*n);
+    return vec3<f32>(fract(t), fract(t * 1.3243), fract(t * 1.872376));
+}
+
+// value noise with derivative for 4D
+fn noised4(x: vec4<f32>) -> vec5 {
+    let p = floor(x);
+    let w = fract(x);
+    // quintic interpolation
+    let u = w * w * w * (w * (w * 6.0 - 15.0) + 10.0);
+    let du = 30.0 * w * w * (w * (w - 2.0) + 1.0);
+
+    let n = p.x + 317.0 * p.y + 157.0 * p.z+ 234.0 * p.w;
+
+    let a0000 = hash1_f(n + 0.0);
+    let a0001 = hash1_f(n + 1.0);
+    let a0010 = hash1_f(n + 317.0);
+    let a0011 = hash1_f(n + 318.0);
+    let a0100 = hash1_f(n + 157.0);
+    let a0101 = hash1_f(n + 158.0);
+    let a0110 = hash1_f(n + 474.0);
+    let a0111 = hash1_f(n + 475.0);
+    let a1000 = hash1_f(n + 234.0 + 0.0);
+    let a1001 = hash1_f(n + 234.0 + 1.0);
+    let a1010 = hash1_f(n + 234.0 + 317.0);
+    let a1011 = hash1_f(n + 234.0 + 318.0);
+    let a1100 = hash1_f(n + 234.0 + 157.0);
+    let a1101 = hash1_f(n + 234.0 + 158.0);
+    let a1110 = hash1_f(n + 234.0 + 474.0);
+    let a1111 = hash1_f(n + 234.0 + 475.0);
+
+    let k0000 = a0000;
+    let k0001 = a0001 - a0000;
+    let k0010 = a0010 - a0000;
+    let k0100 = a0100 - a0000;
+    let k1000 = a1000 - a0000;
+    let k0011 = a0011 - a0010 - a0001 + a0000;
+    let k0101 = a0101 - a0100 - a0001 + a0000;
+    let k1001 = a1001 - a1000 - a0001 + a0000;
+    let k0110 = a0110 - a0100 - a0010 + a0000;
+    let k1010 = a1010 - a1000 - a0010 + a0000;
+    let k1100 = a1100 - a1000 - a0100 + a0000;
+    let k0111 = -a0000 + a0001 + a0010 - a0011 + a0100 - a0101 - a0110 + a0111;
+    let k1011 = -a0000 + a0001 + a0010 - a0011 + a1000 - a1001 - a1010 + a1011;
+    let k1101 = -a0000 + a0001 + a0100 - a0101 + a1000 - a1001 - a1100 + a1101;
+    let k1110 = -a0000 + a0010 + a0100 - a0110 + a1000 - a1010 - a1100 + a1110;
+    let k1111 =  a0000 - a0001 - a0010 + a0011 - a0100 + a0101 + a0110 - a0111 - a1000 + a1001 + a1010 - a1011 + a1100 - a1101 - a1110 + a1111;
+    let uxy = u.x * u.y;
+    let uxz = u.x * u.z;
+    let uxw = u.x * u.w;
+    let uyz = u.y * u.z;
+    let uyw = u.y * u.w;
+    let uzw = u.z * u.w;
+    let uxyz = uxy * u.z;
+    let uxyw = uxy * u.w;
+    let uxzw = uxz * u.w;
+    let uyzw = uyz * u.w;
+    let uxyzw = uxy * uzw;
+    let val = -1.0 + 2.0 * (
+        k0000 + k0001 * u.x + k0010 * u.y + k0100 * u.z + k1000 * u.w + 
+        k0011 * uxy + k0101 * uxz + k1001 * uxw + k0110 * uyz + k1010 * uyw + k1100 * uzw + 
+        k0111 * uxyz + k1011 * uxyw + k1101 * uxzw + k1110 * uyzw + k1111 * uxyzw
+    );
+    
+    let dx = 2.0 * du * vec4f(
+        k0001  + k0011 * u.y  + k0101 * u.z  + k1001 * u.w  + k0111 * uyz  + k1011 * uyw  + k1101 * uzw  + k1111 * uyzw,
+        k0010  + k0011 * u.x  + k0110 * u.z  + k1010 * u.w  + k0111 * uxz  + k1011 * uxw  + k1110 * uzw  + k1111 * uxzw, 
+        k0100  + k0101 * u.x  + k0110 * u.y  + k1100 * u.w  + k0111 * uxy  + k1101 * uxw  + k1110 * uyw  + k1111 * uxyw, 
+        k1000  + k1001 * u.x  + k1010 * u.y  + k1100 * u.z  + k1011 * uxy  + k1101 * uxz  + k1110 * uyz  + k1111 * uxyz
+    );
+    return vec5(val,dx);
+}
+
+// value noise for 4D (no derivative)
+fn noise4(x: vec4<f32>) -> f32 {
+    let p = floor(x);
+    let w = fract(x);
+    // quintic interpolation
+    let u = w * w * w * (w * (w * 6.0 - 15.0) + 10.0);
+    let du = 30.0 * w * w * (w * (w - 2.0) + 1.0);
+
+    let n = p.x + 317.0 * p.y + 157.0 * p.z+ 234.0 * p.w;
+
+    let a0000 = hash1_f(n + 0.0);
+    let a0001 = hash1_f(n + 1.0);
+    let a0010 = hash1_f(n + 317.0);
+    let a0011 = hash1_f(n + 318.0);
+    let a0100 = hash1_f(n + 157.0);
+    let a0101 = hash1_f(n + 158.0);
+    let a0110 = hash1_f(n + 474.0);
+    let a0111 = hash1_f(n + 475.0);
+    let a1000 = hash1_f(n + 234.0 + 0.0);
+    let a1001 = hash1_f(n + 234.0 + 1.0);
+    let a1010 = hash1_f(n + 234.0 + 317.0);
+    let a1011 = hash1_f(n + 234.0 + 318.0);
+    let a1100 = hash1_f(n + 234.0 + 157.0);
+    let a1101 = hash1_f(n + 234.0 + 158.0);
+    let a1110 = hash1_f(n + 234.0 + 474.0);
+    let a1111 = hash1_f(n + 234.0 + 475.0);
+
+    let k0000 = a0000;
+    let k0001 = a0001 - a0000;
+    let k0010 = a0010 - a0000;
+    let k0100 = a0100 - a0000;
+    let k1000 = a1000 - a0000;
+    let k0011 = a0011 - a0010 - a0001 + a0000;
+    let k0101 = a0101 - a0100 - a0001 + a0000;
+    let k1001 = a1001 - a1000 - a0001 + a0000;
+    let k0110 = a0110 - a0100 - a0010 + a0000;
+    let k1010 = a1010 - a1000 - a0010 + a0000;
+    let k1100 = a1100 - a1000 - a0100 + a0000;
+    let k0111 = -a0000 + a0001 + a0010 - a0011 + a0100 - a0101 - a0110 + a0111;
+    let k1011 = -a0000 + a0001 + a0010 - a0011 + a1000 - a1001 - a1010 + a1011;
+    let k1101 = -a0000 + a0001 + a0100 - a0101 + a1000 - a1001 - a1100 + a1101;
+    let k1110 = -a0000 + a0010 + a0100 - a0110 + a1000 - a1010 - a1100 + a1110;
+    let k1111 =  a0000 - a0001 - a0010 + a0011 - a0100 + a0101 + a0110 - a0111 - a1000 + a1001 + a1010 - a1011 + a1100 - a1101 - a1110 + a1111;
+    let uxy = u.x * u.y;
+    let uxz = u.x * u.z;
+    let uxw = u.x * u.w;
+    let uyz = u.y * u.z;
+    let uyw = u.y * u.w;
+    let uzw = u.z * u.w;
+    let uxyz = uxy * u.z;
+    let uxyw = uxy * u.w;
+    let uxzw = uxz * u.w;
+    let uyzw = uyz * u.w;
+    let uxyzw = uxy * uzw;
+    return -1.0 + 2.0 * (
+        k0000 + k0001 * u.x + k0010 * u.y + k0100 * u.z + k1000 * u.w + 
+        k0011 * uxy + k0101 * uxz + k1001 * uxw + k0110 * uyz + k1010 * uyw + k1100 * uzw + 
+        k0111 * uxyz + k1011 * uxyw + k1101 * uxzw + k1110 * uyzw + k1111 * uxyzw
+    );
+}
+
+// 3D variants
+// value noise with derivative for 3D
+fn noised3(x: vec3<f32>) -> vec4<f32> {
+    let p = floor(x);
+    let w = fract(x);
+    // quintic interpolation
+    let u = w * w * w * (w * (w * 6.0 - 15.0) + 10.0);
+    let du = 30.0 * w * w * (w * (w - 2.0) + 1.0);
+
+    let n = p.x + 317.0 * p.y + 157.0 * p.z;
+
+    let a = hash1_f(n + 0.0);
+    let b = hash1_f(n + 1.0);
+    let c = hash1_f(n + 317.0);
+    let d = hash1_f(n + 318.0);
+    let e = hash1_f(n + 157.0);
+    let f = hash1_f(n + 158.0);
+    let g = hash1_f(n + 474.0);
+    let h = hash1_f(n + 475.0);
+
+    let k0 = a;
+    let k1 = b - a;
+    let k2 = c - a;
+    let k3 = e - a;
+    let k4 = a - b - c + d;
+    let k5 = a - c - e + g;
+    let k6 = a - b - e + f;
+    let k7 = -a + b + c - d + e - f - g + h;
+
+    let val = -1.0 + 2.0 * (k0 + k1 * u.x + k2 * u.y + k3 * u.z
+        + k4 * u.x * u.y + k5 * u.y * u.z + k6 * u.z * u.x + k7 * u.x * u.y * u.z);
+
+    let dx = 2.0 * du.x * vec3<f32>(
+        k1 + k4 * u.y + k6 * u.z + k7 * u.y * u.z,
+        k2 + k5 * u.z + k4 * u.x + k7 * u.z * u.x,
+        k3 + k6 * u.x + k5 * u.y + k7 * u.x * u.y);
+
+    return vec4<f32>(val, dx.x, dx.y, dx.z);
+}
+
+// value noise for 3D (no derivative)
+fn noise3(x: vec3<f32>) -> f32 {
+    let p = floor(x);
+    let w = fract(x);
+    let u = w * w * w * (w * (w * 6.0 - 15.0) + 10.0);
+
+    let n = p.x + 317.0 * p.y + 157.0 * p.z;
+
+    let a = hash1_f(n + 0.0);
+    let b = hash1_f(n + 1.0);
+    let c = hash1_f(n + 317.0);
+    let d = hash1_f(n + 318.0);
+    let e = hash1_f(n + 157.0);
+    let f = hash1_f(n + 158.0);
+    let g = hash1_f(n + 474.0);
+    let h = hash1_f(n + 475.0);
+
+    let k0 = a;
+    let k1 = b - a;
+    let k2 = c - a;
+    let k3 = e - a;
+    let k4 = a - b - c + d;
+    let k5 = a - c - e + g;
+    let k6 = a - b - e + f;
+    let k7 = -a + b + c - d + e - f - g + h;
+
+    return -1.0 + 2.0 * (k0 + k1 * u.x + k2 * u.y + k3 * u.z
+        + k4 * u.x * u.y + k5 * u.y * u.z + k6 * u.z * u.x + k7 * u.x * u.y * u.z);
+}
+
+// FBM matrices and functions
+const m4: mat4x4<f32> = mat4x4<f32>(
+    0.50,  0.50,  0.50,  0.50,
+   -0.66,  0.33,  0.66, -0.33,
+    0.50, -0.50,  0.50, -0.50,
+   -0.33, -0.66,  0.33,  0.66
+);
+const m4i: mat4x4<f32> = mat4x4<f32>(
+    0.50, -0.66,  0.50, -0.33,
+    0.50,  0.33, -0.50, -0.66,
+    0.50,  0.66,  0.50,  0.33,
+    0.50, -0.33, -0.50,  0.66
+);
+const m3: mat3x3<f32> = mat3x3<f32>(
+    0.00,  0.80,  0.60,
+   -0.80,  0.36, -0.48,
+   -0.60, -0.48,  0.64
+);
+const m3i: mat3x3<f32> = mat3x3<f32>(
+    0.00, -0.80, -0.60,
+    0.80,  0.36, -0.48,
+    0.60, -0.48,  0.64
+);
+// const m2: mat2x2<f32> = mat2x2<f32>(
+//     0.80, 0.60,
+//    -0.60, 0.80
+// );
+// const m2i: mat2x2<f32> = mat2x2<f32>(
+//     0.80, -0.60,
+//     0.60,  0.80
+// );
+
+fn fbm_4_3(x_in: vec3<f32>) -> f32 {
+    var x = x_in;
+    let f: f32 = 1.9;
+    let s: f32 = 0.55;
+    var a: f32 = 0.0;
+    var b: f32 = 0.5;
+    for (var i: i32 = 0; i < 4; i = i + 1) {
+        let n = noise3(x);
+        a = a + b * n;
+        b = b * s;
+        x = f * (m3 * x);
+    }
+    return a;
+}
+fn fbm_4_4(x_in: vec4<f32>) -> f32 {
+    var x = x_in;
+    let f: f32 = 2.0;
+    let s: f32 = 0.5;
+    var a: f32 = 0.0;
+    var b: f32 = 0.5;
+    for (var i: i32 = 0; i < 4; i = i + 1) {
+        let n = noise4(x);
+        a = a + b * n;
+        b = b * s;
+        x = f * (m4 * x);
+    }
+    return a;
+}
+
+fn fbmd_7(x_in: vec4<f32>) -> vec5 {
+    var x = x_in;
+    let f: f32 = 1.92;
+    let s: f32 = 0.5;
+    var a: f32 = 0.0;
+    var b: f32 = 0.5;
+    var d: vec4<f32> = vec4<f32>();
+    var m: mat4x4<f32> = mat4x4<f32>(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1);
+    for (var i: i32 = 0; i < 7; i = i + 1) {
+        let n = noised4(x);
+        a = a + b * n.t;
+        d = d + b * (m * n.xyzw);
+        b = b * s;
+        x = f * (m4 * x);
+        m = f * (m4i * m);
+    }
+    return vec5(a,d);
+}
+
+fn fbmd_8(x_in: vec4<f32>) -> vec5 {
+    var x = x_in;
+    let f: f32 = 2.0;
+    let s: f32 = 0.65;
+    var a: f32 = 0.0;
+    var b: f32 = 0.5;
+    var d: vec4<f32> = vec4<f32>();
+    var m: mat4x4<f32> = mat4x4<f32>(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1);
+    for (var i: i32 = 0; i < 8; i = i + 1) {
+        let n = noised4(x);
+        a = a + b * n.t;
+        if (i < 4) {
+            d = d + b * (m * n.xyzw);
+        }
+        b = b * s;
+        x = f * (m4 * x);
+        m = f * (m4i * m);
+    }
+    return vec5(a, d);
+}
+fn fbmd_9(x_in: vec3<f32>) -> vec4<f32> {
+    var x = x_in;
+    let f: f32 = 1.92;
+    let s: f32 = 0.5;
+    var a: f32 = 0.0;
+    var b: f32 = 0.5;
+    var d: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
+    var m: mat3x3<f32> = mat3x3<f32>(1.0,0.0,0.0, 0.0,1.0,0.0, 0.0,0.0,1.0);
+    for (var i: i32 = 0; i < 9; i = i + 1) {
+        let n = noised3(x);
+        a = a + b * n.x;
+        d = d + b * (m * n.yzw);
+        b = b * s;
+        x = f * (m3 * x);
+        m = f * (m3i * m);
+    }
+    return vec4<f32>(a, d.xyz);
+}
+
+fn fbm_9(x_in: vec3<f32>) -> f32 {
+    var x = x_in;
+    let f: f32 = 1.92;
+    let s: f32 = 0.5;
+    var a: f32 = 0.0;
+    var b: f32 = 0.5;
+    var d: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
+    for (var i: i32 = 0; i < 9; i = i + 1) {
+        let n = noise3(x);
+        a = a + b * n;
+        b = b * s;
+        x = f * (m3 * x);
+    }
+    return a;
+}
+
+fn fog(col: vec3<f32>, t: f32) -> vec3<f32> {
+    let ext = exp2(-t * 0.00025 * vec3<f32>(1.0, 1.5, 4.0));
+    return col * ext + (1.0 - ext) * vec3<f32>(0.55, 0.55, 0.58);
+}
+
+fn cloudsFbm(pos: vec4<f32>) -> vec5 {
+    return fbmd_8(pos * 0.0015 + vec4<f32>(2.0, 1.1, 1.0,1.4) + 0.04 * vec4<f32>(shadertoyTime, 0.5 * shadertoyTime, -0.15 * shadertoyTime,0.213*shadertoyTime));
+}
+
+struct CloudsMapRes {
+    val: vec5,
+    nnd: f32
+}
+fn cloudsMap(pos: vec4<f32>) -> CloudsMapRes {
+    var d = abs(pos.y - 900.0) - 40.0;
+    var gra = vec4<f32>(0.0, sign(pos.y - 900.0), 0.0,0.0);
+
+    let n = cloudsFbm(pos);
+    d = d + 400.0 * n.t * (0.7 + 0.3 * gra.y);
+
+    if (d > 0.0) {
+        return CloudsMapRes(vec5(-d, vec4f()), 0.0);
+    }
+    d = min(-d / 100.0, 0.25);
+
+    return CloudsMapRes(vec5(d, gra), -d);
+}
+
+fn cloudsShadowFlat(ro: vec4<f32>, rd: vec4<f32>) -> f32 {
+    let t = (900.0 - ro.y) / rd.y;
+    if (t < 0.0) {
+        return 1.0;
+    }
+    let pos = ro + rd * t;
+    return cloudsFbm(pos).t;
+}
+
+struct CloudRenderRes {
+    color: vec4<f32>,
+    resT: f32
+}
+fn renderClouds(ro: vec4<f32>, rd: vec4<f32>, tmin: f32, tmax: f32, resT_in: f32) -> CloudRenderRes {
+    var sum = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+
+    // bounding plane
+    var tmin_loc = tmin;
+    var tmax_loc = tmax;
+    let tl = (600.0 - ro.y) / rd.y;
+    let th = (1200.0 - ro.y) / rd.y;
+    if (tl > 0.0) {
+        tmin_loc = max(tmin_loc, tl);
+    } else {
+        return CloudRenderRes(sum, resT_in);
+    }
+    if (th > 0.0) {
+        tmax_loc = min(tmax_loc, th);
+    }
+
+    var t = tmin_loc;
+    var lastT: f32 = -1.0;
+    var thickness: f32 = 0.0;
+
+    // px jitter removed (no gl_FragCoord)
+    for (var i: i32 = 0; i < 128; i = i + 1) {
+        let pos = ro + t * rd;
+        let cm = cloudsMap(pos);
+        let den = cm.val.t;
+        var dt = max(0.2, 0.011 * t);
+        if (den > 0.001) {
+            var kk: f32 = 0.0;
+            let cm2 = cloudsMap(pos + kSunDir * 70.0);
+            kk = cm2.nnd;
+            var sha = 1.0 - smoothstep(-200.0, 200.0, kk);
+            sha = sha * 1.5;
+
+            let nor = normalize(cm.val.xyzw);
+            var dif = clamp(0.4 + 0.6 * dot(nor, kSunDir), 0.0, 1.0) * sha;
+            let fre = clamp(1.0 + dot(nor, rd), 0.0, 1.0) * sha;
+            let occ = 0.2 + 0.7 * max(1.0 - kk / 200.0, 0.0) + 0.1 * (1.0 - den);
+            //lighting
+            var lin = vec3<f32>(0.70, 0.80, 1.00) * 1.0 * (0.5 + 0.5 * nor.y) * occ;
+            lin = lin + vec3<f32>(0.10, 0.40, 0.20) * 1.0 * (0.5 - 0.5 * nor.y) * occ;
+            lin = lin + vec3<f32>(1.00, 0.95, 0.85) * 3.0 * dif * occ + vec3<f32>(0.1);
+
+            var col = vec3<f32>(0.8, 0.8, 0.8) * 0.45;
+            col = col * lin;
+            col = fog(col, t);
+
+            // front to back blending
+            let alp = clamp(den * 0.5 * 0.125 * dt, 0.0, 1.0);
+            var colv = vec4<f32>(col*alp, alp);
+            sum = sum + colv * (1.0 - sum.a);
+
+            thickness = thickness + dt * den;
+            if (lastT < 0.0) {
+                lastT = t;
+            }
+        } else {
+            dt = abs(den) + 0.2;
+        }
+        t = t + dt;
+        if (sum.a > 0.995 || t > tmax_loc) {
+            break;
+        }
+    }
+
+    var resT_out = resT_in;
+    if (lastT > 0.0) {
+        resT_out = min(resT_out, lastT);
+    }
+    var out_sum = sum;
+    out_sum = vec4f(
+        out_sum.xyz + max(0.0, 1.0 - 0.0125 * thickness) *
+        vec3f(1.0, 0.6, 0.4) * 0.3 * pow(clamp(dot(kSunDir, rd), 0.0, 1.0), 32.0),
+        out_sum.w
+    );
+    // clamp
+    out_sum = clamp(out_sum, vec4<f32>(0.0), vec4<f32>(1.0));
+    return CloudRenderRes(out_sum, resT_out);
+}
+
+// terrain
+fn terrainMap(p: vec3<f32>) -> vec2<f32> {
+    var e = fbm_9(p / 2000.0 + vec3<f32>(1.0, -2.0, 0.0));
+    var a = 1.0 - smoothstep(0.12, 0.13, abs(e + 0.12));
+    e = 600.0 * e + 600.0;
+
+    // cliff
+    e = e + 90.0 * smoothstep(552.0, 594.0, e);
+
+    return vec2<f32>(e, a);
+}
+
+fn terrainMapD(p: vec3<f32>) -> vec5 {
+    let e = fbmd_9(p / 2000.0 + vec3<f32>(1.0, -2.0, 0.0));
+    var ex = 600.0 * e.x + 600.0;
+    var eyz = 600.0 * e.yzw;
+
+    let c = smoothstepd(450.0, 500.0, ex);
+    ex = ex + 90.0 * c.x;
+    eyz = eyz + 90.0 * c.y * eyz;
+
+    eyz = eyz / 2000.0;
+    let normal = normalize(vec4<f32>(-eyz.x, 1.0, -eyz.y, -eyz.z));
+    return vec5(ex, normal);
+}
+
+fn terrainNormal(pos: vec3<f32>) -> vec4<f32> {
+    return terrainMapD(pos).xyzw;
+}
+
+fn terrainShadow(ro: vec4<f32>, rd: vec4<f32>, mint: f32) -> f32 {
+    var res: f32 = 1.0;
+    var t: f32 = mint;
+    if (LOWQUALITY) {
+        for (var i: i32 = 0; i < 32; i = i + 1) {
+            let pos = ro + rd * t;
+            let env = terrainMap(pos.xzw);
+            let hei = pos.y - env.x;
+            res = min(res, 32.0 * hei / t);
+            if (res < 0.0001 || pos.y > kMaxHeight) {
+                break;
+            }
+            t = t + clamp(hei, 2.0 + t * 0.1, 100.0);
+        }
+    } else {
+        for (var i: i32 = 0; i < 128; i = i + 1) {
+            let pos = ro + rd * t;
+            let env = terrainMap(pos.xzw);
+            let hei = pos.y - env.x;
+            res = min(res, 32.0 * hei / t);
+            if (res < 0.0001 || pos.y > kMaxHeight) {
+                break;
+            }
+            t = t + clamp(hei, 0.5 + t * 0.05, 25.0);
+        }
+    }
+    return clamp(res, 0.0, 1.0);
+}
+
+fn raymarchTerrain(ro: vec4<f32>, rd: vec4<f32>, tmin: f32, tmax: f32) -> vec2<f32> {
+    var tmax_loc = tmax;
+    // bounding volume
+    let tp = (kMaxHeight + kMaxTreeHeight - ro.y) / rd.y;
+    if (tp > 0.0) {
+        tmax_loc = min(tmax_loc, tp);
+    }
+
+    var dis: f32 = 0.0;
+    var th: f32 = 0.0;
+    var t2: f32 = -1.0;
+    var t: f32 = tmin;
+    var ot: f32 = t;
+    var odis: f32 = 0.0;
+    var odis2: f32 = 0.0;
+
+    for (var i: i32 = 0; i < 400; i = i + 1) {
+        th = 0.001 * t;
+        let pos = ro + t * rd;
+        let env = terrainMap(pos.xzw);
+        let hei = env.x;
+
+        // tree envelope
+        let dis2 = pos.y - (hei + kMaxTreeHeight * 1.1);
+        if (dis2 < th) {
+            if (t2 < 0.0) {
+                t2 = ot + (th - odis2) * (t - ot) / (dis2 - odis2);
+            }
+        }
+        odis2 = dis2;
+
+        // terrain
+        dis = pos.y - hei;
+        if (dis < th) {
+            break;
+        }
+
+        ot = t;
+        odis = dis;
+        t = t + dis * 0.8 * (1.0 - 0.75 * env.y);
+        if (t > tmax_loc) {
+            break;
+        }
+    }
+
+    if (t > tmax_loc) {
+        t = -1.0;
+    } else {
+        t = ot + (th - odis) * (t - ot) / (dis - odis);
+    }
+    return vec2<f32>(t, t2);
+}
+
+// trees: return value and out params packed into struct
+struct TreesMapRes {
+    d: f32,
+    oHei: f32,
+    oMat: f32,
+    oDis: f32
+}
+fn treesMap(p_in: vec4<f32>, rt: f32) -> TreesMapRes {
+    var p = p_in;
+    var oHei: f32 = 1.0;
+    var oDis: f32 = 0.0;
+    var oMat: f32 = 0.0;
+
+    let base = terrainMap(p.xzw).x;
+
+    let bb = fbm_4_3(p.xzw * 0.075);
+
+    var d: f32 = 20.0;
+    let n = floor(p.xzw / 2.0);
+    let f = fract(p.xzw / 2.0);
+    for (var j: i32 = 0; j <= 1; j = j + 1) {
+        for (var i: i32 = 0; i <= 1; i = i + 1) {
+            for (var k: i32 = 0; k <= 1; k = k + 1) {
+                let g = vec3<f32>(f32(i), f32(j), f32(k)) - step(f, vec3<f32>(0.5));
+                let o = hash3(n + g);
+                let v = hash3(n + g + vec3<f32>(13.1, 71.7,51.7));
+                let r = g - f + o;
+    
+                var height = kMaxTreeHeight * (0.4 + 0.8 * v.x+v.z*0.6+v.y*0.4);
+                var width = 0.4 + 0.2 * v.x + 0.3 * v.y+0.1*v.z;
+                if (bb < 0.0) {
+                    width *= 0.5;
+                } else {
+                    height *= 0.7;
+                }
+    
+                let q = vec4<f32>(r.x, p.y - base - height * 0.5, r.y, r.z);
+                let k = sdEllipsoidY(q, vec2<f32>(width, 0.5 * height));
+                if (k < d) {
+                    d = k;
+                    oMat = 0.5 * hash1_v3(n + g + 111.0);
+                    if (bb > 0.0) {
+                        oMat = oMat + 0.5;
+                    }
+                    oHei = (p.y - base) / height;
+                    oHei = oHei * (0.5 + 0.5 * length(q) / width);
+                }
+            }
+        }
+    }
+
+    // distort ellipsoids to make them look like trees (distance effect)
+    if (rt < 1200.0) {
+        p.y = p.y - 600.0;
+        var s = fbm_4_4(p*2.0);
+        s = s*s-0.1;
+        let att = 0.2*(1.0 - smoothstep(100.0, 1200.0, rt));
+        d = d + 4 * s * att;
+        oDis = s * att;
+        // s = s * s;
+        // let att = 1.0 - smoothstep(100.0, 1200.0, rt);
+        // d = d + 4.0 * s * att;
+        // oDis = s * att;
+    }
+
+    return TreesMapRes(d, oHei, oMat, oDis);
+}
+
+fn treesShadow(ro: vec4<f32>, rd: vec4<f32>) -> f32 {
+    var res: f32 = 1.0;
+    var t: f32 = 0.02;
+    if (LOWQUALITY) {
+        for (var i: i32 = 0; i < 64; i = i + 1) {
+            let pos = ro + rd * t;
+            let mm = treesMap(pos, t);
+            let h = mm.d;
+            res = min(res, 32.0 * h / t);
+            t = t + h;
+            if (res < 0.001 || t > 50.0 || pos.y > kMaxHeight + kMaxTreeHeight) {
+                break;
+            }
+        }
+    } else {
+        for (var i: i32 = 0; i < 150; i = i + 1) {
+            let pos = ro + rd * t;
+            let mm = treesMap(pos, t);
+            let h = mm.d;
+            res = min(res, 32.0 * h / t);
+            t = t + h;
+            if (res < 0.001 || t > 120.0) {
+                break;
+            }
+        }
+    }
+    return clamp(res, 0.0, 1.0);
+}
+const dirs = array<vec4<f32>, 5>(
+        vec4<f32>( 0.5, -0.5,  -0.5,-0.5), // e.xyyy
+        vec4<f32>(-0.5,  -0.5,  0.5,-0.5), // e.yyxy
+        vec4<f32>( 0.0, -0.5, -0.5,-0.5), // e.yxyy
+        vec4<f32>( 0.5,  0.5, 0.5,-0.5), // e.xxxy
+        vec4<f32>( 0.0,  0.0,  0.0,  1.0)  // e.zzzw
+    );
+fn treesNormal(pos: vec4<f32>, t: f32) -> vec4<f32> {
+    // compute gradient-like normal by sampling map around pos
+    var nrm = vec4<f32>();
+    for (var i: i32 = 0; i < 4; i = i + 1) {
+        let e=dirs[i];
+        let mm = treesMap(pos + 0.005 * e, t);
+        nrm = nrm + e * mm.d;
+    }
+    return normalize(nrm);
+}
+
+// sky
+fn renderSky(ro: vec4<f32>, rd: vec4<f32>) -> vec3<f32> {
+    var col = vec3<f32>(0.42, 0.62, 1.1) - rd.y * 0.4;
+    let t = (2500.0 - ro.y) / rd.y;
+    if (t > 0.0) {
+        let uv = (ro + t * rd).xzw;
+        let cl = fbm_9(uv * 0.00104);
+        let dl = smoothstep(-0.2, 0.6, cl);
+        col = mix(col, vec3<f32>(1.0), 0.12 * dl);
+    }
+
+    let sun = clamp(dot(kSunDir, rd), 0.0, 1.0);
+    col = col + 0.2 * vec3<f32>(1.0, 0.6, 0.3) * pow(sun, 32.0);
+
+    return col;
+}
+
+// mainRay entry
+fn mainRay(rayo: vec4<f32>, rayd: vec4<f32>) -> vec4<f32> {
+    var rayDir = normalize(rayd+vec4f(0.00001));
+    let ro= rayo+vec4f(1897,530,862,-927);
+    var resT: f32 = 2000.0;
+
+    // sky base
+    var col = renderSky(ro, rayDir);
+
+    // raycast terrain and tree envelope
+    var obj: i32 = 0;
+    let tres = raymarchTerrain(ro, rayDir, 15.0, 2000.0);
+    if (tres.x > 0.0) {
+        resT = tres.x;
+        obj = 1;
+    }
+    var hei=0.0; var mid=0.0; var displa=0.0;
+    // raycast trees, if needed
+    if (tres.y > 0.0) {
+        var tf = tres.y;
+        var tfMax = select(2000.0, tres.x, tres.x > 0.0);
+        for (var i: i32 = 0; i < 64; i = i + 1) {
+            let pos = ro + tf * rayDir;
+            let mm = treesMap(pos, tf);
+            let dis = mm.d;
+            hei=mm.oHei; mid=mm.oMat; displa=mm.oDis;
+            if (dis < (0.000125 * tf)) {
+                break;
+            }
+            tf = tf + dis;
+            if (tf > tfMax) {
+                break;
+            }
+        }
+        if (tf < tfMax) {
+            resT = tf;
+            obj = 2;
+        }
+    }
+    var opacity = 0.2;
+    // shading
+    if (obj > 0) {
+        opacity = 1.0;
+        let pos = ro + resT * rayDir;
+        let epos = pos + vec4<f32>(0.0, 4.8, 0.0, 0.0);
+
+        var sha1 = terrainShadow(pos + vec4<f32>(0.0, 0.02, 0.0, 0.0), kSunDir, 0.02);
+        sha1 = sha1 * smoothstep(-0.5, -0.05, cloudsShadowFlat(epos, kSunDir));
+
+        var sha2: f32 = 1.0;
+        if (!LOWQUALITY) {
+            sha2 = treesShadow(pos + vec4<f32>(0.0, 0.02, 0.0,0.0), kSunDir);
+        }
+
+        let tnor = terrainNormal(pos.xzw);
+        var nor = vec4<f32>();
+
+        var speC = vec3<f32>(1.0);
+
+        if (obj == 1) {
+            // terrain
+            let bump = fbmd_7((pos - vec4<f32>(0.0, 600.0, 0.0,0.0)) * 0.15 * vec4<f32>(1.0, 0.2, 1.0,1.0));
+            nor = normalize(tnor + 0.8 * (1.0 - abs(tnor.y)) * 0.8 * bump.xyzw);
+
+            col = vec3<f32>(0.18, 0.12, 0.10) * 0.85;
+            col = mix(col, vec3<f32>(0.1, 0.1, 0.0) * 0.2, smoothstep(0.7, 0.9, nor.y));
+
+            var dif = clamp(dot(nor, kSunDir), 0.0, 1.0);
+            dif = dif * sha1;
+            if (!LOWQUALITY) {
+                dif = dif * sha2;
+            }
+
+            let bac = clamp(dot(normalize(vec4<f32>(-kSunDir.x, 0.0, -kSunDir.z,-kSunDir.w)), nor), 0.0, 1.0);
+            let foc = clamp((pos.y / 2.0 - 180.0) / 130.0, 0.0, 1.0);
+            let dom = clamp(0.5 + 0.5 * nor.y, 0.0, 1.0);
+            var lin = 0.2 * mix(vec3<f32>(0.1, 0.2, 0.1) * 0.1, vec3<f32>(0.7, 0.9, 1.5) * 3.0, dom) * foc;
+            lin = lin + 1.0 * 8.5 * vec3<f32>(1.0, 0.9, 0.8) * dif;
+            lin = lin + 1.0 * 0.27 * vec3<f32>(1.1, 1.0, 0.9) * bac * foc;
+            speC = vec3<f32>(4.0) * dif * smoothstep(20.0, 0.0, abs(pos.y / 2.0 - 310.0));
+
+            col = col * lin;
+
+        } else {
+            // trees
+            let gnor = treesNormal(pos, resT);
+            nor = normalize(gnor + 2.0 * tnor);
+
+            let refv = reflect(rayDir, nor);
+            let occ = clamp(hei, 0.0, 1.0) * pow(1.0 - 2.0 *displa, 3.0);
+            var dif = clamp(0.1 + 0.9 * dot(nor, kSunDir), 0.0, 1.0);
+            dif = dif * sha1;
+            if (dif > 0.0001) {
+                var a = clamp(0.5 + 0.5 * dot(tnor, kSunDir), 0.0, 1.0);
+                a = a * a * occ * 0.6 * smoothstep(60.0, 200.0, resT);
+                // tree shadows with fake transmission
+                var sha2_local = 1.0;
+                if (LOWQUALITY) {
+                    sha2_local = treesShadow(pos + kSunDir * 0.1, kSunDir);
+                }
+                dif = dif * (a + (1.0 - a) * sha2_local);
+            }
+            let dom = clamp(0.5 + 0.5 * nor.y, 0.0, 1.0);
+            let bac = clamp(0.5 + 0.5 * dot(normalize(vec4<f32>(-kSunDir.x, 0.0, -kSunDir.z, -kSunDir.w)), nor), 0.0, 1.0);
+            let fre = clamp(1.0 + dot(nor, rayDir), 0.0, 1.0);
+
+            var lin = 12.0 * vec3<f32>(1.2, 1.0, 0.7) * dif * occ * (2.5 - 1.5 * smoothstep(0.0, 120.0, resT));
+            lin = lin + 0.55 * mix(vec3<f32>(0.1, 0.2, 0.0) * 0.1, vec3<f32>(0.6, 1.0, 1.0), dom * occ);
+            lin = lin + 0.07 * vec3<f32>(1.0, 1.0, 0.9) * bac * occ;
+            lin = lin + 1.10 * vec3<f32>(0.9, 1.0, 0.8) * pow(fre, 5.0) * occ * (1.0 - smoothstep(100.0, 200.0, resT));
+            speC = dif * vec3<f32>(1.0, 1.1, 1.5) * 1.2;
+
+            // material
+            let brownAreas = fbm_4_3(pos.zwx * 0.015);
+            col = vec3<f32>(0.2, 0.2, 0.05);
+            col = mix(col, vec3<f32>(0.32, 0.2, 0.05), smoothstep(0.2, 0.9, fract(2.0 * mid)));
+            col = col * select(
+                1.0,
+                0.65 + 0.35 * smoothstep(300.0, 600.0, resT) * smoothstep(700.0, 500.0, pos.y),
+                mid < 0.5
+            );
+            col = mix(col, vec3<f32>(0.25, 0.16, 0.01) * 0.825, 0.7 * smoothstep(0.1, 0.3, brownAreas) * smoothstep(0.5, 0.8, tnor.y));
+            col = col * (1.0 - 0.5 * smoothstep(400.0, 700.0, pos.y));
+            col = col * lin;
+        }
+
+        // specular
+        let refv2 = reflect(rayDir, nor);
+        let fre2 = clamp(1.0 + dot(nor, rayDir), 0.0, 1.0);
+        let spe = 3.0 * pow(clamp(dot(refv2, kSunDir), 0.0, 1.0), 9.0) * (0.05 + 0.95 * pow(fre2, 5.0));
+        col = col + spe * speC;
+
+        col = fog(col, resT);
+    }
+
+    // clouds (composite)
+    let cloudRes = renderClouds(ro, rayDir, 0.0, resT, resT);
+    resT = cloudRes.resT;
+    opacity += cloudRes.color.w;
+    col = col * (1.0 - cloudRes.color.w) + cloudRes.color.xyz;
+
+    // final tweaks: sun glare, gamma, color grade, contrast
+    let sunv = clamp(dot(kSunDir, rayDir), 0.0, 1.0);
+    col = col + 0.25 * vec3<f32>(0.8, 0.4, 0.2) * pow(sunv, 4.0);
+
+    // gamma correction (approx)
+    col = pow(clamp(col * 1.1 - 0.02, vec3<f32>(0.0), vec3<f32>(1.0)), vec3<f32>(0.4545));
+
+    // contrast
+    col = col * col * (vec3<f32>(2.5) - 1.5 * col);
+
+    // color grade 
+    col = pow(col, vec3<f32>(1.0, 0.92, 1.0));
+    col = col * vec3<f32>(1.02, 0.99, 0.9);
+    col.z = col.z + 0.1;
+
+    return vec4<f32>(col, opacity);
+}
 `
 };
 class ResizeDivHandler {
     div: HTMLDivElement;
+    runBtn: HTMLButtonElement;
     constructor(resizableDiv: HTMLDivElement, examples: Examples, onexec: (code: string) => void) {
         this.div = resizableDiv;
         resizableDiv.style.transition = "height 0.3s ease";
@@ -551,6 +1372,7 @@ class ResizeDivHandler {
         });
         resizableDiv.appendChild(handle);
 
+
         let startY = 0;
         let startHeight = 0;
 
@@ -567,6 +1389,7 @@ class ResizeDivHandler {
         };
 
         handle.addEventListener("mousedown", (e: MouseEvent) => {
+            resizableDiv.blur(); document.body.querySelector("canvas").focus();
             resizableDiv.style.transition = "none";
             startY = e.clientY;
             startHeight = resizableDiv.offsetHeight;
@@ -584,18 +1407,18 @@ class ResizeDivHandler {
             btn.style.border = "none";
             btn.style.borderRadius = "4px";
             btn.style.marginLeft = "4px";
-            btn.style.background = "#aac8eaff";
+            btn.style.background = "#357ABD";
             btn.style.color = "white";
             btn.style.cursor = "pointer";
             btn.style.boxShadow = "0 1px 3px rgba(0,0,0,0.2)";
             btn.style.transition = "background 0.2s, transform 0.1s, box-shadow 0.2s";
             btn.addEventListener("mouseenter", () => {
-                btn.style.background = "#357ABD";
+                btn.style.background = "#aac8ea";
                 btn.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
             });
 
             btn.addEventListener("mouseleave", () => {
-                btn.style.background = "#aac8eaff";
+                btn.style.background = "#357ABD";
                 btn.style.boxShadow = "0 1px 3px rgba(0,0,0,0.2)";
                 btn.style.transform = "scale(1)";
             });
@@ -604,10 +1427,26 @@ class ResizeDivHandler {
             this.div.style.transition = "height 0.3s ease";
             this.div.style.height = "0px";
             BtnBar.style.display = "none";
+            resizableDiv.blur(); document.body.querySelector("canvas").focus();
+        });
+
+        let lastEscTime = 0;
+        resizableDiv.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                const now = Date.now();
+                if (now - lastEscTime < 500) collapseBtn.click();
+                lastEscTime = now;
+            }
         });
         const runBtn = document.createElement("button");
-        runBtn.textContent = "Examples";
-        // const btns: HTMLButtonElement[] = [];
+        runBtn.textContent = "⏸";
+        runBtn.style.cssText = `
+        font-family: "DejaVu Sans Mono", "Fira Mono", "Consolas", "Courier New", monospace;
+        text-align: center;
+        font-size: 0.6em;
+        width: 2.5em;
+        `;
+        this.runBtn = runBtn;
         let offsetY = 28;
         for (const [k, v] of Object.entries(examples)) {
             const item = document.createElement("button");
@@ -635,11 +1474,68 @@ class ResizeDivHandler {
     }
 
 }
+interface ShadertoyConfig extends render.DisplayConfig {
+    keyMoveSpeed?: number;
+    trackballCenter?: number[];
+    cameraControl?: "keepup" | "freefly" | "trackball";
+}
+const getDisplayConfigFromShader = (code: string) => {
+    const retinaLayers = code.match(/\/\/\/\s*@retinaLayers\s*:\s*([0-9]+)/);
+    const opacity = code.match(/\/\/\/\s*@opacity\s*:\s*([0-9\.]+)/);
+    const background = code.match(/\/\/\/\s*@background\s*:\s*\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/);
+    const resolution = code.match(/\/\/\/\s*@resolution\s*:\s*([0-9]+)/);
+    const keyMoveSpeed = code.match(/\/\/\/\s*@moveSpeed\s*:\s*([0-9\.]+)/);
+    const camCtrl = code.match(/\/\/\/\s*@(cameraControl|camCtrl)\s*:\s*(keepup|freefly|trackball)\s*(\(\s*(-?[0-9\.]+)\s*,\s*(-?[0-9\.]+)\s*,\s*(-?[0-9\.]+)\s*,\s*(-?[0-9\.]+)\s*\))?/);
+    const stereoEyeOffset = code.match(/\/\/\/\s*@stereoEyeOffset\s*:\s*([0-9\.]+)/);
+    let config = {} as ShadertoyConfig;
+    config.screenBackgroundColor = [1, 1, 1, 1];
+    config.retinaResolution = 256;
+    config.keyMoveSpeed = 0.1;
+    config.sectionStereoEyeOffset = 0.1;
+    if (retinaLayers && isFinite(Number(retinaLayers[1]))) config.retinaLayers = Number(retinaLayers[1]);
+    if (opacity && isFinite(Number(opacity[1]))) config.opacity = Number(opacity[1]);
+    if (stereoEyeOffset && isFinite(Number(stereoEyeOffset[1]))) config.sectionStereoEyeOffset = Number(stereoEyeOffset[1]);
+    if (keyMoveSpeed && isFinite(Number(keyMoveSpeed[1]))) config.keyMoveSpeed = Number(keyMoveSpeed[1]);
+    if (camCtrl && camCtrl[2]) {
+        switch (camCtrl[2]) {
+            case "keepup":
+                config.cameraControl = "keepup";
+                break;
+            case "freefly":
+                config.cameraControl = "freefly";
+                break;
+            case "trackball":
+                config.cameraControl = "trackball";
+                config.trackballCenter = [0, 0, 0, 1];
+                if (camCtrl[3] && camCtrl[4] && camCtrl[5] && camCtrl[6] && camCtrl[7] && isFinite(Number(camCtrl[4])) && isFinite(Number(camCtrl[5])) && isFinite(Number(camCtrl[6])) && isFinite(Number(camCtrl[7]))) {
+                    config.trackballCenter = [Number(camCtrl[4]), Number(camCtrl[5]), Number(camCtrl[6]), Number(camCtrl[7])];
+                }
+                break;
+            default:
+                config.cameraControl = "keepup";
+        }
+    } else {
+        config.cameraControl = "keepup";
+    }
+    const resnum = Number(resolution?.[1]);
+    if (resolution && isFinite(resnum) &&
+        // resolution must be power of 2
+        resnum === 256 || resnum === 512 || resnum === 1024 || resnum === 128 || resnum === 64 || resnum === 32 || resnum === 16 || resnum === 8 || resnum === 2048
+    ) config.retinaResolution = Number(resolution[1]);
+    if (background && isFinite(Number(background[1])) && isFinite(Number(background[2])) && isFinite(Number(background[3]))) {
+        config.screenBackgroundColor = [Number(background[1]) / 255, Number(background[2]) / 255, Number(background[3]) / 255, 1];
+    }
+    const backgroundWhite = code.match(/\/\/\/\s*@background\s*:\s*white/);
+    const backgroundBlack = code.match(/\/\/\/\s*@background\s*:\s*black/);
+    if (backgroundWhite) config.screenBackgroundColor = [1, 1, 1, 1];
+    if (backgroundBlack) config.screenBackgroundColor = [0, 0, 0, 1];
 
+    return config;
+}
 class ShadertoyApp {
 
     renderer: render.SliceRenderer;
-    camController: util.ctrl.FreeFlyController;
+    camController: util.ctrl.KeepUpController | util.ctrl.FreeFlyController | util.ctrl.TrackBallController;
     retinaController: util.ctrl.RetinaController;
 
     camBuffer: GPUBuffer;
@@ -669,7 +1565,7 @@ class ShadertoyApp {
         let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
         let inputBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
         renderer.setDisplayConfig({ screenBackgroundColor: { r: 1, g: 1, b: 1, a: 1 }, opacity: 5 });
-        let camController = new util.ctrl.FreeFlyController();
+        let camController = new util.ctrl.KeepUpController() as typeof this.camController;
         camController.object.position.set(0, 0, 0, 0);
         this.camController = camController;
         let retinaController = new util.ctrl.RetinaController(renderer);
@@ -683,8 +1579,9 @@ class ShadertoyApp {
         this.camBuffer = camBuffer;
         this.inputBuffer = inputBuffer;
         const start = new Date().getTime();
+        let paused = false;
         this.run = () => {
-            if (this.pipeline && this.camBuffer && this.bindgroups) {
+            if (this.pipeline && this.camBuffer && this.bindgroups && !paused) {
                 ctrlreg.update();
                 camController.object.getAffineMat4().writeBuffer(matModelViewJSBuffer);
                 inputJSBuffer[0] = (new Date().getTime() - start) * 0.001;
@@ -715,7 +1612,7 @@ class ShadertoyApp {
                     fragmentEntryPoint: "shadertoyMainFragment"
                 });
             } catch (e) {
-                const error = e?.message?.match(/^(.+) Line:([0-9]+)/);
+                const error = e?.message?.match(/^(.+) Line:([0-9]+)/) || e?.match(/^(.+) at line ([0-9]+)/);
                 if (error) {
                     showError([Number(error[2]) - this.lineRflOffset]);
                     errDom.innerText = error[1];
@@ -724,6 +1621,33 @@ class ShadertoyApp {
                 this.pipeline = oldPipeline;
             }
             this.bindgroups = [this.renderer.createVertexShaderBindGroup(this.pipeline, 1, [this.camBuffer, this.inputBuffer])];
+            const cfg = getDisplayConfigFromShader(code);
+            renderer.setDisplayConfig(cfg);
+            retinaController.setDisplayConfig(cfg);
+            if (!(camController instanceof util.ctrl.KeepUpController) && cfg.cameraControl === "keepup") {
+                this.camController = new util.ctrl.KeepUpController(camController.object);
+                ctrlreg.remove(camController);
+                ctrlreg.add(this.camController);
+                camController = this.camController;
+            }
+            if (!(camController instanceof util.ctrl.FreeFlyController) && cfg.cameraControl === "freefly") {
+                this.camController = new util.ctrl.FreeFlyController(camController.object);
+                ctrlreg.remove(camController);
+                ctrlreg.add(this.camController);
+                camController = this.camController;
+            }
+            if (!(camController instanceof util.ctrl.TrackBallController) && cfg.cameraControl === "trackball") {
+                this.camController = new util.ctrl.TrackBallController(camController.object, true);
+                ctrlreg.remove(camController);
+                ctrlreg.add(this.camController);
+                camController = this.camController;
+            }
+            if (cfg.cameraControl === "trackball") {
+                const arr = cfg.trackballCenter || [0, 0, 0, 1];
+                (this.camController as util.ctrl.TrackBallController).center = new math.Vec4(...arr);
+                (this.camController as util.ctrl.TrackBallController).lookAtCenter();
+            }
+            if (((camController as util.ctrl.KeepUpController).keyMoveSpeed) && cfg.keyMoveSpeed) (camController as util.ctrl.KeepUpController).keyMoveSpeed = cfg.keyMoveSpeed;
         }
         const codeDom = document.createElement("div");
         document.body.appendChild(codeDom);
@@ -746,24 +1670,51 @@ class ShadertoyApp {
             retinaController.enabled = false;
         }, () => {
             // onblur
+        });
+        canvas.addEventListener("click", () => {
             ctrlreg.disableDefaultEvent = true;
             camController.enabled = true;
             retinaController.enabled = true;
         });
-
+        canvas.addEventListener("blur", () => {
+            ctrlreg.disableDefaultEvent = false;
+            camController.enabled = false;
+            retinaController.enabled = false;
+        });
 
         codeDom.style.position = "absolute";
         codeDom.style.top = "0px";
         codeDom.style.left = "0px";
+        codeDom.style.zIndex = "10001";
         codeDom.style.backgroundColor = "rgba(255,255,255,0.8)";
         editor.dom.style.borderRadius = "5px";
         editor.dom.style.height = "250px";
         editor.dom.style.width = "100%";
         codeDom.style.width = "100%";
-        new ResizeDivHandler(editor.dom, this.examples, c => {
+        const handler = new ResizeDivHandler(editor.dom, this.examples, c => {
+            const curText = editor.state.doc.toString();
+            if (curText === c) return; // no change
+            if (!Object.values(this.examples).includes(curText) && curText.trim() !== "") {
+                if (!confirm(lang === "zh" ? "你还有未保存的内容，确定要继续吗？" : "You have unsaved changes. Continue anyway?")) return;
+            }
             editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: c } });
         });
-
+        handler.runBtn.addEventListener("click", () => {
+            if (handler.runBtn.textContent === "⏸") {
+                handler.runBtn.textContent = "▶";
+                paused = true;
+            } else {
+                handler.runBtn.textContent = "⏸";
+                paused = false;
+            }
+        });;
+        window.addEventListener('beforeunload', (e) => {
+            const curText = editor.state.doc.toString();
+            if (!Object.values(this.examples).includes(curText) && curText.trim() !== "") {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
         const errDom = document.createElement("div");
         errDom.style.width = "100%";
         errDom.style.backgroundColor = "red";
@@ -776,8 +1727,10 @@ class ShadertoyApp {
             let msg = e.error.message;
             const error = msg.match(/Error while parsing WGSL: :([0-9]+):([0-9]+) (.+)\n/);
             if (error) {
-                showError([Number(error[1]) - this.lineAllOffset]);
+                const cb = showError([Number(error[1]) - this.lineAllOffset]);
                 errDom.innerText = error[3];
+                if (cb) errDom.onclick = cb;
+                else errDom.onclick = () => { };
             }
 
             // console.log(msg);

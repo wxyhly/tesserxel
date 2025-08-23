@@ -4,7 +4,7 @@ import { Vec4 } from "../math/algebra/vec4.js";
 import { AABB } from "../math/geometry/primitive.js";
 import { Spline } from "../math/math.js";
 import { Material } from "./engine.js";
-export declare type RigidType = "still" | "passive" | "active";
+export type RigidType = "still" | "passive" | "active";
 interface SimpleRigidDescriptor {
     /** mass set to 0 to specify non-active rigid */
     mass: number | null;
@@ -18,7 +18,7 @@ interface SimpleRigidDescriptor {
 /** Subrigids should not be added into scene repetively.
  * Subrigids's positions cannot be modified after union created
  */
-declare type UnionRigidDescriptor = Rigid[];
+type UnionRigidDescriptor = Rigid[];
 /** all properities hold by class Rigid should not be modified
  *  exceptions are position/rotation and (angular)velocity.
  *  pass RigidDescriptor into constructor instead.

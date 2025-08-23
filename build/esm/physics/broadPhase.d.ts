@@ -4,7 +4,7 @@ import { Rigid } from "./rigid.js";
 export interface BroadPhaseConstructor {
     new (): BroadPhase;
 }
-export declare type BroadPhaseList = [Rigid, Rigid][];
+export type BroadPhaseList = [Rigid, Rigid][];
 export declare abstract class BroadPhase {
     checkList: BroadPhaseList;
     ignorePair: BroadPhaseList;
@@ -16,7 +16,7 @@ export declare class BoundingGlomeBroadPhase extends BroadPhase {
     checkBoundingGlome(ri: Rigid, rj: Rigid): boolean;
     run(world: World): void;
 }
-declare type BoundingGlomeTreeNode = {
+type BoundingGlomeTreeNode = {
     position: math.Vec4;
     radius: number;
     surcell: number;

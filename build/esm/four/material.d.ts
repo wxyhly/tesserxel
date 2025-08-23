@@ -1,19 +1,18 @@
-/// <reference types="@webgpu/types" />
 import { Obj4 } from "../math/algebra/affine.js";
 import { Vec4 } from "../math/algebra/vec4.js";
 import { TetraSlicePipeline } from "../render/slice/slice.js";
 import { Renderer } from "./renderer.js";
 import { Geometry } from "./scene.js";
-export declare type ColorOutputNode = MaterialNode & {
+export type ColorOutputNode = MaterialNode & {
     output: "color";
 };
-export declare type Vec4OutputNode = MaterialNode & {
+export type Vec4OutputNode = MaterialNode & {
     output: "vec4";
 };
-export declare type FloatOutputNode = MaterialNode & {
+export type FloatOutputNode = MaterialNode & {
     output: "f32";
 };
-export declare type TransformOutputNode = MaterialNode & {
+export type TransformOutputNode = MaterialNode & {
     output: "affineMat4";
 };
 /** An iterative structure for Material */
@@ -120,8 +119,8 @@ export declare class TransformUniformValue extends UniformValue {
     _update(r: Renderer): void;
     write(value: Obj4): void;
 }
-export declare type Color = GPUColor | ColorOutputNode;
-export declare type Float = number | FloatOutputNode;
+export type Color = GPUColor | ColorOutputNode;
+export type Float = number | FloatOutputNode;
 /** Basic material just return color node's output color  */
 export declare class BasicMaterial extends Material {
     input: {

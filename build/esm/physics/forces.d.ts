@@ -82,33 +82,33 @@ export declare class Damping extends Force {
     constructor(linearFactor: number, angularFactor: number | Bivec);
     add(...objects: Rigid[]): void;
 }
-export declare type ElectricCharge = {
+export type ElectricCharge = {
     rigid: Rigid | null;
     position: Vec4;
     worldPos?: Vec4;
     charge: number;
 };
-export declare type ElectricDipole = {
+export type ElectricDipole = {
     rigid: Rigid | null;
     position: Vec4;
     worldPos?: Vec4;
     moment: Vec4;
     worldMoment?: Vec4;
 };
-export declare type MagneticDipole = {
+export type MagneticDipole = {
     rigid: Rigid | null;
     position: Vec4;
     worldPos?: Vec4;
     moment: Bivec;
     worldMoment?: Bivec;
 };
-export declare type CurrentElement = {
+export type CurrentElement = {
     rigid: Rigid | null;
     position: Vec4;
     worldPos?: Vec4;
     current: Vec4;
 };
-export declare type CurrentCircuit = {
+export type CurrentCircuit = {
     rigid: Rigid | null;
     position: Vec4;
     worldPos?: Vec4;

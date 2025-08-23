@@ -221,6 +221,7 @@ class ControllerRegistry {
     }
 }
 class TrackBallController {
+    center = new Vec4();
     enabled = true;
     object = new Obj4(Vec4.w.neg());
     mouseSpeed = 0.01;
@@ -246,6 +247,7 @@ class TrackBallController {
     update(state) {
         let disabled = state.isKeyHold(this.keyConfig.disable) || !this.enabled;
         let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
+        this.object.position.subs(this.center);
         if (!disabled) {
             let dx = state.moveX * this.mouseSpeed;
             let dy = -state.moveY * this.mouseSpeed;
@@ -280,9 +282,10 @@ class TrackBallController {
         if ((state.updateCount & this.normalisePeriodMask) === 0) {
             this.object.rotation.norms();
         }
+        this.object.position.adds(this.center);
     }
     lookAtCenter() {
-        // todo
+        this.object.lookAt(Vec4.wNeg, this.center);
     }
 }
 class FreeFlyController {
@@ -359,7 +362,7 @@ class FreeFlyController {
         this._bivec.copy(this._bivecKey);
         this._bivecKey.mulfs(dampFactor);
         if (!disabled) {
-            if ((state.enablePointerLock && state.isPointerLocked()) || (state.currentBtn = 0 )) {
+            if ((state.enablePointerLock && state.isPointerLocked()) || (state.currentBtn = 0)) {
                 let dx = state.moveX * this.mouseSpeed;
                 let dy = -state.moveY * this.mouseSpeed;
                 this._bivec.xw += dx;
@@ -1014,7 +1017,7 @@ class RetinaController {
         const { promise, jsBuffer } = this.retinaRenderPasses[idx];
         if (promise) {
             promise.then(pass => {
-                this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer, 0, 4);
+                this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer.buffer, 0, 4);
                 this.renderer.setRetinaRenderPass(pass);
                 this.gui?.refresh({ "toggleRetinaAlpha": idx });
                 this.currentRetinaRenderPassIndex = idx;
@@ -1185,7 +1188,7 @@ class RetinaController {
                     n.set(Math.cos(x) * sy, Math.cos(y), Math.sin(x) * sy);
                     n.writeBuffer(jsBuffer);
             }
-            this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer, 0, 4);
+            this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer.buffer, 0, 4);
         }
         for (let [label, keyCode] of Object.entries(this.keyConfig.sectionConfigs)) {
             if (on(keyCode)) {
@@ -1372,11 +1375,32 @@ class RetinaController {
         this.displayConfigChanged = true;
         this.needResize = true;
     }
+    setDisplayConfig(config) {
+        if (config.canvasSize)
+            this.setSize(config.canvasSize);
+        if (config.opacity)
+            this.setOpacity(config.opacity);
+        if (config.retinaLayers)
+            this.setLayers(config.retinaLayers);
+        if (config.retinaResolution)
+            this.setRetinaResolution(config.retinaResolution);
+        if (config.crosshair)
+            this.setCrosshairSize(config.crosshair);
+        if (config.retinaStereoEyeOffset)
+            this.setRetinaEyeOffset(config.retinaStereoEyeOffset);
+        if (config.sectionStereoEyeOffset)
+            this.setSectionEyeOffset(config.sectionStereoEyeOffset);
+        if (config.screenBackgroundColor) {
+            this.tempDisplayConfig.screenBackgroundColor = config.screenBackgroundColor;
+            this.displayConfigChanged = true;
+        }
+    }
 }
 class RetinaCtrlGui {
     controller;
     dom;
     iconSize = 32;
+    lang;
     refresh;
     createToggleDiv(CtrlBtn, display = "") {
         const div = document.createElement("div");
@@ -1699,7 +1723,7 @@ class RetinaCtrlGui {
                     },
                 };
                 let params = new URLSearchParams(window.location.search.slice(1));
-                let tr = BtnHint[params.get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en")];
+                let tr = BtnHint[this.lang ?? params.get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en")];
                 const keyName = (cfg, config) => `\n(${retinaCtrl.keyConfig.enable ? retinaCtrl.keyConfig.enable.replace("Key", "").replace("Left", tr["left"]).replace("Right", tr["right"]).replace("Digit", tr["digit"]) + " + " : ""}${(config ?? retinaCtrl.keyConfig)[cfg].replace(/(Key)|(Left)|(Right)|(\.)/g, "").replace("Digit", tr["digit"])})`;
                 mainBtn.title = tr["mainBtn"];
                 crosspplPlaceholderBtn.title = tr["crosspplPlaceholderBtn"];

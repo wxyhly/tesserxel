@@ -2,10 +2,18 @@
   "name": "tesserxel",
   "version": "1.0.0",
   "description": "WebGPU based library for interacting with 4D Objects",
+  "keywords": [
+    "webgpu",
+    "voxel",
+    "4d-world",
+    "4d-rendering",
+    "4d-physics"
+  ],
   "scripts": {
     "build": "npx rollup -c rollup.config.js",
-    "build-examples": "cd examples && tsc",
-    "start": "node static_server"
+    "build-examples": "tsc -p examples/tsconfig.json",
+    "build-playground": "cd playground && npx rollup -c",
+    "build-all": "npx rollup -c rollup.config.js && tsc -p examples/tsconfig.json && cd playground && npx rollup -c"
   },
   "author": "Hqak",
   "license": "ISC",
@@ -37,15 +45,13 @@
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^16.0.1",
-    "@webgpu/types": "^0.1.30",
-    "rollup": "^3.2.1",
-    "rollup-plugin-dts": "^5.0.0",
+    "@webgpu/types": "^0.1.64",
+    "rollup": "^4.47.1",
+    "rollup-plugin-dts": "^6.2.3",
     "rollup-plugin-multi-input": "^1.5.0",
-    "rollup-plugin-typescript2": "^0.34.1",
-    "tslib": "^2.4.0",
-    "typescript": "^4.8.4"
-  },
-  "dependencies": {
+    "rollup-plugin-typescript2": "^0.36.0",
+    "tslib": "^2.8.1",
+    "typescript": "^5.9.2",
     "wgsl_reflect": "^1.2.3"
   }
 }

@@ -1,4 +1,3 @@
-/// <reference types="@webgpu/types" />
 import { GPU } from "../gpu.js";
 import { InternalSliceRendererConfig, RetinaSliceBufferMgr, TetraSliceBufferMgr } from "./renderer.js";
 import { RaytracingPipelineDescriptor, TetraSlicePipelineDescriptor } from "./interfaces.js";

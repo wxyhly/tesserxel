@@ -3,7 +3,7 @@ import { Vec4 } from '../../math/algebra/vec4.js';
 import { Bivec } from '../../math/algebra/bivec.js';
 import { Rotor } from '../../math/algebra/rotor.js';
 import { Obj4 } from '../../math/algebra/affine.js';
-import { _90, _180, _360 } from '../../math/const.js';
+import { _360, _180, _90 } from '../../math/const.js';
 import { FaceMesh, FaceIndexMesh } from './facemesh.js';
 
 let square = new FaceMesh({

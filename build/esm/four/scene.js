@@ -60,9 +60,9 @@ class PerspectiveCamera extends Object$1 {
     needsUpdate = true;
 }
 class OrthographicCamera extends Object$1 {
-    size;
-    near;
-    far;
+    size = 2;
+    near = -10;
+    far = 10;
     alwaysUpdateCoord = true;
     needsUpdate = true;
 }
@@ -168,7 +168,7 @@ class SkyBox {
     }
     update(r) {
         this.needsUpdate = false;
-        r.gpu.device.queue.writeBuffer(this.uBuffer, 0, this.jsBuffer);
+        r.gpu.device.queue.writeBuffer(this.uBuffer, 0, this.jsBuffer.buffer);
     }
 }
 class SimpleSkyBox extends SkyBox {

@@ -1,4 +1,3 @@
-/// <reference types="@webgpu/types" />
 import { AffineMat4, Obj4 } from "../../math/algebra/affine.js";
 import { Mat4 } from "../../math/algebra/mat4.js";
 import { Vec4 } from "../../math/algebra/vec4.js";
@@ -73,10 +72,10 @@ export declare class RetinaSliceBufferMgr {
     retinaFacingOrSlicesChanged: boolean;
     uniformsBuffer: GPUBuffer;
     thumbnailViewportBuffer: GPUBuffer;
-    retinaProjectJsBuffer: Float32Array;
-    retinaMVMatJsBuffer: Float32Array;
-    camProjJsBuffer: Float32Array;
-    slicesJsBuffer: Float32Array;
+    retinaProjectJsBuffer: Float32Array<ArrayBuffer>;
+    retinaMVMatJsBuffer: Float32Array<ArrayBuffer>;
+    camProjJsBuffer: Float32Array<ArrayBuffer>;
+    slicesJsBuffer: Float32Array<ArrayBuffer>;
     sliceGroupOffsetBuffer: GPUBuffer;
     emitIndexSliceBuffer: GPUBuffer;
     constructor(gpu: GPU, config: InternalSliceRendererConfig);

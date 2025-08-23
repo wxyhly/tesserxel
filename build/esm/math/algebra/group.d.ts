@@ -1,4 +1,4 @@
-declare type Relation = number[];
+type Relation = number[];
 export declare class CosetTable {
     length: number;
     private p;

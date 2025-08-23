@@ -257,6 +257,7 @@ export class ControllerRegistry {
     }
 }
 export class TrackBallController implements IController {
+    center = new Vec4();
     enabled = true;
     object = new Obj4(Vec4.w.neg());
     mouseSpeed = 0.01;
@@ -281,6 +282,7 @@ export class TrackBallController implements IController {
     update(state: ControllerState) {
         let disabled = state.isKeyHold(this.keyConfig.disable) || !this.enabled;
         let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
+        this.object.position.subs(this.center);
         if (!disabled) {
             let dx = state.moveX * this.mouseSpeed;
             let dy = -state.moveY * this.mouseSpeed;
@@ -313,9 +315,10 @@ export class TrackBallController implements IController {
         if ((state.updateCount & this.normalisePeriodMask) === 0) {
             this.object.rotation.norms();
         }
+        this.object.position.adds(this.center);
     }
     lookAtCenter() {
-        // todo
+        this.object.lookAt(Vec4.wNeg, this.center);
     }
 }
 export class FreeFlyController implements IController {
@@ -1029,13 +1032,13 @@ export class RetinaController implements IController {
     maxRetinaResolution = 1024;
     private retinaRenderPasses: { promise: Promise<RetinaRenderPass>, jsBuffer: Float32Array }[];
     private defaultRetinaRenderPass: RetinaRenderPass;
-    private gui: RetinaCtrlGui;
+    gui: RetinaCtrlGui;
 
     toggleRetinaAlpha(idx: number) {
         const { promise, jsBuffer } = this.retinaRenderPasses[idx];
         if (promise) {
             promise.then(pass => {
-                this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer, 0, 4);
+                this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer.buffer, 0, 4);
                 this.renderer.setRetinaRenderPass(pass);
                 this.gui?.refresh({ "toggleRetinaAlpha": idx });
                 this.currentRetinaRenderPassIndex = idx;
@@ -1192,7 +1195,7 @@ export class RetinaController implements IController {
                     n.set(Math.cos(x) * sy, Math.cos(y), Math.sin(x) * sy);
                     n.writeBuffer(jsBuffer);
             }
-            this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer, 0, 4);
+            this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer.buffer, 0, 4);
         }
         for (let [label, keyCode] of Object.entries(this.keyConfig.sectionConfigs)) {
             if (on(keyCode)) {
@@ -1365,12 +1368,26 @@ export class RetinaController implements IController {
         this.displayConfigChanged = true;
         this.needResize = true;
     }
+    setDisplayConfig(config: DisplayConfig) {
+        if (config.canvasSize) this.setSize(config.canvasSize);
+        if (config.opacity) this.setOpacity(config.opacity);
+        if (config.retinaLayers) this.setLayers(config.retinaLayers);
+        if (config.retinaResolution) this.setRetinaResolution(config.retinaResolution);
+        if (config.crosshair) this.setCrosshairSize(config.crosshair);
+        if (config.retinaStereoEyeOffset) this.setRetinaEyeOffset(config.retinaStereoEyeOffset);
+        if (config.sectionStereoEyeOffset) this.setSectionEyeOffset(config.sectionStereoEyeOffset);
+        if (config.screenBackgroundColor) {
+            this.tempDisplayConfig.screenBackgroundColor = config.screenBackgroundColor;
+            this.displayConfigChanged = true;
+        }
+    }
 }
 
 export class RetinaCtrlGui {
     controller: RetinaController;
     dom: HTMLDivElement;
     iconSize = 32;
+    lang?: "zh" | "en";
     refresh: (param: any) => void;
     createToggleDiv(CtrlBtn: HTMLButtonElement, display: string = "") {
         const div = document.createElement("div");
@@ -1653,7 +1670,7 @@ export class RetinaCtrlGui {
                     },
                 }
                 let params = new URLSearchParams(window.location.search.slice(1));
-                let tr = BtnHint[params.get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en")];
+                let tr = BtnHint[this.lang ?? params.get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en")];
 
                 const keyName = (cfg: string, config?: any) => `\n(${retinaCtrl.keyConfig.enable ? retinaCtrl.keyConfig.enable.replace("Key", "").replace("Left", tr["left"]).replace("Right", tr["right"]).replace("Digit", tr["digit"]) + " + " : ""
                     }${(config ?? retinaCtrl.keyConfig)[cfg].replace(/(Key)|(Left)|(Right)|(\.)/g, "").replace("Digit", tr["digit"])})`;

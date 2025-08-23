@@ -1,0 +1,15 @@
+{
+  "name": "tesserxelPlayground",
+  "version": "0.3.0",
+  "scripts": {
+    "build": "npx rollup -c"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@iizukak/codemirror-lang-wgsl": "0.3.x",
+    "@codemirror/lang-javascript": "6.x",
+    "@codemirror/lang-html": "6.x",
+    "@codemirror/theme-one-dark": "6.x",
+    "@rollup/plugin-node-resolve": "15.x"
+  }
+}

@@ -4,12 +4,8 @@ import { Vec4 } from '../math/algebra/vec4.js';
 import '../mesh/face/geom.js';
 import { tesseract, cube, glome, spheritorus, torisphere, spherinderSide, tiger, ditorus, duocylinder, convexhull, cwmesh } from '../mesh/tetra/geom.js';
 import '../math/algebra/vec2.js';
-import '../math/algebra/quaternion.js';
-import '../math/algebra/bivec.js';
-import '../math/algebra/mat2.js';
 import '../math/algebra/mat3.js';
-import '../math/algebra/mat4.js';
-import '../math/algebra/rotor.js';
+import '../math/algebra/mat2.js';
 import '../math/algebra/cplx.js';
 import { Geometry } from './scene.js';
 

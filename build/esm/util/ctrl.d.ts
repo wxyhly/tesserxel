@@ -1,6 +1,6 @@
-/// <reference types="@webgpu/types" />
 import { Obj4 } from "../math/algebra/affine.js";
-import { SectionConfig, SliceRenderer } from "../render/slice/slice.js";
+import { Vec4 } from "../math/algebra/vec4.js";
+import { SectionConfig, DisplayConfig, SliceRenderer } from "../render/slice/slice.js";
 export interface IController {
     enabled?: boolean;
     update(state: ControllerState): void;
@@ -68,6 +68,7 @@ export declare class ControllerRegistry {
     update(): void;
 }
 export declare class TrackBallController implements IController {
+    center: Vec4;
     enabled: boolean;
     object: Obj4;
     mouseSpeed: number;
@@ -328,7 +329,7 @@ export declare class RetinaController implements IController {
     maxRetinaResolution: number;
     private retinaRenderPasses;
     private defaultRetinaRenderPass;
-    private gui;
+    gui: RetinaCtrlGui;
     toggleRetinaAlpha(idx: number): void;
     getSubLayersNumber(updateCount?: number): number;
     getAddLayersNumber(updateCount?: number): number;
@@ -347,11 +348,13 @@ export declare class RetinaController implements IController {
     setRetinaFov(fov: number): void;
     toggleSectionConfig(index: string): void;
     setSize(size: GPUExtent3DStrict): void;
+    setDisplayConfig(config: DisplayConfig): void;
 }
 export declare class RetinaCtrlGui {
     controller: RetinaController;
     dom: HTMLDivElement;
     iconSize: number;
+    lang?: "zh" | "en";
     refresh: (param: any) => void;
     createToggleDiv(CtrlBtn: HTMLButtonElement, display?: string): HTMLDivElement;
     createDropBox(CtrlBtn: HTMLButtonElement, offset: number, width?: number): HTMLDivElement;

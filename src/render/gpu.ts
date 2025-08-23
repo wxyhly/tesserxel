@@ -26,15 +26,15 @@ export class GPU {
         });
         return this;
     }
-    createBuffer(usage: number, buffer_or_size: (ArrayLike<number> & ArrayBuffer) | number, label?: string) {
+    createBuffer(usage: number, buffer_or_size: (ArrayLike<number> & ArrayBufferView) | number, label?: string) {
         let gpuBuffer = this.device.createBuffer({
-            size: (buffer_or_size as ArrayLike<number> & ArrayBuffer)?.byteLength ?? (buffer_or_size as number),
+            size: (buffer_or_size as ArrayLike<number> & ArrayBufferView)?.byteLength ?? (buffer_or_size as number),
             usage, label,
             mappedAtCreation: typeof buffer_or_size != "number"
         });
         if (typeof buffer_or_size != "number") {
             let jsBuffer = new (buffer_or_size.constructor as ArrayBufferConstructor)(gpuBuffer.getMappedRange());
-            (jsBuffer as Float32Array).set(buffer_or_size);
+            (jsBuffer as any as Float32Array).set(buffer_or_size);
             gpuBuffer.unmap();
         }
         return gpuBuffer;

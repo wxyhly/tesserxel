@@ -103,7 +103,7 @@ function _updateWorldLight(r) {
     for (let dir of r.directionalLights) {
         dir.density.writeBuffer(r.jsBuffer, offset);
         offset += 4;
-        r.jsBuffer[offset - 1] = -1.0; // marker for directional light ( < -0.5 in shader )
+        r.jsBuffer[offset - 1] = -1; // marker for directional light ( < -0.5 in shader )
         dir.worldDirection.writeBuffer(r.jsBuffer, offset);
         offset += 4;
     }

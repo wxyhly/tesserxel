@@ -1,10 +1,9 @@
-/// <reference types="@webgpu/types" />
 export declare class GPU {
     adapter: GPUAdapter;
     device: GPUDevice;
     preferredFormat: GPUTextureFormat;
     init(): Promise<GPU | null>;
-    createBuffer(usage: number, buffer_or_size: (ArrayLike<number> & ArrayBuffer) | number, label?: string): GPUBuffer;
+    createBuffer(usage: number, buffer_or_size: (ArrayLike<number> & ArrayBufferView) | number, label?: string): GPUBuffer;
     createBindGroup(pipeline: GPUPipelineBase, index: number, entries: Array<GPUBindingResource>, label?: string): GPUBindGroup;
     getContext(dom: HTMLCanvasElement, config?: GPUContextConfig): GPUCanvasContext;
 }

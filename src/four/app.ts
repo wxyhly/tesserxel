@@ -18,6 +18,8 @@ export class App {
     enableAutoResize() {
         if (this._autoResize) return;
         this._autoResize = true;
+        this.canvas.style.width = "100%";
+        this.canvas.style.height = "100%";
         this._resizeHandler = () => {
             const width = window.innerWidth * window.devicePixelRatio;
             const height = window.innerHeight * window.devicePixelRatio;

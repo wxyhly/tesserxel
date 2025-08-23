@@ -142,7 +142,7 @@ class TetraSlicePipeline {
                     let attributes = [];
                     for (let i = 0; i < typeArrLength; i++) {
                         attributes.push({
-                            shaderLocation: id,
+                            shaderLocation: id, // here we keep same id, we'll deal this later
                             format: 'float32x4',
                             offset: i << 4
                         });

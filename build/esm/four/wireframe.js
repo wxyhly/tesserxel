@@ -2,7 +2,8 @@ import { Vec4 } from '../math/algebra/vec4.js';
 import { Obj4 } from '../math/algebra/affine.js';
 import { PerspectiveCamera } from './scene.js';
 import { AABB, Plane } from '../math/geometry/primitive.js';
-import { Vec3 } from '../math/algebra/vec3.js';
+import '../math/algebra/vec2.js';
+import '../math/algebra/mat3.js';
 
 const WireFrameTesseractoid_SubCells = [
     [0, 2], [0, 3], [0, 4], [0, 5], [0, 6], [0, 7],
@@ -114,8 +115,6 @@ class WireFrameConvexPolytope extends Obj4 {
     }
 }
 const _vec4 = new Vec4;
-new Vec3;
-new Vec4;
 class WireFrameScene {
     occluders = [];
     objects = [];
@@ -346,7 +345,7 @@ class WireFrameScene {
                 offset += 8;
             }
         }
-        gpu.device.queue.writeBuffer(this.gpuBuffer, 0, this.jsBuffer, 0, offset);
+        gpu.device.queue.writeBuffer(this.gpuBuffer, 0, this.jsBuffer.buffer, 0, offset);
         rs.render(this.gpuBuffer, offset >> 2);
     }
 }

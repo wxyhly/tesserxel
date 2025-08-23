@@ -334,7 +334,7 @@ export class WireFrameScene {
                 offset += 8;
             }
         }
-        gpu.device.queue.writeBuffer(this.gpuBuffer, 0, this.jsBuffer, 0, offset);
+        gpu.device.queue.writeBuffer(this.gpuBuffer, 0, this.jsBuffer.buffer, 0, offset);
         rs.render(this.gpuBuffer, offset >> 2);
     }
 }

@@ -63,9 +63,9 @@ export class PerspectiveCamera extends Object implements IPerspectiveCamera {
 }
 
 export class OrthographicCamera extends Object implements IOrthographicCamera {
-    size: number;
-    near: number;
-    far: number;
+    size: number = 2;
+    near: number = -10;
+    far: number = 10;
     alwaysUpdateCoord = true;
     needsUpdate = true;
 }
@@ -172,7 +172,7 @@ export abstract class SkyBox {
     }
     update(r: Renderer) {
         this.needsUpdate = false;
-        r.gpu.device.queue.writeBuffer(this.uBuffer, 0, this.jsBuffer);
+        r.gpu.device.queue.writeBuffer(this.uBuffer, 0, this.jsBuffer.buffer);
     }
 }
 export class SimpleSkyBox extends SkyBox {

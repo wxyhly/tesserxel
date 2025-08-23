@@ -1,4 +1,3 @@
-/// <reference types="@webgpu/types" />
 import { Vec4 } from "../math/algebra/vec4.js";
 import { Obj4 } from "../math/algebra/affine.js";
 import { PerspectiveCamera } from "./scene.js";

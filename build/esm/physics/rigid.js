@@ -4,14 +4,12 @@ import { Matrix } from '../math/algebra/matrix.js';
 import { Vec4, vec4Pool } from '../math/algebra/vec4.js';
 import { AABB } from '../math/geometry/primitive.js';
 import '../math/algebra/vec2.js';
-import '../math/algebra/vec3.js';
 import { Quaternion } from '../math/algebra/quaternion.js';
 import '../math/algebra/mat2.js';
 import '../math/algebra/mat3.js';
-import '../math/algebra/mat4.js';
 import { Rotor } from '../math/algebra/rotor.js';
 import '../math/algebra/cplx.js';
-import { mulBivec, Material } from './engine.js';
+import { Material, mulBivec } from './engine.js';
 
 /** all properities hold by class Rigid should not be modified
  *  exceptions are position/rotation and (angular)velocity.

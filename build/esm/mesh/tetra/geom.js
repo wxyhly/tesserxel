@@ -4,7 +4,7 @@ import { Mat4 } from '../../math/algebra/mat4.js';
 import { Rotor } from '../../math/algebra/rotor.js';
 import { Vec3 } from '../../math/algebra/vec3.js';
 import { Vec4 } from '../../math/algebra/vec4.js';
-import { _90, _180, _360 } from '../../math/const.js';
+import { _360, _90, _180 } from '../../math/const.js';
 import { polygon, circle, findBorder } from '../face/geom.js';
 import { TetraMesh, concat } from './tetramesh.js';
 

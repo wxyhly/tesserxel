@@ -1,12 +1,9 @@
 import { Vec4 } from '../../math/algebra/vec4.js';
 import { _360 } from '../../math/const.js';
 import '../../math/algebra/vec2.js';
-import '../../math/algebra/vec3.js';
-import '../../math/algebra/quaternion.js';
+import '../../math/algebra/mat3.js';
 import { Bivec } from '../../math/algebra/bivec.js';
 import '../../math/algebra/mat2.js';
-import '../../math/algebra/mat3.js';
-import '../../math/algebra/mat4.js';
 import { Rotor } from '../../math/algebra/rotor.js';
 import '../../math/algebra/cplx.js';
 import { path } from './geoms.js';

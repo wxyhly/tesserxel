@@ -184,6 +184,8 @@ let examples = [
     {
         group: "dev", zh: "开发示例", en: "Coding Examples",
         child: [
+            { target: "shadertoy::voxel", zh: "Shadertoy体素编辑器", en: "Shadertoy: Voxel" },
+            { target: "shadertoy::cam", zh: "Shadertoy光追编辑器", en: "Shadertoy: Raytracing" },
             {
                 group: "dev", zh: "你好四面体", en: "Hello Tetrahedron",
                 child: [
@@ -195,8 +197,6 @@ let examples = [
             { target: "four_basic_scene", zh: "创建简单Four场景", en: "Basic Four Scene Creation" },
             { target: "four_materials", zh: "Four材质与灯光", en: "Four Materials & Lights" },
             { target: "voxeltest::rasterizer", zh: "四面体素软光栅化器演示", en: "Tetrahedra Voxel Rasterizer Demo" },
-            { target: "shadertoy::voxel", zh: "Shadertoy体素编辑器", en: "Shadertoy: Voxel" },
-            { target: "shadertoy::cam", zh: "Shadertoy光追编辑器", en: "Shadertoy: Raytracing" },
         ]
     },
 ];
@@ -279,8 +279,8 @@ let info = {
         "en": `Rendering a redish double rotating hypercube by library "Four". Analogue to ThreeJs and WebGl for 3D rendering, tessexel's sub-library "Four" helps you hide low-level render implementations in order to build 4D scene fastly. detail can be found in source file FourBasicScene.ts.`
     },
     "four_materials": {
-        "zh": "<b>控制：保持竖直模式</b><br>四维常见材质灯光展示。注意四维空间中的点光源随距离呈三次方衰减，因此会出现即使光源周围很亮但稍远处就很黑的现象。子库Four中，物体材质使用节点递归定义，以便程序化生成贴图，解决常规3D贴图内存占用大的问题。",
-        "en": "<b>Control: Keep up mode</b><br>Common materials and lightings in 4D. Note that point lights in 4D decays with the inverse cubic law. This could cause bright around the light source, but get dark rapidly in a distance. In the sub-library Four, the object material is defined recursively using nodes to generate textures procedurally and solve the problem of large memory usage of conventional 3D textures."
+        "zh": "<b>控制：保持竖直模式</b><br>四维常见材质灯光展示。注意四维空间中的点光源随距离呈三次方衰减，因此会出现即使光源周围很亮但稍远处就很黑的现象。子模块Four中，物体材质使用节点递归定义，以便程序化生成贴图，解决常规3D贴图内存占用大的问题。",
+        "en": "<b>Control: Keep up mode</b><br>Common materials and lightings in 4D. Note that point lights in 4D decays with the inverse cubic law. This could cause bright around the light source, but get dark rapidly in a distance. In the sub-module Four, the object material is defined recursively using nodes to generate textures procedurally and solve the problem of large memory usage of conventional 3D textures."
     },
     "hellotetra::hello_tetra1": {
         "zh": "除非采用光线跟踪，Tesserxel绘制的最小单元就是四面体。这是绘制一个四面体的最简单代码示例。",
@@ -446,6 +446,15 @@ let info = {
     "vsepr::hyperdiamond": {
         "zh": "<b>控制：轨迹球模式</b><br>四维超金刚石晶体模型。突出显示了中间的超金刚烷骨架单元结构。",
         "en": "<b>Control: Trackball mode</b><br>4D hyperdiamond crystal model. Highlighted the middle hyperadamantane skeleton unit structure."
+    },
+    "shadertoy::voxel":{
+        "zh": "仿照Shadertoys网站的WGSL体素着色器在线编辑器。每次打开会随机刷新一个示例，也可在右上角选择示例。",
+        "en": "An online editor for WGSL voxel shaders, inspired by the Shadertoys website. Each time you open it, a random example will be refreshed, and you can also select examples in the upper right corner."
+    },
+    
+    "shadertoy::cam":{
+        "zh": "仿照Shadertoys网站的WGSL光追着色器在线编辑器，与体素编辑器区别在于可自动计算摄像机的位置与视线。每次打开会随机刷新一个示例，也可在右上角选择示例。",
+        "en": "An online editor for WGSL raytracing shaders, inspired by the Shadertoys website. Unlike the voxel editor, it can automatically calculate the camera position and line of sight. Each time you open it, a random example will be refreshed, and you can also select examples in the upper right corner."
     }
 
 };

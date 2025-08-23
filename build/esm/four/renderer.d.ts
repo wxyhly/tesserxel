@@ -1,4 +1,3 @@
-/// <reference types="@webgpu/types" />
 import { SliceRenderer, TetraSlicePipeline } from "../render/slice/slice.js";
 import { GPU } from "../render/gpu.js";
 import { DirectionalLight, PointLight, SpotLight } from "./light.js";
@@ -17,7 +16,7 @@ export declare class Renderer {
     pipelines: {
         [label: string]: TetraSlicePipeline | "compiling";
     };
-    jsBuffer: Float32Array;
+    jsBuffer: Float32Array<ArrayBuffer>;
     uCamMatBuffer: GPUBuffer;
     uWorldLightBuffer: GPUBuffer;
     lightShaderInfomation: {

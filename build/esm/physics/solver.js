@@ -1,5 +1,5 @@
-import { Bivec, bivecPool } from '../math/algebra/bivec.js';
-import { Mat4, mat4Pool } from '../math/algebra/mat4.js';
+import { bivecPool, Bivec } from '../math/algebra/bivec.js';
+import { mat4Pool, Mat4 } from '../math/algebra/mat4.js';
 import { rotorPool } from '../math/algebra/rotor.js';
 import { Vec4, vec4Pool } from '../math/algebra/vec4.js';
 import { _DEG2RAD } from '../math/const.js';
