@@ -47,7 +47,7 @@ you can also write your own shader from scratch without submodule four.
 ```
 - Option 2: import js file `/build/esm/tesserxel.js` in esm format.
 - Option 3: Use npm to install tesserxel. 
-You can also download typescript declaration file `/build/tesserxel.d.ts` to use typescript features. 
+You can also use typescript features from typescript declaration files in `/build/esm/` folder. 
 
 See more in [Documentation](/tesserxel/docs/) (TODO).
 
