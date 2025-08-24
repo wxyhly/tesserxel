@@ -1,2 +1,2 @@
-export * from "./tetra/tetramesh"
-export * from "./tetra/geom"
+export * from "./tetra/tetramesh.js"
+export * from "./tetra/geom.js"

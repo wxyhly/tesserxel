@@ -1,3 +1,3 @@
-export * from "./interfaces"
-export { SliceRenderer } from "./renderer"
-export { TetraSlicePipeline, RaytracingPipeline } from "./pipeline"
+export * from "./interfaces.js"
+export { SliceRenderer } from "./renderer.js"
+export { TetraSlicePipeline, RaytracingPipeline } from "./pipeline.js"

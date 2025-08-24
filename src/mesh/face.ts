@@ -1,2 +1,2 @@
-export * from "./face/facemesh"
-export * from "./face/geom"
+export * from "./face/facemesh.js"
+export * from "./face/geom.js"

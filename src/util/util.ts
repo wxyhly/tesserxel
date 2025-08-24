@@ -1,1 +1,1 @@
-export * as ctrl from "./ctrl"
+export * as ctrl from "./ctrl.js"
