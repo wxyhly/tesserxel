@@ -77,10 +77,8 @@ function applyTranslations() {
 
 applyTranslations();
 
-const defaultHTML = `<!-- 在此编写 HTML -->\n<div id="app">\n  <h1>Hello, CodeMirror! 🎉</h1>\n  <p>这是一个 <strong>HTML + JS</strong> 在线实验场。</p>\n  <button id="btn">点我计数</button>\n  <p>计数：<span id="count">0</span></p>\n</div>`;
-
-const defaultJS = `// 在此编写 JavaScript\nconst btn = document.getElementById('btn');\nconst out = document.getElementById('count');\nlet n = 0;\nbtn.addEventListener('click', () => {\n  n++;\n  out.textContent = String(n);\n  console.log('点击次数', n);\n});\n\nconsole.log('JS 已加载');\n`;
-
+const defaultHTML = (examples as any)[0].children[2].example.html[lang];
+const defaultJS = (examples as any)[0].children[2].example.js[lang];
 // const loadedExamples
 
 const htmlEditor = new EditorView({
@@ -270,7 +268,6 @@ function updateSwitchButtons(activeId: string) {
         });
 }
 
-// 改造 maximize-btn 的点击逻辑
 document.querySelectorAll('.maximize-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         const cardId = btn.getAttribute('data-card');
