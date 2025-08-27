@@ -7,12 +7,9 @@
         "target": "ES2022",
         "sourceMap": true,
         "outDir": "js",
-        "baseUrl": ".", 
-        "paths": {
-            "wgsl_reflect": [
-                "../node_modules/wgsl_reflect/wgsl_reflect.module.js"
-            ]
-        },
+        "baseUrl": ".",
+        "module": "EsNext",
+        "moduleResolution": "Bundler",
         "types": [
             "@webgpu/types"
         ]

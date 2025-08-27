@@ -48,8 +48,10 @@
     "wgsl_reflect": "^1.2.3"
   },
   "devDependencies": {
+    "@rollup/plugin-alias": "^5.1.1",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "rollup": "^4.47.1",
+    "rollup-plugin-copy": "^3.5.0",
     "rollup-plugin-dts": "^6.2.3",
     "rollup-plugin-multi-input": "^1.5.0",
     "rollup-plugin-typescript2": "^0.36.0",

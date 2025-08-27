@@ -1,4 +1,4 @@
-export { ResourceType, TypeInfo, WgslReflect } from '../node_modules/wgsl_reflect/wgsl_reflect.module.js';
+export { ResourceType, TypeInfo, WgslReflect } from '../vendor/wgsl_reflect.module.js';
 
 function parseTypeName(type) {
     return type.name + (type.format ? `<${parseTypeName(type.format)}${type.count ? "," + type.count : ""}>` : "");

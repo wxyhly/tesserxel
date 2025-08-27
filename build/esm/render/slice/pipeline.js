@@ -1,5 +1,5 @@
 import { getFnInputAndOutput, parseAttr, parseTypeName } from '../wgsl.js';
-import { WgslReflect as _t, ResourceType as i } from '../../node_modules/wgsl_reflect/wgsl_reflect.module.js';
+import { WgslReflect as _t, ResourceType as i } from '../../vendor/wgsl_reflect.module.js';
 
 const tetraSliceBindGroup0declareIndex = 3;
 const refacingMatsCode = `

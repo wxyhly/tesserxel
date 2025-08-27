@@ -9,6 +9,7 @@ import { Vec4 } from '../math/algebra/vec4.js';
 import { _SQRT_3, _90, _DEG2RAD, _360 } from '../math/const.js';
 import { RetinaSliceFacing, EyeStereo } from '../render/slice/interfaces.js';
 import '../render/slice/renderer.js';
+import '../vendor/wgsl_reflect.module.js';
 
 var KeyState;
 (function (KeyState) {
