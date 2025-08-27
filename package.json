@@ -1,6 +1,6 @@
 {
   "name": "tesserxel",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "WebGPU based library for interacting with 4D Objects",
   "keywords": [
     "webgpu",
