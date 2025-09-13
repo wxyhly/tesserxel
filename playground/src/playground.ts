@@ -6,6 +6,7 @@ import { indentUnit } from "@codemirror/language";
 import { html } from '@codemirror/lang-html';
 import { oneDark } from '@codemirror/theme-one-dark';
 import examples from './exampleList';
+import { hello201 } from './hello20';
 const LS_HTML = 'cm-playground-html';
 const LS_JS = 'cm-playground-js';
 const params = new URLSearchParams(window.location.search);
@@ -76,9 +77,9 @@ function applyTranslations() {
 }
 
 applyTranslations();
-
-const defaultHTML = (examples as any)[0].children[2].example.html[lang];
-const defaultJS = (examples as any)[0].children[2].example.js[lang];
+const defaultExample = hello201;
+const defaultHTML = defaultExample.html[lang];
+const defaultJS = defaultExample.js[lang];
 // const loadedExamples
 
 const htmlEditor = new EditorView({
@@ -157,6 +158,50 @@ function run() {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${t.previewTitle}</title>
 <style>body{font:14px ui-sans-serif,system-ui; padding:12px}</style>
+<script>
+(function () {
+  const _raf = window.requestAnimationFrame;
+  const _caf = window.cancelAnimationFrame;
+
+  let paused = false;
+  let pending = new Map(); // 存储暂停时的回调
+  let idCounter = 1;
+
+  window.requestAnimationFrame = function (callback) {
+    if (paused) {
+      // 自己生成一个假的 id
+      const fakeId = idCounter++;
+      pending.set(fakeId, callback);
+      return fakeId;
+    } else {
+      return _raf(callback);
+    }
+  };
+
+  window.cancelAnimationFrame = function (id) {
+    if (paused && pending.has(id)) {
+      pending.delete(id);
+    } else {
+      _caf(id);
+    }
+  };
+
+  // 提供控制方法
+  window.pauseRAF = function () {
+    paused = true;
+  };
+
+  window.resumeRAF = function () {
+    if (!paused) return;
+    paused = false;
+    // 把积压的回调重新投递给真正的 RAF
+    for (const [id, cb] of pending) {
+      _raf(cb);
+    }
+    pending.clear();
+  };
+})();
+</script>
 </head>
 <body>
 ${htmlCode}
@@ -236,6 +281,7 @@ function maximizePanel(cardId: string) {
 
     const card = document.getElementById(cardId);
     card.classList.add('maximized');
+    iframe.contentWindow[cardId !== "card-preview" ? "pauseRAF" : "resumeRAF"]();
     currentMaximized = cardId;
 
     updateSwitchButtons(cardId);
@@ -245,7 +291,7 @@ function restorePanels() {
     grid.classList.remove('maximized');
     grid.querySelectorAll('.card').forEach(c => c.classList.remove('maximized'));
     currentMaximized = null;
-
+    iframe.contentWindow["resumeRAF"]();
     // 清空所有 switch-buttons
     document.querySelectorAll('.switch-buttons').forEach(el => (el.innerHTML = ""));
 }
@@ -281,7 +327,7 @@ document.querySelectorAll('.maximize-btn').forEach(btn => {
 });
 
 
-function renderMenu(container: HTMLElement, items: any[], lang: "zh" | "en") {
+function renderMenu(container: HTMLElement, items: typeof examples, lang: "zh" | "en") {
     items.forEach((item) => {
         if (item.type === "submenu") {
             const details = document.createElement("details");
@@ -301,11 +347,11 @@ function renderMenu(container: HTMLElement, items: any[], lang: "zh" | "en") {
             const btn = document.createElement("button");
             btn.className = "item";
             btn.textContent = item.label[lang];
-            btn.dataset.example = item.example;
-            btn.addEventListener("click", () => {
+            btn.addEventListener("click", async () => {
                 console.log(t["loadExample"] + `: ${item.label[lang]}`);
-                htmlEditor.dispatch({ changes: { from: 0, to: htmlEditor.state.doc.length, insert: item.example.html[lang] } });
-                jsEditor.dispatch({ changes: { from: 0, to: jsEditor.state.doc.length, insert: item.example.js[lang] } });
+                const e = await item.example();
+                htmlEditor.dispatch({ changes: { from: 0, to: htmlEditor.state.doc.length, insert: e.html[lang] } });
+                jsEditor.dispatch({ changes: { from: 0, to: jsEditor.state.doc.length, insert: e.js[lang] } });
                 if (autorun.checked) scheduleRun();
             });
             li.appendChild(btn);

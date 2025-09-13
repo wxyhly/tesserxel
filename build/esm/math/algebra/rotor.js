@@ -17,6 +17,10 @@ class Rotor {
         this.l = l;
         this.r = r;
     }
+    set() {
+        this.l.set();
+        this.r.set();
+    }
     clone() {
         return new Rotor(this.l.clone(), this.r.clone());
     }
@@ -114,7 +118,15 @@ class Rotor {
         return new Bivec(a.x + b.x, a.y + b.y, a.z + b.z, a.z - b.z, b.y - a.y, a.x - b.x);
     }
     static slerp(a, b, t) {
-        return new Rotor(Quaternion.slerp(a.l, b.l, t), Quaternion.slerp(a.r, b.r, t));
+        let l = a.l.x * b.l.x + a.l.y * b.l.y + a.l.z * b.l.z + a.l.w * b.l.w;
+        let r = a.r.x * b.r.x + a.r.y * b.r.y + a.r.z * b.r.z + a.r.w * b.r.w;
+        if ((l < 0 && r < 0) || (l < 0 && -l > r) || (r < 0 && -r > l)) {
+            const r = new Rotor(Quaternion.slerp(a.l, b.l.negs(), t, true), Quaternion.slerp(a.r, b.r.negs(), t, true));
+            b.l.negs();
+            b.r.negs();
+            return r;
+        }
+        return new Rotor(Quaternion.slerp(a.l, b.l, t, true), Quaternion.slerp(a.r, b.r, t, true));
     }
     toMat4() {
         return this.l.toLMat4().mulsr(_mat4.setFromQuaternionR(this.r));
@@ -182,6 +194,9 @@ class Rotor {
             return this.expset(v.norms().mulfs(_180));
         }
         return this.expset(right);
+    }
+    distanceSqrTo(r) {
+        return this.l.distanceSqrTo(r.l) + this.r.distanceSqrTo(r.r);
     }
     static rand() {
         return new Rotor(Quaternion.rand(), Quaternion.rand());

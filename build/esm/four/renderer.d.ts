@@ -32,7 +32,7 @@ export declare class Renderer {
     private maxTetraNumInOnePass;
     private context;
     constructor(canvas: HTMLCanvasElement, config?: RendererConfig);
-    setBackgroudColor(color: GPUColor): void;
+    setBackgroundColor(color: GPUColor): void;
     init(): Promise<this>;
     fetchPipelineName(identifier: string): string;
     fetchPipeline(identifier: string): TetraSlicePipeline | "compiling";

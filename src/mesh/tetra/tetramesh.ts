@@ -199,6 +199,13 @@ export class TetraMesh implements TetraMeshData {
         }
         return this;
     }
+    getVertices() {
+        const res = [];
+        for (let i = 0; i < this.position.length; i += 4) {
+            res.push(new Vec4(this.position[i], this.position[i + 1], this.position[i + 2], this.position[i + 3]));
+        }
+        return res;
+    }
 }
 export class TetraIndexMesh implements TetraIndexMeshData {
     position: Float32Array;
@@ -224,6 +231,13 @@ export class TetraIndexMesh implements TetraIndexMeshData {
     applyObj4(obj4: Obj4) {
         applyObj4(this, obj4);
         return this;
+    }
+    getVertices() {
+        const res = [];
+        for (let i = 0; i < this.position.length; i += 4) {
+            res.push(new Vec4(this.position[i], this.position[i + 1], this.position[i + 2], this.position[i + 3]));
+        }
+        return res;
     }
     toNonIndexMesh() {
         let count = this.position.length << 2;

@@ -12,8 +12,8 @@ export class Mat4Pool extends Pool<Mat4>{
 export const mat4Pool = new Mat4Pool;
 export class Mat4 {
     elem: number[];
-    static readonly id = new Mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
-    static readonly zero = new Mat4(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    static readonly id = Object.freeze(new Mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1));
+    static readonly zero = Object.freeze(new Mat4(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
     static diag(a: number, b: number, c: number, d: number): Mat4 {
         return new Mat4(
             a, 0, 0, 0,

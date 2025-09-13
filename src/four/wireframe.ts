@@ -29,8 +29,12 @@ export class WireFrameTesseractoid extends Obj4 implements WireFrameObject, Wire
     obb: AABB;
     visible = true;
     transparent = false;
-    constructor(size: Vec4) {
-        super(); let x = size.x, y = size.y, z = size.z, w = size.w;
+    constructor(size: Vec4 | number) {
+        super();
+        if (typeof size === "number") {
+            size = new Vec4(size, size, size, size);
+        }
+        let x = size.x, y = size.y, z = size.z, w = size.w;
         this.obb = new AABB(size.neg(), size);
         this.lines = [
             [new Vec4(x, y, z, w), new Vec4(x, y, z, -w)],

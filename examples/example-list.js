@@ -143,10 +143,11 @@ let examples = [
             // { target: "automobile", zh: "汽车", en: " Automobile" },
             { target: "drone", zh: "无人机", en: "Drone" },
             { target: "aircraft", zh: "客机", en: "Aircraft" },
-            { target: "rigids::thermo_stats", zh: "旋转分布律（试验）", en: "Thermotic Rotation Distribution (Experimental)" },
-            { target: "forces::spring_rope", zh: "弹簧绳", en: "Rope with Springs" },
+            { target: "bowling", zh: "保龄球", en: "Bowling" },
             { target: "rigids::dice_yugu233", zh: "四维骰子", en: "4D Dice" },
             { target: "rigids::rigid_test", zh: "刚体测试", en: "Rigid Body Test" },
+            { target: "rigids::thermo_stats", zh: "旋转分布律（试验）", en: "Thermotic Rotation Distribution (Experimental)" },
+            { target: "forces::spring_rope", zh: "弹簧绳", en: "Rope with Springs" },
             { target: "rigids::st_pile", zh: "球环堆", en: "Spheritorus Pile" },
             { target: "pde::wave_eq", zh: "三维波动方程", en: "Wave Equation" },
             { target: "pde::river_evolution", zh: "河流演化", en: "River Evolution" },
@@ -275,8 +276,8 @@ let info = {
         "en": "<b>Control: Trackball mode</b><br>Demo of 4D rubic's cube of order 3. Each cell of the 4D tesseract is a cube. In 3d, a square can only be rotated around the face center. Unlike 3d, the rotational symmetry of 4d cubic cell is much richer. It can be rotated 90°, 120° and 180° around the axes through face blocks, corner blocks and edge blocks. Use keyboard H to toggle hollow mode.",
     },
     "four_basic_scene": {
-        "zh": "使用FOUR绘制一个红色双旋转超立方体。类似于3D渲染中的ThreeJs库与WebGl，tesserxel中的子库Four能够帮您隐藏底层渲染逻辑，快速构建四维场景。详见源码FourBasicScene.ts。",
-        "en": `Rendering a redish double rotating hypercube by library "Four". Analogue to ThreeJs and WebGl for 3D rendering, tessexel's sub-library "Four" helps you hide low-level render implementations in order to build 4D scene fastly. detail can be found in source file FourBasicScene.ts.`
+        "zh": "使用FOUR绘制一个红色双旋转超立方体。类似于3D渲染中的ThreeJs库与WebGl，tesserxel中的子库Four能够帮您隐藏底层渲染逻辑，快速构建四维场景。源码详见<a href='../playground/?lang=zh' target='_blank'>代码沙盒</a>中的你好超立方体示例场景。",
+        "en": `Rendering a redish double rotating hypercube by library "Four". Analogue to ThreeJs and WebGl for 3D rendering, tessexel's sub-library "Four" helps you hide low-level render implementations in order to build 4D scene fastly. detail code can be found in <a href='../playground/?lang=en' target='_blank'>Tesserxel Playground</a>.`
     },
     "four_materials": {
         "zh": "<b>控制：保持竖直模式</b><br>四维常见材质灯光展示。注意四维空间中的点光源随距离呈三次方衰减，因此会出现即使光源周围很亮但稍远处就很黑的现象。子模块Four中，物体材质使用节点递归定义，以便程序化生成贴图，解决常规3D贴图内存占用大的问题。",

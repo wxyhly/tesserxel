@@ -36,7 +36,7 @@ export var aircraft;
         const canvas = document.getElementById("gpu-canvas");
         const app = await FOUR.App.create({ canvas, controllerConfig: { preventDefault: true } });
         app.renderer.core.setDisplayConfig({ opacity: 12 });
-        app.renderer.setBackgroudColor([0, 0, 0, 0.2]);
+        app.renderer.setBackgroundColor([0, 0, 0, 0.2]);
         const scene = app.scene;
         const gnd = new FOUR.CubeGeometry(20000);
         scene.add(new FOUR.Mesh(gnd, new FOUR.LambertMaterial(new FOUR.CheckerTexture(new FOUR.CheckerTexture(new FOUR.CheckerTexture([1, 1, 1, 0.1], [0.9, 0.8, 0.8, 0.1], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new Obj4(null, null, new Vec4(1000, 1000, 1000, 1000)))), [0.5, 0.3, 0.3, 0.1], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new Obj4(null, null, new Vec4(100, 100, 100, 100)))), new FOUR.CheckerTexture(new FOUR.CheckerTexture([1, 1, 0.6, 0.1], [0.9, 0.8, 0.4, 0.1], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new Obj4(null, null, new Vec4(1000, 1000, 1000, 1000)))), [0.3, 0.7, 0.7, 0.1], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new Obj4(null, null, new Vec4(100, 100, 100, 100)))), new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new Obj4(null, null, new Vec4(10, 10, 10, 10)))))));

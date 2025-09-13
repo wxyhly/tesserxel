@@ -2,8 +2,7 @@ import { Vec4 } from '../math/algebra/vec4.js';
 import { Obj4 } from '../math/algebra/affine.js';
 import { PerspectiveCamera } from './scene.js';
 import { AABB, Plane } from '../math/geometry/primitive.js';
-import '../math/algebra/vec2.js';
-import '../math/algebra/mat3.js';
+import '../math/algebra/vec3.js';
 
 const WireFrameTesseractoid_SubCells = [
     [0, 2], [0, 3], [0, 4], [0, 5], [0, 6], [0, 7],
@@ -22,6 +21,9 @@ class WireFrameTesseractoid extends Obj4 {
     transparent = false;
     constructor(size) {
         super();
+        if (typeof size === "number") {
+            size = new Vec4(size, size, size, size);
+        }
         let x = size.x, y = size.y, z = size.z, w = size.w;
         this.obb = new AABB(size.neg(), size);
         this.lines = [

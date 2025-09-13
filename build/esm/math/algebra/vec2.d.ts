@@ -8,8 +8,8 @@ export declare const vec2Pool: Vec2Pool;
 export declare class Vec2 {
     x: number;
     y: number;
-    static readonly x: Vec2;
-    static readonly y: Vec2;
+    static readonly x: Readonly<Vec2>;
+    static readonly y: Readonly<Vec2>;
     constructor(x?: number, y?: number);
     flat(): number[];
     writeBuffer(b: Float32Array, offset?: number): void;

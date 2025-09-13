@@ -12,6 +12,7 @@ export declare class Rotor {
     l: Quaternion;
     r: Quaternion;
     constructor(l?: Quaternion, r?: Quaternion);
+    set(): void;
     clone(): Rotor;
     copy(r: Rotor): Rotor;
     conj(): Rotor;
@@ -60,6 +61,7 @@ export declare class Rotor {
     static lookAtvb(from: Vec4, to: Bivec): Rotor;
     /** "from" and "to" must be normalized vectors */
     setFromLookAt(from: Vec4, to: Vec4): Rotor;
+    distanceSqrTo(r: Rotor): number;
     static rand(): Rotor;
     static srand(seed: Srand): Rotor;
     randset(): Rotor;

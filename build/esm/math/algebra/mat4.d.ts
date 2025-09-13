@@ -10,8 +10,8 @@ export declare class Mat4Pool extends Pool<Mat4> {
 export declare const mat4Pool: Mat4Pool;
 export declare class Mat4 {
     elem: number[];
-    static readonly id: Mat4;
-    static readonly zero: Mat4;
+    static readonly id: Readonly<Mat4>;
+    static readonly zero: Readonly<Mat4>;
     static diag(a: number, b: number, c: number, d: number): Mat4;
     static augVec4(a: Vec4, b: Vec4, c: Vec4, d: Vec4): Mat4;
     static augMat3(a: Mat3, b: Vec3, c: Vec3, d: number): Mat4;

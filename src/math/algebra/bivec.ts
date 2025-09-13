@@ -12,18 +12,18 @@ export const bivecPool = new BivecPool;
 export class Bivec {
     xy: number; xz: number; xw: number;
     yz: number; yw: number; zw: number;
-    static readonly xy = new Bivec(1, 0, 0, 0, 0, 0);
-    static readonly xz = new Bivec(0, 1, 0, 0, 0, 0);
-    static readonly xw = new Bivec(0, 0, 1, 0, 0, 0);
-    static readonly yz = new Bivec(0, 0, 0, 1, 0, 0);
-    static readonly yw = new Bivec(0, 0, 0, 0, 1, 0);
-    static readonly zw = new Bivec(0, 0, 0, 0, 0, 1);
-    static readonly yx = new Bivec(-1, 0, 0, 0, 0, 0);
-    static readonly zx = new Bivec(0, -1, 0, 0, 0, 0);
-    static readonly wx = new Bivec(0, 0, -1, 0, 0, 0);
-    static readonly zy = new Bivec(0, 0, 0, -1, 0, 0);
-    static readonly wy = new Bivec(0, 0, 0, 0, -1, 0);
-    static readonly wz = new Bivec(0, 0, 0, 0, 0, -1);
+    static readonly xy = Object.freeze(new Bivec(1, 0, 0, 0, 0, 0));
+    static readonly xz = Object.freeze(new Bivec(0, 1, 0, 0, 0, 0));
+    static readonly xw = Object.freeze(new Bivec(0, 0, 1, 0, 0, 0));
+    static readonly yz = Object.freeze(new Bivec(0, 0, 0, 1, 0, 0));
+    static readonly yw = Object.freeze(new Bivec(0, 0, 0, 0, 1, 0));
+    static readonly zw = Object.freeze(new Bivec(0, 0, 0, 0, 0, 1));
+    static readonly yx = Object.freeze(new Bivec(-1, 0, 0, 0, 0, 0));
+    static readonly zx = Object.freeze(new Bivec(0, -1, 0, 0, 0, 0));
+    static readonly wx = Object.freeze(new Bivec(0, 0, -1, 0, 0, 0));
+    static readonly zy = Object.freeze(new Bivec(0, 0, 0, -1, 0, 0));
+    static readonly wy = Object.freeze(new Bivec(0, 0, 0, 0, -1, 0));
+    static readonly wz = Object.freeze(new Bivec(0, 0, 0, 0, 0, -1));
     isFinite(): boolean {
         return isFinite(this.xy) && isFinite(this.xz) && isFinite(this.xw) && isFinite(this.yz) && isFinite(this.yw) && isFinite(this.zw);
     }

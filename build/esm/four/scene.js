@@ -21,7 +21,7 @@ class Scene {
             console.warn("Cannot remove a non-existed child");
         }
     }
-    setBackgroudColor(color) {
+    setBackgroundColor(color) {
         this.backGroundColor = color;
     }
 }

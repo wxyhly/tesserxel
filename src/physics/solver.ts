@@ -130,7 +130,7 @@ export class IterativeImpulseSolver extends Solver {
             // dv = dvb(Ib) - dva(Ia) == dvb(I) + dva(I) since I = -Ia = Ib
             let impulse = targetDeltaVelocityByImpulse.mulmatls(matA.adds(matB).invs());
             if (impulse.norm() > 1.0) {
-                console.log("hq");
+                // console.log("hq");
             }
             // if (impulse.norm1() === 0) continue;
             // console.assert(isFinite(impulse.norm1()));

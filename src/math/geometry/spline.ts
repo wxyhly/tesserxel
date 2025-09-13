@@ -75,8 +75,8 @@ export class Spline {
         let d0 = this.derives[i];
         let d1 = this.derives[i + 1];
         let p01 = p0.sub(p1);
-        let A = p01.mulfs(2).adds(d0).adds(d1);
-        let B = d0.mulf(-2).subs(d1).subs(p01.mulfs(1.5));
+        let A = p01.mulf(2).adds(d0).adds(d1);
+        let B = d0.mulf(-2).subs(d1).subs(p01.mulfs(3));
         let x = p0.x + t * (d0.x + t * (B.x + t * A.x));
         let y = p0.y + t * (d0.y + t * (B.y + t * A.y));
         let z = p0.z + t * (d0.z + t * (B.z + t * A.z));

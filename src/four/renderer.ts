@@ -28,7 +28,7 @@ export class Renderer {
         this.canvas = canvas;
         this.lightShaderInfomation = _initLightShader(config);
     }
-    setBackgroudColor(color: GPUColor) {
+    setBackgroundColor(color: GPUColor) {
         this.core.setDisplayConfig({ screenBackgroundColor: color });
     }
     async init() {

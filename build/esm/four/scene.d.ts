@@ -14,7 +14,7 @@ export declare class Scene {
     wireframe?: WireFrameScene;
     add(...obj: Object[]): void;
     removeChild(obj: Object): void;
-    setBackgroudColor(color: GPUColor): void;
+    setBackgroundColor(color: GPUColor): void;
 }
 export declare class Object extends Obj4 {
     child: Object[];

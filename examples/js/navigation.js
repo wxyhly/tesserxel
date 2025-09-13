@@ -81,7 +81,7 @@ export var navigation;
         renderer.core.setDisplayConfig({ opacity: 20 });
         const skyBox = new NishitaPlanetSkyBox();
         scene.skyBox = skyBox;
-        renderer.setBackgroudColor([1, 1, 1, 1]);
+        renderer.setBackgroundColor([1, 1, 1, 1]);
         const camController = new util.ctrl.FreeFlyController(camera);
         const timeCtrl = new TimeCtrl();
         app.controllerRegistry.add(camController);

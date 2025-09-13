@@ -105,7 +105,7 @@ function initScene(scene: tesserxel.four.Scene) {
         [2.2, 2.0, 1.9],
         skybox.getSunPosition()
     ));
-    scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+    scene.setBackgroundColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
 }
 class EmitGlomeController implements tesserxel.util.ctrl.IController {
     enabled: boolean = true;
@@ -220,7 +220,7 @@ export namespace st_pile {
             [0.1, 0.2, 0.3],
             new math.Vec4(-0.2, 0.2, -0.2, -0.4).norms()
         ));
-        scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+        scene.setBackgroundColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } }); const renderer = app.renderer;
@@ -777,7 +777,7 @@ namespace dzhanibekov {
             [2.2, 2.0, 1.9],
             new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()
         ));
-        scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+        scene.setBackgroundColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } }); const renderer = app.renderer;
@@ -875,7 +875,7 @@ async function loadGyroScene(cwmesh: tesserxel.mesh.CWMesh, material: tesserxel.
     ));
     const roomFourMat = new tesserxel.four.LambertMaterial([0.6, 0.8, 0.2, 0.2]);
     addRoom(5, world, new phy.Material(0.6, 0.4), scene, roomFourMat);
-    scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+    scene.setBackgroundColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
     let gyroLogic = new phy.Rigid({
         geometry: new phy.rigid.Convex(cwmesh.data[0] as tesserxel.math.Vec4[]),
         mass: 5,
@@ -902,12 +902,6 @@ async function loadGyroScene(cwmesh: tesserxel.mesh.CWMesh, material: tesserxel.
         camCtrl,
         new EmitGlomeController(world, scene, camera, renderer)
     ], { enablePointerLock: true });
-    function setSize() {
-        let width = window.innerWidth * window.devicePixelRatio;
-        let height = window.innerHeight * window.devicePixelRatio;
-        renderer.setSize({ width, height });
-    }
-
 
     function run() {
         // syncronise physics world and render scene
@@ -1177,7 +1171,7 @@ export namespace thermo_stats {
             [2.2, 2.0, 1.9],
             new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()
         ));
-        scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+        scene.setBackgroundColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
 
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } }); const renderer = app.renderer;
@@ -1771,7 +1765,9 @@ export namespace dice_yugu233 {
         }));
         // draw dots on the dice using wgsl shader
         const diceM = new tesserxel.four.LambertMaterial(new tesserxel.four.WgslTexture(`
-            const arr:array<vec4f,8> = array<vec4f,8>(vec4f(1.0,0.0,0.0,1.0),vec4f(1.0,0.0,0.0,1.0),vec4f(0.0,0.0,0.8,1.0),vec4f(0.0,0.0,0.8,1.0),vec4f(0.0,0.0,0.8,1.0),vec4f(1.0,0.0,0.0,1.0),vec4f(0.0,0.0,0.8,1.0),vec4f(0.0,0.0,0.8,1.0));
+            const red = vec4f(1.0,0.0,0.0,1.0);
+            const blue = vec4f(0.0,0.0,0.8,1.0);
+            const arr = array<vec4f,8>(red,red,blue,blue,blue,red,blue,blue);
             fn mainfr(uvw:vec4f)->vec4f{
                 var pattern:f32;
                 if(uvw.w<0.5){pattern=step(length(uvw.xyz),0.5);}

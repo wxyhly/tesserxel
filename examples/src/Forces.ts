@@ -14,8 +14,8 @@ export namespace spring_rope {
         const app = await tesserxel.four.App.create({ canvas, controllerConfig: { enablePointerLock: true } });
 
         let scene = app.scene;
-        app.renderer.setBackgroudColor([1, 1, 1, 1]);
-        scene.setBackgroudColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+        app.renderer.setBackgroundColor([1, 1, 1, 1]);
+        scene.setBackgroundColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
         let camera = app.camera as tesserxel.four.PerspectiveCamera;
         camera.position.w = 2;
         scene.add(camera);

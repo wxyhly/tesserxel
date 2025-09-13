@@ -24,7 +24,7 @@ export class Scene {
             console.warn("Cannot remove a non-existed child");
         }
     }
-    setBackgroudColor(color: GPUColor) {
+    setBackgroundColor(color: GPUColor) {
         this.backGroundColor = color;
     }
 }

@@ -8,8 +8,8 @@ const vec2Pool = new Vec2Pool;
 class Vec2 {
     x;
     y;
-    static x = new Vec2(1, 0);
-    static y = new Vec2(0, 1);
+    static x = Object.freeze(new Vec2(1, 0));
+    static y = Object.freeze(new Vec2(0, 1));
     constructor(x = 0, y = 0) {
         this.x = x;
         this.y = y;

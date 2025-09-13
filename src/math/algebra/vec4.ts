@@ -17,15 +17,15 @@ export class Vec4 {
     y: number;
     z: number;
     w: number;
-    static readonly x = new Vec4(1, 0, 0, 0);
-    static readonly y = new Vec4(0, 1, 0, 0);
-    static readonly z = new Vec4(0, 0, 1, 0);
-    static readonly w = new Vec4(0, 0, 0, 1);
-    static readonly origin = new Vec4(0, 0, 0, 0);
-    static readonly xNeg = new Vec4(-1, 0, 0, 0);
-    static readonly yNeg = new Vec4(0, -1, 0, 0);
-    static readonly zNeg = new Vec4(0, 0, -1, 0);
-    static readonly wNeg = new Vec4(0, 0, 0, -1);
+    static readonly x = Object.freeze(new Vec4(1, 0, 0, 0));
+    static readonly y = Object.freeze(new Vec4(0, 1, 0, 0));
+    static readonly z = Object.freeze(new Vec4(0, 0, 1, 0));
+    static readonly w = Object.freeze(new Vec4(0, 0, 0, 1));
+    static readonly origin = Object.freeze(new Vec4(0, 0, 0, 0));
+    static readonly xNeg = Object.freeze(new Vec4(-1, 0, 0, 0));
+    static readonly yNeg = Object.freeze(new Vec4(0, -1, 0, 0));
+    static readonly zNeg = Object.freeze(new Vec4(0, 0, -1, 0));
+    static readonly wNeg = Object.freeze(new Vec4(0, 0, 0, -1));
     constructor(x: number = 0, y: number = 0, z: number = 0, w: number = 0) {
         this.x = x; this.y = y; this.z = z; this.w = w;
     }

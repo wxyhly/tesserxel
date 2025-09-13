@@ -456,7 +456,7 @@ export var molecule;
         const bondGeom = new tesserxel.four.Geometry(tesserxel.mesh.tetra.spherinderSide(10, 10, 2, 2, 1));
         const bondMat = new FOUR.PhongMaterial([0.93, 0.87, 0.8]);
         app.renderer.core.setDisplayConfig({ opacity: 50, screenBackgroundColor: [1, 1, 1, 1], sectionStereoEyeOffset: 40 });
-        scene.setBackgroudColor([1, 1, 1, 0.0]);
+        scene.setBackgroundColor([1, 1, 1, 0.0]);
         scene.add(new FOUR.AmbientLight(0.3));
         let dirLight = new FOUR.DirectionalLight([0.9, 0.8, 0.8], new tesserxel.math.Vec4(1, -1, 0, -1).norms());
         scene.add(dirLight);
@@ -554,7 +554,7 @@ class GUI {
                     window.open("javascript:void(0);", "Chem4D");
                 }
                 else {
-                    this.window = window.open(window.location.host.startsWith("127.0.0.1") ? "/ccahgaolo/chem4d/" : "/Chem4D/");
+                    this.window = window.open((window.location.host.startsWith("127.0.0.1") ? "/ccahgaolo/chem4d/" : "/Chem4D/") + ("?lang=" + lang));
                 }
             }
             else {

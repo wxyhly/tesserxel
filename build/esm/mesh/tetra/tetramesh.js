@@ -219,6 +219,13 @@ class TetraMesh {
         }
         return this;
     }
+    getVertices() {
+        const res = [];
+        for (let i = 0; i < this.position.length; i += 4) {
+            res.push(new Vec4(this.position[i], this.position[i + 1], this.position[i + 2], this.position[i + 3]));
+        }
+        return res;
+    }
 }
 class TetraIndexMesh {
     position;
@@ -244,6 +251,13 @@ class TetraIndexMesh {
     applyObj4(obj4) {
         applyObj4(this, obj4);
         return this;
+    }
+    getVertices() {
+        const res = [];
+        for (let i = 0; i < this.position.length; i += 4) {
+            res.push(new Vec4(this.position[i], this.position[i + 1], this.position[i + 2], this.position[i + 3]));
+        }
+        return res;
     }
     toNonIndexMesh() {
         let count = this.position.length << 2;

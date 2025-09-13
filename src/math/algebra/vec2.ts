@@ -10,8 +10,8 @@ export const vec2Pool = new Vec2Pool;
 export class Vec2 {
     x: number;
     y: number;
-    static readonly x = new Vec2(1, 0);
-    static readonly y = new Vec2(0, 1);
+    static readonly x = Object.freeze(new Vec2(1, 0));
+    static readonly y = Object.freeze(new Vec2(0, 1));
     constructor(x: number = 0, y: number = 0) {
         this.x = x; this.y = y;
     }

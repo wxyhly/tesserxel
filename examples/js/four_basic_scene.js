@@ -11,7 +11,7 @@ export var four_basic_scene;
         // by default the backgroud is black (0.0, 0.0, 0.0) here we change it to white
         // alpha value is used for voxel opacity in retina
         // this value doesn't affect section views
-        scene.setBackgroudColor({ r: 1.0, g: 1.0, b: 1.0, a: 1.0 });
+        scene.setBackgroundColor({ r: 1.0, g: 1.0, b: 1.0, a: 1.0 });
         let camera = app.camera;
         let cubeGeometry = new FOUR.TesseractGeometry();
         let material = new FOUR.BasicMaterial({ r: 1.0, g: 0.0, b: 0.0, a: 1.0 });

@@ -13,15 +13,15 @@ class Vec4 {
     y;
     z;
     w;
-    static x = new Vec4(1, 0, 0, 0);
-    static y = new Vec4(0, 1, 0, 0);
-    static z = new Vec4(0, 0, 1, 0);
-    static w = new Vec4(0, 0, 0, 1);
-    static origin = new Vec4(0, 0, 0, 0);
-    static xNeg = new Vec4(-1, 0, 0, 0);
-    static yNeg = new Vec4(0, -1, 0, 0);
-    static zNeg = new Vec4(0, 0, -1, 0);
-    static wNeg = new Vec4(0, 0, 0, -1);
+    static x = Object.freeze(new Vec4(1, 0, 0, 0));
+    static y = Object.freeze(new Vec4(0, 1, 0, 0));
+    static z = Object.freeze(new Vec4(0, 0, 1, 0));
+    static w = Object.freeze(new Vec4(0, 0, 0, 1));
+    static origin = Object.freeze(new Vec4(0, 0, 0, 0));
+    static xNeg = Object.freeze(new Vec4(-1, 0, 0, 0));
+    static yNeg = Object.freeze(new Vec4(0, -1, 0, 0));
+    static zNeg = Object.freeze(new Vec4(0, 0, -1, 0));
+    static wNeg = Object.freeze(new Vec4(0, 0, 0, -1));
     constructor(x = 0, y = 0, z = 0, w = 0) {
         this.x = x;
         this.y = y;

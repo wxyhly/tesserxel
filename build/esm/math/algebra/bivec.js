@@ -15,18 +15,18 @@ class Bivec {
     yz;
     yw;
     zw;
-    static xy = new Bivec(1, 0, 0, 0, 0, 0);
-    static xz = new Bivec(0, 1, 0, 0, 0, 0);
-    static xw = new Bivec(0, 0, 1, 0, 0, 0);
-    static yz = new Bivec(0, 0, 0, 1, 0, 0);
-    static yw = new Bivec(0, 0, 0, 0, 1, 0);
-    static zw = new Bivec(0, 0, 0, 0, 0, 1);
-    static yx = new Bivec(-1, 0, 0, 0, 0, 0);
-    static zx = new Bivec(0, -1, 0, 0, 0, 0);
-    static wx = new Bivec(0, 0, -1, 0, 0, 0);
-    static zy = new Bivec(0, 0, 0, -1, 0, 0);
-    static wy = new Bivec(0, 0, 0, 0, -1, 0);
-    static wz = new Bivec(0, 0, 0, 0, 0, -1);
+    static xy = Object.freeze(new Bivec(1, 0, 0, 0, 0, 0));
+    static xz = Object.freeze(new Bivec(0, 1, 0, 0, 0, 0));
+    static xw = Object.freeze(new Bivec(0, 0, 1, 0, 0, 0));
+    static yz = Object.freeze(new Bivec(0, 0, 0, 1, 0, 0));
+    static yw = Object.freeze(new Bivec(0, 0, 0, 0, 1, 0));
+    static zw = Object.freeze(new Bivec(0, 0, 0, 0, 0, 1));
+    static yx = Object.freeze(new Bivec(-1, 0, 0, 0, 0, 0));
+    static zx = Object.freeze(new Bivec(0, -1, 0, 0, 0, 0));
+    static wx = Object.freeze(new Bivec(0, 0, -1, 0, 0, 0));
+    static zy = Object.freeze(new Bivec(0, 0, 0, -1, 0, 0));
+    static wy = Object.freeze(new Bivec(0, 0, 0, 0, -1, 0));
+    static wz = Object.freeze(new Bivec(0, 0, 0, 0, 0, -1));
     isFinite() {
         return isFinite(this.xy) && isFinite(this.xz) && isFinite(this.xw) && isFinite(this.yz) && isFinite(this.yw) && isFinite(this.zw);
     }

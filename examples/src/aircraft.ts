@@ -36,7 +36,7 @@ export namespace aircraft {
         const app = await FOUR.App.create({ canvas, controllerConfig: { preventDefault: true } });
 
         app.renderer.core.setDisplayConfig({ opacity: 12 });
-        app.renderer.setBackgroudColor([0, 0, 0, 0.2]);
+        app.renderer.setBackgroundColor([0, 0, 0, 0.2]);
         const scene = app.scene;
         const gnd = new FOUR.CubeGeometry(20000);
         scene.add(new FOUR.Mesh(gnd, new FOUR.LambertMaterial(new FOUR.CheckerTexture(
@@ -256,7 +256,7 @@ export namespace aircraft {
                     return vec4f(1.0,1.0,1.0,1.0);
                 }
             }`, "aircraftbody_texture"
-        ))
+        ));
 
         let aircraftBodyMesh3d = new tesserxel.mesh.FaceIndexMesh(new tesserxel.mesh.ObjFile(resources[0]).parse()).toNonIndexMesh();
         const aircraftBody = new FOUR.Mesh(new FOUR.Geometry(

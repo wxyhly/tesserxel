@@ -35,6 +35,7 @@ export declare class TetraMesh implements TetraMeshData {
     generateNormal(splitThreshold?: number): this;
     inverseNormal(): TetraMesh;
     setUVWAsPosition(): this;
+    getVertices(): any[];
 }
 export declare class TetraIndexMesh implements TetraIndexMeshData {
     position: Float32Array;
@@ -47,6 +48,7 @@ export declare class TetraIndexMesh implements TetraIndexMeshData {
     constructor(d: TetraIndexMeshData);
     applyAffineMat4(am: AffineMat4): this;
     applyObj4(obj4: Obj4): this;
+    getVertices(): any[];
     toNonIndexMesh(): TetraMesh;
 }
 export declare function concat(meshes: TetraMeshData[]): TetraMesh;

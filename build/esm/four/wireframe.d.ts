@@ -17,7 +17,7 @@ export declare class WireFrameTesseractoid extends Obj4 implements WireFrameObje
     obb: AABB;
     visible: boolean;
     transparent: boolean;
-    constructor(size: Vec4);
+    constructor(size: Vec4 | number);
 }
 export declare class WireFrameConvexPolytope extends Obj4 implements WireFrameObject, WireFrameOccluder {
     lines: [Vec4, Vec4][];

@@ -1,3 +1,35 @@
+/******************************************************************************
+Copyright (c) Microsoft Corporation.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+***************************************************************************** */
+/* global Reflect, Promise, SuppressedError, Symbol, Iterator */
+
+
+function __awaiter(thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+}
+
+typeof SuppressedError === "function" ? SuppressedError : function (error, suppressed, message) {
+    var e = new Error(message);
+    return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
+};
+
 // These are filled with ranges (rangeFrom[i] up to but not including
 // rangeTo[i]) of code points that count as extending characters.
 let rangeFrom = [], rangeTo = []
@@ -23721,212 +23753,57 @@ the highlight style).
 */
 const oneDark = [oneDarkTheme, /*@__PURE__*/syntaxHighlighting(oneDarkHighlightStyle)];
 
+// const defaultHTML = { zh: '<canvas></canvas>', en: '<canvas></canvas>' };
+const hello100 = () => __awaiter(void 0, void 0, void 0, function* () { return (yield import('./hello-102a6a7c.js')).hello100; });
+const hello101 = () => __awaiter(void 0, void 0, void 0, function* () { return (yield import('./hello-102a6a7c.js')).hello101; });
+const hello102 = () => __awaiter(void 0, void 0, void 0, function* () { return (yield import('./hello2-789e7b2f.js')).hello102; });
+const hello103 = () => __awaiter(void 0, void 0, void 0, function* () { return (yield import('./hello2-789e7b2f.js')).hello103; });
+const hello104 = () => __awaiter(void 0, void 0, void 0, function* () { return (yield import('./hello2-789e7b2f.js')).hello104; });
+const hello201$1 = () => __awaiter(void 0, void 0, void 0, function* () { return (yield Promise.resolve().then(function () { return hello20; })).hello201; });
+const hello202$1 = () => __awaiter(void 0, void 0, void 0, function* () { return (yield Promise.resolve().then(function () { return hello20; })).hello202; });
+const hello203$1 = () => __awaiter(void 0, void 0, void 0, function* () { return (yield Promise.resolve().then(function () { return hello20; })).hello203; });
+const mat101 = () => __awaiter(void 0, void 0, void 0, function* () { return (yield import('./mat-c8f2584c.js')).mat101; });
+const mat102 = () => __awaiter(void 0, void 0, void 0, function* () { return (yield import('./dice-42aebce5.js')).mat102; });
+const phy101 = () => __awaiter(void 0, void 0, void 0, function* () { return (yield import('./phy-4113318d.js')).phy101; });
+const examples = [
+    {
+        type: "submenu",
+        label: { zh: "你好超立方体", en: "Hello Hypercube" },
+        children: [
+            { type: "item", label: { zh: "ESM格式", en: "ESM Format" }, example: hello100 },
+            { type: "item", label: { zh: "UMD格式", en: "UMD Format" }, example: hello101 },
+            { type: "item", label: { zh: "超立方体", en: "Hypercube" }, example: hello102 },
+            { type: "item", label: { zh: "更改光照", en: "Lighting" }, example: hello103 },
+            { type: "item", label: { zh: "高光双圆环", en: "Specular Tiger" }, example: hello104 },
+        ],
+    },
+    {
+        type: "submenu",
+        label: { zh: "更多场景渲染设置", en: "More About Scene/Render" },
+        children: [
+            { type: "item", label: { zh: "材质与灯光", en: "Materials & Lights" }, example: mat101 },
+            { type: "item", label: { zh: "骰子绘制与控制", en: "Dice Drawing & Ctrl" }, example: mat102 },
+        ],
+    },
+    {
+        type: "submenu",
+        label: { zh: "物理引擎简介", en: "Physics Engine Intro" },
+        children: [
+            { type: "item", label: { zh: "扔箱子", en: "Drop Box" }, example: phy101 },
+        ],
+    },
+    {
+        type: "submenu",
+        label: { zh: "你好四面体", en: "Hello Tetrahedron" },
+        children: [
+            { type: "item", label: { zh: "第一个四面体", en: "First Tetrahedron" }, example: hello201$1 },
+            { type: "item", label: { zh: "添加顶点颜色", en: "Add Vertex Color" }, example: hello202$1 },
+            { type: "item", label: { zh: "四面体转起来！", en: "Rotate Tetrahedron!" }, example: hello203$1 },
+        ],
+    },
+];
+
 const defaultHTML$1 = { zh: '<canvas></canvas>', en: '<canvas></canvas>' };
-const hello100 = {
-    html: {
-        zh: `<!-- Tesserxel Playground 已经自动引入了importmap并标记了type="module"，因此不需要下面的代码。如果自己写工程则需要。
-<script type="importmap">
-{  
-  "imports": {
-    "tesserxel": "../build/esm/tesserxel.js",
-    "tesserxel/math": "../build/esm/math/math.js"
-  }
-}  
-</script>
-<script type="module">
-// 在此写js代码
-</script>
--->
-<!-- 创建画布对象 -->
-<canvas></canvas>`,
-        en: `<!-- Tesserxel Playground has already included the importmap and marked type="module",
-     so the following code is not needed. If you set up your own project, it is required.
-<script type="importmap">
-{  
-  "imports": {
-    "tesserxel": "../build/esm/tesserxel.js",
-    "tesserxel/math": "../build/esm/math/math.js"
-  }
-}  
-</script>
-<script type="module">
-// Write JS code here
-</script>
--->
-<!-- create canvas element -->
-<canvas></canvas>`
-    },
-    js: {
-        zh: `import {math} from "tesserxel"
-// 默认定义一个四维向量需要这样书写：
-let v1 = new math.Vec4(1,2,3,4);
-console.log(v1);
-// 引入捷径可以简化
-const Vec4 = math.Vec4;
-let v2 = new Vec4(2,3,4,5);
-console.log(v2);`, en: `import {math} from "tesserxel"
-// By default, defining a 4D vector requires this syntax:
-let v1 = new math.Vec4(1,2,3,4);
-console.log(v1);
-// Introducing a shortcut can simplify it
-const Vec4 = math.Vec4;
-let v2 = new Vec4(2,3,4,5);
-console.log(v2);
-`
-    },
-};
-const hello101 = {
-    html: {
-        zh: `<!-- 引入umd格式的tesserxel.js文件，这将在javascript中引入名叫tesserxel的全局变量 -->
-<script src="https://wxyhly.github.io/tesserxel/build/tesserxel.js" type="text/javascript"></script>
-<!-- 创建画布对象 -->
-<canvas></canvas>`,
-        en: `<!-- load tesserxel.js file of UMD format, this will introduce a global variable named tesserxel in JavaScript -->
-<script src="https://wxyhly.github.io/tesserxel/build/tesserxel.js" type="text/javascript"></script>
-<!-- create canvas element -->
-<canvas></canvas>`
-    },
-    js: {
-        zh: `// 默认定义一个四维向量需要这样书写：
-let v1 = new tesserxel.math.Vec4(1,2,3,4);
-console.log(v1);
-// 引入捷径可以简化
-const Vec4 = tesserxel.math.Vec4;
-let v2 = new Vec4(2,3,4,5);
-console.log(v2);`, en: `// By default, defining a 4D vector requires this syntax:
-let v1 = new tesserxel.math.Vec4(1,2,3,4);
-console.log(v1);
-// Introducing a shortcut can simplify it
-const Vec4 = tesserxel.math.Vec4;
-let v2 = new Vec4(2,3,4,5);
-console.log(v2);
-`
-    },
-};
-const hello102 = {
-    html: defaultHTML$1,
-    js: {
-        zh: `import * as tesserxel from "tesserxel"
-// 引入Tesserxel库中的four模块
-const FOUR = tesserxel.four;
-// 获取网页中的canvas dom对象
-const canvas = document.querySelector("canvas");
-// 在该画布上创建渲染应用。这里调用异步函数等待渲染器完成资源的初始化
-const app = await FOUR.App.create({ canvas });
-// 默认的四维场景背景色为黑色(0.0, 0.0, 0.0)，这里我们改成白色
-// 第四个alpha值用于控制体素的不透明度，1.0为最不透明，该值不影响截面视图
-app.scene.setBackgroudColor({ r: 1.0, g: 1.0, b: 1.0, a: 1.0 });
-// 定义一个超立方体的几何数据
-let cubeGeometry = new FOUR.TesseractGeometry();
-// 定义超立方体的材质，这里的BasicMaterial表示是纯色材质。我们设置为纯红色
-let material = new FOUR.BasicMaterial({ r: 1.0, g: 0.0, b: 0.0, a: 1.0 });
-// 定义一个超立方体网格，使用刚才的几何数据和材质
-let mesh = new FOUR.Mesh(cubeGeometry, material);
-// 待会我们后让超立方体旋转起来，因此我们设置每次都要更新它的坐标，默认不会更新
-mesh.alwaysUpdateCoord = true;
-// 将超立方体加入场景中
-app.scene.add(mesh);
-// 默认所有对象都位于坐标原点。因此要将相机向后移动一点点以便看到位于原点的超立方体
-// 注：w轴指向相机背后(跟三维图形学中的z轴类似)
-app.camera.position.w = 3.0;
-// 默认所有体素立方体的控制操作都需要按住Alt键来激活
-//我们可以手动将键位配置为空来取消激活步骤
-app.retinaController.keyConfig.enable = "";
-// 开始执行帧循环
-app.run(()=>{
-    // 每一帧我们在xw、yz两方向上各旋转0.01弧度，得到等角双旋转
-    mesh.rotates(tesserxel.math.Bivec.xw.mulf(0.01).exp());
-    mesh.rotates(tesserxel.math.Bivec.yz.mulf(0.01).exp());
-});`, en: `import * as tesserxel from "tesserxel" 
-// Import the "four" module from the Tesserxel library
-const FOUR = tesserxel.four;
-// Get the canvas DOM element from the webpage
-const canvas = document.querySelector("canvas");
-// Create a rendering application on this canvas.
-// Here we call the async function to wait for the renderer to finish resource initialization
-const app = await FOUR.App.create({ canvas });
-// The default background color of a 4D scene is black (0.0, 0.0, 0.0).
-// Here we change it to white.
-// The fourth alpha value controls the opacity of voxels. 1.0 means fully opaque.
-// This value does not affect the cross-sectional view.
-app.scene.setBackgroudColor({ r: 1.0, g: 1.0, b: 1.0, a: 1.0 });
-// Define the geometry data of a tesseract (hypercube)
-let cubeGeometry = new FOUR.TesseractGeometry();
-// Define the material of the tesseract.
-// BasicMaterial means a pure color material. We set it to pure red.
-let material = new FOUR.BasicMaterial({ r: 1.0, g: 0.0, b: 0.0, a: 1.0 });
-// Define a tesseract mesh using the geometry data and material
-let mesh = new FOUR.Mesh(cubeGeometry, material);
-// Later we will make the tesseract rotate, so we set it to update
-// its coordinates each frame. By default it will not update.
-mesh.alwaysUpdateCoord = true;
-// Add the tesseract into the scene
-app.scene.add(mesh);
-// By default all objects are at the coordinate origin.
-// So we need to move the camera backward a little bit to see the tesseract at the origin.
-// Note: The w-axis points behind the camera (similar to the z-axis in 3D graphics)
-app.camera.position.w = 3.0;
-// By default, all voxel cube controls require holding down the Alt key to activate.
-// We can manually set the key configuration to empty to remove this requirement.
-app.retinaController.keyConfig.enable = "";
-// Start the frame loop
-app.run(()=>{
-    // Each frame, rotate 0.01 radians in both the xw and yz planes
-    // to get an isoclinic double rotation
-    mesh.rotates(tesserxel.math.Bivec.xw.mulf(0.01).exp());
-    mesh.rotates(tesserxel.math.Bivec.yz.mulf(0.01).exp());
-});
-`
-    },
-};
-const hello103 = {
-    html: defaultHTML$1,
-    js: {
-        zh: hello102.js.zh.replace("BasicMaterial表示是纯色材质", "LambertMaterial表示是漫反射材质").replace(".BasicMaterial({ r: 1.0, g: 0.0, b: 0.0, a: 1.0 });", `.LambertMaterial([1, 0, 0]);
-const dirLight = new FOUR.DirectionalLight(
-    // 用r/g/b表示的光源强度，其值可以超过1
-    [0.9, 0.8, 0.8], 
-    // 指定平行光的来光方向，需用norms函数将其单位化
-    new tesserxel.math.Vec4(-1, 1, 0, 1).norms() 
-);
-// 别忘了把灯光加入场景
-app.scene.add(dirLight);
-// 再补个环境光，免得背光面太黑
-app.scene.add(new FOUR.AmbientLight(0.3));`), en: hello102.js.en.replace("BasicMaterial means a pure color material", "LambertMaterial means a diffusive material").replace(".BasicMaterial({ r: 1.0, g: 0.0, b: 0.0, a: 1.0 });", `.LambertMaterial([1, 0, 0]);
-const dirLight = new FOUR.DirectionalLight(
-    // Light intensity by r/g/b values; the values can exceed 1
-    [0.9, 0.8, 0.8],
-    // Specify the direction of the parallel light
-    // use the norms function to normalize it
-    new tesserxel.math.Vec4(-1, 1, 0, 1).norms()
-);
-// Don’t forget to add the light to the scene
-app.scene.add(dirLight);
-// Add an ambient light to avoid the backlit side being too dark.
-app.scene.add(new FOUR.AmbientLight(0.3));`)
-    }
-};
-const hello104 = {
-    html: defaultHTML$1,
-    js: {
-        zh: hello102.js.zh.replace(/默认的四维场景背景[\s\S]+setBackgroudColor.+a: 1\.0 \}\);/, "这里删掉了背景颜色设置，恢复至默认的黑色").replace("定义一个超立方体的几何数据", "定义一个双圆环的几何数据").replace("TesseractGeometry", "TigerGeometry").replaceAll("cubeGeometry", "tigerGeometry").replace("BasicMaterial表示是纯色材质", "PhongMaterial表示光滑材质，有颜色、高光度、高光颜色三个参数，后面两个参数都是可选的，默认值分别为20和白色").replace(".BasicMaterial({ r: 1.0, g: 0.0, b: 0.0, a: 1.0 });", `.PhongMaterial([1, 0, 0], 10);
-// 点光源只有光源强度这个参数
-const pLight = new FOUR.PointLight([0.9, 0.8, 0.8]);
-// 其位置默认位于原点，可通过所有修改其位置的方法来改变位置
-pLight.position.w = 2;
-// 别忘了把灯光加入场景
-app.scene.add(pLight);`), en: hello102.js.en.replace(/The default background color[\s\S]+setBackgroudColor.+a: 1\.0 \}\);/, "Here we removed the background color setting, got default black color").replace("Define the geometry data of a tesseract (hypercube)", "Define the geometry data of a tiger (duotorus)").replace("TesseractGeometry", "TigerGeometry").replace("BasicMaterial means a pure color material", `PhongMaterial represents a smooth material, 
-// It has three parameters: color, shininess, and specular color.
-// The last two are optional, with default values of 20 and white, respectively.
-// `).replace(".BasicMaterial({ r: 1.0, g: 0.0, b: 0.0, a: 1.0 });", `.PhongMaterial([1, 0, 0], 10);
-// A point light only has the light intensity parameter
-const pLight = new FOUR.PointLight([0.9, 0.8, 0.8]);
-// Its position is at the origin by default; you can change it using any method that modifies position
-pLight.position.w = 2;
-// Don’t forget to add the light to the scene
-app.scene.add(pLight);`)
-    }
-};
 const hello20xHeader = {
     zh: `import * as tesserxel from "tesserxel"
 const gpu = await new tesserxel.render.GPU().init();
@@ -24010,7 +23887,7 @@ const vertexShaderCode = \`
     );
 }
 \`;
-// Fragment shader code: this code specifies that the tetrahedron’s color is pure red
+// Fragment shader code: this code specifies that the tetrahedron's color is pure red
 const fragmentShaderCode = \`
 @fragment fn main() -> @location(0) vec4f {
     return vec4f (1.0,0.0,0.0,1.0);
@@ -24183,28 +24060,13 @@ const hello203 = {
             .replace("继续绘制下一帧", "Continue to draw the next frame")
     }
 };
-const examples = [
-    {
-        type: "submenu",
-        label: { zh: "你好超立方体", en: "Hello Hypercube" },
-        children: [
-            { type: "item", label: { zh: "ESM格式", en: "ESM Format" }, example: hello100 },
-            { type: "item", label: { zh: "UMD格式", en: "UMD Format" }, example: hello101 },
-            { type: "item", label: { zh: "超立方体", en: "Hypercube" }, example: hello102 },
-            { type: "item", label: { zh: "更改光照", en: "Lighting" }, example: hello103 },
-            { type: "item", label: { zh: "高光双圆环", en: "Specular Tiger" }, example: hello104 },
-        ],
-    },
-    {
-        type: "submenu",
-        label: { zh: "你好四面体", en: "Hello Tetrahedron" },
-        children: [
-            { type: "item", label: { zh: "第一个四面体", en: "First Tetrahedron" }, example: hello201 },
-            { type: "item", label: { zh: "添加顶点颜色", en: "Add Vertex Color" }, example: hello202 },
-            { type: "item", label: { zh: "四面体转起来！", en: "Rotate Tetrahedron!" }, example: hello203 },
-        ],
-    },
-];
+
+var hello20 = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    hello201: hello201,
+    hello202: hello202,
+    hello203: hello203
+});
 
 var _a, _b;
 const LS_HTML = 'cm-playground-html';
@@ -24275,8 +24137,9 @@ function applyTranslations() {
     });
 }
 applyTranslations();
-const defaultHTML = examples[0].children[2].example.html[lang];
-const defaultJS = examples[0].children[2].example.js[lang];
+const defaultExample = hello201;
+const defaultHTML = defaultExample.html[lang];
+const defaultJS = defaultExample.js[lang];
 // const loadedExamples
 const htmlEditor = new EditorView({
     state: EditorState.create({
@@ -24364,6 +24227,50 @@ function run() {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${t.previewTitle}</title>
 <style>body{font:14px ui-sans-serif,system-ui; padding:12px}</style>
+<script>
+(function () {
+  const _raf = window.requestAnimationFrame;
+  const _caf = window.cancelAnimationFrame;
+
+  let paused = false;
+  let pending = new Map(); // 存储暂停时的回调
+  let idCounter = 1;
+
+  window.requestAnimationFrame = function (callback) {
+    if (paused) {
+      // 自己生成一个假的 id
+      const fakeId = idCounter++;
+      pending.set(fakeId, callback);
+      return fakeId;
+    } else {
+      return _raf(callback);
+    }
+  };
+
+  window.cancelAnimationFrame = function (id) {
+    if (paused && pending.has(id)) {
+      pending.delete(id);
+    } else {
+      _caf(id);
+    }
+  };
+
+  // 提供控制方法
+  window.pauseRAF = function () {
+    paused = true;
+  };
+
+  window.resumeRAF = function () {
+    if (!paused) return;
+    paused = false;
+    // 把积压的回调重新投递给真正的 RAF
+    for (const [id, cb] of pending) {
+      _raf(cb);
+    }
+    pending.clear();
+  };
+})();
+</script>
 </head>
 <body>
 ${htmlCode}
@@ -24440,11 +24347,13 @@ function maximizePanel(cardId) {
     grid.querySelectorAll('.card').forEach(c => c.classList.remove('maximized'));
     const card = document.getElementById(cardId);
     card.classList.add('maximized');
+    iframe.contentWindow[cardId !== "card-preview" ? "pauseRAF" : "resumeRAF"]();
     updateSwitchButtons(cardId);
 }
 function restorePanels() {
     grid.classList.remove('maximized');
     grid.querySelectorAll('.card').forEach(c => c.classList.remove('maximized'));
+    iframe.contentWindow["resumeRAF"]();
     // 清空所有 switch-buttons
     document.querySelectorAll('.switch-buttons').forEach(el => (el.innerHTML = ""));
 }
@@ -24494,14 +24403,14 @@ function renderMenu(container, items, lang) {
             const btn = document.createElement("button");
             btn.className = "item";
             btn.textContent = item.label[lang];
-            btn.dataset.example = item.example;
-            btn.addEventListener("click", () => {
+            btn.addEventListener("click", () => __awaiter(this, void 0, void 0, function* () {
                 console.log(t["loadExample"] + `: ${item.label[lang]}`);
-                htmlEditor.dispatch({ changes: { from: 0, to: htmlEditor.state.doc.length, insert: item.example.html[lang] } });
-                jsEditor.dispatch({ changes: { from: 0, to: jsEditor.state.doc.length, insert: item.example.js[lang] } });
+                const e = yield item.example();
+                htmlEditor.dispatch({ changes: { from: 0, to: htmlEditor.state.doc.length, insert: e.html[lang] } });
+                jsEditor.dispatch({ changes: { from: 0, to: jsEditor.state.doc.length, insert: e.js[lang] } });
                 if (autorun.checked)
                     scheduleRun();
-            });
+            }));
             li.appendChild(btn);
             container.appendChild(li);
         }

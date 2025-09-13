@@ -57,7 +57,7 @@ class Material extends MaterialNode {
         let { vs, fs } = this.getShaderCode(r);
         this.pipeline = await r.core.createTetraSlicePipeline({
             vertex: { code: vs, entryPoint: "main" },
-            fragment: { code: fs, entryPoint: "main" },
+            fragment: { code: fs, entryPoint: "fourMain" },
             cullMode: this.cullMode
         });
         r.pullPipeline(this.identifier, this.pipeline);
@@ -121,7 +121,7 @@ class Material extends MaterialNode {
         matrix: mat4x4f,
         vector: vec4f,
     }
-    @fragment fn main(${fsIn}) -> @location(0) vec4f {
+    @fragment fn fourMain(${fsIn}) -> @location(0) vec4f {
         let ambientLightDensity = uWorldLight.ambientLightDensity.xyz;`; // avoid basic material doesn't call this uniform at all
         // if frag shader has input, we need to construct a struct fourInputType
         if (fsIn) {
@@ -556,6 +556,22 @@ const NoiseWGSLHeader = `
             return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
         }
         `;
+class ColorMixer extends MaterialNode {
+    getCode(r, root, outputToken) {
+        // Tell root material that CheckerTexture needs deal dependency of vary input uvw
+        let { token, code } = this.getInputCode(r, root, outputToken);
+        return code + `
+                let ${outputToken} = mix(${token.color1},${token.color2},${token.mix});
+                `;
+    }
+    constructor(color1, color2, mix) {
+        color1 = makeColorOutput(color1);
+        color2 = makeColorOutput(color2);
+        mix = makeFloatOutput(mix);
+        super(`Mixer(${color1.identifier},${color2.identifier},${mix.identifier})`);
+        this.input = { color1, color2, mix };
+    }
+}
 class NoiseTexture extends MaterialNode {
     getCode(r, root, outputToken) {
         root.addHeader("NoiseWGSLHeader", NoiseWGSLHeader);
@@ -571,5 +587,5 @@ class NoiseTexture extends MaterialNode {
     }
 }
 
-export { BasicMaterial, CheckerTexture, ColorUniformValue, FloatUniformValue, GridTexture, LambertMaterial, Material, MaterialNode, NoiseTexture, NoiseWGSLHeader, PhongMaterial, TransformUniformValue, UVWVec4Input, Vec4TransformNode, Vec4UniformValue, WgslTexture, WorldCoordVec4Input };
+export { BasicMaterial, CheckerTexture, ColorMixer, ColorUniformValue, FloatUniformValue, GridTexture, LambertMaterial, Material, MaterialNode, NoiseTexture, NoiseWGSLHeader, PhongMaterial, TransformUniformValue, UVWVec4Input, Vec4TransformNode, Vec4UniformValue, WgslTexture, WorldCoordVec4Input };
 //# sourceMappingURL=material.js.map

@@ -165,7 +165,7 @@ export namespace hyperdiamond {
         const app = await tesserxel.four.App.create({ canvas, controllerConfig: { preventDefault: true } });
         let scene = app.scene;
         app.renderer.core.setDisplayConfig({ opacity: 50, screenBackgroundColor: [1, 1, 1, 1], sectionStereoEyeOffset: 40 });
-        scene.setBackgroudColor([1, 1, 1, 0.0]);
+        scene.setBackgroundColor([1, 1, 1, 0.0]);
 
         scene.add(new FOUR.AmbientLight(0.3));
         let dirLight = new FOUR.DirectionalLight([0.9, 0.8, 0.8], new tesserxel.math.Vec4(1, -1, 0, -1).norms())
@@ -202,7 +202,7 @@ export namespace vsepr {
         let renderer = await new FOUR.Renderer(canvas).init();
         let scene = new FOUR.Scene();
         renderer.core.setDisplayConfig({ opacity: 50, screenBackgroundColor: [1, 1, 1, 1], sectionStereoEyeOffset: 40 });
-        scene.setBackgroudColor([1, 1, 1, 0.0]);
+        scene.setBackgroundColor([1, 1, 1, 0.0]);
 
 
         scene.add(new FOUR.AmbientLight(0.3));

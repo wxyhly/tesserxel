@@ -51,8 +51,8 @@
     class Vec2 {
         x;
         y;
-        static x = new Vec2(1, 0);
-        static y = new Vec2(0, 1);
+        static x = Object.freeze(new Vec2(1, 0));
+        static y = Object.freeze(new Vec2(0, 1));
         constructor(x = 0, y = 0) {
             this.x = x;
             this.y = y;
@@ -400,8 +400,8 @@
     const mat4Pool = new Mat4Pool;
     class Mat4 {
         elem;
-        static id = new Mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
-        static zero = new Mat4(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        static id = Object.freeze(new Mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1));
+        static zero = Object.freeze(new Mat4(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
         static diag(a, b, c, d) {
             return new Mat4(a, 0, 0, 0, 0, b, 0, 0, 0, 0, c, 0, 0, 0, 0, d);
         }
@@ -802,20 +802,44 @@
             let s = Math.acos(this.x);
             return this.yzw().mulfs(2 * s / Math.sin(s));
         }
-        static slerp(a, b, t) {
+        static slerp(a, b, t, fourDMode) {
             let cosf = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
             let A, B;
-            if (Math.abs(cosf) > 0.99999) {
+            if (cosf > 0.99999) {
+                // linear approxiamtion
                 A = 1 - t;
                 B = t;
             }
             else {
-                let f = Math.acos(Math.abs(cosf));
-                let _1s = 1 / Math.sin(f);
-                A = Math.sin((1 - t) * f) * _1s;
-                B = Math.sin(t * f) * _1s;
-                if (cosf < 0)
-                    B = -B;
+                if (cosf < -0.99999 && fourDMode) {
+                    // 4D rotation but with opposite dir
+                    let ortho;
+                    if (Math.abs(a.x) < 0.1) {
+                        ortho = new Quaternion(1, 0, 0, 0);
+                    }
+                    else {
+                        ortho = new Quaternion(0, 1, 0, 0);
+                    }
+                    let dot = a.x * ortho.x + a.y * ortho.y + a.z * ortho.z + a.w * ortho.w;
+                    ortho.set(ortho.x - dot * a.x, ortho.y - dot * a.y, ortho.z - dot * a.z, ortho.w - dot * a.w).norms();
+                    b = ortho;
+                    A = Math.cos(Math.PI * t);
+                    B = Math.sin(Math.PI * t);
+                }
+                else if (cosf < 0 && !fourDMode) {
+                    // 3D rotation, inverse Quaternion then slerp
+                    let f = Math.acos(-cosf);
+                    let _1s = 1 / Math.sin(f);
+                    A = Math.sin((1 - t) * f) * _1s;
+                    B = -Math.sin(t * f) * _1s;
+                }
+                else {
+                    // just slerp
+                    let f = Math.acos(cosf);
+                    let _1s = 1 / Math.sin(f);
+                    A = Math.sin((1 - t) * f) * _1s;
+                    B = Math.sin(t * f) * _1s;
+                }
             }
             return new Quaternion(a.x * A + b.x * B, a.y * A + b.y * B, a.z * A + b.z * B, a.w * A + b.w * B);
         }
@@ -855,6 +879,13 @@
             let g = v.norm() * 0.5;
             let s = Math.abs(g) > 0.005 ? Math.sin(g) / g * 0.5 : 0.5 - g * g / 12;
             return this.set(Math.cos(g), s * v.x, s * v.y, s * v.z);
+        }
+        distanceTo(p) {
+            return Math.hypot(p.x - this.x, p.y - this.y, p.z - this.z, p.w - this.w);
+        }
+        distanceSqrTo(p) {
+            let x = p.x - this.x, y = p.y - this.y, z = p.z - this.z, w = p.w - this.w;
+            return x * x + y * y + z * z + w * w;
         }
         static rand() {
             let a = Math.random() * _360;
@@ -945,6 +976,10 @@
         constructor(l = new Quaternion(), r = new Quaternion()) {
             this.l = l;
             this.r = r;
+        }
+        set() {
+            this.l.set();
+            this.r.set();
         }
         clone() {
             return new Rotor(this.l.clone(), this.r.clone());
@@ -1043,7 +1078,15 @@
             return new Bivec(a.x + b.x, a.y + b.y, a.z + b.z, a.z - b.z, b.y - a.y, a.x - b.x);
         }
         static slerp(a, b, t) {
-            return new Rotor(Quaternion.slerp(a.l, b.l, t), Quaternion.slerp(a.r, b.r, t));
+            let l = a.l.x * b.l.x + a.l.y * b.l.y + a.l.z * b.l.z + a.l.w * b.l.w;
+            let r = a.r.x * b.r.x + a.r.y * b.r.y + a.r.z * b.r.z + a.r.w * b.r.w;
+            if ((l < 0 && r < 0) || (l < 0 && -l > r) || (r < 0 && -r > l)) {
+                const r = new Rotor(Quaternion.slerp(a.l, b.l.negs(), t, true), Quaternion.slerp(a.r, b.r.negs(), t, true));
+                b.l.negs();
+                b.r.negs();
+                return r;
+            }
+            return new Rotor(Quaternion.slerp(a.l, b.l, t, true), Quaternion.slerp(a.r, b.r, t, true));
         }
         toMat4() {
             return this.l.toLMat4().mulsr(_mat4.setFromQuaternionR(this.r));
@@ -1112,6 +1155,9 @@
             }
             return this.expset(right);
         }
+        distanceSqrTo(r) {
+            return this.l.distanceSqrTo(r.l) + this.r.distanceSqrTo(r.r);
+        }
         static rand() {
             return new Rotor(Quaternion.rand(), Quaternion.rand());
         }
@@ -1145,18 +1191,18 @@
         yz;
         yw;
         zw;
-        static xy = new Bivec(1, 0, 0, 0, 0, 0);
-        static xz = new Bivec(0, 1, 0, 0, 0, 0);
-        static xw = new Bivec(0, 0, 1, 0, 0, 0);
-        static yz = new Bivec(0, 0, 0, 1, 0, 0);
-        static yw = new Bivec(0, 0, 0, 0, 1, 0);
-        static zw = new Bivec(0, 0, 0, 0, 0, 1);
-        static yx = new Bivec(-1, 0, 0, 0, 0, 0);
-        static zx = new Bivec(0, -1, 0, 0, 0, 0);
-        static wx = new Bivec(0, 0, -1, 0, 0, 0);
-        static zy = new Bivec(0, 0, 0, -1, 0, 0);
-        static wy = new Bivec(0, 0, 0, 0, -1, 0);
-        static wz = new Bivec(0, 0, 0, 0, 0, -1);
+        static xy = Object.freeze(new Bivec(1, 0, 0, 0, 0, 0));
+        static xz = Object.freeze(new Bivec(0, 1, 0, 0, 0, 0));
+        static xw = Object.freeze(new Bivec(0, 0, 1, 0, 0, 0));
+        static yz = Object.freeze(new Bivec(0, 0, 0, 1, 0, 0));
+        static yw = Object.freeze(new Bivec(0, 0, 0, 0, 1, 0));
+        static zw = Object.freeze(new Bivec(0, 0, 0, 0, 0, 1));
+        static yx = Object.freeze(new Bivec(-1, 0, 0, 0, 0, 0));
+        static zx = Object.freeze(new Bivec(0, -1, 0, 0, 0, 0));
+        static wx = Object.freeze(new Bivec(0, 0, -1, 0, 0, 0));
+        static zy = Object.freeze(new Bivec(0, 0, 0, -1, 0, 0));
+        static wy = Object.freeze(new Bivec(0, 0, 0, 0, -1, 0));
+        static wz = Object.freeze(new Bivec(0, 0, 0, 0, 0, -1));
         isFinite() {
             return isFinite(this.xy) && isFinite(this.xz) && isFinite(this.xw) && isFinite(this.yz) && isFinite(this.yw) && isFinite(this.zw);
         }
@@ -1475,15 +1521,15 @@
         y;
         z;
         w;
-        static x = new Vec4(1, 0, 0, 0);
-        static y = new Vec4(0, 1, 0, 0);
-        static z = new Vec4(0, 0, 1, 0);
-        static w = new Vec4(0, 0, 0, 1);
-        static origin = new Vec4(0, 0, 0, 0);
-        static xNeg = new Vec4(-1, 0, 0, 0);
-        static yNeg = new Vec4(0, -1, 0, 0);
-        static zNeg = new Vec4(0, 0, -1, 0);
-        static wNeg = new Vec4(0, 0, 0, -1);
+        static x = Object.freeze(new Vec4(1, 0, 0, 0));
+        static y = Object.freeze(new Vec4(0, 1, 0, 0));
+        static z = Object.freeze(new Vec4(0, 0, 1, 0));
+        static w = Object.freeze(new Vec4(0, 0, 0, 1));
+        static origin = Object.freeze(new Vec4(0, 0, 0, 0));
+        static xNeg = Object.freeze(new Vec4(-1, 0, 0, 0));
+        static yNeg = Object.freeze(new Vec4(0, -1, 0, 0));
+        static zNeg = Object.freeze(new Vec4(0, 0, -1, 0));
+        static wNeg = Object.freeze(new Vec4(0, 0, 0, -1));
         constructor(x = 0, y = 0, z = 0, w = 0) {
             this.x = x;
             this.y = y;
@@ -1838,9 +1884,9 @@
         x;
         y;
         z;
-        static x = new Vec3(1, 0, 0);
-        static y = new Vec3(0, 1, 0);
-        static z = new Vec3(0, 0, 1);
+        static x = Object.freeze(new Vec3(1, 0, 0));
+        static y = Object.freeze(new Vec3(0, 1, 0));
+        static z = Object.freeze(new Vec3(0, 0, 1));
         constructor(x = 0, y = 0, z = 0) {
             this.x = x;
             this.y = y;
@@ -3078,8 +3124,8 @@
             let d0 = this.derives[i];
             let d1 = this.derives[i + 1];
             let p01 = p0.sub(p1);
-            let A = p01.mulfs(2).adds(d0).adds(d1);
-            let B = d0.mulf(-2).subs(d1).subs(p01.mulfs(1.5));
+            let A = p01.mulf(2).adds(d0).adds(d1);
+            let B = d0.mulf(-2).subs(d1).subs(p01.mulfs(3));
             let x = p0.x + t * (d0.x + t * (B.x + t * A.x));
             let y = p0.y + t * (d0.y + t * (B.y + t * A.y));
             let z = p0.z + t * (d0.z + t * (B.z + t * A.z));
@@ -4438,8 +4484,9 @@ fn calDepth(distance: f32)->f32{
                 this.displayConfig.canvasSize = config.canvasSize;
                 this.screenRenderPass.setSize(config.canvasSize);
             }
-            if (config.screenBackgroundColor)
-                this.displayConfig.screenBackgroundColor = config.screenBackgroundColor;
+            if (config.screenBackgroundColor) {
+                this.displayConfig.screenBackgroundColor = (config.screenBackgroundColor?.length === 3) ? [...config.screenBackgroundColor, 1] : config.screenBackgroundColor;
+            }
             if (config.retinaClearColor) {
                 this.displayConfig.retinaClearColor = config.retinaClearColor;
                 this.crossRenderPass.descClear.colorAttachments[0].clearValue = config.retinaClearColor;
@@ -5873,6 +5920,13 @@ return vec4f(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1.0))
             }
             return this;
         }
+        getVertices() {
+            const res = [];
+            for (let i = 0; i < this.position.length; i += 4) {
+                res.push(new Vec4(this.position[i], this.position[i + 1], this.position[i + 2], this.position[i + 3]));
+            }
+            return res;
+        }
     }
     class TetraIndexMesh {
         position;
@@ -5898,6 +5952,13 @@ return vec4f(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1.0))
         applyObj4(obj4) {
             applyObj4$1(this, obj4);
             return this;
+        }
+        getVertices() {
+            const res = [];
+            for (let i = 0; i < this.position.length; i += 4) {
+                res.push(new Vec4(this.position[i], this.position[i + 1], this.position[i + 2], this.position[i + 3]));
+            }
+            return res;
         }
         toNonIndexMesh() {
             let count = this.position.length << 2;
@@ -7915,7 +7976,7 @@ return vec4f(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1.0))
                 console.warn("Cannot remove a non-existed child");
             }
         }
-        setBackgroudColor(color) {
+        setBackgroundColor(color) {
             this.backGroundColor = color;
         }
     }
@@ -8291,7 +8352,7 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
             this.canvas = canvas;
             this.lightShaderInfomation = _initLightShader(config);
         }
-        setBackgroudColor(color) {
+        setBackgroundColor(color) {
             this.core.setDisplayConfig({ screenBackgroundColor: color });
         }
         async init() {
@@ -8709,7 +8770,7 @@ fn normalizeVec4s(vec4s: mat4x4f) -> mat4x4f{
             let { vs, fs } = this.getShaderCode(r);
             this.pipeline = await r.core.createTetraSlicePipeline({
                 vertex: { code: vs, entryPoint: "main" },
-                fragment: { code: fs, entryPoint: "main" },
+                fragment: { code: fs, entryPoint: "fourMain" },
                 cullMode: this.cullMode
             });
             r.pullPipeline(this.identifier, this.pipeline);
@@ -8773,7 +8834,7 @@ fn normalizeVec4s(vec4s: mat4x4f) -> mat4x4f{
         matrix: mat4x4f,
         vector: vec4f,
     }
-    @fragment fn main(${fsIn}) -> @location(0) vec4f {
+    @fragment fn fourMain(${fsIn}) -> @location(0) vec4f {
         let ambientLightDensity = uWorldLight.ambientLightDensity.xyz;`; // avoid basic material doesn't call this uniform at all
             // if frag shader has input, we need to construct a struct fourInputType
             if (fsIn) {
@@ -9208,6 +9269,22 @@ fn normalizeVec4s(vec4s: mat4x4f) -> mat4x4f{
             return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
         }
         `;
+    class ColorMixer extends MaterialNode {
+        getCode(r, root, outputToken) {
+            // Tell root material that CheckerTexture needs deal dependency of vary input uvw
+            let { token, code } = this.getInputCode(r, root, outputToken);
+            return code + `
+                let ${outputToken} = mix(${token.color1},${token.color2},${token.mix});
+                `;
+        }
+        constructor(color1, color2, mix) {
+            color1 = makeColorOutput(color1);
+            color2 = makeColorOutput(color2);
+            mix = makeFloatOutput(mix);
+            super(`Mixer(${color1.identifier},${color2.identifier},${mix.identifier})`);
+            this.input = { color1, color2, mix };
+        }
+    }
     class NoiseTexture extends MaterialNode {
         getCode(r, root, outputToken) {
             root.addHeader("NoiseWGSLHeader", NoiseWGSLHeader);
@@ -10305,6 +10382,9 @@ fn normalizeVec4s(vec4s: mat4x4f) -> mat4x4f{
         transparent = false;
         constructor(size) {
             super();
+            if (typeof size === "number") {
+                size = new Vec4(size, size, size, size);
+            }
             let x = size.x, y = size.y, z = size.z, w = size.w;
             this.obb = new AABB(size.neg(), size);
             this.lines = [
@@ -12515,6 +12595,7 @@ fn normalizeVec4s(vec4s: mat4x4f) -> mat4x4f{
         BasicMaterial: BasicMaterial,
         CWMeshGeometry: CWMeshGeometry,
         CheckerTexture: CheckerTexture,
+        ColorMixer: ColorMixer,
         ColorUniformValue: ColorUniformValue,
         ConvexHullGeometry: ConvexHullGeometry,
         CubeGeometry: CubeGeometry,
@@ -16342,9 +16423,7 @@ fn normalizeVec4s(vec4s: mat4x4f) -> mat4x4f{
                 }
                 // dv = dvb(Ib) - dva(Ia) == dvb(I) + dva(I) since I = -Ia = Ib
                 let impulse = targetDeltaVelocityByImpulse.mulmatls(matA.adds(matB).invs());
-                if (impulse.norm() > 1.0) {
-                    console.log("hq");
-                }
+                if (impulse.norm() > 1.0) ;
                 // if (impulse.norm1() === 0) continue;
                 // console.assert(isFinite(impulse.norm1()));
                 // console.assert(isFinite(normal.norm1()));

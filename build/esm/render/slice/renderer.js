@@ -85,8 +85,9 @@ class SliceRenderer {
             this.displayConfig.canvasSize = config.canvasSize;
             this.screenRenderPass.setSize(config.canvasSize);
         }
-        if (config.screenBackgroundColor)
-            this.displayConfig.screenBackgroundColor = config.screenBackgroundColor;
+        if (config.screenBackgroundColor) {
+            this.displayConfig.screenBackgroundColor = (config.screenBackgroundColor?.length === 3) ? [...config.screenBackgroundColor, 1] : config.screenBackgroundColor;
+        }
         if (config.retinaClearColor) {
             this.displayConfig.retinaClearColor = config.retinaClearColor;
             this.crossRenderPass.descClear.colorAttachments[0].clearValue = config.retinaClearColor;

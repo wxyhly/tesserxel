@@ -1,7 +1,9 @@
 import { CosetTable } from '../algebra/group.js';
 import '../algebra/vec2.js';
+import '../algebra/vec3.js';
 import { Vec4 } from '../algebra/vec4.js';
 import '../algebra/mat3.js';
+import '../algebra/mat4.js';
 import { Bivec } from '../algebra/bivec.js';
 import '../algebra/mat2.js';
 import '../algebra/cplx.js';

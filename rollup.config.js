@@ -11,24 +11,17 @@ export default [
     input: "./src/tesserxel.ts",
     output: {
       file: './build/tesserxel.js',
-      "sourcemap": true,
-      format: 'umd',
-      name: "tesserxel"
+      "sourcemap": true, format: 'umd', name: "tesserxel"
     },
     plugins: [
-
       copy({
-        targets: [
-          {
-            src: 'node_modules/wgsl_reflect/wgsl_reflect.module.js',
-            dest: 'vendor',
-            rename: 'wgsl_reflect.module.js'
-          }, {
-            src: 'node_modules/wgsl_reflect/wgsl_reflect.module.js.map',
-            dest: 'vendor',
-            rename: 'wgsl_reflect.module.js.map'
-          },
-        ]
+        targets: [{
+          src: 'node_modules/wgsl_reflect/wgsl_reflect.module.js',
+          dest: 'vendor', rename: 'wgsl_reflect.module.js'
+        }, {
+          src: 'node_modules/wgsl_reflect/wgsl_reflect.module.js.map',
+          dest: 'vendor', rename: 'wgsl_reflect.module.js.map'
+        }]
       }),
       resolve(),
       typescript({
@@ -36,7 +29,7 @@ export default [
         tsconfigOverride: {
           exclude: [],
           compilerOptions: {
-            declaration: false, // 已由单独的配置生成.d.ts
+            declaration: false,
           },
         },
         // useTsconfigDeclarationDir: true,
@@ -72,5 +65,10 @@ export default [
         }
       }
     ],
+  },
+  {
+    input: "./build/esm/tesserxel.d.ts",
+    output: [{ file: "build/tesserxel.d.ts", format: "es" }],
+    plugins: [dts()],
   }
 ];

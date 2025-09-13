@@ -122,7 +122,7 @@ export namespace automobile {
         const app = await tesserxel.four.App.create({ canvas });
         const renderer = app.renderer;
         renderer.core.setDisplayConfig({ opacity: 5 });
-        renderer.setBackgroudColor([1, 1, 1, 1]);
+        renderer.setBackgroundColor([1, 1, 1, 1]);
         const scene = new FOUR.Scene();
         const gnd = new FOUR.CubeGeometry(2000);
         scene.add(new FOUR.Mesh(gnd, new FOUR.LambertMaterial(new FOUR.CheckerTexture(

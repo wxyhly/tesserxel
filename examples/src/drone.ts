@@ -14,7 +14,7 @@ export namespace drone {
         const app = await FOUR.App.create({ canvas, controllerConfig: { preventDefault: true } });
         const renderer = app.renderer;
         renderer.core.setDisplayConfig({ opacity: 5 });
-        renderer.setBackgroudColor([1, 1, 1, 1]);
+        renderer.setBackgroundColor([1, 1, 1, 1]);
         const scene = app.scene;
         const gnd = new FOUR.CubeGeometry(20000);
         scene.add(new FOUR.Mesh(gnd, new FOUR.LambertMaterial(new FOUR.CheckerTexture(

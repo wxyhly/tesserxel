@@ -105,12 +105,12 @@ async function loadPolytope0123dFacesScene(mesh: tesserxel.mesh.CWMesh, scale: n
     /** This is a asycn function wait for request WebGPU adapter and do initiations */
     const renderer = app.renderer;
     renderer.core.setDisplayConfig({ opacity: 15 });
-    renderer.setBackgroudColor([1, 1, 1, 1]);
+    renderer.setBackgroundColor([1, 1, 1, 1]);
     let scene = app.scene;
     scene.wireframe = new FOUR.WireFrameScene;
     if (mesh.data[1].length < 1e3)
         scene.wireframe.add(new FOUR.WireFrameConvexPolytope(mesh));
-    scene.setBackgroudColor({ r: 1.0, g: 1.0, b: 1.0, a: 0.02 });
+    scene.setBackgroundColor({ r: 1.0, g: 1.0, b: 1.0, a: 0.02 });
     let camera = app.camera as tesserxel.four.PerspectiveCamera;
     const mesh0 = cwmesh0dframe(mesh, 0.07 * scale, 1);
     const es = mesh.data[1].length > 256 ? 3 : mesh.data[1].length > 127 ? 4 : 5;

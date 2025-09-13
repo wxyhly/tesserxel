@@ -436,7 +436,7 @@ export namespace molecule {
 
     export async function load() {
 
-        
+
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const app = await tesserxel.four.App.create({ canvas, controllerConfig: { preventDefault: true } });
         let scene = app.scene;
@@ -444,7 +444,7 @@ export namespace molecule {
         const bondGeom = new tesserxel.four.Geometry(tesserxel.mesh.tetra.spherinderSide(10, 10, 2, 2, 1));
         const bondMat = new FOUR.PhongMaterial([0.93, 0.87, 0.8]);
         app.renderer.core.setDisplayConfig({ opacity: 50, screenBackgroundColor: [1, 1, 1, 1], sectionStereoEyeOffset: 40 });
-        scene.setBackgroudColor([1, 1, 1, 0.0]);
+        scene.setBackgroundColor([1, 1, 1, 0.0]);
 
 
         scene.add(new FOUR.AmbientLight(0.3));
@@ -541,7 +541,7 @@ class GUI {
                     this.window = window.parent.opener;
                     window.open("javascript:void(0);", "Chem4D");
                 } else {
-                    this.window = window.open(window.location.host.startsWith("127.0.0.1") ? "/ccahgaolo/chem4d/" : "/Chem4D/");
+                    this.window = window.open((window.location.host.startsWith("127.0.0.1") ? "/ccahgaolo/chem4d/" : "/Chem4D/") + ("?lang=" + lang));
                 }
             } else {
                 window.open("javascript:void(0);", "Chem4D");

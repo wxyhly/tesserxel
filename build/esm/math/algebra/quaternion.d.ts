@@ -52,12 +52,14 @@ export declare class Quaternion {
     sqrts(): Quaternion;
     /** get generator of this, Quaternion must be normalized */
     log(): Vec3;
-    static slerp(a: Quaternion, b: Quaternion, t: number): Quaternion;
+    static slerp(a: Quaternion, b: Quaternion, t: number, fourDMode?: boolean): Quaternion;
     toRotateMat(): Mat4;
     toMat3(): Mat3;
     toLMat4(): Mat4;
     toRMat4(): Mat4;
     expset(v: Vec3): this;
+    distanceTo(p: Quaternion): number;
+    distanceSqrTo(p: Quaternion): number;
     static rand(): Quaternion;
     static srand(seed: Srand): Quaternion;
     randset(): Quaternion;

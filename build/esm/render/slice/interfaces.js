@@ -1,6 +1,9 @@
 import '../../math/algebra/vec2.js';
+import '../../math/algebra/vec3.js';
+import '../../math/algebra/vec4.js';
 import '../../math/algebra/mat3.js';
 import { Mat4 } from '../../math/algebra/mat4.js';
+import '../../math/algebra/bivec.js';
 import '../../math/algebra/mat2.js';
 import '../../math/algebra/cplx.js';
 

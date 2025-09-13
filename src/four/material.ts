@@ -65,7 +65,7 @@ export class Material extends MaterialNode {
         let { vs, fs } = this.getShaderCode(r);
         this.pipeline = await r.core.createTetraSlicePipeline({
             vertex: { code: vs, entryPoint: "main" },
-            fragment: { code: fs, entryPoint: "main" },
+            fragment: { code: fs, entryPoint: "fourMain" },
             cullMode: this.cullMode
         });
         r.pullPipeline(this.identifier, this.pipeline);
@@ -125,7 +125,7 @@ export class Material extends MaterialNode {
         matrix: mat4x4f,
         vector: vec4f,
     }
-    @fragment fn main(${fsIn}) -> @location(0) vec4f {
+    @fragment fn fourMain(${fsIn}) -> @location(0) vec4f {
         let ambientLightDensity = uWorldLight.ambientLightDensity.xyz;`; // avoid basic material doesn't call this uniform at all
         // if frag shader has input, we need to construct a struct fourInputType
         if (fsIn) {
@@ -611,6 +611,28 @@ export const NoiseWGSLHeader = `
         }
         `;
 
+export class ColorMixer extends MaterialNode {
+    declare output: "color"
+    declare input: {
+        color1: ColorOutputNode;
+        color2: ColorOutputNode;
+        mix: FloatOutputNode;
+    }
+    getCode(r: Renderer, root: Material, outputToken: string) {
+        // Tell root material that CheckerTexture needs deal dependency of vary input uvw
+        let { token, code } = this.getInputCode(r, root, outputToken);
+        return code + `
+                let ${outputToken} = mix(${token.color1},${token.color2},${token.mix});
+                `;
+    }
+    constructor(color1: Color, color2: Color, mix: Float) {
+        color1 = makeColorOutput(color1);
+        color2 = makeColorOutput(color2);
+        mix = makeFloatOutput(mix);
+        super(`Mixer(${color1.identifier},${color2.identifier},${mix.identifier})`);
+        this.input = { color1, color2, mix };
+    }
+}
 export class NoiseTexture extends MaterialNode {
     declare output: "f32";
     declare input: {

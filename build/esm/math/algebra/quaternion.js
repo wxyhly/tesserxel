@@ -154,20 +154,44 @@ class Quaternion {
         let s = Math.acos(this.x);
         return this.yzw().mulfs(2 * s / Math.sin(s));
     }
-    static slerp(a, b, t) {
+    static slerp(a, b, t, fourDMode) {
         let cosf = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
         let A, B;
-        if (Math.abs(cosf) > 0.99999) {
+        if (cosf > 0.99999) {
+            // linear approxiamtion
             A = 1 - t;
             B = t;
         }
         else {
-            let f = Math.acos(Math.abs(cosf));
-            let _1s = 1 / Math.sin(f);
-            A = Math.sin((1 - t) * f) * _1s;
-            B = Math.sin(t * f) * _1s;
-            if (cosf < 0)
-                B = -B;
+            if (cosf < -0.99999 && fourDMode) {
+                // 4D rotation but with opposite dir
+                let ortho;
+                if (Math.abs(a.x) < 0.1) {
+                    ortho = new Quaternion(1, 0, 0, 0);
+                }
+                else {
+                    ortho = new Quaternion(0, 1, 0, 0);
+                }
+                let dot = a.x * ortho.x + a.y * ortho.y + a.z * ortho.z + a.w * ortho.w;
+                ortho.set(ortho.x - dot * a.x, ortho.y - dot * a.y, ortho.z - dot * a.z, ortho.w - dot * a.w).norms();
+                b = ortho;
+                A = Math.cos(Math.PI * t);
+                B = Math.sin(Math.PI * t);
+            }
+            else if (cosf < 0 && !fourDMode) {
+                // 3D rotation, inverse Quaternion then slerp
+                let f = Math.acos(-cosf);
+                let _1s = 1 / Math.sin(f);
+                A = Math.sin((1 - t) * f) * _1s;
+                B = -Math.sin(t * f) * _1s;
+            }
+            else {
+                // just slerp
+                let f = Math.acos(cosf);
+                let _1s = 1 / Math.sin(f);
+                A = Math.sin((1 - t) * f) * _1s;
+                B = Math.sin(t * f) * _1s;
+            }
         }
         return new Quaternion(a.x * A + b.x * B, a.y * A + b.y * B, a.z * A + b.z * B, a.w * A + b.w * B);
     }
@@ -207,6 +231,13 @@ class Quaternion {
         let g = v.norm() * 0.5;
         let s = Math.abs(g) > 0.005 ? Math.sin(g) / g * 0.5 : 0.5 - g * g / 12;
         return this.set(Math.cos(g), s * v.x, s * v.y, s * v.z);
+    }
+    distanceTo(p) {
+        return Math.hypot(p.x - this.x, p.y - this.y, p.z - this.z, p.w - this.w);
+    }
+    distanceSqrTo(p) {
+        let x = p.x - this.x, y = p.y - this.y, z = p.z - this.z, w = p.w - this.w;
+        return x * x + y * y + z * z + w * w;
     }
     static rand() {
         let a = Math.random() * _360;
