@@ -1920,3 +1920,113 @@ export namespace gravity3s {
         await new gravityApp().load(2.1, G);
     }
 }
+
+export namespace gravityRing {
+    class Gravity extends tesserxel.physics.Force {
+        rigids: tesserxel.physics.Rigid[] = [];
+        R: number;
+        R2: number;
+        mass: number;
+        eps = 1e-6;
+        vec = math.vec4Pool.pop();
+        constructor(R: number, mass: number) {
+            super();
+            this.mass = mass;
+            this.R = R;
+            this.R2 = R * R;
+        }
+        gain = 10;
+        add(s: tesserxel.physics.Rigid) {
+            this.rigids.push(s);
+        }
+        getPotentialAt(p: tesserxel.math.Vec4) {
+            const rho = p.x * p.x + p.y * p.y;
+            const z2 = p.z * p.z + p.w * p.w;
+            const k = rho + z2 + this.R2;
+            return this.mass / Math.sqrt(k * k - 4 * rho * this.R2);
+        }
+        getGAt(p: tesserxel.math.Vec4) {
+            const v0 = this.getPotentialAt(p);
+            this.vec.copy(p); this.vec.x += this.eps;
+            const x = this.getPotentialAt(this.vec) - v0;
+            this.vec.copy(p); this.vec.y += this.eps;
+            const y = this.getPotentialAt(this.vec) - v0;
+            this.vec.copy(p); this.vec.z += this.eps;
+            const z = this.getPotentialAt(this.vec) - v0;
+            this.vec.copy(p); this.vec.w += this.eps;
+            const w = this.getPotentialAt(this.vec) - v0;
+            return new math.Vec4(x, y, z, w).divfs(this.eps);
+        }
+        apply(time: number): void {
+
+            // outter loop: test point, inner loop: source point
+
+            for (let q of this.rigids) {
+                if (!q || !q.mass) continue;
+                q.force.addmulfs(this.getGAt(q.position), q.mass);
+            }
+        }
+    }
+    export async function load() {
+        const engine = new phy.Engine({ substep: 100, broadPhase: phy.IgnoreAllBroadPhase });
+        const world = new phy.World();
+        const scene = new FOUR.Scene();
+        const majorRadius = 5;
+        const G = new Gravity(majorRadius, 1500);
+        let camera = new FOUR.PerspectiveCamera();
+        camera.position.w = 9;
+        scene.add(camera);
+        scene.add(new FOUR.AmbientLight(0.5));
+        scene.add(new FOUR.DirectionalLight([1, 1, 1], new math.Vec4(1, -3, 2, 1.414)));
+
+        const count = 50;
+        const totalV = new math.Vec4(0, 0, 0, 0);
+        const ring = new phy.Rigid({
+            geometry: new phy.rigid.Spheritorus(majorRadius, 0.2),
+            material: new phy.Material(1, 0.4), mass: 0
+        });
+        addRigidToScene(world, scene, new FOUR.LambertMaterial([1, 0.1, 0.1, 0.5]), ring);
+        ring.rotatesb(math.Bivec.yw.mulf(math._90));
+        for (let i = 0; i < count; i++) {
+            let sphere = new phy.Rigid({
+                geometry: new phy.rigid.Glome(0.2),
+                material: new phy.Material(1, 0.4), mass: 2
+            });
+            addRigidToScene(world, scene, new FOUR.LambertMaterial([0.2, 0.2, 1, 0.1]), sphere);
+            sphere.position.randset().mulfs(6);
+            sphere.velocity.randset().mulfs(3);
+            // sphere.position.x = 6.5+i*0.2;
+            // sphere.position.z = i*0.2;
+            // sphere.velocity.z = 1;
+
+            totalV.adds(sphere.velocity);
+            sphere.rotation.randset();
+            // sphere.angularVelocity.randset().mulfs(0.1);
+            G.add(sphere);
+        }
+        totalV.divfs(count);
+        for (const c of G.rigids) {
+            c.velocity.subs(totalV);
+        }
+
+        world.gravity.set();
+        world.add(G);
+        const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+        const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } })
+        app.renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 300,
+            // retinaLayers: 64,
+        });
+        // controllers
+
+        const camCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
+        app.controllerRegistry.add(camCtrl);
+        app.run(() => {
+            // syncronise physics world and render scene
+            updateRidigsInScene();
+            engine.update(world, Math.min(1 / 15, app.controllerRegistry.states.mspf / 1000) * 0.2);
+        });
+    }
+}

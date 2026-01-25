@@ -10708,7 +10708,7 @@ fn normalizeVec4s(vec4s: mat4x4f) -> mat4x4f{
                     offset += 8;
                 }
             }
-            gpu.device.queue.writeBuffer(this.gpuBuffer, 0, this.jsBuffer.buffer, 0, offset);
+            gpu.device.queue.writeBuffer(this.gpuBuffer, 0, this.jsBuffer.buffer, 0, offset << 2);
             rs.render(this.gpuBuffer, offset >> 2);
         }
     }

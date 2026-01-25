@@ -3,6 +3,70 @@ import { createCodemirrorEditor } from "../../playground/build/shadertoy.js"
 const urlp = new URLSearchParams(window.location.search.slice(1));
 const lang = urlp.get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en");
 
+const skyGen_code = `
+// "StarNest" Background Ported from https://www.shadertoy.com/view/XlfGRj
+
+const iterations = 17;
+const formuparam = 0.62;
+const brightness: f32 = 0.0015;
+const darkmatter: f32 = 0.300;
+const distfading: f32 = 0.730;
+const saturation: f32 = 0.850;
+
+const volsteps: i32 = 20;
+const stepsize: f32 = 0.1;
+
+const zoom: f32 = 0.800;
+const tile: f32 = 0.850;
+const speed_const: f32 = 0.010;
+fn mod_f(a: f32, b: f32) -> f32 {
+    return a - b * floor(a / b);
+}
+fn mod_v4(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
+    return vec4<f32>(mod_f(a.x,b.x), mod_f(a.y,b.y), mod_f(a.z,b.z), mod_f(a.w,b.w));
+}
+fn background(ro: vec4f, rayDir: vec4f)->vec4f{
+    let dir = normalize(rayDir);
+    // let dir = (rayDir);
+   
+    // raymarch
+    var s = 0.1;
+    var fade = 1.0;
+    var v = vec3<f32>(0.0);
+
+    for (var r: i32 = 0; r < 10; r = r + 1) {
+        var p = ro + s * dir * 0.5;
+        p = abs(vec4<f32>(tile) - mod_v4(p, vec4<f32>(tile*2.0)));
+
+        var pa = 0.0;
+        var a = 0.0;
+
+        for (var i: i32 = 0; i < iterations; i = i + 1) {
+            p = abs(p) / dot(p, p) - vec4<f32>(formuparam);
+            let plen = length(p);
+            a += abs(plen - pa);
+            pa = plen;
+        } 
+        let dm = max(0.0, darkmatter - a*a*0.001);
+        a = a*a*a;
+
+        if (r > 6) { fade *= (1.0 - dm); }
+
+        v += vec3<f32>(fade);
+        v += vec3<f32>(s, s*s, s*s*s*s) * a * brightness * fade;
+
+        fade *= distfading;
+        s += stepsize;
+    }
+
+    // color adjust
+    let grey = vec3<f32>(length(v));
+    let col = mix(grey, v, saturation);
+
+    return vec4<f32>(col * 0.01, (col.x+col.y+col.z)*0.003);
+}
+`;
+
 type Examples = { [name: string]: string };
 const voxelExamples = {
     "Color-Cube": `fn mainVoxel(pos: vec3<f32>)->vec4f{
@@ -1336,8 +1400,123 @@ fn mainRay(rayo: vec4f, rayd: vec4f) -> vec4f {
 
     return vec4f(col, opacity);
 }
-`
+`,
+
+"Black Hole": `/// @background: black
+/// @moveSpeed: 0.0001
+/// @stereoEyeOffset: 0.1
+/// @camCtrl: trackball(0,0,0,-2)
+/// @opacity: 20
+
+const M = -0.2;
+const step = 0.2;
+const iteration = 256;
+const thickness = 0.1;
+
+${skyGen_code}
+
+fn mainRay(ro: vec4f, rayDir: vec4f)->vec4f{
+    var pos = ro + vec4f(0,0,0,2);
+    var dir = normalize(rayDir);
+    var discColor = vec3f();
+    for(var i=0;i<iteration;i++){
+        let r = dot(pos,pos);
+        if(r<0.1) {return vec4f(discColor, 0.5 + discColor.r);}
+        if (r>30) {break;}
+        let accrR_old = length(pos.yz)-thickness;
+        let dt = r*(min(max(accrR_old,1.0),0.1))*step;
+        let acc = pos*(M/(r*r*r));
+        let dir2 = dir + acc*(dt*0.5);
+        let pos2 = pos + dir*(dt*0.5);
+        let r2 = dot(pos2,pos2);
+        let acc2 = pos2*(M/(r2*r2*r2));
+        dir += acc2*dt;
+        let old_pos = pos;
+        pos += dir2*dt;
+        let ta = atan2(pos.y,pos.x);
+        let tb = atan2(pos.w,pos.z);
+        let accrR = length(pos.yz);
+       if (accrR < 0.1) {
+            let rr = r;//accrR/(accrR-accrR_old)*r -accrR_old/(accrR-accrR_old)*dot(pos,pos);
+            if( rr > 1.0 && rr < 2.0){
+                let brandPos =
+                    (0.1-accrR)*10*(rr-1.0)*(2.0-rr)*2.0*
+                    (sin(rr*14.0)*0.2*(sin(accrR*3)+1.0) + 1.0
+                    + sin(rr*(80.0 + 10.0*cos(rr*12.0)))*0.05);
+                discColor += vec3f(brandPos, brandPos*0.8, brandPos*0.6)
+                            * exp(-discColor.x*5.0);
+            }
+        }
+    }
+    let bg = background(vec4f(1.234,422.324,55.342,3.435),dir);
+        
+    return vec4f(bg.xyz*3.8 - 0.05 + discColor, bg.a + discColor.r);
+}
+
+`,
+
+"Black Ring": `/// @background: black
+/// @moveSpeed: 0.0001
+/// @stereoEyeOffset: 0.1
+/// @camCtrl: trackball(0,0,0,-2)
+/// @opacity: 20
+
+const M = 0.1;
+const a = 1;
+const b = 0;
+const step = 0.01;
+const iteration = 512;
+const N = 16;
+
+${skyGen_code}
+
+const a2 = a*a;
+
+fn getR(pos:vec4f)->f32{
+    let zw = pos.z*pos.z+pos.w*pos.w;
+    let r2 = dot(pos,pos);
+    let t1 = r2+a2;
+    let t2 = a2*(r2-zw)*4;
+
+    return 1/(t1*t1-t2);
+}
+const eps = 0.00001;
+fn forceB(pos:vec4f,dir:vec4f)->vec4f{
+    let v0 = getR(pos);
+    let f = vec4f(
+        getR(pos+vec4(eps,0,0,0))-v0,
+        getR(pos+vec4(0,eps,0,0))-v0,
+        getR(pos+vec4(0,0,eps,0))-v0,
+        getR(pos+vec4(0,0,0,eps))-v0
+    );
+    return f*(M/eps);
+}
+fn mainRay(ro: vec4f, rayDir: vec4f)->vec4f{
+    var pos = ro + vec4f(0,0,0,2);
+    var dir = normalize(rayDir);
+    var discColor = vec3f();
+    for(var i=0;i<iteration;i++){
+        let r = getR(pos);
+        if(r>10) {return vec4f(discColor, 0.5 + discColor.r);}
+        if (dot(pos,pos)>30) {break;}
+        let dt = step/r;
+        let acc = forceB(pos,dir);
+        let dir2 = dir + acc*dt*0.5;
+        let pos2 = pos + dir*dt*0.5;
+        let r2 = dot(pos2,pos2);
+        let acc2 = forceB(pos2,dir2);
+        dir += acc2*dt;
+        let old_pos = pos;
+        pos += dir2*dt;
+    }
+    let bg = background(vec4f(1.234,422.324,55.342,3.435),dir);
+        
+    return vec4f(bg.xyz*4.8 + discColor, bg.a + discColor.r);
+}
+
+`,
 };
+
 class ResizeDivHandler {
     div: HTMLDivElement;
     runBtn: HTMLButtonElement;
