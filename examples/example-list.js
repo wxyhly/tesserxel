@@ -108,7 +108,7 @@ let examples = [
                     { target: "rigids::gyro_conic_prism", zh: "圆锥柱陀螺", en: "Conic Prism Gyro" },
                     { target: "rigids::gyro_cylindral_cone", zh: "圆柱锥陀螺", en: "Cylindral Cone Gyro" },
                     { target: "rigids::gyro_dicone", zh: "圆锥锥陀螺", en: "Dicone Gyro" },
-                    { target: "rigids::gyro_duocone", zh: "双圆锥陀螺", en: "Duocone Gyro" },
+                    { target: "rigids::gyro_duocone", zh: "双圆锥陀螺", en: "Duospindle(Duocone) Gyro" },
                     { target: "rigids::gyro_sphericone", zh: "球锥陀螺", en: "Sphericone Gyro" },
                 ]
             },
@@ -119,7 +119,18 @@ let examples = [
                     { target: "rigids::e_dipole", zh: "电偶极子", en: "Electric Dipoles" },
                     { target: "rigids::m_dipole", zh: "磁偶极子", en: "Magnetic Dipoles" },
                     { target: "rigids::m_dipole_dual1", zh: "自对偶磁偶极子1", en: "Magnetic Dipoles (Self Dual) 1" },
-                    { target: "rigids::m_dipole_dual2", zh: "自对偶磁偶极子2", en: "Magnetic Dipoles (Self Dual) 2" }
+                    { target: "rigids::m_dipole_dual2", zh: "自对偶磁偶极子2", en: "Magnetic Dipoles (Self Dual) 2" },
+                    { target: "rigids::lorentz", zh: "洛伦兹力", en: "Lorentz Force" },
+                    { target: "rigids::circuitE", zh: "磁约束线圈", en: "Magnetic Confinement" },
+                    {
+                        group: "maxwell", zh: "线圈磁场分布", en: "Coil Magnetic Field", child: [
+                            { target: "rigids::circuitBap", zh: "绝对垂直的线圈", en: "Perpendicular Coil" },
+                            { target: "rigids::circuitBdh", zh: "平圆环螺线管", en: "Clifford-Toroidal Coil" },
+                            { target: "rigids::circuitBds", zh: "圆柱柱螺线管", en: "Cubindrical Coil" },
+                            { target: "rigids::circuitBh0", zh: "合成均匀对偶磁场", en: "Uniform Hode-Dual Field" },
+                            { target: "rigids::circuitBhs", zh: "合成均匀简单磁场", en: "Uniform Simple Field" },
+                        ]
+                    }
                 ]
             },
             {
@@ -356,6 +367,35 @@ let info = {
         "zh": "<b>控制：保持竖直模式</b><br>对偶磁偶极子为两个绝对垂直的等大环形电流的磁场叠加，但有更高的Hopf纤维对称性。对偶磁偶极子按手性可分为互为镜像的自对偶与反自对偶磁偶极子。同种对偶磁偶极子之间因两个线圈受力抵消，因而无相互作用力。使用键盘G开启/关闭重力。",
         "en": "<b>Control: Keep up mode</b><br>Dual magnetic dipole is constructed by two perpendicular current loop with same amount, but it has much higher symmetry of Hopf fibration. It can be categorized into two different chiral class: self-dual and anti-self-dual dipole. dipoles with the same chirality have no interactions since force applied by perpendicular current loops exactly cancel each other. Use keyboard G to turn on/off the gravity."
     },
+    "rigids::circuitE":{
+        "zh": "<b>控制：保持竖直模式</b><br>圆形电流线圈的不均匀磁场可以约束带电粒子的运动。使用键盘G开启/关闭重力。",
+        "en": "<b>Control: Keep up mode</b><br>The non-uniform magnetic field of circular current loop can confine the motion of charged particles. Use keyboard G to turn on/off the gravity."
+    },
+    
+    "rigids::lorentz":{
+        "zh": "<b>控制：保持竖直模式</b><br>空间中存在xy-zw方向的均匀自对偶磁场。场景默认开启重力，带电粒子移动时将受到洛伦兹力与重力的双重作用二发生漂移圆周运动。若关闭场景重力，粒子将在原地转圈。与三维空间不同的是，对偶磁场会约束所有方向运动的粒子，看上去就像是粒子被磁场粘住了一样。使用键盘G开启/关闭重力。",
+        "en": "<b>Control: Keep up mode</b><br>The space is full of a uniform self-dual magnetic field in the xy-zw direction. The scene has gravity turned on by default. When charged particles move, they will be affected by both Lorentz force and gravity, resulting in drift circular motion. If the scene gravity is turned off, the particles will spin around in place. Unlike in 3D space, dual magnetic field can confine particles moving in all directions, making it look like they are stuck by the magnetic field. Use keyboard G to turn on/off the gravity."
+    },
+    "rigids::circuitBap": {
+        "zh": "<b>控制：保持竖直模式</b><br>绝对垂直的两个圆形电流线圈的磁场分布。磁场是2-向量，其方向用圆周来表示。原点附近的磁场为复合2-向量，可以看到它有两个互相绝对垂直的分量（分别用红圈/蓝圈表示）",
+        "en": "<b>Control: Keep up mode</b><br>Magnetic field distribution of two absolutely perpendicular circular current loops. Magnetic field is a 2-vector whose direction is represented by circle. The magnetic field near the origin is a composite 2-vector, which has two mutually perpendicular components (represented by red / blue circle respectively)."
+    },
+    "rigids::circuitBdh": {
+        "zh": "<b>控制：保持竖直模式</b><br>多个相同的线圈在绝对垂直的方向上排列一圈，形成平圆环形状的螺线管。可以发现空间中部漏磁严重，无法获得均匀磁场。",
+        "en": "<b>Control: Keep up mode</b><br>Several identical coils are arranged in a circle in an absolutely perpendicular direction to form a Cliiford-toroidal solenoid. It can be found that there is serious magnetic leakage at the center. Magnetic field cannot be uniform."
+    },
+    "rigids::circuitBds": {
+        "zh": "<b>控制：保持竖直模式</b><br>多个相同的线圈在绝对垂直的平面上密集阵列形成圆柱柱形状的螺线管。类似于三维螺线管，内部可获得近似均匀磁场。",
+        "en": "<b>Control: Keep up mode</b><br>Several identical coils are densely arrayed on an absolutely perpendicular plane to form a cubindrical solenoid. Similar to 3D solenoid, approximate uniform magnetic field can be obtained inside."
+    },
+    "rigids::circuitBh0": {
+        "zh": "<b>控制：保持竖直模式</b><br>两组同手性的半径不同的Hopf纤维丛形状的通电线圈。每组线圈外部为理想对偶磁偶极子磁场分布，内部则为均匀的对偶磁场。内外两层纤维丛中电流相反，刚好将内层超球壳内部磁场抵消为0。",
+        "en": "<b>Control: Keep up mode</b><br>Two sets of current-carrying coils in the shape of Hopf fibrations with the same chirality but different radii. The field distribution outside of each set of coils is an ideal dual magnetic dipole field, and the inside is a uniform dual magnetic field. The currents in the inner and outer layers of the fibration are opposite, which exactly cancels each other inside the inner hyperspherical shell."
+    },
+    "rigids::circuitBhs": {
+        "zh": "<b>控制：保持竖直模式</b><br>两组异手性的半径不同的Hopf纤维丛形状的通电线圈。每组线圈外部为理想对偶磁偶极子磁场分布，内部则为均匀的对偶磁场。两组线圈内部的对偶磁场叠加后可以合成出均匀的简单磁场。",
+        "en": "<b>Control: Keep up mode</b><br>Two sets of current-carrying coils in the shape of Hopf fibrations with different chirality and different radii. The field distribution outside of each set of coils is an ideal dual magnetic dipole field, and the inside is a uniform dual magnetic field. The dual magnetic fields inside the two sets of coils can be superimposed to synthesize a uniform simple magnetic field."
+    },
     "rigids::gyro_conic_prism": {
         "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆锥柱陀螺。使用鼠标左键发射超球轰击它可以看到该陀螺具有一定的稳定性。",
         "en": "<b>Control: Keep up mode</b><br>Spinning conic prismatical gyro. Click left mouse button to fire glomes and hit it, which can be shown that this gyro is stable while spinning."
@@ -441,10 +481,10 @@ let info = {
         "en": "<b>Control: Trackball mode</b><br>4D celestial simulation under inverse-cubic law gravity with short-range repulsion. The short-range interaction is generated by massive boson with exponential decay (exact solution contains modified Bessel function of the second kind). This model can solve the unstability problem of 4D atoms, however, for 4D celestial bodies, the short-range repulsion will prevent the formation of aggregated celestial bodies, and there will only be some isolated super-low-density gas clusters."
     },
     "rigids::gravityRing": {
-        "zh":"<b>控制：轨迹球模式</b><br>立方反比引力下的四维球环形中心天体模拟，可以存在稳定行星轨道。这里忽略了行星之间的引力。",
-        "en":"<b>Control: Trackball mode</b><br>4D celestial simulation around a spheritoridal central body under inverse-cubic law gravity, where stable planetary orbits can exist. The gravitational interactions between planets are neglected here.",
+        "zh": "<b>控制：轨迹球模式</b><br>立方反比引力下的四维球环形中心天体模拟，可以存在稳定行星轨道。这里忽略了行星之间的引力。",
+        "en": "<b>Control: Trackball mode</b><br>4D celestial simulation around a spheritoridal central body under inverse-cubic law gravity, where stable planetary orbits can exist. The gravitational interactions between planets are neglected here.",
     },
-    
+
     "pde::river_evolution": {
         "zh": "<b>控制：保持竖直模式</b><br>四维星球的三维大地上的河流演化模拟。未模拟地形侵蚀。",
         "en": "<b>Control: Keep up mode</b><br>4D planet's river evolution simulation on 3D ground. Terrain erosion is not simulated."
@@ -457,12 +497,12 @@ let info = {
         "zh": "<b>控制：轨迹球模式</b><br>预测分子形状的价电子互斥模型。价电子组（蓝色小超球）通过电场力作用相互排斥达到最低能量。点击数字可切换周围价电子组的个数。",
         "en": "<b>Control: Trackball mode</b><br>Valence Shell Electron Pair Repulsion model for predicting 4D molecular shapes. Valence electron groups (small blue glomes) repel each other through electric field force to reach the lowest energy. Click the numbers to switch the number of surrounding valence electron groups."
     },
-    "shadertoy::voxel":{
+    "shadertoy::voxel": {
         "zh": "仿照Shadertoys网站的WGSL体素着色器在线编辑器。每次打开会随机刷新一个示例，也可在右上角选择示例。",
         "en": "An online editor for WGSL voxel shaders, inspired by the Shadertoys website. Each time you open it, a random example will be refreshed, and you can also select examples in the upper right corner."
     },
-    
-    "shadertoy::cam":{
+
+    "shadertoy::cam": {
         "zh": "仿照Shadertoys网站的WGSL光追着色器在线编辑器，与体素编辑器区别在于可自动计算摄像机的位置与视线。每次打开会随机刷新一个示例，也可在右上角选择示例。",
         "en": "An online editor for WGSL raytracing shaders, inspired by the Shadertoys website. Unlike the voxel editor, it can automatically calculate the camera position and line of sight. Each time you open it, a random example will be refreshed, and you can also select examples in the upper right corner."
     }

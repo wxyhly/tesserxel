@@ -382,7 +382,7 @@ export type ElectricCharge = { rigid: Rigid | null, position: Vec4, worldPos?: V
 export type ElectricDipole = { rigid: Rigid | null, position: Vec4, worldPos?: Vec4, moment: Vec4, worldMoment?: Vec4 };
 export type MagneticDipole = { rigid: Rigid | null, position: Vec4, worldPos?: Vec4, moment: Bivec, worldMoment?: Bivec };
 export type CurrentElement = { rigid: Rigid | null, position: Vec4, worldPos?: Vec4, current: Vec4 };
-export type CurrentCircuit = { rigid: Rigid | null, position: Vec4, worldPos?: Vec4, current: Vec4, radius: number };
+export interface CurrentCircuit extends MagneticDipole { radius: number };
 export class MaxWell extends Force {
     electricCharge: ElectricCharge[] = [];
     electricDipole: ElectricDipole[] = [];
@@ -408,6 +408,9 @@ export class MaxWell extends Force {
     addMagneticDipole(s: MagneticDipole) {
         this.magneticDipole.push(s);
     }
+    addCurrentCircuit(s: CurrentCircuit) {
+        this.currentCircuit.push(s);
+    }
     getEAt(p: Vec4, dE: boolean, ignore: Rigid | Vec4 | undefined) {
         let electricField = this._vecE.copy(this.constantElectricField);
         this._vecdE.set();
@@ -428,9 +431,13 @@ export class MaxWell extends Force {
             if (ignore === s.position || ignore === s?.rigid) continue;
             this.addBOfMagneticDipole(magneticField, dB ? this._vecdB : undefined, p, s);
         }
+        for (let s of this.currentCircuit) {
+            if (ignore === s.position || ignore === s?.rigid) continue;
+            this.addBOfCurrentCircuit(magneticField, dB ? this._vecdB : undefined, p, s);
+        }
         return magneticField;
     }
-    apply(time: number): void {
+    updateWorldOrientation() {
         for (let q of this.electricCharge) {
             q.worldPos ??= new Vec4;
             if (q.rigid)
@@ -458,6 +465,20 @@ export class MaxWell extends Force {
                 q.worldMoment.copy(q.moment);
             }
         }
+
+        for (let q of this.currentCircuit) {
+            q.worldPos ??= new Vec4;
+            q.worldMoment ??= new Bivec;
+            if (q.rigid) {
+                q.worldPos.copy(q.position).rotates(q.rigid.rotation).adds(q.rigid.position);
+                q.worldMoment.copy(q.moment).rotates(q.rigid.rotation);
+            } else {
+                q.worldMoment.copy(q.moment);
+            }
+        }
+    }
+    apply(time: number): void {
+        this.updateWorldOrientation();
         // outter loop: test point, inner loop: source point
 
         let force = this._vecP;
@@ -552,8 +573,8 @@ export class MaxWell extends Force {
         r.pushPool();
     }
     private addBOfMagneticDipole(vecB: Bivec, dB: Matrix | undefined, pos: Vec4, s: MagneticDipole) {
-        let k = vec4Pool.pop().subset(pos, s.worldPos!);
-        let q = s.worldMoment!.dual();
+        let k = s.worldPos ? vec4Pool.pop().subset(pos, s.worldPos) : vec4Pool.pop().copy(pos);
+        let q = (s.worldMoment || s.moment).dual();
         let x = k.x, y = k.y, z = k.z, w = k.w;
         let xx = x * x, yy = y * y, zz = z * z, ww = w * w;
         let kxy = q.xy, kxz = q.xz, kxw = q.xw, kyz = q.yz, kyw = q.yw, kzw = q.zw;
@@ -626,6 +647,58 @@ export class MaxWell extends Force {
             (zw * (-kxw_y + kyw_x) + 2 * kxy_z * (zz + ww - 2 * (xx + yy)) + (-kyz_x + kxz_y) * (r2m6zz)),
             (zw * (-kxz_y + kyz_x) + 2 * kxy_w * (zz + ww - 2 * (xx + yy)) + (-kyw_x + kxw_y) * (r2m6ww))
         ));
+    }
+
+    private addBOfCurrentCircuit(vecB: Bivec, dB: Matrix | undefined, pos: Vec4, s: CurrentCircuit) {
+
+        const R = Rotor.lookAtbb((s.worldMoment || s.moment).clone().norms(), Bivec.xy);
+        const p = s.worldPos ? vec4Pool.pop().subset(pos, s.worldPos) : vec4Pool.pop().copy(pos);
+        const R2 = s.radius * s.radius;
+        const I = s.moment.norm() * 0.5 / R2;
+        function getVectorPotentialAt(p: Vec4) {
+            const rho = p.x * p.x + p.y * p.y;
+            const z2 = p.z * p.z + p.w * p.w;
+            const k = rho + z2 + R2;
+            const Aphi = I * (k / Math.sqrt(k * k - 4 * rho * R2) - 1);
+            const invR = 1 / rho;
+            return new Vec4(-p.y * invR * Aphi, p.x * invR * Aphi);
+        }
+
+        const eps = 0.0001;
+        const inveps = 1 / eps;
+        const v = vec4Pool.pop();
+
+        function getBAt(p0: Vec4, vecB: Bivec) {
+            const p = p0.rotate(R);
+            const A0 = getVectorPotentialAt(p);
+            v.copy(p); v.x += eps; const Ax = getVectorPotentialAt(v).sub(A0);
+            v.copy(p); v.y += eps; const Ay = getVectorPotentialAt(v).sub(A0);
+            v.copy(p); v.z += eps; const Az = getVectorPotentialAt(v).sub(A0);
+            v.copy(p); v.w += eps; const Aw = getVectorPotentialAt(v).sub(A0);
+            vecB.xy = (Ax.y - Ay.x) * inveps;
+            vecB.xz = (Ax.z - Az.x) * inveps;
+            vecB.xw = (Ax.w - Aw.x) * inveps;
+            vecB.yz = (Ay.z - Az.y) * inveps;
+            vecB.yw = (Ay.w - Aw.y) * inveps;
+            vecB.zw = (Az.w - Aw.z) * inveps;
+            vecB.rotatesconj(R);
+        }
+        if (!dB) { const nB = new Bivec(); getBAt(p, nB); vecB.adds(nB); v.pushPool(); return; }
+        const bv = bivecPool.pop().set(); getBAt(p, bv);
+        v.copy(p); v.x += eps; const dbx = new Bivec(); getBAt(v, dbx); dbx.subs(bv).mulfs(inveps);
+        v.copy(p); v.y += eps; const dby = new Bivec(); getBAt(v, dby); dby.subs(bv).mulfs(inveps);
+        v.copy(p); v.z += eps; const dbz = new Bivec(); getBAt(v, dbz); dbz.subs(bv).mulfs(inveps);
+        v.copy(p); v.w += eps; const dbw = new Bivec(); getBAt(v, dbw); dbw.subs(bv).mulfs(inveps);
+        dB.adds(new Matrix(4, 6).setElements(
+            dbx.xy, dby.xy, dbz.xy, dbw.xy,
+            dbx.xz, dby.xz, dbz.xz, dbw.xz,
+            dbx.xw, dby.xw, dbz.xw, dbw.xw,
+            dbx.yz, dby.yz, dbz.yz, dbw.yz,
+            dbx.yw, dby.yw, dbz.yw, dbw.yw,
+            dbx.zw, dby.zw, dbz.zw, dbw.zw
+        ));
+        bv.pushPool();
+        v.pushPool();
     }
     private addEOfElectricDipole(vecE: Vec4, dE: Mat4 | undefined, pos: Vec4, s: ElectricDipole) {
         let r = vec4Pool.pop().subset(pos, s.worldPos!);

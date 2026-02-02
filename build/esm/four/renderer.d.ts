@@ -28,7 +28,7 @@ export declare class Renderer {
     autoSetSizeHandler: () => void;
     private cameraInScene;
     private safeTetraNumInOnePass;
-    private tetraNumOccupancyRatio;
+    tetraNumOccupancyRatio: number;
     private maxTetraNumInOnePass;
     private context;
     constructor(canvas: HTMLCanvasElement, config?: RendererConfig);

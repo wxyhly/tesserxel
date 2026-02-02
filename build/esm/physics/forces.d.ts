@@ -108,13 +108,9 @@ export type CurrentElement = {
     worldPos?: Vec4;
     current: Vec4;
 };
-export type CurrentCircuit = {
-    rigid: Rigid | null;
-    position: Vec4;
-    worldPos?: Vec4;
-    current: Vec4;
+export interface CurrentCircuit extends MagneticDipole {
     radius: number;
-};
+}
 export declare class MaxWell extends Force {
     electricCharge: ElectricCharge[];
     electricDipole: ElectricDipole[];
@@ -134,11 +130,14 @@ export declare class MaxWell extends Force {
     addElectricCharge(s: ElectricCharge): void;
     addElectricDipole(s: ElectricDipole): void;
     addMagneticDipole(s: MagneticDipole): void;
+    addCurrentCircuit(s: CurrentCircuit): void;
     getEAt(p: Vec4, dE: boolean, ignore: Rigid | Vec4 | undefined): Vec4;
     getBAt(p: Vec4, dB: boolean, ignore: Rigid | Vec4 | undefined): Bivec;
+    updateWorldOrientation(): void;
     apply(time: number): void;
     private addEOfElectricCharge;
     private addBOfMagneticDipole;
+    private addBOfCurrentCircuit;
     private addEOfElectricDipole;
 }
 export declare class Gravity extends Force {

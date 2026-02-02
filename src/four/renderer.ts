@@ -21,7 +21,7 @@ export class Renderer {
     autoSetSizeHandler: () => void;
     private cameraInScene: boolean;
     private safeTetraNumInOnePass: number;
-    private tetraNumOccupancyRatio: number = 0.08;
+    tetraNumOccupancyRatio: number = 0.08;
     private maxTetraNumInOnePass: number;
     private context: GPUCanvasContext;
     constructor(canvas: HTMLCanvasElement, config?: RendererConfig) {

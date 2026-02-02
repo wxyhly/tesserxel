@@ -384,6 +384,9 @@ class MaxWell extends Force {
     addMagneticDipole(s) {
         this.magneticDipole.push(s);
     }
+    addCurrentCircuit(s) {
+        this.currentCircuit.push(s);
+    }
     getEAt(p, dE, ignore) {
         let electricField = this._vecE.copy(this.constantElectricField);
         this._vecdE.set();
@@ -407,9 +410,14 @@ class MaxWell extends Force {
                 continue;
             this.addBOfMagneticDipole(magneticField, dB ? this._vecdB : undefined, p, s);
         }
+        for (let s of this.currentCircuit) {
+            if (ignore === s.position || ignore === s?.rigid)
+                continue;
+            this.addBOfCurrentCircuit(magneticField, dB ? this._vecdB : undefined, p, s);
+        }
         return magneticField;
     }
-    apply(time) {
+    updateWorldOrientation() {
         for (let q of this.electricCharge) {
             q.worldPos ??= new Vec4;
             if (q.rigid)
@@ -439,6 +447,20 @@ class MaxWell extends Force {
                 q.worldMoment.copy(q.moment);
             }
         }
+        for (let q of this.currentCircuit) {
+            q.worldPos ??= new Vec4;
+            q.worldMoment ??= new Bivec;
+            if (q.rigid) {
+                q.worldPos.copy(q.position).rotates(q.rigid.rotation).adds(q.rigid.position);
+                q.worldMoment.copy(q.moment).rotates(q.rigid.rotation);
+            }
+            else {
+                q.worldMoment.copy(q.moment);
+            }
+        }
+    }
+    apply(time) {
+        this.updateWorldOrientation();
         // outter loop: test point, inner loop: source point
         let force = this._vecP;
         for (let q of this.electricCharge) {
@@ -527,8 +549,8 @@ class MaxWell extends Force {
         r.pushPool();
     }
     addBOfMagneticDipole(vecB, dB, pos, s) {
-        let k = vec4Pool.pop().subset(pos, s.worldPos);
-        let q = s.worldMoment.dual();
+        let k = s.worldPos ? vec4Pool.pop().subset(pos, s.worldPos) : vec4Pool.pop().copy(pos);
+        let q = (s.worldMoment || s.moment).dual();
         let x = k.x, y = k.y, z = k.z, w = k.w;
         let xx = x * x, yy = y * y, zz = z * z, ww = w * w;
         let kxy = q.xy, kxz = q.xz, kxw = q.xw, kyz = q.yz, kyw = q.yw, kzw = q.zw;
@@ -572,6 +594,78 @@ class MaxWell extends Force {
         let kxy_z = kxy * z, kxz_z = kxz * z, kxw_z = kxw * z, kyz_z = kyz * z, kyw_z = kyw * z, kzw_z = kzw * z;
         let kxy_w = kxy * w, kxz_w = kxz * w, kxw_w = kxw * w, kyz_w = kyz * w, kyw_w = kyw * w, kzw_w = kzw * w;
         dB.adds(new Matrix(4, 6).setElements((xy * (kyz_w - kyw_z) + 2 * kzw_x * (xx + yy - 2 * (zz + ww)) + (kxw_z - kxz_w) * (r2m6xx)), (xy * (kxz_w - kxw_z) + 2 * kzw_y * (xx + yy - 2 * (zz + ww)) + (kyw_z - kyz_w) * (r2m6yy)), (zw * (kxz_x + kyz_y) - 2 * kzw_z * (zz + ww - 2 * (xx + yy)) + (kxw_x + kyw_y) * (r2m6zz)), -(zw * (kxw_x + kyw_y) + 2 * kzw_w * (zz + ww - 2 * (xx + yy)) + (kxz_x + kyz_y) * (r2m6ww)), -(xz * (-kyz_w - kzw_y) + 2 * kyw_x * (xx + zz - 2 * (yy + ww)) + (kxw_y - kxy_w) * (r2m6xx)), -(yw * (kxy_x - kyz_z) - 2 * kyw_y * (yy + ww - 2 * (xx + zz)) + (kxw_x + kzw_z) * (r2m6yy)), -(xz * (kxy_w - kxw_y) + 2 * kyw_z * (xx + zz - 2 * (yy + ww)) + (kzw_y + kyz_w) * (r2m6zz)), (yw * (kxw_x + kzw_z) + 2 * kyw_w * (yy + ww - 2 * (xx + zz)) + (kxy_x - kyz_z) * (r2m6ww)), -(xw * (-kzw_y + kyw_z) - 2 * kyz_x * (xx + ww - 2 * (zz + yy)) + (kxy_z - kxz_y) * (r2m6xx)), (yz * (kxy_x - kyw_w) - 2 * kyz_y * (zz + yy - 2 * (xx + ww)) + (kxz_x - kzw_w) * (r2m6yy)), -(yz * (kxz_x - kzw_w) + 2 * kyz_z * (zz + yy - 2 * (xx + ww)) + (kxy_x - kyw_w) * (r2m6zz)), -(xw * (kxz_y - kxy_z) - 2 * kyz_w * (xx + ww - 2 * (zz + yy)) + (-kyw_z + kzw_y) * (r2m6ww)), (xw * (-kxy_y - kxz_z) - 2 * kxw_x * (xx + ww - 2 * (yy + zz)) + (kyw_y + kzw_z) * (r2m6xx)), (yz * (-kxz_w - kzw_x) + 2 * kxw_y * (yy + zz - 2 * (xx + ww)) + (kyw_x + kxy_w) * (r2m6yy)), (yz * (-kxy_w - kyw_x) + 2 * kxw_z * (yy + zz - 2 * (xx + ww)) + (kzw_x + kxz_w) * (r2m6zz)), -(xw * (kyw_y + kzw_z) + 2 * kxw_w * (xx + ww - 2 * (yy + zz)) + (-kxy_y - kxz_z) * (r2m6ww)), -(xz * (-kxy_y - kxw_w) - 2 * kxz_x * (xx + zz - 2 * (yy + ww)) + (kyz_y - kzw_w) * (r2m6xx)), -(yw * (-kxw_z + kzw_x) + 2 * kxz_y * (yy + ww - 2 * (xx + zz)) + (kyz_x + kxy_z) * (r2m6yy)), (xz * (kyz_y - kzw_w) + 2 * kxz_z * (xx + zz - 2 * (yy + ww)) + (-kxy_y - kxw_w) * (r2m6zz)), -(yw * (-kxy_z - kyz_x) + 2 * kxz_w * (yy + ww - 2 * (xx + zz)) + (-kzw_x + kxw_z) * (r2m6ww)), (xy * (-kxz_z - kxw_w) - 2 * kxy_x * (xx + yy - 2 * (zz + ww)) + (-kyz_z - kyw_w) * (r2m6xx)), -(xy * (-kyz_z - kyw_w) + 2 * kxy_y * (xx + yy - 2 * (zz + ww)) + (-kxz_z - kxw_w) * (r2m6yy)), (zw * (-kxw_y + kyw_x) + 2 * kxy_z * (zz + ww - 2 * (xx + yy)) + (-kyz_x + kxz_y) * (r2m6zz)), (zw * (-kxz_y + kyz_x) + 2 * kxy_w * (zz + ww - 2 * (xx + yy)) + (-kyw_x + kxw_y) * (r2m6ww))));
+    }
+    addBOfCurrentCircuit(vecB, dB, pos, s) {
+        const R = Rotor.lookAtbb((s.worldMoment || s.moment).clone().norms(), Bivec.xy);
+        const p = s.worldPos ? vec4Pool.pop().subset(pos, s.worldPos) : vec4Pool.pop().copy(pos);
+        const R2 = s.radius * s.radius;
+        const I = s.moment.norm() * 0.5 / R2;
+        function getVectorPotentialAt(p) {
+            const rho = p.x * p.x + p.y * p.y;
+            const z2 = p.z * p.z + p.w * p.w;
+            const k = rho + z2 + R2;
+            const Aphi = I * (k / Math.sqrt(k * k - 4 * rho * R2) - 1);
+            const invR = 1 / rho;
+            return new Vec4(-p.y * invR * Aphi, p.x * invR * Aphi);
+        }
+        const eps = 0.0001;
+        const inveps = 1 / eps;
+        const v = vec4Pool.pop();
+        function getBAt(p0, vecB) {
+            const p = p0.rotate(R);
+            const A0 = getVectorPotentialAt(p);
+            v.copy(p);
+            v.x += eps;
+            const Ax = getVectorPotentialAt(v).sub(A0);
+            v.copy(p);
+            v.y += eps;
+            const Ay = getVectorPotentialAt(v).sub(A0);
+            v.copy(p);
+            v.z += eps;
+            const Az = getVectorPotentialAt(v).sub(A0);
+            v.copy(p);
+            v.w += eps;
+            const Aw = getVectorPotentialAt(v).sub(A0);
+            vecB.xy = (Ax.y - Ay.x) * inveps;
+            vecB.xz = (Ax.z - Az.x) * inveps;
+            vecB.xw = (Ax.w - Aw.x) * inveps;
+            vecB.yz = (Ay.z - Az.y) * inveps;
+            vecB.yw = (Ay.w - Aw.y) * inveps;
+            vecB.zw = (Az.w - Aw.z) * inveps;
+            vecB.rotatesconj(R);
+        }
+        if (!dB) {
+            const nB = new Bivec();
+            getBAt(p, nB);
+            vecB.adds(nB);
+            v.pushPool();
+            return;
+        }
+        const bv = bivecPool.pop().set();
+        getBAt(p, bv);
+        v.copy(p);
+        v.x += eps;
+        const dbx = new Bivec();
+        getBAt(v, dbx);
+        dbx.subs(bv).mulfs(inveps);
+        v.copy(p);
+        v.y += eps;
+        const dby = new Bivec();
+        getBAt(v, dby);
+        dby.subs(bv).mulfs(inveps);
+        v.copy(p);
+        v.z += eps;
+        const dbz = new Bivec();
+        getBAt(v, dbz);
+        dbz.subs(bv).mulfs(inveps);
+        v.copy(p);
+        v.w += eps;
+        const dbw = new Bivec();
+        getBAt(v, dbw);
+        dbw.subs(bv).mulfs(inveps);
+        dB.adds(new Matrix(4, 6).setElements(dbx.xy, dby.xy, dbz.xy, dbw.xy, dbx.xz, dby.xz, dbz.xz, dbw.xz, dbx.xw, dby.xw, dbz.xw, dbw.xw, dbx.yz, dby.yz, dbz.yz, dbw.yz, dbx.yw, dby.yw, dbz.yw, dbw.yw, dbx.zw, dby.zw, dbz.zw, dbw.zw));
+        bv.pushPool();
+        v.pushPool();
     }
     addEOfElectricDipole(vecE, dE, pos, s) {
         let r = vec4Pool.pop().subset(pos, s.worldPos);

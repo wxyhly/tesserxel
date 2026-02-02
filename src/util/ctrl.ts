@@ -234,7 +234,7 @@ export class ControllerRegistry {
             this.states.lastUpdateTime = now;
         }
         for (let c of this.ctrls) {
-            c.update(this.states);
+            if (c.enabled !== false) c.update(this.states);
         }
         this.states.mouseDown = -1;
         this.states.mouseUp = -1;

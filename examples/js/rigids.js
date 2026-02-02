@@ -1,3 +1,4 @@
+import { Bivec, Quaternion, Rotor, Vec4 } from "../../build/esm/math/math.js";
 import * as tesserxel from "../../build/esm/tesserxel.js";
 const FOUR = tesserxel.four;
 const phy = tesserxel.physics;
@@ -22,7 +23,13 @@ function getGeometryData(type) {
             let parse;
             parse = type.match(/^st(.+),(.+)$/);
             if (parse) {
-                geometryData[type] = new FOUR.SpheritorusGeometry(Number(parse[2]), Number(parse[1]));
+                const r1 = Number(parse[2]);
+                const r2 = Number(parse[1]);
+                let d = undefined;
+                if (r1 * 5 < r2) {
+                    d = { circle: 32, longitude: 3, latitude: 3 };
+                }
+                geometryData[type] = new FOUR.SpheritorusGeometry(r1, r2, d);
                 return geometryData[type];
             }
             parse = type.match(/^ts(.+),(.+)$/);
@@ -1454,20 +1461,10 @@ async function loadMaxwell(cb) {
     world.add(maxwell);
     const canvas = document.getElementById("gpu-canvas");
     const app = await tesserxel.four.App.create({ canvas, scene, controllerConfig: { enablePointerLock: true } });
-    await cb(world, maxwell, scene, app.renderer);
-    // set up lights, camera and renderer
     let camera = app.camera;
     camera.position.w = 9;
     camera.position.y = 8;
     scene.add(camera);
-    initScene(scene);
-    scene.skyBox = null; // delete skyBox in initScene() to save resources, because sky can't be seen
-    await app.renderer.compileMaterials(scene);
-    app.renderer.core.setDisplayConfig({
-        screenBackgroundColor: [1, 1, 1, 1],
-        sectionStereoEyeOffset: 0.5,
-        opacity: 20
-    });
     // controllers
     const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
     camCtrl.keyMoveSpeed = 0.01;
@@ -1488,6 +1485,16 @@ async function loadMaxwell(cb) {
     app.controllerRegistry.add(camCtrl);
     app.controllerRegistry.add(emitCtrl);
     app.controllerRegistry.add(gravityCtrl);
+    await cb(world, maxwell, scene, app);
+    // set up lights, camera and renderer
+    initScene(scene);
+    scene.skyBox = null; // delete skyBox in initScene() to save resources, because sky can't be seen
+    await app.renderer.compileMaterials(scene);
+    app.renderer.core.setDisplayConfig({
+        screenBackgroundColor: [1, 1, 1, 1],
+        sectionStereoEyeOffset: 0.5,
+        opacity: 20
+    });
     app.run(() => {
         updateRidigsInScene();
         engine.update(world, Math.min(1 / 15, app.controllerRegistry.states.mspf / 1000));
@@ -1542,12 +1549,12 @@ export var e_dipole;
     }
     e_dipole.load = load;
 })(e_dipole || (e_dipole = {}));
+const renderMatMDipole = new FOUR.LambertMaterial(new FOUR.CheckerTexture([1, 0, 0, 1], new FOUR.CheckerTexture([0.6, 0.6, 0.6, 0.2], [0, 0, 1, 1], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new math.Obj4(new math.Vec4(0, 0, 0.41), null, new math.Vec4(0.1, 0.1, 0.1, 0.1)))), new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new math.Obj4(new math.Vec4(0, 0, 0.49), null, new math.Vec4(0.1, 0.1, 0.1, 0.1)))));
 export var m_dipole;
 (function (m_dipole) {
     async function load() {
-        await loadMaxwell(async (world, maxwell, scene, renderer) => {
+        await loadMaxwell(async (world, maxwell, scene) => {
             const phyMatCharge = new phy.Material(1, 0.5);
-            const renderMatMDipole = new FOUR.LambertMaterial(new FOUR.CheckerTexture([1, 0, 0, 1], new FOUR.CheckerTexture([0.6, 0.6, 0.6, 0.2], [0, 0, 1, 1], new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new math.Obj4(new math.Vec4(0, 0, 0.41), null, new math.Vec4(0.1, 0.1, 0.1, 0.1)))), new FOUR.Vec4TransformNode(new FOUR.UVWVec4Input(), new math.Obj4(new math.Vec4(0, 0, 0.49), null, new math.Vec4(0.1, 0.1, 0.1, 0.1)))));
             const chargeNum = 12;
             const radius = 5;
             // await renderMatMDipole.compile(renderer);
@@ -1644,6 +1651,335 @@ export var m_dipole_dual2;
     }
     m_dipole_dual2.load = load;
 })(m_dipole_dual2 || (m_dipole_dual2 = {}));
+export var lorentz;
+(function (lorentz) {
+    async function load() {
+        await loadMaxwell(async (world, maxwell, scene, renderer) => {
+            const phyMatCharge = new phy.Material(1, 0.5);
+            const renderMatPos = new FOUR.LambertMaterial([1, 0, 0, 1]);
+            const renderMatNeg = new FOUR.LambertMaterial([0, 0, 1, 1]);
+            const chargeNum = 8;
+            const radius = 2;
+            maxwell.constantMagneticField.set(100, 0, 0, 0, 0, 100);
+            // maxwell.addCurrentCircuit({ rigid: null, moment: math.Bivec.xy.mulf(100000), position: new math.Vec4(0,3), radius: 2 })
+            for (let i = 0; i < chargeNum; i++) {
+                let pos = new phy.Rigid({ geometry: new phy.rigid.Glome(0.5), mass: 1, material: phyMatCharge });
+                let neg = new phy.Rigid({ geometry: new phy.rigid.Glome(0.5), mass: 1, material: phyMatCharge });
+                let gndPos = math.Vec3.rand().mulfs(radius);
+                pos.position.set(gndPos.x, 6 + Math.random(), gndPos.y, gndPos.z);
+                gndPos = math.Vec3.rand().mulfs(radius * 2);
+                maxwell.addElectricCharge({ rigid: pos, charge: 0.1, position: math.Vec4.origin });
+                maxwell.addElectricCharge({ rigid: neg, charge: -0.1, position: math.Vec4.origin });
+                neg.position.set(gndPos.x, 6 + Math.random(), gndPos.y, gndPos.z);
+                pos.velocity.randset();
+                neg.velocity.randset();
+                addRigidToScene(world, scene, renderMatPos, pos);
+                addRigidToScene(world, scene, renderMatNeg, neg);
+            }
+        });
+    }
+    lorentz.load = load;
+})(lorentz || (lorentz = {}));
+export var circuitE;
+(function (circuitE) {
+    async function load() {
+        await loadMaxwell(async (world, maxwell, scene, renderer) => {
+            // world.gravity.set();
+            const phyMatCharge = new phy.Material(1, 0.5);
+            const renderMatPos = new FOUR.LambertMaterial([1, 0, 0, 1]);
+            const renderMatNeg = new FOUR.LambertMaterial([0, 0, 1, 1]);
+            const renderMatRing = new FOUR.LambertMaterial([1, 1, 0, 1]);
+            const chargeNum = 8;
+            const majorRadius = 2;
+            const ring = new phy.Rigid({
+                geometry: new phy.rigid.Spheritorus(majorRadius, 0.5),
+                material: new phy.Material(1, 0.4), mass: 0
+            });
+            ring.position.y = 6;
+            addRigidToScene(world, scene, renderMatRing, ring);
+            maxwell.addCurrentCircuit({ rigid: ring, moment: math.Bivec.xw.mulf(100000), position: new math.Vec4(), radius: majorRadius });
+            const radius = 4;
+            for (let i = 0; i < chargeNum; i++) {
+                let pos = new phy.Rigid({ geometry: new phy.rigid.Glome(0.5), mass: 1, material: phyMatCharge });
+                let neg = new phy.Rigid({ geometry: new phy.rigid.Glome(0.5), mass: 1, material: phyMatCharge });
+                let gndPos = math.Vec3.rand().mulfs(radius);
+                pos.position.set(gndPos.x, 6 + Math.random(), gndPos.y, gndPos.z);
+                gndPos = math.Vec3.rand().mulfs(radius * 2);
+                maxwell.addElectricCharge({ rigid: pos, charge: 0.1, position: math.Vec4.origin });
+                maxwell.addElectricCharge({ rigid: neg, charge: -0.1, position: math.Vec4.origin });
+                neg.position.set(gndPos.x, 6 + Math.random(), gndPos.y, gndPos.z);
+                pos.velocity.randset().mulfs(2);
+                neg.velocity.randset().mulfs(2);
+                addRigidToScene(world, scene, renderMatPos, pos);
+                addRigidToScene(world, scene, renderMatNeg, neg);
+            }
+        });
+    }
+    circuitE.load = load;
+})(circuitE || (circuitE = {}));
+export var circuitB0;
+(function (circuitB0) {
+    async function load() {
+        await loadMaxwell(async (world, maxwell, scene, renderer) => {
+            // world.gravity.set();
+            const phyMatCharge = new phy.Material(1, 0.5);
+            const renderMatRing = new FOUR.LambertMaterial([1, 1, 0, 1]);
+            const chargeNum = 8;
+            const majorRadius = 2;
+            const radius = 4;
+            const ring = new phy.Rigid({
+                geometry: new phy.rigid.Spheritorus(majorRadius, 0.5),
+                material: new phy.Material(1, 0.4), mass: 10000
+            });
+            ring.position.y = 6;
+            addRigidToScene(world, scene, renderMatRing, ring);
+            maxwell.addCurrentCircuit({ rigid: ring, moment: math.Bivec.xw.mulf(2000), position: new math.Vec4(), radius: majorRadius });
+            let damp = new phy.Damping(0.01, 0.01);
+            world.add(damp);
+            for (let i = 0; i < chargeNum; i++) {
+                let dipole = new phy.Rigid({ geometry: new phy.rigid.Glome(1), mass: 1, material: phyMatCharge });
+                let gndPos = math.Vec3.rand().mulfs(radius).x0yz();
+                dipole.position.copy(gndPos);
+                dipole.position.y = 3 + Math.random();
+                maxwell.addMagneticDipole({ rigid: dipole, moment: new math.Bivec(0.1), position: math.Vec4.origin.clone() });
+                damp.add(dipole);
+                addRigidToScene(world, scene, renderMatMDipole, dipole);
+            }
+        });
+    }
+    circuitB0.load = load;
+})(circuitB0 || (circuitB0 = {}));
+const renderMatPos = new FOUR.LambertMaterial([1, 0, 0, 1]);
+const renderMatNeg = new FOUR.LambertMaterial([0, 0, 1, 1]);
+export var circuitBdh;
+(function (circuitBdh) {
+    async function load() {
+        await new BDisplayer().load(6, 6, 1, (world, maxwell, scene, app) => {
+            const phyMatCharge = new phy.Material(1, 0.5);
+            world.gravity.set();
+            const renderMatRing = new FOUR.LambertMaterial([1, 1, 0, 1]);
+            const majorRadius = 2;
+            const size = 12;
+            for (let i = 0; i < size; i++) {
+                const ring = new phy.Rigid({
+                    geometry: new phy.rigid.Spheritorus(majorRadius, 0.4),
+                    material: new phy.Material(1, 0.4), mass: 0
+                });
+                const k = i / size * Math.PI * 2;
+                ring.position.y = 6 + Math.sin(k) * 3;
+                ring.position.z = Math.cos(k) * 3;
+                addRigidToScene(world, scene, renderMatRing, ring);
+                maxwell.addCurrentCircuit({ rigid: ring, moment: math.Bivec.xw.mulf(10000), position: new math.Vec4(), radius: majorRadius });
+            }
+        });
+    }
+    circuitBdh.load = load;
+})(circuitBdh || (circuitBdh = {}));
+export var circuitBap;
+(function (circuitBap) {
+    async function load() {
+        await new BDisplayer().load(6, 6, 1, (world, maxwell, scene, app) => {
+            const phyMatCharge = new phy.Material(1, 0.5);
+            world.gravity.set();
+            const renderMatRing = new FOUR.LambertMaterial([1, 1, 0, 1]);
+            const majorRadius = 4;
+            for (let i = 0; i <= 1; i++) {
+                const ring = new phy.Rigid({
+                    geometry: new phy.rigid.Spheritorus(majorRadius, 0.4),
+                    material: new phy.Material(1, 0.4), mass: 0
+                });
+                ring.position.y = 6;
+                if (i)
+                    ring.rotation.l.set(0, 0, 1, 0);
+                addRigidToScene(world, scene, renderMatRing, ring);
+                maxwell.addCurrentCircuit({ rigid: ring, moment: math.Bivec.xw.mulf(10000), position: new math.Vec4(), radius: majorRadius });
+            }
+        });
+    }
+    circuitBap.load = load;
+})(circuitBap || (circuitBap = {}));
+export var circuitBds;
+(function (circuitBds) {
+    async function load() {
+        await new BDisplayer().load(6, 6, 1, (world, maxwell, scene, app) => {
+            const phyMatCharge = new phy.Material(1, 0.5);
+            world.gravity.set();
+            const renderMatRing = new FOUR.LambertMaterial([1, 1, 0, 1]);
+            const majorRadius = 2;
+            const size = 3;
+            for (let i = -size; i <= size; i++) {
+                for (let j = -size; j <= size; j++) {
+                    const ring = new phy.Rigid({
+                        geometry: new phy.rigid.Spheritorus(majorRadius, 0.4),
+                        material: new phy.Material(1, 0.4), mass: 0
+                    });
+                    ring.position.y = 6 + i;
+                    ring.position.z = j;
+                    addRigidToScene(world, scene, renderMatRing, ring);
+                    maxwell.addCurrentCircuit({ rigid: ring, moment: math.Bivec.xw.mulf(10000), position: new math.Vec4(), radius: majorRadius });
+                }
+            }
+        });
+    }
+    circuitBds.load = load;
+})(circuitBds || (circuitBds = {}));
+export var circuitBhs;
+(function (circuitBhs) {
+    async function load() {
+        await new BDisplayer().load(7, 0, 0.7, (world, maxwell, scene, app) => {
+            app.retinaController.toggleSectionConfig("zsection");
+            world.gravity.set();
+            const renderMatRing = new FOUR.LambertMaterial([1, 1, 0, 1]);
+            const renderMatRing2 = new FOUR.LambertMaterial([0, 1, 1, 1]);
+            const majorRadius = 4;
+            const majorRadius2 = 2;
+            const size = 4096;
+            for (let i = 0; i < size; i++) {
+                const ring = new phy.Rigid({
+                    geometry: new phy.rigid.Spheritorus(majorRadius, 0.2),
+                    material: new phy.Material(1, 0.4), mass: 0
+                });
+                ring.position.y = 6;
+                ring.rotates(new Rotor(new Quaternion().randset(), new Quaternion(Math.SQRT1_2, 0, Math.SQRT1_2)));
+                if ((i & 0xFF) === 0 || (i & 0xFF) === 1)
+                    addRigidToScene(world, scene, renderMatRing, ring);
+                maxwell.addCurrentCircuit({ rigid: ring, moment: math.Bivec.xw.mulf(16), position: new math.Vec4(), radius: majorRadius });
+            }
+            for (let i = 0; i < size; i++) {
+                const ring = new phy.Rigid({
+                    geometry: new phy.rigid.Spheritorus(majorRadius2, 0.2),
+                    material: new phy.Material(1, 0.4), mass: 0
+                });
+                ring.position.y = 6;
+                ring.rotates(new Rotor(new Quaternion(Math.SQRT1_2, 0, Math.SQRT1_2), new Quaternion().randset()));
+                if ((i & 0xFF) === 0 || (i & 0xFF) === 1)
+                    addRigidToScene(world, scene, renderMatRing2, ring);
+                maxwell.addCurrentCircuit({ rigid: ring, moment: math.Bivec.xw.mulf(-1), position: new math.Vec4(), radius: majorRadius2 });
+            }
+        });
+    }
+    circuitBhs.load = load;
+})(circuitBhs || (circuitBhs = {}));
+export var circuitBh0;
+(function (circuitBh0) {
+    async function load() {
+        await new BDisplayer().load(7, 0, 0.7, (world, maxwell, scene, app) => {
+            const phyMatCharge = new phy.Material(1, 0.5);
+            world.gravity.set();
+            app.retinaController.toggleSectionConfig("zsection");
+            const renderMatRing = new FOUR.LambertMaterial([1, 1, 0, 1]);
+            const renderMatRing2 = new FOUR.LambertMaterial([0, 1, 1, 1]);
+            const majorRadius = 4;
+            const majorRadius2 = 2;
+            const size = 4096;
+            for (let i = 0; i < size; i++) {
+                const ring = new phy.Rigid({
+                    geometry: new phy.rigid.Spheritorus(majorRadius, 0.2),
+                    material: new phy.Material(1, 0.4), mass: 0
+                });
+                ring.position.y = 6;
+                ring.rotates(new Rotor(new Quaternion().randset(), new Quaternion(Math.SQRT1_2, 0, Math.SQRT1_2)));
+                if ((i & 0xFF) === 0 || (i & 0xFF) === 1)
+                    addRigidToScene(world, scene, renderMatRing, ring);
+                maxwell.addCurrentCircuit({ rigid: ring, moment: math.Bivec.xw.mulf(16), position: new math.Vec4(), radius: majorRadius });
+            }
+            for (let i = 0; i < size; i++) {
+                const ring = new phy.Rigid({
+                    geometry: new phy.rigid.Spheritorus(majorRadius2, 0.2),
+                    material: new phy.Material(1, 0.4), mass: 0
+                });
+                ring.position.y = 6;
+                ring.rotates(new Rotor(new Quaternion().randset(), new Quaternion(Math.SQRT1_2, 0, Math.SQRT1_2)));
+                if ((i & 0xFF) === 0 || (i & 0xFF) === 1)
+                    addRigidToScene(world, scene, renderMatRing2, ring);
+                maxwell.addCurrentCircuit({ rigid: ring, moment: math.Bivec.xw.mulf(-1), position: new math.Vec4(), radius: majorRadius2 });
+            }
+        });
+    }
+    circuitBh0.load = load;
+})(circuitBh0 || (circuitBh0 = {}));
+export var circuitB1;
+(function (circuitB1) {
+    async function load() {
+        await new BDisplayer().load(7, 0, 0.8, (world, maxwell, scene, renderer) => {
+            const phyMatCharge = new phy.Material(1, 0.5);
+            world.gravity.set();
+            const renderMatRing = new FOUR.LambertMaterial([1, 1, 0, 1]);
+            const majorRadius = 3;
+            const ring = new phy.Rigid({
+                geometry: new phy.rigid.Spheritorus(majorRadius, 0.4),
+                material: new phy.Material(1, 0.4), mass: 0
+            });
+            ring.position.y = 6;
+            addRigidToScene(world, scene, renderMatRing, ring);
+            maxwell.addCurrentCircuit({ rigid: ring, moment: math.Bivec.xw.mulf(10000), position: new math.Vec4(), radius: majorRadius });
+        });
+    }
+    circuitB1.load = load;
+})(circuitB1 || (circuitB1 = {}));
+class BDisplayer {
+    m1 = new Bivec;
+    mA = new Bivec;
+    mB = new Bivec;
+    decompBiv(m) {
+        this.m1.copy(m).duals();
+        this.mA.addset(m, this.m1);
+        this.mB.subset(m, this.m1);
+        const a = this.mA.norm();
+        const b = this.mB.norm();
+        this.mA.divfs(a);
+        this.mB.divfs(b);
+        return [this.mA.add(this.mB).mulfs(a + b), this.mA.sub(this.mB).mulfs(a - b)];
+    }
+    async load(gridsXY, gridsZ, dgrid, cb) {
+        await loadMaxwell(async (world, maxwell, scene, app) => {
+            app.renderer.tetraNumOccupancyRatio = 0.2;
+            app.controllerRegistry["ctrls"][1].keyMoveSpeed = 0.002;
+            app.controllerRegistry["ctrls"][2].enabled = false;
+            cb(world, maxwell, scene, app);
+            maxwell.updateWorldOrientation();
+            const dx = gridsXY;
+            const p = new math.Vec4();
+            const g = new FOUR.SpheritorusGeometry(0.1, 0.3, { longitude: 1, latitude: 1, circle: 6 });
+            const scaleFn = (s) => {
+                s = Math.sqrt(s) * 0.02;
+                if (s > 2)
+                    s = 2;
+                return new Vec4(s, s, s, s);
+            };
+            for (let i = -dx; i <= dx; i++) {
+                for (let j = -dx; j <= dx; j++) {
+                    for (let k = -gridsZ; k <= gridsZ; k++) {
+                        p.set(i, j, k).mulfs(dgrid);
+                        // let print = p.norm() < 1.5;
+                        p.y += 6;
+                        const m = maxwell.getBAt(p, false, undefined);
+                        // if (print) console.log(JSON.stringify(m));
+                        const [a, b] = this.decompBiv(m);
+                        const A = a.norm();
+                        const sa = scaleFn(A);
+                        if (sa.x > 1e-2) {
+                            const mesh = new FOUR.Mesh(g, renderMatPos);
+                            mesh.position.copy(p);
+                            mesh.scale = sa;
+                            mesh.rotates(Rotor.lookAtbb(Bivec.xw, a.divfs(A)));
+                            scene.add(mesh);
+                        }
+                        const B = b.norm();
+                        const sb = scaleFn(B);
+                        if (sb.x > 1e-2) {
+                            const mesh = new FOUR.Mesh(g, renderMatNeg);
+                            mesh.position.copy(p);
+                            mesh.scale = sb;
+                            mesh.rotates(Rotor.lookAtbb(Bivec.xw, b.divfs(B)));
+                            scene.add(mesh);
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
 export var dice_yugu233;
 (function (dice_yugu233) {
     async function load() {
