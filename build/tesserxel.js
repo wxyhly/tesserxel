@@ -11721,7 +11721,7 @@ fn normalizeVec4s(vec4s: mat4x4f) -> mat4x4f{
             const { promise, jsBuffer } = this.retinaRenderPasses[idx];
             if (promise) {
                 promise.then(pass => {
-                    this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer.buffer, 0, 4);
+                    this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer.buffer, 0, 4 * 4);
                     this.renderer.setRetinaRenderPass(pass);
                     this.gui?.refresh({ "toggleRetinaAlpha": idx });
                     this.currentRetinaRenderPassIndex = idx;
@@ -11892,7 +11892,7 @@ fn normalizeVec4s(vec4s: mat4x4f) -> mat4x4f{
                         n.set(Math.cos(x) * sy, Math.cos(y), Math.sin(x) * sy);
                         n.writeBuffer(jsBuffer);
                 }
-                this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer.buffer, 0, 4);
+                this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer.buffer, 0, 4 * 4);
             }
             for (let [label, keyCode] of Object.entries(this.keyConfig.sectionConfigs)) {
                 if (on(keyCode)) {

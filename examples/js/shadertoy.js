@@ -2,6 +2,111 @@ import { render, util, math } from "../../build/esm/tesserxel.js";
 import { createCodemirrorEditor } from "../../playground/build/shadertoy.js";
 const urlp = new URLSearchParams(window.location.search.slice(1));
 const lang = urlp.get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en");
+const EMWave = `
+/// @background: (128,128,128)
+struct Field4D {
+    E : vec4<f32>,
+    B : array<f32, 6>, // xy, xz, xw, yz, yw, zw
+};
+const INV_4PI2 : f32 = 1.0 / (4.0 * 3.14159265359 * 3.14159265359);
+
+fn r4(x : vec4<f32>) -> f32 {
+    return length(x);
+}
+fn green(pos : vec4<f32>, k : f32, time : f32) -> f32 {
+    let r = r4(pos);
+    let phase = k * r - k * time;
+    return INV_4PI2 * cos(phase) / (r * r);
+}
+fn dGdx(
+    pos : vec4<f32>,
+    i : u32,
+    k : f32,
+    time : f32
+) -> f32 {
+    let r = r4(pos);
+    let r2 = r * r;
+    let r3 = r2 * r;
+    let r4v = r2 * r2;
+
+    let phase = k * r - k * time;
+    let c = cos(phase);
+    let s = sin(phase);
+
+    let xi =
+        select(
+            select(pos.z, pos.y, i == 1u),
+            select(pos.x, pos.w, i == 3u),
+            i == 0u
+        );
+
+    return xi * INV_4PI2 *
+           (-2.0 * c / r4v - k * s / r3);
+}
+fn d2Gdxdy(
+    pos : vec4<f32>,
+    i : u32,
+    j : u32,
+    k : f32,
+    time : f32
+) -> f32 {
+    let r = r4(pos);
+    let r2 = r * r;
+    let r3 = r2 * r;
+    let r4v = r2 * r2;
+    let r5 = r4v * r;
+
+    let phase = k * r - k * time;
+    let c = cos(phase);
+    let s = sin(phase);
+
+    let xi =
+        select(
+            select(pos.z, pos.y, i == 1u),
+            select(pos.x, pos.w, i == 3u),
+            i == 0u
+        );
+
+    let xj =
+        select(
+            select(pos.z, pos.y, j == 1u),
+            select(pos.x, pos.w, j == 3u),
+            j == 0u
+        );
+
+    if (i == j) {
+        return INV_4PI2 * (
+            -2.0 * c / r4v
+            + 8.0 * xi * xi * c / r5
+            + 2.0 * k * xi * xi * s / r4v
+            - k * k * xi * xi * c / r3
+        );
+    }
+
+    return INV_4PI2 * (
+        8.0 * xi * xj * c / r5
+        + 2.0 * k * xi * xj * s / r4v
+        - k * k * xi * xj * c / r3
+    );
+}
+fn dGdt(pos : vec4<f32>, k : f32, time : f32) -> f32 {
+    let r = r4(pos);
+    let phase = k * r - k * time;
+    return INV_4PI2 * k * sin(phase) / (r * r);
+}
+
+fn d2Gdt2(pos : vec4<f32>, k : f32, time : f32) -> f32 {
+    return -k * k * green(pos, k, time);
+}
+fn hsl2rgb(hsl: vec3f) -> vec3f {
+    let h = fract(hsl.x);
+    let s = clamp(hsl.y, 0.0, 1.0);
+    let l = clamp(hsl.z, 0.0, 1.0);
+
+    let rgb = clamp(abs(((h * 6.0 + vec3f(0.0, 4.0, 2.0)) % 6.0) - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
+    return l + s * (rgb - 0.5) * (1.0 - abs(2.0 * l - 1.0));
+}
+`;
 const skyGen_code = `
 // "StarNest" Background Ported from https://www.shadertoy.com/view/XlfGRj
 
@@ -166,7 +271,98 @@ fn mainVoxel(coord: vec3<f32>) -> vec4f {
         return vec4f(0.0,0.0,0.0,0.0);
     }
 }
-`
+`,
+    "M-Dipole Radiation": `
+${EMWave}
+fn magneticDipoleField(
+    pos : vec4<f32>,
+    time : f32,
+    k : f32,
+    m : f32
+) -> Field4D {
+    var out : Field4D;
+    out.E = vec4<f32>(0.0);
+    out.B = array<f32,6>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+    // Magnetic field
+    out.B[0] = m * dGdt(pos, k, time);      // xy
+    out.B[1] = m * dGdx(pos, 2u, k, time);  // xz
+    out.B[3] = m * dGdx(pos, 2u, k, time);  // yz
+    out.B[2] = m * dGdx(pos, 3u, k, time);  // xw
+    out.B[4] = m * dGdx(pos, 3u, k, time);  // yw
+
+    // Electric field (Faraday)
+    out.E.x =  m * dGdx(pos, 1u, k, time);
+    out.E.y = -m * dGdx(pos, 0u, k, time);
+
+    return out;
+}
+fn mainVoxel(pos: vec3<f32>)->vec4f{
+    let f = magneticDipoleField(vec4(pos*15.0,0.0),shadertoyTime,2,1);
+    return vec4f(hsl2rgb(vec3f(atan2(f.E.y,f.E.x)/3.1415926535*0.5,length(f.E)*1000.0,0.5)), length(f.E)*1000.0);
+}`,
+    "E-Dipole Radiation": `
+${EMWave}
+fn electricDipoleField(
+    pos : vec4<f32>,
+    time : f32,
+    k : f32,
+    p : f32
+) -> Field4D {
+    var out : Field4D;
+    out.E = vec4<f32>(0.0);
+    out.B = array<f32,6>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+    // Electric field
+    for (var i : u32 = 0u; i < 4u; i = i + 1u) {
+        out.E[i] =
+            p * (
+                d2Gdxdy(pos, i, 0u, k, time) +
+                select(0.0, d2Gdt2(pos, k, time), i == 0u)
+            );
+    }
+
+    // Magnetic field (xy, xz, xw)
+    out.B[0] = p * k * dGdx(pos, 1u, k, time); // xy
+    out.B[1] = p * k * dGdx(pos, 2u, k, time); // xz
+    out.B[2] = p * k * dGdx(pos, 3u, k, time); // xw
+
+    return out;
+}
+
+fn mainVoxel(pos: vec3<f32>)->vec4f{
+    let f = electricDipoleField(vec4(pos*15.0,0.0),shadertoyTime,2,1);
+    return vec4f(hsl2rgb(vec3f(atan2(f.E.y,f.E.x)/3.1415926535*0.5,length(f.E)*100.0,0.5)), length(f.E)*50.0);
+}`,
+    "Dual-Dipole Radiation": `
+${EMWave}
+fn magneticDipoleField(
+    pos : vec4<f32>,
+    time : f32,
+    k : f32,
+    m : f32
+) -> Field4D {
+    var out : Field4D;
+    out.E = vec4<f32>(0.0);
+    out.B = array<f32,6>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+    // Magnetic field
+    out.B[0] = m * dGdt(pos, k, time);      // xy
+    out.B[1] = m * dGdx(pos, 2u, k, time);  // xz
+    out.B[3] = m * dGdx(pos, 2u, k, time);  // yz
+    out.B[2] = m * dGdx(pos, 3u, k, time);  // xw
+    out.B[4] = m * dGdx(pos, 3u, k, time);  // yw
+
+    // Electric field (Faraday)
+    out.E.x =  m * dGdx(pos, 1u, k, time);
+    out.E.y = -m * dGdx(pos, 0u, k, time);
+
+    return out;
+}
+fn mainVoxel(pos: vec3<f32>)->vec4f{
+    let f0 = magneticDipoleField(vec4(pos*15.0,0.0),shadertoyTime,2,1);
+    return vec4f(hsl2rgb(vec3f(atan2(f.E.y,f.E.x)/3.1415926535*0.5,length(f.E)*1000.0,0.5)), length(f.E)*1000.0);
+}`,
 };
 const rayExamples = {
     "SDF": `// Ported from https://www.shadertoy.com/view/lt3BW2 by Inigo Quilez
