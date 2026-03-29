@@ -102,7 +102,8 @@ let examples = [
                     { target: "rigids::dt_ts_chain", zh: "圆环环链（静态）", en: "Ditorus Chain (Static)" },
                     { target: "rigids::st_st_link2", zh: "双球环扣", en: "Dihedron-ST Link" },
                     { target: "rigids::st_st_link4", zh: "四球环扣", en: "tetrahedron-ST Link" },
-                    { target: "rigids::st_st_link12", zh: "十二球环扣（静态）", en: "dodecahedron-ST Link" },
+                    { target: "rigids::st_st_link12", zh: "十二球环扣（静态）", en: "dodecahedron-ST Link (Static)" },
+                    // { target: "rigids::st_st_chain", zh: "纯环球组成的链（静态）", en: "Chain made of only STs (Static)" },
                 ]
             },
             {
@@ -319,16 +320,20 @@ let info = {
         "en": "<b>Control: Keep up mode</b><br>A Chain made of spheritorus and torusphere alternatively. Click left mouse button to fire glomes and hit them."
     },
     "rigids::st_st_link2": {
-        "zh": "<b>控制：保持竖直模式</b><br>两个绝对垂直的球环组成的环扣（由4Dminer、Codeparade的Discord上的网友TETO EXECUTIONER提出）。虽然在拓扑学上两个圆周（实心球环的强形变收缩核）无法形成环扣，但当它们的厚度大到一定程度后可以在物理上相互锁死对方的孔。使用鼠标左键发射超球轰击它们。",
-        "en": "<b>Control: Keep up mode</b><br>The link made of two absolutely perpendicular spheritorus (proposed by TETO EXECUTIONER on 4Dminer / Codeparade Discord). Although two circles (the strong deformation contraction core of solid spheritorus) cannot form a link topologically, they can lock each other's holes physically when their thickness reaches a certain level. Click left mouse button to fire glomes and hit them."
+        "zh": "<b>控制：保持竖直模式</b><br>两个绝对垂直的球环组成的环扣（由4Dminer、Codeparade的Discord上的网友rryzaki提出）。虽然在拓扑学上两个圆周（实心球环的强形变收缩核）无法形成环扣，但当它们的厚度大到一定程度后可以在物理上相互锁死对方的孔。使用鼠标左键发射超球轰击它们。",
+        "en": "<b>Control: Keep up mode</b><br>The link made of two absolutely perpendicular spheritorus (proposed by rryzaki on 4Dminer / Codeparade Discord). Although two circles (the strong deformation contraction core of solid spheritorus) cannot form a link topologically, they can lock each other's holes physically when their thickness reaches a certain level. Click left mouse button to fire glomes and hit them."
     },
     "rigids::st_st_link4": {
-        "zh": "<b>控制：保持竖直模式</b><br>四个Hopf纤维中的球环组成的环扣（由4Dminer、Codeparade的Discord上的网友TETO EXECUTIONER提出），它对应Hopf正四面体。使用鼠标左键发射超球轰击它们。",
-        "en": "<b>Control: Keep up mode</b><br>The link made of 4 spheritorus in Hopf fiber bundle (proposed by TETO EXECUTIONER on 4Dminer / Codeparade Discord), which corresponds to the Hopf tetrahedron. Click left mouse button to fire glomes and hit them."
+        "zh": "<b>控制：保持竖直模式</b><br>四个Hopf纤维中的球环组成的环扣（由4Dminer、Codeparade的Discord上的网友rryzaki提出），它对应Hopf正四面体。使用鼠标左键发射超球轰击它们。",
+        "en": "<b>Control: Keep up mode</b><br>The link made of 4 spheritorus in Hopf fiber bundle (proposed by rryzaki on 4Dminer / Codeparade Discord), which corresponds to the Hopf tetrahedron. Click left mouse button to fire glomes and hit them."
     },
     "rigids::st_st_link12": {
-        "zh": "<b>控制：保持竖直模式</b><br>十二个Hopf纤维中的球环组成的环扣（由4Dminer、Codeparade的Discord上的网友TETO EXECUTIONER提出），它对应Hopf正二十面体的顶点。但由于这种链的结合方式紧密，Tesserxel的基于迭代的物理引擎解算碰撞不能很好收敛，因此本场景不支持物理交互。",
-        "en": "<b>Control: Keep up mode</b><br>Dodecahedring. The link made of 12 spheritorus in Hopf fiber bundle (proposed by TETO EXECUTIONER on 4Dminer / Codeparade Discord), which corresponds to the Hopf dodecahedron. This construction is too tight so that the iterative collision solving system in Tesserxel's physics engine can't converge. Hence physical interaction in this scene is disabled."
+        "zh": "<b>控制：保持竖直模式</b><br>十二个Hopf纤维中的球环组成的环扣（由4Dminer、Codeparade的Discord上的网友rryzaki提出），它对应Hopf正二十面体的顶点。但由于这种链的结合方式紧密，Tesserxel的基于迭代的物理引擎解算碰撞不能很好收敛，因此本场景不支持物理交互。",
+        "en": "<b>Control: Keep up mode</b><br>Dodecahedring. The link made of 12 spheritorus in Hopf fiber bundle (proposed by rryzaki on 4Dminer / Codeparade Discord), which corresponds to the Hopf dodecahedron. This construction is too tight so that the iterative collision solving system in Tesserxel's physics engine can't converge. Hence physical interaction in this scene is disabled."
+    },
+    "rigids::st_st_chain": {
+        "zh": "<b>控制：保持竖直模式</b><br>可能的只有球环组成的链的方案，由4Dminer、Codeparade的Discord上的网友rryzaki提出。由于这种链的结合方式紧密，Tesserxel的基于迭代的物理引擎解算碰撞不能很好收敛，因此本场景不支持物理交互。",
+        "en": "<b>Control: Keep up mode</b><br>A Chain made of only spheritorus, proposed by rryzaki on 4Dminer / Codeparade Discord. This construction is too tight so that the iterative collision solving system in Tesserxel's physics engine can't converge. Hence physical interaction in this scene is disabled."
     },
     "rigids::tg_tg_chain": {
         "zh": "<b>控制：保持竖直模式</b><br>大小双圆环交错组成的链。使用鼠标左键发射超球轰击它们。",

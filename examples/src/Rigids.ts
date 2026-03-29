@@ -378,7 +378,7 @@ export namespace rigid_test {
         run();
     }
 }
-async function loadSTLinks(pointsOnS2: tesserxel.math.Vec3[], factor: number, staticMode?: boolean) {
+async function loadSTLinks(pointsOnS2: tesserxel.math.Vec3[], factor: number, staticMode?: boolean, chainMode?: boolean) {
     const engine = new phy.Engine({ substep: 30 });
     const world = new phy.World();
     // world.gravity.set();
@@ -423,6 +423,33 @@ async function loadSTLinks(pointsOnS2: tesserxel.math.Vec3[], factor: number, st
         const renderMatSpheritorus = new FOUR.LambertMaterial(color[c++]);
         addRigidToScene(world, scene, renderMatSpheritorus, spheritorus);
         spheritorus.rotates(math.Rotor.lookAtbb(math.Bivec.xw, B));
+        spheritorus.rotatesb(math.Bivec.yz.mulf(math._90));
+        const delta = 2.56;
+        if (chainMode) {
+            for (let i = 1; i < 3; i++) {
+                let spheritorus = new phy.Rigid({
+                    geometry: new phy.rigid.Spheritorus(1, factor),
+                    material: phyMatChain, mass: 1
+                });
+                spheritorus.position.y = 2 + i * delta;
+                spheritorus.position.x -= i * 0.2;
+                const renderMatSpheritorus = new FOUR.LambertMaterial(color[c - 1]);
+                addRigidToScene(world, scene, renderMatSpheritorus, spheritorus);
+                spheritorus.rotates(math.Rotor.lookAtbb(math.Bivec.xw, B));
+                spheritorus.rotatesb(math.Bivec.yz.mulf(math._90));
+                if (c == 1) {
+                    let spheritorus = new phy.Rigid({
+                        geometry: new phy.rigid.Spheritorus(1, factor),
+                        material: phyMatChain, mass: 1
+                    });
+                    spheritorus.position.y = 3.6 + (i - 1) * delta;
+                    spheritorus.position.x -= i * 0.2;
+                    const renderMatSpheritorus = new FOUR.LambertMaterial([0.5, 0.5, 0.5, 1]);
+                    addRigidToScene(world, scene, renderMatSpheritorus, spheritorus);
+                    spheritorus.rotates(math.Rotor.lookAtbb(math.Bivec.xw, math.Bivec.xy));
+                }
+            }
+        }
     }
 
     // set up lights, camera and renderer
@@ -494,6 +521,17 @@ export namespace st_st_link12 {
     export async function load() {
         const vs = new math.Polytope([3, 5]).getRegularPolytope();
         loadSTLinks(vs[0].map(v => v.norms()) as unknown as tesserxel.math.Vec3[], 0.27, true);
+    }
+}
+export namespace st_st_chain {
+    export async function load() {
+        let vs = new math.Polytope([3, 5]).getRegularPolytope()[0] as unknown as tesserxel.math.Vec3[];
+        vs = vs.map(v => new math.Vec3().copy(v));
+        const R = math.Quaternion.lookAt(vs[0], math.Vec3.z);
+        vs.splice(9, 1);
+        vs.splice(2, 1);
+        vs = vs.map(v => v.rotates(R));
+        loadSTLinks(vs.map(v => v.norms()) as unknown as tesserxel.math.Vec3[], 0.27, true, true);
     }
 }
 
