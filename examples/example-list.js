@@ -320,11 +320,11 @@ let info = {
     },
     "rigids::st_st_link2": {
         "zh": "<b>控制：保持竖直模式</b><br>两个绝对垂直的球环组成的环扣（由4Dminer、Codeparade的Discord上的网友提出）。虽然在拓扑学上两个圆周（实心球环的强形变收缩核）无法形成环扣，但当它们的厚度大到一定程度后可以在物理上相互锁死对方的孔。使用鼠标左键发射超球轰击它们。",
-        "en": "<b>Control: Keep up mode</b><br>The link made of two absolutely perpendicular spheritorus (proposed by users on 4Dminer/Codeparade Discord). Although two circles (the strong deformation contraction core of solid spheritorus) cannot form a link topologically, they can lock each other's holes physically when their thickness reaches a certain level. Click left mouse button to fire glomes and hit them."
+        "en": "<b>Control: Keep up mode</b><br>The link made of two absolutely perpendicular spheritorus (proposed by users on 4Dminer / Codeparade Discord). Although two circles (the strong deformation contraction core of solid spheritorus) cannot form a link topologically, they can lock each other's holes physically when their thickness reaches a certain level. Click left mouse button to fire glomes and hit them."
     },
     "rigids::st_st_link4": {
         "zh": "<b>控制：保持竖直模式</b><br>四个Hopf纤维中的球环组成的环扣（由4Dminer、Codeparade的Discord上的网友提出），它对应Hopf正四面体。使用鼠标左键发射超球轰击它们。",
-        "en": "<b>Control: Keep up mode</b><br>The link made of 4 spheritorus in Hopf fiber bundle (proposed by users on 4Dminer/Codeparade Discord), which corresponds to the Hopf tetrahedron. Although two circles (the strong deformation contraction core of solid spheritorus) cannot form a link topologically, they can lock each other's holes physically when their thickness reaches a certain level. Click left mouse button to fire glomes and hit them."
+        "en": "<b>Control: Keep up mode</b><br>The link made of 4 spheritorus in Hopf fiber bundle (proposed by users on 4Dminer / Codeparade Discord), which corresponds to the Hopf tetrahedron. Click left mouse button to fire glomes and hit them."
     },
     "rigids::tg_tg_chain": {
         "zh": "<b>控制：保持竖直模式</b><br>大小双圆环交错组成的链。使用鼠标左键发射超球轰击它们。",
