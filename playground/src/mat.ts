@@ -76,7 +76,7 @@ spotLight.alwaysUpdateCoord = true;
 app.camera.position.w = 5.0;
 app.camera.position.y = 2.0;
 // 添加一个“保持竖直”模式的相机控制器
-app.controllerRegistry.add(new tesserxel.util.ctrl.KeepUpController(app.camera));
+app.controllerRegistry.add(new tesserxel.ui.ctrl.KeepUpController(app.camera));
 // 生成动画的随机种子
 let t = Math.random() * 12345678;
 // app.run 中的参数是个回调函数，它将在每帧渲染时执行。我们在这里实现动画效果

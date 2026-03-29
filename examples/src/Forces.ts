@@ -34,7 +34,7 @@ export namespace spring_rope {
         meshGlome0.position.copy(pointA);
         scene.add(new FOUR.DirectionalLight([3.3, 3, 3], new math.Vec4(0, 1, 0, 3).norms()));
         scene.add(new FOUR.DirectionalLight([0.2, 0.3, 0.4], math.Vec4.yNeg));
-        app.controllerRegistry.add(new tesserxel.util.ctrl.KeepUpController(camera));
+        app.controllerRegistry.add(new tesserxel.ui.ctrl.KeepUpController(camera));
         app.renderer.core.setDisplayConfig({ opacity: 10 });
 
         // init physic scene

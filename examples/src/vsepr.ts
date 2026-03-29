@@ -185,7 +185,7 @@ export namespace hyperdiamond {
 
         let builder = new DiamondBuilder(16, 0, atomGeom, bondGeom, bondMat);
         builder.buildAndAddToScene(scene);
-        const trackballCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
+        const trackballCtrl = new tesserxel.ui.ctrl.TrackBallController(camera, true);
         app.controllerRegistry.add(trackballCtrl);
         app.run();
     }
@@ -226,9 +226,9 @@ export namespace vsepr {
 
         let builder = new StructBuilder(16, 0, atomGeom, bondGeom, bondMat);
         builder.buildAndAddToScene(scene);
-        let retinaController = new tesserxel.util.ctrl.RetinaController(renderer.core);
-        const trackballCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
-        let controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [trackballCtrl, retinaController], { preventDefault: true });
+        let retinaController = new tesserxel.ui.ctrl.RetinaController(renderer.core);
+        const trackballCtrl = new tesserxel.ui.ctrl.TrackBallController(camera, true);
+        let controllerRegistry = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [trackballCtrl, retinaController], { preventDefault: true });
         function setSize() {
             let width = window.innerWidth * window.devicePixelRatio;
             let height = window.innerHeight * window.devicePixelRatio;

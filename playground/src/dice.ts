@@ -43,7 +43,7 @@ app.scene.add(new FOUR.DirectionalLight(
 ));
 app.camera.position.w = 3.0;
 // 我们这次不控制相机，而是控制骰子本身，第二个参数设为false，表示控制物体模式
-app.controllerRegistry.add(new tesserxel.util.ctrl.TrackBallController(dice_mesh, false));
+app.controllerRegistry.add(new tesserxel.ui.ctrl.TrackBallController(dice_mesh, false));
 // 切换点数的控制器
 class DiceCtrl {
     dice; // 要控制的对象

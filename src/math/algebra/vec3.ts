@@ -15,6 +15,9 @@ export class Vec3 {
     static readonly x = Object.freeze(new Vec3(1, 0, 0));
     static readonly y = Object.freeze(new Vec3(0, 1, 0));
     static readonly z = Object.freeze(new Vec3(0, 0, 1));
+    static readonly xNeg = Object.freeze(new Vec3(-1, 0, 0));
+    static readonly yNeg = Object.freeze(new Vec3(0, -1, 0));
+    static readonly zNeg = Object.freeze(new Vec3(0, 0, -1));
     constructor(x: number = 0, y: number = 0, z: number = 0) {
         this.x = x; this.y = y; this.z = z;
     }

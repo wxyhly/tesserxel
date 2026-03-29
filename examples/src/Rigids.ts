@@ -114,7 +114,7 @@ function initScene(scene: tesserxel.four.Scene) {
     ));
     scene.setBackgroundColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
 }
-class EmitGlomeController implements tesserxel.util.ctrl.IController {
+class EmitGlomeController implements tesserxel.ui.ctrl.IController {
     enabled: boolean = true;
     world: tesserxel.physics.World; scene: tesserxel.four.Scene;
     glomeMaterial = new FOUR.PhongMaterial([1.2, 0.4, 0.2]);
@@ -126,7 +126,7 @@ class EmitGlomeController implements tesserxel.util.ctrl.IController {
         this.world = world; this.scene = scene; this.camera = camera;
         renderer.compileMaterials([this.glomeMaterial]);
     }
-    update(state: tesserxel.util.ctrl.ControllerState): void {
+    update(state: tesserxel.ui.ctrl.ControllerState): void {
         if (state.isKeyHold("AltLeft")) return;
         if (state.isPointerLocked() && state.mouseDown === 0) {
             let g = createGlome(this.glomeRadius, 5);
@@ -239,15 +239,15 @@ export namespace st_pile {
 
         // controllers
 
-        const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        const camCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
         camCtrl.keyMoveSpeed = 0.003;
 
-        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
+        const retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer.core);
 
         const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
         emitCtrl.initialSpeed = 5;
 
-        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+        const controllerRegistry = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
             retinaCtrl,
             camCtrl,
             emitCtrl
@@ -322,15 +322,15 @@ export namespace rigid_test {
         });
         // controllers
 
-        const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        const camCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
         camCtrl.keyMoveSpeed = 0.01;
 
-        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
+        const retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer.core);
 
         const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
         emitCtrl.initialSpeed = 10;
 
-        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+        const controllerRegistry = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
             retinaCtrl,
             camCtrl,
             emitCtrl
@@ -378,6 +378,125 @@ export namespace rigid_test {
         run();
     }
 }
+async function loadSTLinks(pointsOnS2: tesserxel.math.Vec3[], factor: number) {
+    const engine = new phy.Engine({ substep: 30 });
+    const world = new phy.World();
+    // world.gravity.set();
+    const scene = new FOUR.Scene();
+    // define physical materials: frictions and restitutions
+    const phyMatChain = new phy.Material(0.4, 0.4);
+    const phyMatGround = new phy.Material(1, 0.4);
+    // define render materials
+    const renderMatGround = new FOUR.LambertMaterial([0.2, 1, 0.2, 0.03]);
+    // add ground
+    addRigidToScene(world, scene, renderMatGround, new phy.Rigid({
+        geometry: new phy.rigid.Plane(new math.Vec4(0, 1)),
+        mass: 0, material: phyMatGround
+    }));
+    // add spheritorus - spheritorus link
+    const color = [
+        [1, 0.1, 0.1, 1],
+        [0.1, 0.1, 1, 1],
+        [1, 1, 0.1, 1],
+        [0.1, 1, 0.1, 1],
+        [0.1, 1, 1, 1],
+        [1, 0.5, 0.1, 1],
+        [0.5, 0.5, 0.5, 1],
+        [0, 0.5, 1, 1],
+        [0.8, 0.1, 1, 1],
+        [0.1, 0.1, 0.1, 1],
+        [1, 1, 1, 1],
+        [0.5, 1, 0.1, 1],
+    ];
+    let c = 0;
+    for (const pt of pointsOnS2) {
+        // S2 to Unit Plane (Hopf circle) in R4
+        const p = pt.divf(2);
+        const B = new Bivec(
+            0.5 - p.z, -p.y, p.x, -p.x, -p.y, 0.5 + p.z
+        );
+        let spheritorus = new phy.Rigid({
+            geometry: new phy.rigid.Spheritorus(1, factor),
+            material: phyMatChain, mass: 1
+        });
+        spheritorus.position.y = 2;
+        const renderMatSpheritorus = new FOUR.LambertMaterial(color[c++]);
+        addRigidToScene(world, scene, renderMatSpheritorus, spheritorus);
+        spheritorus.rotates(math.Rotor.lookAtbb(math.Bivec.xw, B));
+    }
+
+    // set up lights, camera and renderer
+
+    let camera = new FOUR.PerspectiveCamera();
+    camera.position.w = 4;
+    camera.position.y = 2;
+    scene.add(camera);
+    initScene(scene);
+
+    const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+    const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } }); const renderer = app.renderer;
+    renderer.core.setDisplayConfig({
+        screenBackgroundColor: [1, 1, 1, 1],
+        sectionStereoEyeOffset: 0.5,
+        opacity: 20
+    });
+
+    // controllers
+
+    const camCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
+    camCtrl.keyMoveSpeed = 0.01;
+
+    const retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer.core);
+
+    const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
+    emitCtrl.glomeRadius = 0.8;
+    emitCtrl.maximumBulletDistance = 70;
+    emitCtrl.initialSpeed = 3;
+
+    const controllerRegistry = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
+        retinaCtrl,
+        camCtrl,
+        emitCtrl
+    ], { enablePointerLock: true });
+
+
+    function run() {
+        // syncronise physics world and render scene
+        updateRidigsInScene();
+        // update controller states
+        controllerRegistry.update();
+        // rendering
+        renderer.render(scene, camera);
+        // simulating physics
+        engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000) / pointsOnS2.length);
+        window.requestAnimationFrame(run);
+    }
+    run();
+}
+export namespace st_st_link2 {
+    export async function load() {
+        loadSTLinks([math.Vec3.x, math.Vec3.xNeg], 0.66);
+    }
+}
+export namespace st_st_link4 {
+    export async function load() {
+        const s = 1 / Math.sqrt(3);
+        loadSTLinks([
+            new math.Vec3(s, s, s),
+            new math.Vec3(-s, -s, s),
+            new math.Vec3(-s, s, -s),
+            new math.Vec3(s, -s, -s),
+        ], 0.45);
+    }
+}
+
+// export namespace st_st_link6 {
+//     export async function load() {
+//         const vs = new math.Polytope([4, 3]).getRegularPolytope();
+//         loadSTLinks(vs[0].map(v => v.norms()) as unknown as tesserxel.math.Vec3[], 0.4);
+//     }
+// }
+
 export namespace st_ts_chain {
     export async function load() {
         const engine = new phy.Engine({ substep: 30 });
@@ -441,17 +560,17 @@ export namespace st_ts_chain {
 
         // controllers
 
-        const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        const camCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
         camCtrl.keyMoveSpeed = 0.01;
 
-        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
+        const retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer.core);
 
         const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
         emitCtrl.glomeRadius = 2;
         emitCtrl.maximumBulletDistance = 70;
         emitCtrl.initialSpeed = 10;
 
-        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+        const controllerRegistry = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
             retinaCtrl,
             camCtrl,
             emitCtrl
@@ -621,17 +740,17 @@ export namespace tg_tg_chain {
 
         // controllers
 
-        const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        const camCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
         camCtrl.keyMoveSpeed = 0.01;
 
-        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
+        const retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer.core);
 
         const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
         emitCtrl.glomeRadius = 2;
         emitCtrl.maximumBulletDistance = 70;
         emitCtrl.initialSpeed = 10;
 
-        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+        const controllerRegistry = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
             retinaCtrl,
             camCtrl,
             emitCtrl
@@ -795,10 +914,10 @@ namespace dzhanibekov {
         });
         // controllers
 
-        const camCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
-        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
+        const camCtrl = new tesserxel.ui.ctrl.TrackBallController(camera, true);
+        const retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer.core);
 
-        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+        const controllerRegistry = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
             retinaCtrl,
             camCtrl,
         ], { enablePointerLock: true });
@@ -902,9 +1021,9 @@ async function loadGyroScene(cwmesh: tesserxel.mesh.CWMesh, material: tesserxel.
         sectionStereoEyeOffset: 0.5,
         opacity: 20
     });
-    const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
-    const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
-    const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+    const camCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
+    const retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer.core);
+    const controllerRegistry = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
         retinaCtrl,
         camCtrl,
         new EmitGlomeController(world, scene, camera, renderer)
@@ -1189,13 +1308,13 @@ export namespace thermo_stats {
         });
         // controllers
 
-        const camCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
-        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
+        const camCtrl = new tesserxel.ui.ctrl.TrackBallController(camera, true);
+        const retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer.core);
         retinaCtrl.toggleSectionConfig("zsection");
         const gui = new GUI; gui.setSize();
         app.onresize = () => gui.setSize();
 
-        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+        const controllerRegistry = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
             retinaCtrl,
             camCtrl,
         ], { enablePointerLock: true });
@@ -1306,17 +1425,17 @@ export namespace mix_chain {
 
         // controllers
 
-        const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        const camCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
         camCtrl.keyMoveSpeed = 0.01;
 
-        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
+        const retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer.core);
 
         const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
         emitCtrl.glomeRadius = 2;
         emitCtrl.maximumBulletDistance = 70;
         emitCtrl.initialSpeed = 10;
 
-        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+        const controllerRegistry = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
             retinaCtrl,
             camCtrl,
             emitCtrl
@@ -1403,12 +1522,12 @@ export namespace dt_ts_chain {
 
         // controllers
 
-        const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        const camCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
         camCtrl.keyMoveSpeed = 0.01;
 
-        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
+        const retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer.core);
 
-        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+        const controllerRegistry = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
             retinaCtrl,
             camCtrl,
         ], { enablePointerLock: true });
@@ -1500,17 +1619,17 @@ export namespace ditorus {
 
         // controllers
 
-        const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        const camCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
         camCtrl.keyMoveSpeed = 0.01;
 
-        const retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer.core);
+        const retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer.core);
 
         const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
         emitCtrl.glomeRadius = 1;
         emitCtrl.maximumBulletDistance = 70;
         emitCtrl.initialSpeed = 4;
 
-        const controllerRegistry = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+        const controllerRegistry = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
             retinaCtrl,
             camCtrl,
             emitCtrl
@@ -1562,10 +1681,10 @@ async function loadMaxwell(cb: (
 
     // controllers
 
-    const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+    const camCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
     camCtrl.keyMoveSpeed = 0.01;
     const gravityCtrl = {
-        update: function (state: tesserxel.util.ctrl.ControllerState): void {
+        update: function (state: tesserxel.ui.ctrl.ControllerState): void {
             if (state.isKeyHold(".KeyG")) {
                 gravityCtrl.gravity = !gravityCtrl.gravity;
                 world.gravity.y = gravityCtrl.gravity ? -9.8 : 0;
@@ -1581,6 +1700,12 @@ async function loadMaxwell(cb: (
     app.controllerRegistry.add(camCtrl);
     app.controllerRegistry.add(emitCtrl);
     app.controllerRegistry.add(gravityCtrl);
+    app.renderer.core.setDisplayConfig({
+        screenBackgroundColor: [1, 1, 1, 1],
+        sectionStereoEyeOffset: 0.5,
+        opacity: 20
+    });
+    app.controllerRegistry.update();
 
     await cb(world, maxwell, scene, app);
     // set up lights, camera and renderer
@@ -1588,11 +1713,7 @@ async function loadMaxwell(cb: (
     initScene(scene);
     scene.skyBox = null; // delete skyBox in initScene() to save resources, because sky can't be seen
     await app.renderer.compileMaterials(scene);
-    app.renderer.core.setDisplayConfig({
-        screenBackgroundColor: [1, 1, 1, 1],
-        sectionStereoEyeOffset: 0.5,
-        opacity: 20
-    });
+
 
     app.run(() => {
         updateRidigsInScene();
@@ -1936,7 +2057,7 @@ export namespace circuitBds {
 export namespace circuitBhs {
     export async function load() {
         await new BDisplayer().load(7, 0, 0.7, (world, maxwell, scene, app) => {
-            app.retinaController.toggleSectionConfig("zsection")
+            app.retinaController.toggleSectionConfig("zsection");
 
             world.gravity.set();
 
@@ -2044,7 +2165,7 @@ class BDisplayer {
         app: tesserxel.four.App) => void) {
         await loadMaxwell(async (world, maxwell, scene, app) => {
             app.renderer.tetraNumOccupancyRatio = 0.2;
-            (app.controllerRegistry["ctrls"][1] as tesserxel.util.ctrl.KeepUpController).keyMoveSpeed = 0.002;
+            (app.controllerRegistry["ctrls"][1] as tesserxel.ui.ctrl.KeepUpController).keyMoveSpeed = 0.002;
             app.controllerRegistry["ctrls"][2].enabled = false;
             cb(world, maxwell, scene, app);
             maxwell.updateWorldOrientation();
@@ -2151,7 +2272,7 @@ export namespace dice_yugu233 {
 
         // controllers
 
-        const camCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        const camCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
         app.controllerRegistry.add(camCtrl);
         camCtrl.keyMoveSpeed = 0.01;
 
@@ -2175,6 +2296,7 @@ class gravityApp {
         scene.add(camera);
         scene.add(new FOUR.AmbientLight(0.5));
         scene.add(new FOUR.DirectionalLight([1, 1, 1], new math.Vec4(1, -3, 2, 1.414)));
+        scene.setBackgroundColor({ r: 0.9, g: 1, b: 1, a: 0 });
 
         const count = 15;
         const totalV = new math.Vec4(0, 0, 0, 0);
@@ -2226,7 +2348,7 @@ class gravityApp {
         });
         // controllers
 
-        const camCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
+        const camCtrl = new tesserxel.ui.ctrl.TrackBallController(camera, true);
         app.controllerRegistry.add(camCtrl);
         app.run(() => {
             // syncronise physics world and render scene
@@ -2357,9 +2479,11 @@ export namespace gravityRing {
             opacity: 300,
             // retinaLayers: 64,
         });
+        scene.setBackgroundColor({ r: 0.9, g: 1, b: 1, a: 0 });
+
         // controllers
 
-        const camCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
+        const camCtrl = new tesserxel.ui.ctrl.TrackBallController(camera, true);
         app.controllerRegistry.add(camCtrl);
         app.run(() => {
             // syncronise physics world and render scene

@@ -5,12 +5,12 @@ const PHY = tesserxel.physics;
 const Vec4 = tesserxel.math.Vec4;
 const Obj4 = tesserxel.math.Obj4;
 export namespace bowling {
-    class CamPosCtrl implements tesserxel.util.ctrl.IController {
-        cameraCtrl: tesserxel.util.ctrl.KeepUpController;
-        constructor(cameraCtrl: tesserxel.util.ctrl.KeepUpController) {
+    class CamPosCtrl implements tesserxel.ui.ctrl.IController {
+        cameraCtrl: tesserxel.ui.ctrl.KeepUpController;
+        constructor(cameraCtrl: tesserxel.ui.ctrl.KeepUpController) {
             this.cameraCtrl = cameraCtrl;
         }
-        update(state: tesserxel.util.ctrl.ControllerState): void {
+        update(state: tesserxel.ui.ctrl.ControllerState): void {
             const cam = this.cameraCtrl.object;
             if (state.isKeyHold("AltLeft")) return;
             if (state.isKeyHold(".Digit1")) {
@@ -40,7 +40,7 @@ export namespace bowling {
             }
         }
     }
-    class BallEmitter implements tesserxel.util.ctrl.IController {
+    class BallEmitter implements tesserxel.ui.ctrl.IController {
         glomeRadius = 0.22; mass = 6;
         glomeGeom = new FOUR.GlomeGeometry(this.glomeRadius);
         glomeMaterial = new FOUR.PhongMaterial(
@@ -67,7 +67,7 @@ export namespace bowling {
             this.world = world; this.scene = scene; this.camera = camera;
             this.glomeGeom.jsBuffer.setUVWAsPosition();
         }
-        update(state: tesserxel.util.ctrl.ControllerState): void {
+        update(state: tesserxel.ui.ctrl.ControllerState): void {
             for (const [g, m] of this.bridge.entries()) {
                 m.copyObj4(g);
             }
@@ -266,7 +266,7 @@ fn pin(uvw:vec4f)->vec4f{
             new tesserxel.math.Vec4(-1, 1, 1, 1).norms()
         ));
         app.scene.add(new FOUR.AmbientLight(0.3));
-        const camCtrl = new tesserxel.util.ctrl.KeepUpController(app.camera);
+        const camCtrl = new tesserxel.ui.ctrl.KeepUpController(app.camera);
         camCtrl.mouseSpeed *= 0.2;
         app.controllerRegistry.add(camCtrl);
         const emitter = new BallEmitter(world, app.scene, app.camera);

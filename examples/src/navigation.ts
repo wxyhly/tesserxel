@@ -1,4 +1,5 @@
-import { math, four, util, physics, render } from "../../build/esm/tesserxel.js"
+import { math, four, ui, physics, render } from "../../build/esm/tesserxel.js"
+import { SettingGUI } from "../../build/esm/ui/gui.js";
 export namespace navigation {
     class GlomeSurfaceScatter {
         glomeRadius: number;
@@ -88,7 +89,7 @@ export namespace navigation {
         const skyBox = new NishitaPlanetSkyBox();
         scene.skyBox = skyBox;
         renderer.setBackgroundColor([1, 1, 1, 1]);
-        const camController = new util.ctrl.FreeFlyController(camera);
+        const camController = new ui.ctrl.FreeFlyController(camera);
         const timeCtrl = new TimeCtrl();
         app.controllerRegistry.add(camController);
         app.controllerRegistry.add(timeCtrl);
@@ -100,7 +101,7 @@ export namespace navigation {
         window.addEventListener("resize", () => gui.setSize()); gui.setSize();
         function run() {
             app.controllerRegistry.update();
-            if (!timeCtrl.timePaused) time += app.controllerRegistry.states.mspf / 60_00;
+            if (!timeCtrl.timePaused) time += (app.controllerRegistry.states.mspf / 60_00)*timeCtrl.timespeed;
             sunLight.direction = solar_sys.getRelSunPos(time);
             skyBox.setSunPosition(sunLight.direction);
             // calculate camera's and world's y-w planes, whether they are aligned
@@ -135,10 +136,27 @@ export namespace navigation {
             this.object.torque.addmulfs(biv, this.stiffness);
         }
     }
-    class TimeCtrl {
-        update(state: util.ctrl.ControllerState): void {
-            if (state.isKeyHold(".KeyP")) {
+    class TimeCtrl implements ui.ctrl.IController {
+        timespeed: number = 1;
+        registGui(gui: SettingGUI) {
+            gui.keybindingMgr.addGroup("timectrl", {
+                title: { zh: "场景时间控制", en: "Scene Time Ctrl" },
+                actions: {
+                    pause: { title: { zh: "暂停/重启时间流逝", en: "Pause/Resume" }, key: "KeyP", press: true },
+                    slow: { title: { zh: "减缓时间流逝", en: "Slow Down Time" }, key: "Minus", press: true },
+                    fast: { title: { zh: "加速时间流逝", en: "Speed Up Time" }, key: "Equal", press: true }
+                }
+            })
+        }
+        update(state: ui.ctrl.ControllerState): void {
+            if (state.isActionActive("pause","timectrl")) {
                 this.timePaused = !this.timePaused;
+            }
+            if (state.isActionActive("slow","timectrl")) {
+                this.timespeed = Math.max(0.1, this.timespeed*0.8);
+            }
+            if (state.isActionActive("fast","timectrl")) {
+                this.timespeed = Math.min(50, this.timespeed /0.8);
             }
         }
         timePaused = false;

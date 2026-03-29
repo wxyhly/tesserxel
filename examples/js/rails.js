@@ -1,4 +1,4 @@
-import { math, four, util, mesh } from "../../build/esm/tesserxel.js";
+import { math, four, ui, mesh } from "../../build/esm/tesserxel.js";
 async function loadFile(src) {
     return new Promise((resolve, reject) => {
         let xhr = new XMLHttpRequest();
@@ -124,7 +124,7 @@ export var rail2d;
         camera.position.y = wheelAxleHeight;
         const renderer = app.renderer;
         renderer.core.setDisplayConfig({ opacity: 5 });
-        const camController = new util.ctrl.KeepUpController(camera);
+        const camController = new ui.ctrl.KeepUpController(camera);
         camController.keyMoveSpeed *= 4.0;
         const trainCtrl = new TrainObj4Mgr(backBogieFrame, frontBogieFrame, camController);
         app.controllerRegistry.add(camController);
@@ -275,6 +275,18 @@ export var rail2d;
         lockCamera = true;
         camCtrl;
         dt = 0.1;
+        registGui(gui) {
+            gui.keybindingMgr.addGroup("planartrainctrl", {
+                title: { zh: "二维轨道火车控制", en: "Planar Train Control" },
+                actions: {
+                    speedUp: { title: { zh: "加速", en: "Speed Up" }, key: "KeyT", },
+                    slowDown: { title: { zh: "减速", en: "Slow Down" }, key: "KeyG", },
+                    steerLeft: { title: { zh: "左转", en: "Steer Left" }, key: "KeyR", },
+                    steerRight: { title: { zh: "右转", en: "Steer Right" }, key: "KeyY", },
+                    lockCamera: { title: { zh: "锁定相机", en: "Lock Camera" }, key: "KeyB", press: true }
+                }
+            });
+        }
         constructor(bogieb, bogief, camCtrl) {
             this.bogieb = bogieb;
             this.bogief = bogief;
@@ -282,19 +294,19 @@ export var rail2d;
         }
         enabled = true;
         update(state) {
-            if (state.isKeyHold("KeyT")) {
+            if (state.isActionActive("speedUp", "planartrainctrl")) {
                 this.speed += 0.025;
             }
-            if (state.isKeyHold("KeyG")) {
+            if (state.isActionActive("slowDown", "planartrainctrl")) {
                 this.speed -= 0.025;
             }
-            if (state.isKeyHold("KeyR")) {
+            if (state.isActionActive("steerLeft", "planartrainctrl")) {
                 this.steerAngle += 0.04;
             }
-            if (state.isKeyHold("KeyY")) {
+            if (state.isActionActive("steerRight", "planartrainctrl")) {
                 this.steerAngle -= 0.04;
             }
-            if (state.isKeyHold(".KeyB")) {
+            if (state.isActionActive("lockCamera", "planartrainctrl")) {
                 this.lockCamera = !this.lockCamera;
             }
             this.speed *= 0.99;
@@ -407,11 +419,20 @@ export var rail1d;
     class TrainCtrl {
         trainSpeed = 0;
         enabled = true;
+        registGui(gui) {
+            gui.keybindingMgr.addGroup("lineartrainctrl", {
+                title: { zh: "一维轨道火车控制", en: "Linear Train Control" },
+                actions: {
+                    speedUp: { title: { zh: "加速", en: "Speed Up" }, key: "KeyT", },
+                    slowDown: { title: { zh: "减速", en: "Slow Down" }, key: "KeyG", },
+                }
+            });
+        }
         update(state) {
-            if (state.isKeyHold("KeyT")) {
+            if (state.isActionActive("speedUp", "lineartrainctrl")) {
                 this.trainSpeed += 0.03;
             }
-            if (state.isKeyHold("KeyG")) {
+            if (state.isActionActive("slowDown", "lineartrainctrl")) {
                 this.trainSpeed -= 0.03;
             }
             this.trainSpeed *= 0.999;
@@ -462,7 +483,7 @@ export var rail1d;
         train.add(voiture1, voiture2, voiture3);
         const renderer = app.renderer;
         renderer.core.setDisplayConfig({ opacity: 5 });
-        const camController = new util.ctrl.KeepUpController(camera);
+        const camController = new ui.ctrl.KeepUpController(camera);
         camController.keyMoveSpeed *= 5.0;
         const trainCtrl = new TrainCtrl;
         app.controllerRegistry.add(camController);

@@ -94,12 +94,12 @@ struct fInputType{
             }
         });
         await renderer.init();
-        let retinaController = new tesserxel.util.ctrl.RetinaController(renderer);
-        retinaController.toggleSectionConfig("retina");
+        let retinaController = new tesserxel.ui.ctrl.RetinaController(renderer);
         retinaController.mouseButton = null;
-        let trackBallController = new tesserxel.util.ctrl.TrackBallController();
+        let trackBallController = new tesserxel.ui.ctrl.TrackBallController();
         trackBallController.object.position.set(0, 0, 0, -3);
-        let ctrlreg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [trackBallController, retinaController], { preventDefault: true, enablePointerLock: true });
+        let ctrlreg = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [trackBallController, retinaController], { preventDefault: true, enablePointerLock: true });
+        retinaController.toggleSectionConfig("retina");
         let camMatJSBuffer = new Float32Array(40);
         const factor1 = 0.4;
         const factor2 = factor1 * Math.SQRT2;

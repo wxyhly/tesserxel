@@ -1,4 +1,5 @@
-import { math, four, util, mesh } from "../../build/esm/tesserxel.js"
+import { math, four, ui, mesh } from "../../build/esm/tesserxel.js"
+import { SettingGUI } from "../../build/esm/ui/gui.js";
 async function loadFile(src: string) {
     return new Promise((resolve, reject) => {
         let xhr = new XMLHttpRequest();
@@ -169,7 +170,7 @@ export namespace rail2d {
 
         const renderer = app.renderer;
         renderer.core.setDisplayConfig({ opacity: 5 });
-        const camController = new util.ctrl.KeepUpController(camera);
+        const camController = new ui.ctrl.KeepUpController(camera);
         camController.keyMoveSpeed *= 4.0;
         const trainCtrl = new TrainObj4Mgr(backBogieFrame, frontBogieFrame, camController);
         app.controllerRegistry.add(camController);
@@ -320,7 +321,7 @@ export namespace rail2d {
             };
         }
     }
-    class TrainObj4Mgr {
+    class TrainObj4Mgr implements ui.ctrl.IController {
         speed = 0;
         steerAngle = 0;
         ub = 0; vb = 0; localRotorb = new math.Rotor;
@@ -328,28 +329,40 @@ export namespace rail2d {
         bogieb: math.Obj4;
         bogief: math.Obj4;
         lockCamera = true;
-        camCtrl: util.ctrl.KeepUpController;
+        camCtrl: ui.ctrl.KeepUpController;
         dt = 0.1;
-        constructor(bogieb: math.Obj4, bogief: math.Obj4, camCtrl: util.ctrl.KeepUpController) {
+        registGui(gui: SettingGUI) {
+            gui.keybindingMgr.addGroup("planartrainctrl", {
+                title: { zh: "二维轨道火车控制", en: "Planar Train Control" },
+                actions: {
+                    speedUp: { title: { zh: "加速", en: "Speed Up" }, key: "KeyT", },
+                    slowDown: { title: { zh: "减速", en: "Slow Down" }, key: "KeyG", },
+                    steerLeft: { title: { zh: "左转", en: "Steer Left" }, key: "KeyR", },
+                    steerRight: { title: { zh: "右转", en: "Steer Right" }, key: "KeyY", },
+                    lockCamera: { title: { zh: "锁定相机", en: "Lock Camera" }, key: "KeyB", press: true }
+                }
+            });
+        }
+        constructor(bogieb: math.Obj4, bogief: math.Obj4, camCtrl: ui.ctrl.KeepUpController) {
             this.bogieb = bogieb;
             this.bogief = bogief;
             this.camCtrl = camCtrl;
         }
         enabled = true;
-        update(state: util.ctrl.ControllerState): void {
-            if (state.isKeyHold("KeyT")) {
+        update(state: ui.ctrl.ControllerState): void {
+            if (state.isActionActive("speedUp","planartrainctrl")) {
                 this.speed += 0.025;
             }
-            if (state.isKeyHold("KeyG")) {
+            if (state.isActionActive("slowDown","planartrainctrl")) {
                 this.speed -= 0.025;
             }
-            if (state.isKeyHold("KeyR")) {
+            if (state.isActionActive("steerLeft","planartrainctrl")) {
                 this.steerAngle += 0.04;
             }
-            if (state.isKeyHold("KeyY")) {
+            if (state.isActionActive("steerRight","planartrainctrl")) {
                 this.steerAngle -= 0.04;
             }
-            if (state.isKeyHold(".KeyB")) {
+            if (state.isActionActive("lockCamera","planartrainctrl")) {
                 this.lockCamera = !this.lockCamera;
             }
             this.speed *= 0.99;
@@ -483,11 +496,20 @@ export namespace rail1d {
     class TrainCtrl {
         trainSpeed = 0;
         enabled = true;
-        update(state: util.ctrl.ControllerState): void {
-            if (state.isKeyHold("KeyT")) {
+        registGui(gui: SettingGUI) {
+            gui.keybindingMgr.addGroup("lineartrainctrl", {
+                title: { zh: "一维轨道火车控制", en: "Linear Train Control" },
+                actions: {
+                    speedUp: { title: { zh: "加速", en: "Speed Up" }, key: "KeyT", },
+                    slowDown: { title: { zh: "减速", en: "Slow Down" }, key: "KeyG", },
+                }
+            });
+        }
+        update(state: ui.ctrl.ControllerState): void {
+            if (state.isActionActive("speedUp","lineartrainctrl")) {
                 this.trainSpeed += 0.03;
             }
-            if (state.isKeyHold("KeyG")) {
+            if (state.isActionActive("slowDown","lineartrainctrl")) {
                 this.trainSpeed -= 0.03;
             }
             this.trainSpeed *= 0.999;
@@ -540,7 +562,7 @@ export namespace rail1d {
 
         const renderer = app.renderer;
         renderer.core.setDisplayConfig({ opacity: 5 });
-        const camController = new util.ctrl.KeepUpController(camera);
+        const camController = new ui.ctrl.KeepUpController(camera);
         camController.keyMoveSpeed *= 5.0;
         const trainCtrl = new TrainCtrl;
         app.controllerRegistry.add(camController);

@@ -1,10 +1,10 @@
-import { render, util } from "../../build/esm/tesserxel.js";
+import { render, ui } from "../../build/esm/tesserxel.js";
 // export namespace examples {
 class MengerApp {
 
     renderer: render.SliceRenderer;
-    camController: util.ctrl.FreeFlyController;
-    retinaController: util.ctrl.RetinaController;
+    camController: ui.ctrl.FreeFlyController;
+    retinaController: ui.ctrl.RetinaController;
     headercode = `
 struct rayOut{
     @location(0) o: vec4f,
@@ -15,7 +15,6 @@ struct rayOut{
     @builtin(ray_direction) rd: vec4f,
     @builtin(ray_origin) ro: vec4f
 ) -> rayOut{
-    
     return rayOut(camMat.matrix*ro+camMat.vector, camMat.matrix*rd);
 }
 fn maxcomp( p : vec4f)->f32 { return max(p.x,max(p.y, max(p.w,p.z)));}
@@ -161,12 +160,12 @@ fn render( ro:vec4f, rd:vec4f )->vec4f
         this.renderer = renderer;
         renderer.setDisplayConfig({ screenBackgroundColor: { r: 1, g: 1, b: 1, a: 1 } });
         let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
-        let camController = new util.ctrl.FreeFlyController();
+        let camController = new ui.ctrl.FreeFlyController();
         camController.object.position.set(0, 0, 0, 3);
         this.camController = camController;
-        let retinaController = new util.ctrl.RetinaController(renderer);
+        let retinaController = new ui.ctrl.RetinaController(renderer);
         this.retinaController = retinaController;
-        let ctrlreg = new util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
+        let ctrlreg = new ui.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
         let matModelViewJSBuffer = new Float32Array(20);
         let pipeline = await renderer.createRaytracingPipeline({
             code: this.headercode.replace(/\{replace\}/g, code),

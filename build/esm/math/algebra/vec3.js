@@ -15,6 +15,9 @@ class Vec3 {
     static x = Object.freeze(new Vec3(1, 0, 0));
     static y = Object.freeze(new Vec3(0, 1, 0));
     static z = Object.freeze(new Vec3(0, 0, 1));
+    static xNeg = Object.freeze(new Vec3(-1, 0, 0));
+    static yNeg = Object.freeze(new Vec3(0, -1, 0));
+    static zNeg = Object.freeze(new Vec3(0, 0, -1));
     constructor(x = 0, y = 0, z = 0) {
         this.x = x;
         this.y = y;

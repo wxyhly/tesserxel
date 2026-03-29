@@ -10,7 +10,11 @@ import { _SQRT_3, _90, _DEG2RAD, _360 } from '../math/const.js';
 import { RetinaSliceFacing, EyeStereo } from '../render/slice/interfaces.js';
 import '../render/slice/renderer.js';
 import '../vendor/wgsl_reflect.module.js';
+import { SettingGUI } from './gui.js';
+import { SettingsManager } from './storage.js';
 
+const SVG_HEADER = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='`;
+const SVG_LINE = `style="fill:none;stroke:#FFF;stroke-width:0.25;"`;
 var KeyState;
 (function (KeyState) {
     KeyState[KeyState["NONE"] = 0] = "NONE";
@@ -20,8 +24,10 @@ var KeyState;
 })(KeyState || (KeyState = {}));
 class ControllerRegistry {
     dom;
+    gui;
     ctrls;
     enablePointerLock;
+    storage = new SettingsManager();
     states = {
         currentKeys: new Map(),
         isPointerLockedMouseDown: false,
@@ -37,13 +43,18 @@ class ControllerRegistry {
         wheelX: 0,
         wheelY: 0,
         mspf: -1,
+        storage: this.storage,
+        isActionHold: (_) => false,
+        isActionActive: (_) => false,
         isKeyHold: (_) => false,
+        getActionKey: (_) => "",
         requestPointerLock: () => false,
         isPointerLocked: () => false,
         exitPointerLock: () => { }
     };
     /** if this is true, prevent default will not work  */
     disableDefaultEvent = false;
+    iconSize = 32;
     prevIsPointerLocked = false;
     evMouseDown;
     evMouseUp;
@@ -52,12 +63,30 @@ class ControllerRegistry {
     evKeyUp;
     evKeyDown;
     evContextMenu;
+    // guiDom: HTMLDivElement;
     constructor(dom, ctrls, config) {
+        this.gui = new SettingGUI(this);
+        this.initGUI();
         this.dom = dom;
         dom.tabIndex = 1;
         this.ctrls = ctrls;
+        ctrls.forEach(ctrl => ctrl.registGui && ctrl.registGui(this.gui));
         this.enablePointerLock = config?.enablePointerLock ?? false;
+        const keyMap = this.gui.keybindingMgr.data.keyIndex;
+        this.states.isActionHold = (action, path) => (this.states.isKeyHold(keyMap[path + "." + action]) || this.states.currentKeys.get(path + "." + action) === KeyState.DOWN);
+        this.states.isActionActive = (action, path) => {
+            const str = path + "." + action;
+            if (this.states.currentKeys.get(str) === KeyState.DOWN)
+                return true;
+            if (this.states.currentKeys.get("." + str))
+                return true;
+            const enable = keyMap[path + ".enable"];
+            return this.states.isKeyHold(keyMap[str]) && (!enable || this.states.isKeyHold(enable)) && !this.states.isKeyHold(keyMap[path + ".disable"]);
+        };
+        this.states.getActionKey = (action, path) => keyMap[path + "." + action];
         this.states.isKeyHold = (code) => {
+            if (this.gui.isOpen())
+                return false;
             if (code.includes("|")) {
                 for (let key of code.split("|")) {
                     if (this.states.isKeyHold(key))
@@ -103,6 +132,8 @@ class ControllerRegistry {
             else {
                 dom.focus();
             }
+            if (this.gui.isOpen())
+                return false;
             this.states.currentBtn = ev.button;
             this.states.moveX = 0;
             this.states.moveY = 0;
@@ -118,6 +149,8 @@ class ControllerRegistry {
             }
         };
         this.evMouseMove = (ev) => {
+            if (this.gui.isOpen())
+                return false;
             this.states.moveX += ev.movementX;
             this.states.moveY += ev.movementY;
             this.states.mouseX = ev.offsetX;
@@ -147,6 +180,8 @@ class ControllerRegistry {
             }
         };
         this.evWheel = (ev) => {
+            if (this.gui.isOpen())
+                return false;
             this.states.wheelX = ev.deltaX;
             this.states.wheelY = ev.deltaY;
         };
@@ -168,8 +203,32 @@ class ControllerRegistry {
             dom.addEventListener("contextmenu", this.evContextMenu);
         }
     }
+    initGUI() {
+        const gui = this.gui;
+        const settingBtn = gui.addLvl1Button({
+            name: "main",
+            svgIcon: `${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><path d="M 1.9,4.53 1.4,4.24 1.51,3.73 C 1.43,3.65 1.36,3.56 1.3,3.46 L 0.77,3.43 0.62,2.87 1.07,2.58 C 1.07,2.47 1.08,2.36 1.11,2.25 L 0.76,1.84 1.05,1.34 1.56,1.45 C 1.64,1.37 1.73,1.3 1.83,1.24 L 1.86,0.71 2.42,0.56 2.71,1 c 0.11,0 0.23,0.02 0.34,0.04 L 3.45,0.7 3.95,0.99 3.84,1.5 c 0.08,0.08 0.15,0.17 0.21,0.27 l 0.53,0.03 0.15,0.56 -0.44,0.3 c 0,0.11 -0.02,0.23 -0.04,0.34 L 4.59,3.37 4.3,3.88 3.79,3.77 C 3.7,3.85 3.61,3.91 3.52,3.97 L 3.48,4.5 2.92,4.65 2.63,4.21 C 2.53,4.2 2.41,4.19 2.3,4.16 Z"/><circle cx="2.67" cy="2.62" r="1"/></g></svg>`,
+            title: { zh: "显示/隐藏总控设置", en: "Toggle Main Ctrl Settings" }
+        });
+        const settingPanel = this.gui.addLvl2Panel(settingBtn);
+        const sizePlusBtn = this.gui.addLvl2Button({
+            name: "btn_size_plus", svgIcon: `${SVG_HEADER}0.5 0.3 4.5 4.5'><g ${SVG_LINE}><text x="2" y="3.5" font-size="3">A</text></g></svg>`, title: { zh: "增大按钮尺寸", en: "increase Button Size" }
+        }, settingPanel);
+        const sizeMinusBtn = this.gui.addLvl2Button({
+            name: "btn_size_minus", svgIcon: `${SVG_HEADER}0.5 0.3 4.5 4.5'><g ${SVG_LINE}><text x="2.5" y="3" font-size="1.5">A</text></g></svg>`, title: { zh: "减小按钮尺寸", en: "decrease Button Size" }
+        }, settingPanel);
+        const t = '<rect width="1" height="1" x="';
+        const keybindBtn = this.gui.addLvl2Button({
+            name: "shortcut_set", svgIcon: `${SVG_HEADER}0.5 0.3 4.5 4.5'><g ${SVG_LINE}>${t}2" y="2"/>${t}3.9" y="3.3"/>${t}1.3" y="3.3"/>${t}2.6" y="3.3"/>${t}3.3" y="2"/>${t}0.7" y="2"/></g></svg>`, title: { zh: "键位设置", en: "Key Bindings" }
+        }, settingPanel);
+        keybindBtn.addEventListener("click", e => this.gui.openKeybindMgr());
+        sizePlusBtn.addEventListener("click", e => this.gui.increaseBtnSize());
+        sizeMinusBtn.addEventListener("click", e => this.gui.decreaseBtnSize());
+    }
     add(ctrl) {
         this.ctrls.push(ctrl);
+        if (ctrl.registGui)
+            ctrl.registGui(this.gui);
     }
     remove(ctrl) {
         this.ctrls = this.ctrls.filter(c => c !== ctrl);
@@ -185,6 +244,10 @@ class ControllerRegistry {
             this.dom.removeEventListener("contextmenu", this.evContextMenu);
     }
     update() {
+        if (this.gui.needRefresh) {
+            this.gui.refresh();
+            this.gui.needRefresh = false;
+        }
         this.states.enablePointerLock = this.enablePointerLock;
         this.states.isPointerLockEscaped = this.prevIsPointerLocked && !this.states.isPointerLocked();
         if (!this.states.lastUpdateTime) {
@@ -289,6 +352,21 @@ class TrackBallController {
     lookAtCenter() {
         this.object.lookAt(Vec4.wNeg, this.center);
     }
+    registGui(gui) {
+        gui.keybindingMgr.addGroup("trackballctrl", {
+            title: { zh: "轨迹球控制", en: "Trackball Ctrl" },
+            actions: {
+                enable: {
+                    title: { zh: "按住启用控制", en: "Hold to Enable" },
+                    key: ""
+                },
+                disable: {
+                    title: { zh: "按住禁用控制", en: "Hold to Disable" },
+                    key: "AltLeft"
+                },
+            }
+        });
+    }
 }
 class FreeFlyController {
     enabled = true;
@@ -303,30 +381,6 @@ class FreeFlyController {
         if (object)
             this.object = object;
     }
-    keyConfig = {
-        front: "KeyW",
-        back: "KeyS",
-        left: "KeyA",
-        right: "KeyD",
-        ana: "KeyQ",
-        kata: "KeyE",
-        up: "Space",
-        down: "ShiftLeft",
-        turnLeft: "KeyJ",
-        turnRight: "KeyL",
-        turnAna: "KeyU",
-        turnKata: "KeyO",
-        turnUp: "KeyI",
-        turnDown: "KeyK",
-        spinCW: "KeyF|KeyZ",
-        spinCCW: "KeyH|KeyX",
-        rollCW: "KeyR",
-        rollCCW: "KeyY",
-        pitchCW: "KeyG",
-        pitchCCW: "KeyT",
-        disable: "AltLeft",
-        enable: "",
-    };
     /** how many update cycles (2^n) to normalise rotor to avoid accuracy problem */
     normalisePeriodBit;
     _bivec = new Bivec();
@@ -334,36 +388,130 @@ class FreeFlyController {
     _moveVec = new Vec4();
     _vec = new Vec4();
     normalisePeriodMask = 15;
+    registGui(gui) {
+        gui.keybindingMgr.addGroup("freefly", {
+            title: { zh: "自由飞行相机控制", en: "Free Fly Cam Ctrl" },
+            actions: {
+                enable: {
+                    title: { zh: "按住启用控制", en: "Hold to Enable" },
+                    key: ""
+                },
+                disable: {
+                    title: { zh: "按住禁用控制", en: "Hold to Disable" },
+                    key: "AltLeft"
+                },
+                front: {
+                    title: { zh: "前进", en: "Move Forward" },
+                    key: "KeyW"
+                },
+                back: {
+                    title: { zh: "后退", en: "Move Backward" },
+                    key: "KeyS"
+                },
+                left: {
+                    title: { zh: "左移", en: "Move Left" },
+                    key: "KeyA"
+                },
+                right: {
+                    title: { zh: "右移", en: "Move Right" },
+                    key: "KeyD"
+                },
+                ana: {
+                    title: { zh: "侧前移", en: "Move Ana" },
+                    key: "KeyQ"
+                },
+                kata: {
+                    title: { zh: "侧后移", en: "Move Kata" },
+                    key: "KeyE"
+                },
+                up: {
+                    title: { zh: "上移", en: "Move Up" },
+                    key: "Space"
+                },
+                down: {
+                    title: { zh: "下移", en: "Move Down" },
+                    key: "ShiftLeft"
+                },
+                turnLeft: {
+                    title: { zh: "左转", en: "Turn Left" },
+                    key: "KeyJ"
+                },
+                turnRight: {
+                    title: { zh: "右转", en: "Turn Right" },
+                    key: "KeyL"
+                },
+                turnAna: {
+                    title: { zh: "侧前转", en: "Turn Ana" },
+                    key: "KeyU"
+                },
+                turnKata: {
+                    title: { zh: "侧后转", en: "Turn Kata" },
+                    key: "KeyO"
+                },
+                turnUp: {
+                    title: { zh: "向上转", en: "Turn Up" },
+                    key: "KeyI"
+                },
+                turnDown: {
+                    title: { zh: "向下转", en: "Turn Down" },
+                    key: "KeyK"
+                },
+                spinCW: {
+                    title: { zh: "顺时针自转", en: "Spin Clockwise" },
+                    key: "KeyF|KeyZ"
+                },
+                spinCCW: {
+                    title: { zh: "逆时针自转", en: "Spin Counterclockwise" },
+                    key: "KeyH|KeyX"
+                },
+                rollCW: {
+                    title: { zh: "顺时针翻滚", en: "Roll Clockwise" },
+                    key: "KeyR"
+                },
+                rollCCW: {
+                    title: { zh: "逆时针翻滚", en: "Roll Counterclockwise" },
+                    key: "KeyY"
+                },
+                pitchCW: {
+                    title: { zh: "顺时针俯仰", en: "Pitch Clockwise" },
+                    key: "KeyG"
+                },
+                pitchCCW: {
+                    title: { zh: "逆时针俯仰", en: "Pitch Counterclockwise" },
+                    key: "KeyT"
+                },
+            }
+        });
+    }
     update(state) {
-        let on = state.isKeyHold;
-        let key = this.keyConfig;
+        let enabled = (!state.getActionKey("enable", "freefly") || state.isActionHold("enable", "freefly")) && this.enabled && !state.isActionHold("disable", "freefly");
+        const on = (k) => state.isActionActive(k, "freefly");
         let delta;
         let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
-        let disabled = state.isKeyHold(this.keyConfig.disable) || !this.enabled;
-        if (!disabled) {
+        if (enabled) {
             let keyRotateSpeed = this.keyRotateSpeed * state.mspf;
-            delta = (on(key.pitchCW) ? -1 : 0) + (on(key.pitchCCW) ? 1 : 0);
+            delta = (on("pitchCW") ? -1 : 0) + (on("pitchCCW") ? 1 : 0);
             if (delta)
                 this._bivecKey.yz = delta * keyRotateSpeed;
-            delta = (on(key.spinCW) ? -1 : 0) + (on(key.spinCCW) ? 1 : 0);
+            delta = (on("spinCW") ? -1 : 0) + (on("spinCCW") ? 1 : 0);
             if (delta)
                 this._bivecKey.xz = delta * keyRotateSpeed;
-            delta = (on(key.rollCW) ? -1 : 0) + (on(key.rollCCW) ? 1 : 0);
+            delta = (on("rollCW") ? -1 : 0) + (on("rollCCW") ? 1 : 0);
             if (delta)
                 this._bivecKey.xy = delta * keyRotateSpeed;
-            delta = (on(key.turnLeft) ? -1 : 0) + (on(key.turnRight) ? 1 : 0);
+            delta = (on("turnLeft") ? -1 : 0) + (on("turnRight") ? 1 : 0);
             if (delta)
                 this._bivecKey.xw = delta * keyRotateSpeed;
-            delta = (on(key.turnUp) ? 1 : 0) + (on(key.turnDown) ? -1 : 0);
+            delta = (on("turnUp") ? 1 : 0) + (on("turnDown") ? -1 : 0);
             if (delta)
                 this._bivecKey.yw = delta * keyRotateSpeed;
-            delta = (on(key.turnAna) ? -1 : 0) + (on(key.turnKata) ? 1 : 0);
+            delta = (on("turnAna") ? -1 : 0) + (on("turnKata") ? 1 : 0);
             if (delta)
                 this._bivecKey.zw = delta * keyRotateSpeed;
         }
         this._bivec.copy(this._bivecKey);
         this._bivecKey.mulfs(dampFactor);
-        if (!disabled) {
+        if (enabled) {
             if ((state.enablePointerLock && state.isPointerLocked()) || (state.currentBtn = 0)) {
                 let dx = state.moveX * this.mouseSpeed;
                 let dy = -state.moveY * this.mouseSpeed;
@@ -387,16 +535,16 @@ class FreeFlyController {
                 }
             }
             let keyMoveSpeed = this.keyMoveSpeed * state.mspf;
-            delta = (on(key.left) ? -1 : 0) + (on(key.right) ? 1 : 0);
+            delta = (on("left") ? -1 : 0) + (on("right") ? 1 : 0);
             if (delta)
                 this._moveVec.x = delta * keyMoveSpeed;
-            delta = (on(key.up) ? 1 : 0) + (on(key.down) ? -1 : 0);
+            delta = (on("up") ? 1 : 0) + (on("down") ? -1 : 0);
             if (delta)
                 this._moveVec.y = delta * keyMoveSpeed;
-            delta = (on(key.ana) ? -1 : 0) + (on(key.kata) ? 1 : 0);
+            delta = (on("ana") ? -1 : 0) + (on("kata") ? 1 : 0);
             if (delta)
                 this._moveVec.z = delta * keyMoveSpeed;
-            delta = (on(key.front) ? -1 : 0) + (on(key.back) ? 1 : 0);
+            delta = (on("front") ? -1 : 0) + (on("back") ? 1 : 0);
             if (delta)
                 this._moveVec.w = delta * keyMoveSpeed;
         }
@@ -437,6 +585,85 @@ class KeepUpController {
         disable: "AltLeft",
         enable: ""
     };
+    registGui(gui) {
+        gui.keybindingMgr.addGroup("keepup", {
+            title: { zh: "保持竖直相机控制", en: "Keep Up Cam Ctrl" },
+            actions: {
+                enable: {
+                    title: { zh: "按住启用控制", en: "Hold to Enable" },
+                    key: ""
+                },
+                disable: {
+                    title: { zh: "按住禁用控制", en: "Hold to Disable" },
+                    key: "AltLeft"
+                },
+                front: {
+                    title: { zh: "前进", en: "Move Forward" },
+                    key: "KeyW"
+                },
+                back: {
+                    title: { zh: "后退", en: "Move Backward" },
+                    key: "KeyS"
+                },
+                left: {
+                    title: { zh: "左移", en: "Move Left" },
+                    key: "KeyA"
+                },
+                right: {
+                    title: { zh: "右移", en: "Move Right" },
+                    key: "KeyD"
+                },
+                ana: {
+                    title: { zh: "侧前移", en: "Move Ana" },
+                    key: "KeyQ"
+                },
+                kata: {
+                    title: { zh: "侧后移", en: "Move Kata" },
+                    key: "KeyE"
+                },
+                up: {
+                    title: { zh: "上移", en: "Move Up" },
+                    key: "Space"
+                },
+                down: {
+                    title: { zh: "下移", en: "Move Down" },
+                    key: "ShiftLeft"
+                },
+                turnLeft: {
+                    title: { zh: "左转", en: "Turn Left" },
+                    key: "KeyJ"
+                },
+                turnRight: {
+                    title: { zh: "右转", en: "Turn Right" },
+                    key: "KeyL"
+                },
+                turnAna: {
+                    title: { zh: "侧前转", en: "Turn Ana" },
+                    key: "KeyU"
+                },
+                turnKata: {
+                    title: { zh: "侧后转", en: "Turn Kata" },
+                    key: "KeyO"
+                },
+                turnUp: {
+                    title: { zh: "向上转", en: "Turn Up" },
+                    key: "KeyI"
+                },
+                turnDown: {
+                    title: { zh: "向下转", en: "Turn Down" },
+                    key: "KeyK"
+                },
+                spinCW: {
+                    title: { zh: "顺时针自转", en: "Spin Clockwise" },
+                    key: "KeyZ"
+                },
+                spinCCW: {
+                    title: { zh: "逆时针自转", en: "Spin Counterclockwise" },
+                    key: "KeyX"
+                },
+            }
+        });
+    }
     /** how many update cycles (2^n) to normalise rotor to avoid accuracy problem */
     normalisePeriodBit;
     _bivec = new Bivec();
@@ -462,31 +689,28 @@ class KeepUpController {
         this.verticalRotor.copy(this.horizontalRotor.mul(r.conjs()).mulsrconj(this.horizontalRotor));
     }
     update(state) {
-        let on = state.isKeyHold;
-        let key = this.keyConfig;
+        let enabled = (!state.getActionKey("enable", "keepup") || state.isActionHold("enable", "keepup")) && this.enabled && !state.isActionHold("disable", "keepup");
+        const on = (k) => state.isActionActive(k, "keepup");
         let delta;
         let dampFactor = Math.exp(-this.damp * Math.min(200.0, state.mspf));
-        let disabled = state.isKeyHold(this.keyConfig.disable);
-        if (!this.enabled)
-            return;
-        if (!disabled) {
+        if (enabled) {
             let keyRotateSpeed = this.keyRotateSpeed * state.mspf;
-            delta = (on(key.spinCW) ? -1 : 0) + (on(key.spinCCW) ? 1 : 0);
+            delta = (on("spinCW") ? -1 : 0) + (on("spinCCW") ? 1 : 0);
             if (delta)
                 this._bivecKey.xz = delta * keyRotateSpeed;
-            delta = (on(key.turnLeft) ? -1 : 0) + (on(key.turnRight) ? 1 : 0);
+            delta = (on("turnLeft") ? -1 : 0) + (on("turnRight") ? 1 : 0);
             if (delta)
                 this._bivecKey.xw = delta * keyRotateSpeed;
-            delta = (on(key.turnUp) ? 1 : 0) + (on(key.turnDown) ? -1 : 0);
+            delta = (on("turnUp") ? 1 : 0) + (on("turnDown") ? -1 : 0);
             if (delta)
                 this._bivecKey.yw = delta * keyRotateSpeed;
-            delta = (on(key.turnAna) ? -1 : 0) + (on(key.turnKata) ? 1 : 0);
+            delta = (on("turnAna") ? -1 : 0) + (on("turnKata") ? 1 : 0);
             if (delta)
                 this._bivecKey.zw = delta * keyRotateSpeed;
         }
         this._bivec.xw = this._bivecKey.xw;
         this._bivec.zw = this._bivecKey.zw;
-        if (!disabled) {
+        if (enabled) {
             if ((state.enablePointerLock && state.isPointerLocked()) || (state.currentBtn === 0 && !state.enablePointerLock)) {
                 let dx = state.moveX * this.mouseSpeed;
                 let dy = state.moveY * this.mouseSpeed;
@@ -503,18 +727,18 @@ class KeepUpController {
         // R A = R A R-1 R 
         this.horizontalRotor.mulsr(this._bivec.exp());
         this.verticalRotor.mulsr(this._bivec2.exp());
-        if (!disabled) {
+        if (enabled) {
             let keyMoveSpeed = this.keyMoveSpeed * state.mspf;
-            delta = (on(key.left) ? -1 : 0) + (on(key.right) ? 1 : 0);
+            delta = (on("left") ? -1 : 0) + (on("right") ? 1 : 0);
             if (delta)
                 this._moveVec.x = delta * keyMoveSpeed;
-            delta = (on(key.up) ? 1 : 0) + (on(key.down) ? -1 : 0);
+            delta = (on("up") ? 1 : 0) + (on("down") ? -1 : 0);
             if (delta)
                 this._moveVec.y = delta * keyMoveSpeed;
-            delta = (on(key.ana) ? -1 : 0) + (on(key.kata) ? 1 : 0);
+            delta = (on("ana") ? -1 : 0) + (on("kata") ? 1 : 0);
             if (delta)
                 this._moveVec.z = delta * keyMoveSpeed;
-            delta = (on(key.front) ? -1 : 0) + (on(key.back) ? 1 : 0);
+            delta = (on("front") ? -1 : 0) + (on("back") ? 1 : 0);
             if (delta)
                 this._moveVec.w = delta * keyMoveSpeed;
         }
@@ -873,57 +1097,16 @@ class RetinaController {
     maxSectionEyeOffset = 1;
     minSectionEyeOffset = 0.01;
     size;
+    sectionPresetLabels;
     sectionPresets;
     currentSectionConfig = "retina+sections";
     rembemerLastLayers;
     needResize = true;
     currentRetinaRenderPassIndex = -1;
-    keyConfig = {
-        enable: "AltLeft",
-        disable: "",
-        addOpacity: "KeyQ",
-        subOpacity: "KeyA",
-        addLayer: "KeyW",
-        subLayer: "KeyS",
-        addRetinaResolution: ".KeyE",
-        subRetinaResolution: ".KeyD",
-        addFov: "KeyT",
-        subFov: "KeyG",
-        toggle3D: ".KeyZ",
-        addEyes3dGap: "KeyB",
-        subEyes3dGap: "KeyV",
-        addEyes4dGap: "KeyM",
-        subEyes4dGap: "KeyN",
-        negEyesGap: ".KeyX",
-        toggleCrosshair: ".KeyC",
-        rotateLeft: "ArrowLeft",
-        rotateRight: "ArrowRight",
-        rotateUp: "ArrowUp",
-        rotateDown: "ArrowDown",
-        refaceFront: ".KeyR",
-        refaceRight: ".KeyL",
-        refaceLeft: ".KeyJ",
-        refaceTop: ".KeyI",
-        refaceBottom: ".KeyK",
-        toggleRetinaAlpha: ".KeyF",
-        sectionConfigs: {
-            "retina+sections": ".Digit1",
-            "retina+bigsections": ".Digit2",
-            "retina": ".Digit3",
-            "sections": ".Digit4",
-            "zsection": ".Digit5",
-            "ysection": ".Digit6",
-            "retina+zslices": ".Digit7",
-            "retina+yslices": ".Digit8",
-        },
-    };
     alphaBuffer;
-    guiMouseOperation = "";
+    guiButtons = {};
     constructor(r) {
         this.renderer = r;
-        const gui = new RetinaCtrlGui(this);
-        this.gui = gui;
-        document.body.appendChild(gui.dom);
         this.defaultRetinaRenderPass = r.getCurrentRetinaRenderPass();
         this.alphaBuffer = r.gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 16, "RetinaController's Retina Alpha Uniform Buffer");
         this.retinaRenderPasses = retinaRenderPassDescriptors.map((desc, index) => {
@@ -952,6 +1135,7 @@ class RetinaController {
             }
             return { promise: r.createRetinaRenderPass(desc).init(), jsBuffer };
         });
+        this.sectionPresetLabels = ["retina+sections", "retina+bigsections", "retina", "sections", "retina+zslices", "retina+yslices", "zsection", "ysection"];
         this.sectionPresets = (screenSize) => ({
             "retina+sections": {
                 eye1: sliceconfig.default1eye(0.3, screenSize),
@@ -995,6 +1179,306 @@ class RetinaController {
             },
         });
     }
+    registGui(gui) {
+        gui.keybindingMgr.addGroup("retinactrl", {
+            title: { zh: "体素渲染控制", en: "Voxel Render Ctrl" },
+            actions: {
+                enable: {
+                    title: { zh: "按住启用控制", en: "Hold to Enable" },
+                    key: "AltLeft"
+                },
+                disable: {
+                    title: { zh: "按住禁用控制", en: "Hold to Disable" },
+                    key: ""
+                },
+                addOpacity: {
+                    title: { zh: "增加不透明度", en: "Increase Opacity" },
+                    key: "KeyQ"
+                },
+                subOpacity: {
+                    title: { zh: "减少不透明度", en: "Decrease Opacity" },
+                    key: "KeyA"
+                },
+                addLayer: {
+                    title: { zh: "增加层数", en: "Increase Layer" },
+                    key: "KeyW"
+                },
+                subLayer: {
+                    title: { zh: "减少层数", en: "Decrease Layer" },
+                    key: "KeyS"
+                },
+                addRetinaResolution: {
+                    title: { zh: "提高体素分辨率", en: "Increase Resolution" },
+                    key: "KeyE",
+                    press: true
+                },
+                subRetinaResolution: {
+                    title: { zh: "降低体素分辨率", en: "Decrease Resolution" },
+                    key: "KeyD",
+                    press: true
+                },
+                addFov: {
+                    title: { zh: "增加视场角", en: "Increase FOV" },
+                    key: "KeyT"
+                },
+                subFov: {
+                    title: { zh: "减少视场角", en: "Decrease FOV" },
+                    key: "KeyG"
+                },
+                toggle3D: {
+                    title: { zh: "切换裸眼3D模式", en: "Toggle Stereo 3D Mode" },
+                    key: "KeyZ",
+                    press: true
+                },
+                addEyes3dGap: {
+                    title: { zh: "增加3D眼距", en: "Increase 3D Eye Gap" },
+                    key: "KeyB"
+                },
+                subEyes3dGap: {
+                    title: { zh: "减少3D眼距", en: "Decrease 3D Eye Gap" },
+                    key: "KeyV"
+                },
+                addEyes4dGap: {
+                    title: { zh: "增加4D眼距", en: "Increase 4D Eye Gap" },
+                    key: "KeyM"
+                },
+                subEyes4dGap: {
+                    title: { zh: "减少4D眼距", en: "Decrease 4D Eye Gap" },
+                    key: "KeyN"
+                },
+                negEyesGap: {
+                    title: { zh: "反转眼距", en: "Invert Eye Gap" },
+                    key: "KeyX",
+                    press: true
+                },
+                toggleCrosshair: {
+                    title: { zh: "切换准星", en: "Toggle Crosshair" },
+                    key: "KeyC",
+                    press: true
+                },
+                rotateLeft: {
+                    title: { zh: "向左旋转", en: "Rotate Left" },
+                    key: "ArrowLeft"
+                },
+                rotateRight: {
+                    title: { zh: "向右旋转", en: "Rotate Right" },
+                    key: "ArrowRight"
+                },
+                rotateUp: {
+                    title: { zh: "向上旋转", en: "Rotate Up" },
+                    key: "ArrowUp"
+                },
+                rotateDown: {
+                    title: { zh: "向下旋转", en: "Rotate Down" },
+                    key: "ArrowDown"
+                },
+                refaceFront: {
+                    title: { zh: "转向正视图", en: "Facing Front View" },
+                    key: "KeyR",
+                    press: true
+                },
+                refaceRight: {
+                    title: { zh: "转向右视图", en: "Facing Right View" },
+                    key: "KeyL",
+                    press: true
+                },
+                refaceLeft: {
+                    title: { zh: "转向左视图", en: "Facing Left View" },
+                    key: "KeyJ",
+                    press: true
+                },
+                refaceTop: {
+                    title: { zh: "转向顶视图", en: "Facing Top View" },
+                    key: "KeyI",
+                    press: true
+                },
+                refaceBottom: {
+                    title: { zh: "转向底视图", en: "Facing Bottom View" },
+                    key: "KeyK",
+                    press: true
+                },
+                toggleRetinaAlpha: {
+                    title: { zh: "切换体素透明度模式", en: "Toggle Voxel Alpha Mode" },
+                    key: "KeyF",
+                    press: true
+                }
+            },
+            groups: {
+                sectionConfigs: {
+                    title: { zh: "显示配置", en: "Display Configs" },
+                    actions: {
+                        "retina+sections": {
+                            title: { zh: "体素+截面", en: "Voxel + Sections" },
+                            key: "Digit1",
+                            press: true
+                        },
+                        "retina+bigsections": {
+                            title: { zh: "体素+大截面", en: "Voxel + Big Sections" },
+                            key: "Digit2",
+                            press: true
+                        },
+                        retina: {
+                            title: { zh: "仅体素", en: "Voxel Only" },
+                            key: "Digit3",
+                            press: true
+                        },
+                        sections: {
+                            title: { zh: "截面模式", en: "Sections Mode" },
+                            key: "Digit4",
+                            press: true
+                        },
+                        zsection: {
+                            title: { zh: "Z截面", en: "Z Section" },
+                            key: "Digit5",
+                            press: true
+                        },
+                        ysection: {
+                            title: { zh: "Y截面", en: "Y Section" },
+                            key: "Digit6",
+                            press: true
+                        },
+                        "retina+zslices": {
+                            title: { zh: "体素+Z切片", en: "Voxel + Z Slices" },
+                            key: "Digit7",
+                            press: true
+                        },
+                        "retina+yslices": {
+                            title: { zh: "体素+Y切片", en: "Voxel + Y Slices" },
+                            key: "Digit8",
+                            press: true
+                        }
+                    }
+                }
+            }
+        });
+        const SVG_PLUS = `<text x="1.5" y="3.5" stroke="#F00" style="font-size:3px">+</text>`;
+        const SVG_MINUS = `<text x="2" y="3.5" stroke="#F00" style="font-size:3px">-</text>`;
+        const SVG_RETINA = `<path d="M 1.3,3.3 2.5,4 4.1,3.6 V 2 L 2.9,1.3 1.3,1.7 Z"/>`;
+        const SVG_CHECKER = `${SVG_HEADER}0 0 5 5'><g style="fill:#FFF"><rect width="1" height="1" x="0.5" y="0.5"/><rect width="1" height="1" x="2.5" y="0.5"/><rect width="1" height="1" x="1.5" y="1.5"/><rect width="1" height="1" x="3.5" y="1.5"/><rect width="1" height="1" x="0.5" y="2.5"/><rect width="1" height="1" x="2.5" y="2.5"/><rect width="1" height="1" x="1.5" y="3.5"/><rect width="1" height="1" x="3.5" y="3.5"/>`;
+        const SVG_CAM = `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><circle cx="0.77" cy="1.57" r="0.4"/><rect width="2.36" height="1.6" x="0.39" y="2.15"/><circle cx="1.9" cy="1.35" r="0.66"/><path d="M 2.74,2.48 4.89,1"/><path d="m 2.77,3.27 2.16,1.4"/><path d="m 4.46,1.9 c 0.23,0.65 0.28,1.3 0.03,1.9"/><path d="M 4.24,2.4 4.36,1.7 4.9,2.18"/><path d="M 4.23,3.2 4.41,3.9 5,3.4"/>`;
+        const panel = gui.addLvl2Panel(gui.addLvl1Button({ name: "retina-setting", title: { zh: "显示/隐藏体素渲染设置", en: "Toggle Voxel Render Settings" }, svgIcon: "" }));
+        this.guiButtons["crosseye"] = gui.addLvl2Button({
+            name: "retinactrl.negEyesGap", title: { zh: "交叉眼", en: "Cross View" },
+            svgIcon: `${SVG_HEADER}0.5 0.3 4.5 4.5'><g ${SVG_LINE}><circle cx="2" cy="4" r="0.3"/><circle cx="3.2" cy="4" r="0.3"/><path d="M 2,3.4 3,1 M 3.2,3.4 2.2,1"/></g></svg>`
+        }, panel);
+        this.guiButtons["paralleleye"] = gui.addLvl2Button({
+            name: "retinactrl.negEyesGap", title: { zh: "平行眼", en: "Parallel View" },
+            svgIcon: `${SVG_HEADER}0.5 0.3 4.5 4.5'><g ${SVG_LINE}><circle cx="2" cy="4" r="0.3"/><circle cx="3.2" cy="4" r="0.3"/><path d="M 2,3.4 1.8,1 M 3.2,3.4 3.4,1"/></g></svg>`
+        }, panel);
+        this.guiButtons["paralleleye"].parentElement.style.display = "none";
+        gui.addLvl2Button({
+            name: "retinactrl.toggle3D", title: { zh: "切换裸眼3D模式", en: "Toggle Naked Eye Stereo Mode" },
+            svgIcon: `${SVG_HEADER}0.5 0.3 4.5 4.5'><g ${SVG_LINE}><path d="M 0.563,2.636 C 2.33,1 3.24,1.22 4.74,2.76 2.99,3.96 1.676,3.73 0.564,2.637 Z"/><circle cx="2.6" cy="2.5" r="0.9"/><circle cx="2.6" cy="2.5" r="0.54"/></g></svg>`
+        }, panel);
+        const sliceBtn = gui.addLvl2Button({
+            name: "slicecfgBtns", title: { zh: "视图配置：体素+三个截面", en: "View Configuration: Voxel + Sections" },
+            svgIcon: `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}<rect width="1.2" height="1.2" x="0.6" y="3.6"/><rect width="1.2" height="1.2" x="3.5" y="3.6"/><rect width="1.2" height="1.2" x="3.5" y="0.5"/></g></svg>`
+        }, panel);
+        this.guiButtons["slice"] = sliceBtn;
+        const slicecfg = gui.addLvl3Drop(sliceBtn, 2);
+        slicecfg.parentElement.classList.add("btn-red");
+        gui.addLvl2Button({
+            name: "retinactrl.sectionConfigs.retina+sections", title: { zh: "视图配置：体素+三个截面", en: "View Configuration: Voxel + Sections" },
+            svgIcon: `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}<rect width="1.2" height="1.2" x="0.6" y="3.6"/><rect width="1.2" height="1.2" x="3.5" y="3.6"/><rect width="1.2" height="1.2" x="3.5" y="0.5"/></g></svg>`
+        }, slicecfg);
+        gui.addLvl2Button({
+            name: "retinactrl.sectionConfigs.retina+bigsections", title: { zh: "视图配置：体素+三个大截面", en: "View Configuration: Voxel + Big Sections" },
+            svgIcon: `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}<rect width="1.7" height="1.7" x="0.6" y="2.8"/><rect width="1.7" height="1.7" x="2.9" y="2.8"/><rect width="1.7" height="1.7" x="2.9" y="0.5"/></g></svg>`
+        }, slicecfg);
+        gui.addLvl2Button({
+            name: "retinactrl.sectionConfigs.retina", title: { zh: "视图配置：体素", en: "View Configuration: Voxel Only" },
+            svgIcon: `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}</g></svg>`
+        }, slicecfg);
+        gui.addLvl2Button({
+            name: "retinactrl.sectionConfigs.sections", title: { zh: "视图配置：三个截面", en: "View Configuration: 3 Sections" },
+            svgIcon: `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="2" height="2" x="0.6" y="2.5"/><rect width="2" height="2" x="2.6" y="2.5"/><rect width="2" height="2" x="2.6" y="0.5"/></g></svg>`
+        }, slicecfg);
+        gui.addLvl2Button({
+            name: "retinactrl.sectionConfigs.ysection", title: { zh: "视图配置：Y轴截面", en: "View Configuration: Y axis Section" },
+            svgIcon: `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="4" height="4" x="0.6" y="0.6"/><text x="1.5" y="3.5" stroke="#0F0" style="font-size:3px">Y</text></g></svg>`
+        }, slicecfg);
+        gui.addLvl2Button({
+            name: "retinactrl.sectionConfigs.zsection", title: { zh: "视图配置：Z轴截面", en: "View Configuration: Z axis Section" },
+            svgIcon: `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="4" height="4" x="0.6" y="0.6"/><text x="1.5" y="3.5" stroke="#00F" style="font-size:3px">Z</text></g></svg>`
+        }, slicecfg);
+        gui.addLvl2Button({
+            name: "retinactrl.sectionConfigs.retina+yslices", title: { zh: "视图配置：体素+平行Y轴截面", en: "View Configuration: Voxel + Y axis Parallel Sections" },
+            svgIcon: `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}<rect width="1" height="1" x="0.6" y="3"/><rect width="1" height="1" x="1.6" y="3"/><rect width="1" height="1" x="2.6" y="3"/><rect width="1" height="1" x="3.6" y="3"/><text x="1.5" y="3.5" stroke="#0F0" style="font-size:3px">Y</text></g></svg>`
+        }, slicecfg);
+        gui.addLvl2Button({
+            name: "retinactrl.sectionConfigs.retina+zslices", title: { zh: "视图配置：体素+平行Z轴截面", en: "View Configuration: Voxel + Z axis Parallel Sections" },
+            svgIcon: `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}<rect width="1" height="1" x="0.6" y="3"/><rect width="1" height="1" x="1.6" y="3"/><rect width="1" height="1" x="2.6" y="3"/><rect width="1" height="1" x="3.6" y="3"/><text x="1.5" y="3.5" stroke="#00F" style="font-size:3px">Z</text></g></svg>`
+        }, slicecfg);
+        gui.addLvl2Button({
+            name: "retinactrl.toggleCrosshair", title: { zh: "显示/隐藏十字准心", en: "Toggle Crosshair" },
+            svgIcon: `${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><path d="m 2.62,1 v 3.37 M 1.56,4 3.56,1.47 M 0.9,2.7 H 4.23"/></g></svg>`
+        }, panel);
+        const param = gui.addLvl3Drop(gui.addLvl2Button({
+            name: "settingBtn", title: { zh: "显示/隐藏体素渲染参数调节", en: "Show / Hide Voxel Render Params" },
+            svgIcon: `${SVG_HEADER}0.5 0.3 4.5 4.5'><g id="g1" ${SVG_LINE}><path d="M 1.3,3.4 V 4.8 M 1.77,3.4 V 4.8 M 1.3,0.4 V 2.8 M 1.77,0.4 V 2.8"/><rect width="1.7" height="0.4" x="0.63" y="3.04"/></g><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#g1" transform="rotate(180,2.65,2.59)"/></svg>`
+        }, panel), 2);
+        param.parentElement.classList.add("btn-green");
+        gui.addLvl2Button({
+            name: ".retinactrl.addLayer", title: { zh: "增加体素渲染层数", en: "Increase Voxel Layers" },
+            svgIcon: `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect id="r" width="1.8" height="2.3" x="2.7" y="2.94" transform="matrix(0.95,-0.3,0,1,0,0)"/><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#r" id="u" transform="translate(-0.6,-0.4)"/><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#u" transform="translate(-0.6,-0.4)"/>${SVG_PLUS}</g></svg>`
+        }, param);
+        gui.addLvl2Button({
+            name: ".retinactrl.subLayer", title: { zh: "减少体素渲染层数", en: "Decrease Voxel Layers" },
+            svgIcon: `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect id="r" width="1.8" height="2.3" x="2.7" y="2.94" transform="matrix(0.95,-0.3,0,1,0,0)"/><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#r" id="u" transform="translate(-0.6,-0.4)"/><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#u" transform="translate(-0.6,-0.4)"/>${SVG_MINUS}</g></svg>`
+        }, param);
+        gui.addLvl2Button({
+            name: ".retinactrl.addOpacity", title: { zh: "增加体素不透明度", en: "Increase Voxel Opacity" },
+            svgIcon: `${SVG_CHECKER}<text x="1.5" y="3.5" style="font-size:3px;stroke:#F00;stroke-width:0.25">+</text></g></svg>`
+        }, param);
+        gui.addLvl2Button({
+            name: ".retinactrl.subOpacity", title: { zh: "减少体素不透明度", en: "Decrease Voxel Opacity" },
+            svgIcon: `${SVG_CHECKER}<text x="2" y="3.5" style="font-size:3px;stroke:#F00;stroke-width:0.25">-</text></g></svg>`
+        }, param);
+        gui.addLvl2Button({
+            name: ".retinactrl.addFov", title: { zh: "增大体素显示视场角", en: "Increase Field Of Voxel View" },
+            svgIcon: `${SVG_CAM}${SVG_PLUS}</g></svg>`
+        }, param);
+        gui.addLvl2Button({
+            name: ".retinactrl.subFov", title: { zh: "降低体素显示视场角", en: "Decrease Field Of Voxel View" },
+            svgIcon: `${SVG_CAM}${SVG_MINUS}</g></svg>`
+        }, param);
+        gui.addLvl2Button({
+            name: "retinactrl.addRetinaResolution", title: { zh: "增大每层体素分辨率", en: "Increase Resolution Per Voxel Layer" },
+            svgIcon: `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="4.6" height="2.93" x="0.33" y="0.9"/><path d="M 2.44,3.844 1.62,4.78 H 3.77 L 3.03,3.84"/><circle cx="1.86" cy="2.4" r="1.05"/><rect width="1.63" height="0.48" x="3.38" y="1.7" transform="rotate(12.5)"/><path d="M 1.075,1.825H 1.6 V 2.1 H 1.9 V 2.5 H 2.3 V 3.07 H 2.5"/>${SVG_PLUS}</g></svg>`
+        }, param);
+        gui.addLvl2Button({
+            name: "retinactrl.subRetinaResolution", title: { zh: "降低每层体素分辨率", en: "Decrease Resolution Per Voxel Layer" },
+            svgIcon: `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="4.6" height="2.93" x="0.33" y="0.9"/><path d="M 2.44,3.844 1.62,4.78 H 3.77 L 3.03,3.84"/><circle cx="1.86" cy="2.4" r="1.05"/><rect width="1.63" height="0.48" x="3.38" y="1.7" transform="rotate(12.5)"/><path d="M 1.075,1.825H 1.6 V 2.1 H 1.9 V 2.5 H 2.3 V 3.07 H 2.5"/>${SVG_MINUS}</g></svg>`
+        }, param);
+        const crossBtn = gui.addLvl2Button({
+            name: "crosspplBtns", title: { zh: "截面形状：默认立方体", en: "CrossSection Shape: Default Cube" },
+            svgIcon: `${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><path d="M 1.22,1.68 V 3.764 L 2.83,4.644 4.472,3.715 V 1.715 L 2.81,0.8 Z M 1.55,1.86 2.86,2.61 V 4.31 M 2.86,2.61 4.16,1.86"/></g></svg>`
+        }, panel);
+        this.guiButtons["cross"] = crossBtn;
+        const cross = gui.addLvl3Drop(crossBtn, 1);
+        cross.parentElement.classList.add("btn-yellow");
+        const _this = this;
+        const crosspplBtnFn = function (i) {
+            _this.toggleRetinaAlpha(i);
+        };
+        gui.addLvl2Button({
+            name: "crossppl1Btn", title: { zh: "截面形状：默认立方体", en: "CrossSection: Default Cube" },
+            svgIcon: `${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><path d="M 1.22,1.68 V 3.764 L 2.83,4.644 4.472,3.715 V 1.715 L 2.81,0.8 Z M 1.55,1.86 2.86,2.61 V 4.31 M 2.86,2.61 4.16,1.86"/></g></svg>`
+        }, cross).addEventListener('click', e => crosspplBtnFn.call(e.currentTarget, 0));
+        gui.addLvl2Button({
+            name: "crossppl2Btn", title: { zh: "截面形状：球", en: "CrossSection: Ball" },
+            svgIcon: `${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><circle cx="2.69" cy="2.6" r="2"/><path d="m 0.69,2.6 c 0.002,1.28 4,1.28 4,0.014"/><path style="stroke-dasharray:0.2, 0.2;" d="M 0.68,2.6 C 0.71,1.45 4.68,1.5 4.7,2.63"/></g></svg>`
+        }, cross).addEventListener('click', e => crosspplBtnFn.call(e.currentTarget, 1));
+        gui.addLvl2Button({
+            name: "crossppl3Btn", title: { zh: "截面形状：小立方体", en: "CrossSection: Small Cube" },
+            svgIcon: `${SVG_HEADER}0.6 0.5 4.5 4.5'><g style="fill:none;stroke:#FFF;stroke-width:0.4;"><path transform="scale(0.6) translate(1.8,1.8)" d="M 1.22,1.68 V 3.764 L 2.83,4.644 4.472,3.715 V 1.715 L 2.81,0.8 Z M 1.55,1.86 2.86,2.61 V 4.31 M 2.86,2.61 4.16,1.86"/></g></svg>`
+        }, cross).addEventListener('click', e => crosspplBtnFn.call(e.currentTarget, 2));
+        gui.addLvl2Button({
+            name: "crossppl4Btn", title: { zh: "截面形状：平面", en: "CrossSection: Plane" },
+            svgIcon: `${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><path d="M 1.19,3.49 2.85,4.45 4.42,3.55 V 1.57 L 2.77,0.63 1.19,1.52 Z M 2,1.12 3.45,1.05 4.4,2.62 3.65,3.94 1.98,3.92 1.23,2.74 1.95,1.1"/></g></svg>`
+        }, cross).addEventListener('click', e => crosspplBtnFn.call(e.currentTarget, 3));
+    }
+    ;
     _vec2damp = new Vec2();
     _vec2euler = new Vec2();
     _vec3 = new Vec3();
@@ -1017,18 +1501,26 @@ class RetinaController {
     gui;
     toggleRetinaAlpha(idx) {
         const { promise, jsBuffer } = this.retinaRenderPasses[idx];
+        const guiRefresh = (i) => {
+            const btn = document.querySelectorAll("span.btn-yellow div button")[i];
+            this.guiButtons["cross"].setAttribute("data-name", btn.getAttribute("data-name"));
+            this.guiButtons["cross"].setAttribute("title", btn.getAttribute("title"));
+            this.guiButtons["cross"].setAttribute("data-title_zh", btn.getAttribute("data-title_zh"));
+            this.guiButtons["cross"].setAttribute("data-title_en", btn.getAttribute("data-title_en"));
+            this.guiButtons["cross"].style.backgroundImage = btn.style.backgroundImage;
+        };
         if (promise) {
             promise.then(pass => {
                 this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer.buffer, 0, 4 * 4);
                 this.renderer.setRetinaRenderPass(pass);
-                this.gui?.refresh({ "toggleRetinaAlpha": idx });
                 this.currentRetinaRenderPassIndex = idx;
+                guiRefresh(idx);
             });
         }
         else {
             this.renderer.setRetinaRenderPass(this.defaultRetinaRenderPass);
-            this.gui?.refresh({ "toggleRetinaAlpha": idx });
             this.currentRetinaRenderPassIndex = -1;
+            guiRefresh(0);
         }
     }
     getSubLayersNumber(updateCount) {
@@ -1050,9 +1542,8 @@ class RetinaController {
         return Math.min(512, layers);
     }
     update(state) {
-        let enabled = (!this.keyConfig.enable || state.isKeyHold(this.keyConfig.enable)) && this.enabled;
-        const on = (k) => state.isKeyHold(k) && enabled;
-        let key = this.keyConfig;
+        let enabled = (!state.getActionKey("enable", "retinactrl") || state.isActionHold("enable", "retinactrl")) && this.enabled && !state.isActionHold("disable", "retinactrl");
+        const on = (k) => state.isActionActive(k, "retinactrl");
         let delta;
         // retreive all temporal changes before this frame
         let displayConfig = this.tempDisplayConfig;
@@ -1060,16 +1551,26 @@ class RetinaController {
             this.tempDisplayConfig = {};
         this.displayConfigChanged = false;
         let stereo = this.renderer.getStereoMode();
-        if (on(this.keyConfig.toggle3D)) {
-            this.writeConfigToggleStereoMode(displayConfig, !stereo);
-            this.gui?.refresh({ "toggleStereo": !stereo });
+        const refreshGUI = () => {
+            const signature = this.retinaEyeOffset > 0 || this.sectionEyeOffset > 0;
+            if (!this.guiButtons["crosseye"]) {
+                console.warn("Retina Controller is not registered, cannot update GUI.");
+                return;
+            }
+            this.guiButtons["crosseye"].parentElement.style.display = signature && stereo ? "inline-block" : "none";
+            this.guiButtons["paralleleye"].parentElement.style.display = signature || !stereo ? "none" : "inline-block";
+        };
+        if (on("toggle3D")) {
+            stereo = !stereo;
+            this.writeConfigToggleStereoMode(displayConfig, stereo);
+            refreshGUI();
         }
         else if (this.needResize) {
             displayConfig.sections = this.sectionPresets(this.renderer.getDisplayConfig("canvasSize"))[this.currentSectionConfig][(stereo ? "eye2" : "eye1")];
         }
         this.needResize = false;
         if (stereo) {
-            if (on(this.keyConfig.addEyes3dGap)) {
+            if (on("addEyes3dGap")) {
                 this.retinaEyeOffset *= 1.05;
                 if (this.retinaEyeOffset > 0.4)
                     this.retinaEyeOffset = 0.4;
@@ -1078,7 +1579,7 @@ class RetinaController {
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
                 displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (on(this.keyConfig.subEyes3dGap)) {
+            if (on("subEyes3dGap")) {
                 this.retinaEyeOffset /= 1.05;
                 if (this.retinaEyeOffset > 0 && this.retinaEyeOffset < 0.03)
                     this.retinaEyeOffset = 0.03;
@@ -1087,7 +1588,7 @@ class RetinaController {
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
                 displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (on(this.keyConfig.addEyes4dGap)) {
+            if (on("addEyes4dGap")) {
                 this.sectionEyeOffset *= 1.05;
                 if (this.sectionEyeOffset > this.maxSectionEyeOffset)
                     this.sectionEyeOffset = this.maxSectionEyeOffset;
@@ -1096,7 +1597,7 @@ class RetinaController {
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
                 displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (on(this.keyConfig.subEyes4dGap)) {
+            if (on("subEyes4dGap")) {
                 this.sectionEyeOffset /= 1.05;
                 if (this.sectionEyeOffset > 0 && this.sectionEyeOffset < this.minSectionEyeOffset)
                     this.sectionEyeOffset = this.minSectionEyeOffset;
@@ -1105,56 +1606,57 @@ class RetinaController {
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
                 displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
             }
-            if (this.guiMouseOperation === "negEyesGap" || on(this.keyConfig.negEyesGap)) {
+            if (on("negEyesGap")) {
                 this.sectionEyeOffset = -this.sectionEyeOffset;
                 this.retinaEyeOffset = -this.retinaEyeOffset;
                 displayConfig.retinaStereoEyeOffset = this.retinaEyeOffset;
                 displayConfig.sectionStereoEyeOffset = this.sectionEyeOffset;
-                this.gui?.refresh({ "negEyesGap": this.retinaEyeOffset > 0 || this.sectionEyeOffset > 0 });
+                refreshGUI();
             }
         }
-        if (on(this.keyConfig.toggleCrosshair)) {
+        if (state.currentKeys.get("retinactrl.toggleCrosshair") === KeyState.DOWN) {
+            console.log("oma");
+        }
+        if (on("toggleCrosshair")) {
             this.writeConfigToggleCrosshair(displayConfig);
         }
-        if (this.guiMouseOperation === "opacitypBtn" || on(this.keyConfig.addOpacity)) {
+        if (on("addOpacity")) {
             displayConfig.opacity = this.renderer.getDisplayConfig("opacity") * (1 + this.opacityKeySpeed);
         }
-        if (this.guiMouseOperation === "opacitymBtn" || on(this.keyConfig.subOpacity)) {
+        if (on("subOpacity")) {
             displayConfig.opacity = this.renderer.getDisplayConfig("opacity") / (1 + this.opacityKeySpeed);
         }
-        if (this.guiMouseOperation === "layerpBtn" || on(this.keyConfig.addLayer)) {
+        if (on("addLayer")) {
             displayConfig.retinaLayers = this.getAddLayersNumber(state.updateCount);
         }
-        if (this.guiMouseOperation === "layermBtn" || on(this.keyConfig.subLayer)) {
+        if (on("subLayer")) {
             displayConfig.retinaLayers = this.getSubLayersNumber(state.updateCount);
         }
-        if (this.guiMouseOperation === "respBtn" || on(this.keyConfig.addRetinaResolution)) {
-            this.guiMouseOperation = "";
+        if (on("addRetinaResolution")) {
             let res = this.renderer.getDisplayConfig('retinaResolution');
             res += this.renderer.getMinResolutionMultiple();
             if (res <= this.maxRetinaResolution)
                 displayConfig.retinaResolution = res;
         }
-        if (this.guiMouseOperation === "resmBtn" || on(this.keyConfig.subRetinaResolution)) {
-            this.guiMouseOperation = "";
+        if (on("subRetinaResolution")) {
             let res = this.renderer.getDisplayConfig('retinaResolution');
             res -= this.renderer.getMinResolutionMultiple();
             if (res > 0)
                 displayConfig.retinaResolution = res;
         }
-        if (this.guiMouseOperation === "fovpBtn" || on(this.keyConfig.addFov)) {
+        if (on("addFov")) {
             this.retinaFov += this.fovKeySpeed;
             if (this.retinaFov > 120)
                 this.retinaFov = 120;
             this.needsUpdateRetinaCamera = true;
         }
-        if (this.guiMouseOperation === "fovmBtn" || on(this.keyConfig.subFov)) {
+        if (on("subFov")) {
             this.retinaFov -= this.fovKeySpeed;
             if (this.retinaFov < 0.1)
                 this.retinaFov = 0;
             this.needsUpdateRetinaCamera = true;
         }
-        if (on(this.keyConfig.toggleRetinaAlpha)) {
+        if (on("toggleRetinaAlpha")) {
             this.currentRetinaRenderPassIndex++;
             if (this.currentRetinaRenderPassIndex >= retinaRenderPassDescriptors.length)
                 this.currentRetinaRenderPassIndex = 0;
@@ -1192,16 +1694,16 @@ class RetinaController {
             }
             this.renderer.gpu.device.queue.writeBuffer(this.alphaBuffer, 0, jsBuffer.buffer, 0, 4 * 4);
         }
-        for (let [label, keyCode] of Object.entries(this.keyConfig.sectionConfigs)) {
-            if (on(keyCode)) {
+        for (const label of this.sectionPresetLabels) {
+            if (on("sectionConfigs." + label)) {
                 this.toggleSectionConfig(label);
             }
         }
-        delta = (on(key.rotateDown) ? -1 : 0) + (on(key.rotateUp) ? 1 : 0);
+        delta = (on("rotateDown") ? -1 : 0) + (on("rotateUp") ? 1 : 0);
         let keyRotateSpeed = this.keyRotateSpeed * state.mspf;
         if (delta)
             this._vec2damp.y = delta * keyRotateSpeed;
-        delta = (on(key.rotateLeft) ? 1 : 0) + (on(key.rotateRight) ? -1 : 0);
+        delta = (on("rotateLeft") ? 1 : 0) + (on("rotateRight") ? -1 : 0);
         if (delta)
             this._vec2damp.x = delta * keyRotateSpeed;
         if (enabled) {
@@ -1217,23 +1719,23 @@ class RetinaController {
                 this.retinaSize += state.wheelY * this.wheelSpeed;
             }
         }
-        if (on(key.refaceFront)) {
+        if (on("refaceFront")) {
             this.refacingFront = true;
             this.refacingTarget.set();
         }
-        else if (on(key.refaceRight)) {
+        else if (on("refaceRight")) {
             this.refacingFront = true;
             this.refacingTarget.set(_90, 0);
         }
-        else if (on(key.refaceTop)) {
+        else if (on("refaceTop")) {
             this.refacingFront = true;
             this.refacingTarget.set(0, -_90);
         }
-        else if (on(key.refaceLeft)) {
+        else if (on("refaceLeft")) {
             this.refacingFront = true;
             this.refacingTarget.set(-_90, 0);
         }
-        else if (on(key.refaceBottom)) {
+        else if (on("refaceBottom")) {
             this.refacingFront = true;
             this.refacingTarget.set(0, _90);
         }
@@ -1370,7 +1872,17 @@ class RetinaController {
         this.tempDisplayConfig.retinaLayers = layers;
         this.tempDisplayConfig.sections = sections;
         this.currentSectionConfig = index;
-        this.gui?.refresh({ "toggleSectionConfig": index });
+        // refresh gui
+        if (!this.guiButtons["slice"]) {
+            console.warn("Retina Controller is not registered, cannot update GUI.");
+            return;
+        }
+        const btn = Array.from(document.querySelectorAll("span.btn-red div button")).find(e => e.getAttribute("data-name") === "retinactrl.sectionConfigs." + index);
+        this.guiButtons["slice"].setAttribute("data-name", btn.getAttribute("data-name"));
+        this.guiButtons["slice"].setAttribute("title", btn.getAttribute("title"));
+        this.guiButtons["slice"].setAttribute("data-title_zh", btn.getAttribute("data-title_zh"));
+        this.guiButtons["slice"].setAttribute("data-title_en", btn.getAttribute("data-title_en"));
+        this.guiButtons["slice"].style.backgroundImage = btn.style.backgroundImage;
     }
     setSize(size) {
         this.tempDisplayConfig.canvasSize = size;
@@ -1415,389 +1927,13 @@ class RetinaCtrlGui {
     createDropBox(CtrlBtn, offset, width = 1) {
         const div = this.createToggleDiv(CtrlBtn);
         div.style.position = "absolute";
-        div.className = "retina-ctrl-gui";
+        div.className = "ctrl-gui";
         div.style.width = this.iconSize * width + "px";
         div.style.top = this.iconSize + "px";
         div.style.left = this.iconSize * offset + "px";
         return div;
     }
-    toggle() {
-        this.dom.style.display = this.dom.style.display === "none" ? "" : "none";
-    }
-    constructor(retinaCtrl) {
-        this.controller = retinaCtrl;
-        this.dom = document.createElement("div");
-        this.dom.style.position = "fixed";
-        this.dom.style.top = "50vh";
-        this.dom.style.right = "0";
-        document.body.appendChild(this.dom);
-        // write gui and set size event
-        const SVG_HEADER = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='`;
-        const SVG_LINE = `style="fill:none;stroke:#FFF;stroke-width:0.25;"`;
-        const SVG_PLUS = `<text x="1.5" y="3.5" stroke="#F00" style="font-size:3px">+</text>`;
-        const SVG_MINUS = `<text x="2" y="3.5" stroke="#F00" style="font-size:3px">-</text>`;
-        const SVG_RETINA = `<path d="M 1.3,3.3 2.5,4 4.1,3.6 V 2 L 2.9,1.3 1.3,1.7 Z"/>`;
-        const SVG_CHECKER = `${SVG_HEADER}0 0 5 5'><g style="fill:#FFF"><rect width="1" height="1" x="0.5" y="0.5"/><rect width="1" height="1" x="2.5" y="0.5"/><rect width="1" height="1" x="1.5" y="1.5"/><rect width="1" height="1" x="3.5" y="1.5"/><rect width="1" height="1" x="0.5" y="2.5"/><rect width="1" height="1" x="2.5" y="2.5"/><rect width="1" height="1" x="1.5" y="3.5"/><rect width="1" height="1" x="3.5" y="3.5"/>`;
-        const SVG_CAM = `${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><circle cx="0.77" cy="1.57" r="0.4"/><rect width="2.36" height="1.6" x="0.39" y="2.15"/><circle cx="1.9" cy="1.35" r="0.66"/><path d="M 2.74,2.48 4.89,1"/><path d="m 2.77,3.27 2.16,1.4"/><path d="m 4.46,1.9 c 0.23,0.65 0.28,1.3 0.03,1.9"/><path d="M 4.24,2.4 4.36,1.7 4.9,2.18"/><path d="M 4.23,3.2 4.41,3.9 5,3.4"/>`;
-        const mainBtn = this.addBtn(`${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><path d="M 1.9,4.53 1.4,4.24 1.51,3.73 C 1.43,3.65 1.36,3.56 1.3,3.46 L 0.77,3.43 0.62,2.87 1.07,2.58 C 1.07,2.47 1.08,2.36 1.11,2.25 L 0.76,1.84 1.05,1.34 1.56,1.45 C 1.64,1.37 1.73,1.3 1.83,1.24 L 1.86,0.71 2.42,0.56 2.71,1 c 0.11,0 0.23,0.02 0.34,0.04 L 3.45,0.7 3.95,0.99 3.84,1.5 c 0.08,0.08 0.15,0.17 0.21,0.27 l 0.53,0.03 0.15,0.56 -0.44,0.3 c 0,0.11 -0.02,0.23 -0.04,0.34 L 4.59,3.37 4.3,3.88 3.79,3.77 C 3.7,3.85 3.61,3.91 3.52,3.97 L 3.48,4.5 2.92,4.65 2.63,4.21 C 2.53,4.2 2.41,4.19 2.3,4.16 Z"/><circle cx="2.67" cy="2.62" r="1"/></g></svg>`);
-        const crossppl1Btn = this.addBtn(`${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><path d="M 1.22,1.68 V 3.764 L 2.83,4.644 4.472,3.715 V 1.715 L 2.81,0.8 Z M 1.55,1.86 2.86,2.61 V 4.31 M 2.86,2.61 4.16,1.86"/></g></svg>`);
-        const crossppl2Btn = this.addBtn(`${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><circle cx="2.69" cy="2.6" r="2"/><path d="m 0.69,2.6 c 0.002,1.28 4,1.28 4,0.014"/><path style="stroke-dasharray:0.2, 0.2;" d="M 0.68,2.6 C 0.71,1.45 4.68,1.5 4.7,2.63"/></g></svg>`);
-        const crossppl3Btn = this.addBtn(`${SVG_HEADER}0.6 0.5 4.5 4.5'><g style="fill:none;stroke:#FFF;stroke-width:0.4;"><path transform="scale(0.6) translate(1.8,1.8)" d="M 1.22,1.68 V 3.764 L 2.83,4.644 4.472,3.715 V 1.715 L 2.81,0.8 Z M 1.55,1.86 2.86,2.61 V 4.31 M 2.86,2.61 4.16,1.86"/></g></svg>`);
-        const crossppl4Btn = this.addBtn(`${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><path d="M 1.19,3.49 2.85,4.45 4.42,3.55 V 1.57 L 2.77,0.63 1.19,1.52 Z M 2,1.12 3.45,1.05 4.4,2.62 3.65,3.94 1.98,3.92 1.23,2.74 1.95,1.1"/></g></svg>`);
-        const crosshairBtn = this.addBtn(`${SVG_HEADER}0.6 0.5 4.5 4.5'><g ${SVG_LINE}><path d="m 2.62,1 v 3.37 M 1.56,4 3.56,1.47 M 0.9,2.7 H 4.23"/></g></svg>`);
-        const stereoBtn = this.addBtn(`${SVG_HEADER}0.5 0.3 4.5 4.5'><g ${SVG_LINE}><path d="M 0.563,2.636 C 2.33,1 3.24,1.22 4.74,2.76 2.99,3.96 1.676,3.73 0.564,2.637 Z"/><circle cx="2.6" cy="2.5" r="0.9"/><circle cx="2.6" cy="2.5" r="0.54"/></g></svg>`);
-        const settingBtn = this.addBtn(`${SVG_HEADER}0.5 0.3 4.5 4.5'><g id="g1" ${SVG_LINE}><path d="M 1.3,3.4 V 4.8 M 1.77,3.4 V 4.8 M 1.3,0.4 V 2.8 M 1.77,0.4 V 2.8"/><rect width="1.7" height="0.4" x="0.63" y="3.04"/></g><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#g1" transform="rotate(180,2.65,2.59)"/></svg>`);
-        const slicecfg1Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}<rect width="1.2" height="1.2" x="0.6" y="3.6"/><rect width="1.2" height="1.2" x="3.5" y="3.6"/><rect width="1.2" height="1.2" x="3.5" y="0.5"/></g></svg>`);
-        const slicecfg2Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}<rect width="1.7" height="1.7" x="0.6" y="2.8"/><rect width="1.7" height="1.7" x="2.9" y="2.8"/><rect width="1.7" height="1.7" x="2.9" y="0.5"/></g></svg>`);
-        const slicecfg3Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}</g></svg>`);
-        const slicecfg4Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="2" height="2" x="0.6" y="2.5"/><rect width="2" height="2" x="2.6" y="2.5"/><rect width="2" height="2" x="2.6" y="0.5"/></g></svg>`);
-        const slicecfg5Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="4" height="4" x="0.6" y="0.6"/><text x="1.5" y="3.5" stroke="#0F0" style="font-size:3px">Y</text></g></svg>`);
-        const slicecfg6Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="4" height="4" x="0.6" y="0.6"/><text x="1.5" y="3.5" stroke="#00F" style="font-size:3px">Z</text></g></svg>`);
-        const slicecfg7Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}<rect width="1" height="1" x="0.6" y="3"/><rect width="1" height="1" x="1.6" y="3"/><rect width="1" height="1" x="2.6" y="3"/><rect width="1" height="1" x="3.6" y="3"/><text x="1.5" y="3.5" stroke="#0F0" style="font-size:3px">Y</text></g></svg>`);
-        const slicecfg8Btn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}>${SVG_RETINA}<rect width="1" height="1" x="0.6" y="3"/><rect width="1" height="1" x="1.6" y="3"/><rect width="1" height="1" x="2.6" y="3"/><rect width="1" height="1" x="3.6" y="3"/><text x="1.5" y="3.5" stroke="#00F" style="font-size:3px">Z</text></g></svg>`);
-        const layerpBtn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect id="r" width="1.8" height="2.3" x="2.7" y="2.94" transform="matrix(0.95,-0.3,0,1,0,0)"/><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#r" id="u" transform="translate(-0.6,-0.4)"/><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#u" transform="translate(-0.6,-0.4)"/>${SVG_PLUS}</g></svg>`);
-        const layermBtn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect id="r" width="1.8" height="2.3" x="2.7" y="2.94" transform="matrix(0.95,-0.3,0,1,0,0)"/><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#r" id="u" transform="translate(-0.6,-0.4)"/><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#u" transform="translate(-0.6,-0.4)"/>${SVG_MINUS}</g></svg>`);
-        const opacitypBtn = this.addBtn(`${SVG_CHECKER}<text x="1.5" y="3.5" style="font-size:3px;stroke:#F00;stroke-width:0.25">+</text></g></svg>`);
-        const opacitymBtn = this.addBtn(`${SVG_CHECKER}<text x="2" y="3.5" style="font-size:3px;stroke:#F00;stroke-width:0.25">-</text></g></svg>`);
-        const fovpBtn = this.addBtn(`${SVG_CAM}${SVG_PLUS}</g></svg>`);
-        const fovmBtn = this.addBtn(`${SVG_CAM}${SVG_MINUS}</g></svg>`);
-        const respBtn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="4.6" height="2.93" x="0.33" y="0.9"/><path d="M 2.44,3.844 1.62,4.78 H 3.77 L 3.03,3.84"/><circle cx="1.86" cy="2.4" r="1.05"/><rect width="1.63" height="0.48" x="3.38" y="1.7" transform="rotate(12.5)"/><path d="M 1.075,1.825H 1.6 V 2.1 H 1.9 V 2.5 H 2.3 V 3.07 H 2.5"/>${SVG_PLUS}</g></svg>`);
-        const resmBtn = this.addBtn(`${SVG_HEADER}0 0 5 5'><g ${SVG_LINE}><rect width="4.6" height="2.93" x="0.33" y="0.9"/><path d="M 2.44,3.844 1.62,4.78 H 3.77 L 3.03,3.84"/><circle cx="1.86" cy="2.4" r="1.05"/><rect width="1.63" height="0.48" x="3.38" y="1.7" transform="rotate(12.5)"/><path d="M 1.075,1.825H 1.6 V 2.1 H 1.9 V 2.5 H 2.3 V 3.07 H 2.5"/>${SVG_MINUS}</g></svg>`);
-        const eyeModeCrossBtn = this.addBtn(`${SVG_HEADER}0.5 0.3 4.5 4.5'><g ${SVG_LINE}><circle cx="2" cy="4" r="0.3"/><circle cx="3.2" cy="4" r="0.3"/><path d="M 2,3.4 3,1 M 3.2,3.4 2.2,1"/></g></svg>`);
-        const eyeModeParaBtn = this.addBtn(`${SVG_HEADER}0.5 0.3 4.5 4.5'><g ${SVG_LINE}><circle cx="2" cy="4" r="0.3"/><circle cx="3.2" cy="4" r="0.3"/><path d="M 2,3.4 1.8,1 M 3.2,3.4 3.4,1"/></g></svg>`);
-        eyeModeCrossBtn.style.position = "absolute";
-        eyeModeParaBtn.style.position = "absolute";
-        eyeModeCrossBtn.style.left = "-32px";
-        eyeModeParaBtn.style.left = "-32px";
-        const mainBar = this.createToggleDiv(mainBtn, "inline-block");
-        let drag = NaN;
-        let startPos;
-        let enableKeycode;
-        mainBtn.addEventListener('mousedown', (e) => {
-            drag = e.clientY;
-            startPos = Number(this.dom.style.top.replace("vh", "")) / 100 * window.innerHeight;
-        });
-        mainBtn.addEventListener('mouseenter', () => {
-            if (enableKeycode != retinaCtrl.keyConfig.enable) {
-                this.refresh({ "enableKeyCode": retinaCtrl.keyConfig.enable });
-            }
-        });
-        mainBtn.addEventListener('mousemove', (e) => {
-            if (!drag)
-                return;
-            const currPos = startPos + e.clientY - drag;
-            this.dom.style.top = currPos / window.innerHeight * 100 + "vh";
-        });
-        mainBtn.addEventListener('mouseup', () => { drag = NaN; });
-        mainBtn.addEventListener('mouseout', () => { drag = NaN; });
-        this.dom.appendChild(mainBar);
-        mainBar.appendChild(eyeModeCrossBtn);
-        mainBar.appendChild(eyeModeParaBtn);
-        eyeModeCrossBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "negEyesGap");
-        eyeModeParaBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "negEyesGap");
-        stereoBtn.addEventListener('click', () => retinaCtrl.toggleStereo());
-        mainBar.appendChild(stereoBtn);
-        const slicecfgPlaceholder = document.createElement("span");
-        slicecfgPlaceholder.className = "slicecfg";
-        mainBar.appendChild(slicecfgPlaceholder);
-        let slicecfgPlaceholderBtn = slicecfg1Btn.cloneNode(true);
-        slicecfgPlaceholder.appendChild(slicecfgPlaceholderBtn);
-        const slicecfgBar = this.createDropBox(slicecfgPlaceholderBtn, 0, 2);
-        slicecfgPlaceholder.appendChild(slicecfgBar);
-        slicecfgBar.appendChild(slicecfg1Btn);
-        slicecfgBar.appendChild(slicecfg2Btn);
-        slicecfgBar.appendChild(slicecfg3Btn);
-        slicecfgBar.appendChild(slicecfg4Btn);
-        slicecfgBar.appendChild(slicecfg5Btn);
-        slicecfgBar.appendChild(slicecfg6Btn);
-        slicecfgBar.appendChild(slicecfg7Btn);
-        slicecfgBar.appendChild(slicecfg8Btn);
-        const slicecfgBtnFn = function () {
-            slicecfgPlaceholderBtn.style.backgroundImage = this.style.backgroundImage;
-            retinaCtrl.toggleSectionConfig(this.name);
-        };
-        slicecfg1Btn.addEventListener('click', slicecfgBtnFn);
-        slicecfg1Btn.name = "retina+sections";
-        slicecfg2Btn.addEventListener('click', slicecfgBtnFn);
-        slicecfg2Btn.name = "retina+bigsections";
-        slicecfg3Btn.addEventListener('click', slicecfgBtnFn);
-        slicecfg3Btn.name = "retina";
-        slicecfg4Btn.addEventListener('click', slicecfgBtnFn);
-        slicecfg4Btn.name = "sections";
-        slicecfg5Btn.addEventListener('click', slicecfgBtnFn);
-        slicecfg5Btn.name = "zsection";
-        slicecfg6Btn.addEventListener('click', slicecfgBtnFn);
-        slicecfg6Btn.name = "ysection";
-        slicecfg7Btn.addEventListener('click', slicecfgBtnFn);
-        slicecfg7Btn.name = "retina+zslices";
-        slicecfg8Btn.addEventListener('click', slicecfgBtnFn);
-        slicecfg8Btn.name = "retina+yslices";
-        const settingBarPlaceHolder = document.createElement("span");
-        settingBarPlaceHolder.appendChild(settingBtn);
-        const settingBar = this.createDropBox(settingBtn, 2, 2);
-        settingBarPlaceHolder.className = "settingbar";
-        settingBarPlaceHolder.appendChild(settingBar);
-        mainBar.appendChild(settingBarPlaceHolder);
-        settingBar.appendChild(layerpBtn);
-        layerpBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "layerpBtn");
-        settingBar.appendChild(layermBtn);
-        layermBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "layermBtn");
-        settingBar.appendChild(opacitypBtn);
-        opacitypBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "opacitypBtn");
-        settingBar.appendChild(opacitymBtn);
-        opacitymBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "opacitymBtn");
-        settingBar.appendChild(fovpBtn);
-        fovpBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "fovpBtn");
-        settingBar.appendChild(fovmBtn);
-        fovmBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "fovmBtn");
-        settingBar.appendChild(respBtn);
-        respBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "respBtn");
-        settingBar.appendChild(resmBtn);
-        resmBtn.addEventListener('mousedown', () => retinaCtrl.guiMouseOperation = "resmBtn");
-        mainBar.appendChild(crosshairBtn);
-        crosshairBtn.addEventListener("click", () => retinaCtrl.toggleCrosshair());
-        const crosspplPlaceholder = document.createElement("span");
-        mainBar.appendChild(crosspplPlaceholder);
-        let crosspplPlaceholderBtn = crossppl1Btn.cloneNode(true);
-        crosspplPlaceholder.appendChild(crosspplPlaceholderBtn);
-        crosspplPlaceholder.className = "crossppl";
-        const crosspplBar = this.createDropBox(crosspplPlaceholderBtn, 4);
-        crosspplPlaceholder.appendChild(crosspplBar);
-        const crosspplBtnFn = function () {
-            crosspplPlaceholderBtn.style.backgroundImage = this.style.backgroundImage;
-            retinaCtrl.toggleRetinaAlpha(Number(this.name));
-        };
-        crosspplBar.appendChild(crossppl1Btn);
-        crossppl1Btn.addEventListener('click', crosspplBtnFn);
-        crossppl1Btn.name = "0";
-        crosspplBar.appendChild(crossppl2Btn);
-        crossppl2Btn.addEventListener('click', crosspplBtnFn);
-        crossppl2Btn.name = "1";
-        crosspplBar.appendChild(crossppl3Btn);
-        crossppl3Btn.addEventListener('click', crosspplBtnFn);
-        crossppl3Btn.name = "2";
-        crosspplBar.appendChild(crossppl4Btn);
-        crossppl4Btn.addEventListener('click', crosspplBtnFn);
-        crossppl4Btn.name = "3";
-        this.refresh = (param) => {
-            let crosspplBtn;
-            switch (param["toggleRetinaAlpha"]) {
-                case 0:
-                    crosspplBtn = crossppl1Btn;
-                    break;
-                case 1:
-                    crosspplBtn = crossppl2Btn;
-                    break;
-                case 2:
-                    crosspplBtn = crossppl3Btn;
-                    break;
-                case 3:
-                    crosspplBtn = crossppl4Btn;
-                    break;
-            }
-            switch (param["toggleStereo"]) {
-                case true:
-                    param["negEyesGap"] = retinaCtrl.retinaEyeOffset > 0 || retinaCtrl.sectionEyeOffset > 0;
-                    break;
-                case false:
-                    eyeModeCrossBtn.style.display = "none";
-                    eyeModeParaBtn.style.display = "none";
-                    break;
-            }
-            switch (param["negEyesGap"]) {
-                case false:
-                    eyeModeCrossBtn.style.display = "none";
-                    eyeModeParaBtn.style.display = "";
-                    break;
-                case true:
-                    eyeModeCrossBtn.style.display = "";
-                    eyeModeParaBtn.style.display = "none";
-                    break;
-            }
-            if (crosspplBtn)
-                crosspplPlaceholderBtn.style.backgroundImage = crosspplBtn.style.backgroundImage;
-            switch (param["toggleSectionConfig"]) {
-                case "retina+sections":
-                    slicecfg1Btn.click();
-                    break;
-                case "retina+bigsections":
-                    slicecfg2Btn.click();
-                    break;
-                case "retina":
-                    slicecfg3Btn.click();
-                    break;
-                case "sections":
-                    slicecfg4Btn.click();
-                    break;
-                case "zsection":
-                    slicecfg5Btn.click();
-                    break;
-                case "ysection":
-                    slicecfg6Btn.click();
-                    break;
-                case "retina+zslices":
-                    slicecfg7Btn.click();
-                    break;
-                case "retina+yslices":
-                    slicecfg8Btn.click();
-                    break;
-            }
-            if (param["enableKeyCode"] !== undefined) {
-                enableKeycode = param["enableKeyCode"];
-                const BtnHint = {
-                    "zh": {
-                        "mouseBtn0": "鼠标左键",
-                        "mouseBtn1": "鼠标中键",
-                        "mouseBtn2": "鼠标右键",
-                        "left": "左",
-                        "right": "右",
-                        "digit": "大键盘数字",
-                        "mainBtn": "显示/隐藏体素渲染设置",
-                        "crosspplPlaceholderBtn": "显示/隐藏选择截面形状",
-                        "crossppl1Btn": "截面形状：默认立方体",
-                        "crossppl2Btn": "截面形状：球",
-                        "crossppl3Btn": "截面形状：小立方体",
-                        "crossppl4Btn": "截面形状：平面",
-                        "crossppl2BtnDesc": "拖动以改变球半径(垂直)\n和羽化量(水平)",
-                        "crossppl3BtnDesc": "拖动以改变立方体大小(垂直)\n和剩余部分透明度(水平)",
-                        "crossppl4BtnDesc": "拖动以改变截平面方向",
-                        "stereoBtn": "切换裸眼3D模式",
-                        "eyeModeCrossBtn": "交叉眼",
-                        "eyeModeParaBtn": "平行眼",
-                        "slicecfgPlaceholderBtn": "显示/隐藏选择视图配置",
-                        "slicecfg1Btn": "视图配置：体素+三个截面",
-                        "slicecfg2Btn": "视图配置：体素+三个大截面",
-                        "slicecfg3Btn": "视图配置：体素",
-                        "slicecfg4Btn": "视图配置：三个截面",
-                        "slicecfg5Btn": "视图配置：Y轴截面",
-                        "slicecfg6Btn": "视图配置：Z轴截面",
-                        "slicecfg7Btn": "视图配置：体素+平行Y轴截面",
-                        "slicecfg8Btn": "视图配置：体素+平行Z轴截面",
-                        "layerpBtn": "增加体素渲染层数",
-                        "layermBtn": "减少体素渲染层数",
-                        "opacitypBtn": "增加体素不透明度",
-                        "opacitymBtn": "减少体素不透明度",
-                        "fovpBtn": "增大体素显示视场角",
-                        "fovmBtn": "降低体素显示视场角",
-                        "respBtn": "增大每层体素分辨率",
-                        "resmBtn": "降低每层体素分辨率",
-                        "settingBtn": "显示/隐藏体素渲染参数调节",
-                        "crosshairBtn": "显示/隐藏十字准心",
-                    },
-                    "en": {
-                        "mouseBtn0": "Left Mouse Button",
-                        "mouseBtn1": "Middle Mouse Button",
-                        "mouseBtn2": "Right Mouse Button",
-                        "eyeModeCrossBtn": "Cross View",
-                        "eyeModeParaBtn": "Parallel View",
-                        "left": "Left",
-                        "right": "Right",
-                        "digit": "Digit ",
-                        "mainBtn": "Show / Hide Voxel Render Settings",
-                        "crosspplPlaceholderBtn": "Show / Hide Choose CrossSection Shape",
-                        "crossppl1Btn": "CrossSection Shape: Default Cube",
-                        "crossppl2Btn": "CrossSection Shape: Ball",
-                        "crossppl3Btn": "CrossSection Shape: Small Cube",
-                        "crossppl4Btn": "CrossSection Shape: Plane",
-                        "crossppl2BtnDesc": " Drag to Change Ball Radius(Vertically)\nand Feathering Amount(Horizontally)",
-                        "crossppl3BtnDesc": " Drag to Change Cube Size(Vertically)\nand Remained Opacity(Horizontally)",
-                        "crossppl4BtnDesc": " Drag to Change Section Plane's Orientation",
-                        "stereoBtn": "Toggle Naked Eye Stereo Mode",
-                        "slicecfgPlaceholderBtn": "Show / Hide Choose View Configuration",
-                        "slicecfg1Btn": "View Configuration: Voxel + Sections",
-                        "slicecfg2Btn": "View Configuration: Voxel + Big Sections",
-                        "slicecfg3Btn": "View Configuration: Voxel Only",
-                        "slicecfg4Btn": "View Configuration: 3 Sections",
-                        "slicecfg5Btn": "View Configuration: Y axis Section",
-                        "slicecfg6Btn": "View Configuration: Z axis Section",
-                        "slicecfg7Btn": "View Configuration: Voxel + Y axis Parallel Sections",
-                        "slicecfg8Btn": "View Configuration: Voxel + Z axis Parallel Sections",
-                        "layerpBtn": "Increase Voxel Layers",
-                        "layermBtn": "Decrease Voxel Layers",
-                        "opacitypBtn": "Increase Voxel Opacity",
-                        "opacitymBtn": "Decrease Voxel Opacity",
-                        "fovpBtn": "Increase Field Of Voxel View",
-                        "fovmBtn": "Decrease Voxel Field Of Voxel View",
-                        "respBtn": "Increase Resolution Per Voxel Layer",
-                        "resmBtn": "Decrease Resolution Per Voxel Layer",
-                        "settingBtn": "Show / Hide Voxel Render Params",
-                        "crosshairBtn": "Toggle Crosshair",
-                    },
-                };
-                let params = new URLSearchParams(window.location.search.slice(1));
-                let tr = BtnHint[this.lang ?? params.get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en")];
-                const keyName = (cfg, config) => `\n(${retinaCtrl.keyConfig.enable ? retinaCtrl.keyConfig.enable.replace("Key", "").replace("Left", tr["left"]).replace("Right", tr["right"]).replace("Digit", tr["digit"]) + " + " : ""}${(config ?? retinaCtrl.keyConfig)[cfg].replace(/(Key)|(Left)|(Right)|(\.)/g, "").replace("Digit", tr["digit"])})`;
-                mainBtn.title = tr["mainBtn"];
-                crosspplPlaceholderBtn.title = tr["crosspplPlaceholderBtn"];
-                const getCrosspplBtnTitle = (btnName, noDragDesc) => tr[btnName] + keyName("toggleRetinaAlpha") + (!noDragDesc ? "\n----" + keyName("", { "": "" }).replace(/[\(\})]/g, "") + tr["mouseBtn" + retinaCtrl.retinaAlphaMouseButton] + tr[btnName + "Desc"] : "");
-                crossppl1Btn.title = getCrosspplBtnTitle("crossppl1Btn", true);
-                crossppl2Btn.title = getCrosspplBtnTitle("crossppl2Btn");
-                crossppl3Btn.title = getCrosspplBtnTitle("crossppl3Btn");
-                crossppl4Btn.title = getCrosspplBtnTitle("crossppl4Btn");
-                stereoBtn.title = tr["stereoBtn"] + keyName("toggle3D");
-                eyeModeCrossBtn.title = tr["eyeModeCrossBtn"] + keyName("negEyesGap");
-                eyeModeParaBtn.title = tr["eyeModeParaBtn"] + keyName("negEyesGap");
-                slicecfgPlaceholderBtn.title = tr["slicecfgPlaceholderBtn"];
-                slicecfg1Btn.title = tr["slicecfg1Btn"] + keyName("retina+sections", retinaCtrl.keyConfig.sectionConfigs);
-                slicecfg2Btn.title = tr["slicecfg2Btn"] + keyName("retina+bigsections", retinaCtrl.keyConfig.sectionConfigs);
-                slicecfg3Btn.title = tr["slicecfg3Btn"] + keyName("retina", retinaCtrl.keyConfig.sectionConfigs);
-                slicecfg4Btn.title = tr["slicecfg4Btn"] + keyName("sections", retinaCtrl.keyConfig.sectionConfigs);
-                slicecfg5Btn.title = tr["slicecfg5Btn"] + keyName("zsection", retinaCtrl.keyConfig.sectionConfigs);
-                slicecfg6Btn.title = tr["slicecfg6Btn"] + keyName("ysection", retinaCtrl.keyConfig.sectionConfigs);
-                slicecfg7Btn.title = tr["slicecfg7Btn"] + keyName("retina+zslices", retinaCtrl.keyConfig.sectionConfigs);
-                slicecfg8Btn.title = tr["slicecfg8Btn"] + keyName("retina+yslices", retinaCtrl.keyConfig.sectionConfigs);
-                layerpBtn.title = tr["layerpBtn"] + keyName("addLayer");
-                layermBtn.title = tr["layermBtn"] + keyName("subLayer");
-                opacitypBtn.title = tr["opacitypBtn"] + keyName("addOpacity");
-                opacitymBtn.title = tr["opacitymBtn"] + keyName("subOpacity");
-                fovpBtn.title = tr["fovpBtn"] + keyName("addFov");
-                fovmBtn.title = tr["fovmBtn"] + keyName("subFov");
-                respBtn.title = tr["respBtn"] + keyName("addRetinaResolution");
-                resmBtn.title = tr["resmBtn"] + keyName("subRetinaResolution");
-                settingBtn.title = tr["settingBtn"];
-                crosshairBtn.title = tr["crosshairBtn"] + keyName("toggleCrosshair");
-            }
-        };
-        const css = document.createElement("style");
-        css.appendChild(document.createTextNode(`
-        button.retina-ctrl-gui{
-            background: #999;
-        }
-        .slicecfg button.retina-ctrl-gui{
-            background: #B77;
-        }
-        .settingbar button.retina-ctrl-gui{
-            background: #7B7;
-        }
-        .crossppl button.retina-ctrl-gui{
-            background: #BB7;
-        }
-        button.retina-ctrl-gui[title]:hover::after{
-            white-space: pre-line; width: max-content;
-            content:attr(title);position:absolute;bottom:100%;right:0%; font-size:1em;z-index:100;background:#000;color:#FFF; padding:0;margin:0;
-        }
-        div.retina-ctrl-gui button.retina-ctrl-gui[title]:hover::after{
-            bottom:calc(100% + ${this.iconSize}px);
-        }
-        `));
-        this.dom.appendChild(mainBtn);
-        this.dom.appendChild(css);
-        this.refresh({ "negEyesGap": retinaCtrl.retinaEyeOffset > 0 || retinaCtrl.sectionEyeOffset > 0 });
-    }
-    addBtn(svgIcon) {
-        const btn = document.createElement("button");
-        btn.className = "retina-ctrl-gui";
-        btn.innerHTML = "&nbsp;";
-        btn.style.width = this.iconSize + "px";
-        btn.style.height = this.iconSize + "px";
-        btn.style.borderRadius = this.iconSize * 0.25 + "px";
-        btn.style.backgroundImage = `url('data:image/svg+xml,${escape(svgIcon)}')`;
-        const cancelFn = () => this.controller.guiMouseOperation = "";
-        btn.addEventListener('mouseup', cancelFn);
-        btn.addEventListener('mouseout', cancelFn);
-        return btn;
-    }
 }
 
-export { ControllerRegistry, FreeFlyController, KeepUpController, KeyState, RetinaController, RetinaCtrlGui, TrackBallController, VoxelViewerController, sliceconfig };
+export { ControllerRegistry, FreeFlyController, KeepUpController, KeyState, RetinaController, RetinaCtrlGui, SVG_HEADER, SVG_LINE, TrackBallController, VoxelViewerController, sliceconfig };
 //# sourceMappingURL=ctrl.js.map

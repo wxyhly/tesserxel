@@ -1,4 +1,5 @@
 import * as tesserxel from "../../build/esm/tesserxel.js"
+import { SettingGUI } from "../../build/esm/ui/gui.js";
 const { Bivec, Vec4 } = tesserxel.math;
 type Vec4 = tesserxel.math.Vec4;
 const CWMesh = tesserxel.mesh.CWMesh;
@@ -82,16 +83,26 @@ function cwmesh2dframe(cwmesh: tesserxel.mesh.CWMesh, radius: number, segment: n
     }
     return obj;
 }
-class DisplayCtrl implements tesserxel.util.ctrl.IController {
+class DisplayCtrl implements tesserxel.ui.ctrl.IController {
     enabled: boolean = true;
     toggleMap: Map<string, tesserxel.four.Object>;
     constructor(toggleMap: Map<string, tesserxel.four.Object>) {
         this.toggleMap = toggleMap;
     }
-    update(state: tesserxel.util.ctrl.ControllerState): void {
-        if (state.isKeyHold("AltLeft")) return;
+    registGui(gui: SettingGUI) {
+        gui.keybindingMgr.addGroup("cwdisplay", {
+            title: { zh: "CW复形显示控制", en: "CW Mesh Display Ctrl" },
+            actions: {
+                "0": { title: { zh: "顶点", en: "Vertices" }, key: "Digit0", press: true },
+                "1": { title: { zh: "边", en: "Edges" }, key: "Digit1", press: true },
+                "2": { title: { zh: "面", en: "Faces" }, key: "Digit2", press: true },
+                "3": { title: { zh: "胞", en: "Cells" }, key: "Digit3", press: true },
+            }
+        });
+    }
+    update(state: tesserxel.ui.ctrl.ControllerState): void {
         for (const [key, obj] of this.toggleMap) {
-            if (state.isKeyHold(key)) {
+            if (state.isActionActive(key, "cwdisplay")) {
                 obj.visible = !obj.visible;
                 return;
             }
@@ -131,16 +142,16 @@ async function loadPolytope0123dFacesScene(mesh: tesserxel.mesh.CWMesh, scale: n
     // move camera a little back to see polytope at origin
     // note: w axis is pointed to back direction (like z axis in 3D)
     camera.position.w = 1.5;
-    const trackballCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
+    const trackballCtrl = new tesserxel.ui.ctrl.TrackBallController(camera, true);
     const displayCtrl = new DisplayCtrl(new Map([
-        [".Digit0", mesh0],
-        [".Digit1", mesh1],
-        [".Digit2", mesh2],
-        [".Digit3", mesh3],
+        ["0", mesh0],
+        ["1", mesh1],
+        ["2", mesh2],
+        ["3", mesh3],
     ]));
     // add our controller
-    app.controllerRegistry.add(displayCtrl);
     app.controllerRegistry.add(trackballCtrl);
+    app.controllerRegistry.add(displayCtrl);
     app.run();
 }
 export namespace duopr5 {

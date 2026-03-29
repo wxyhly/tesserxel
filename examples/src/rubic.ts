@@ -1,4 +1,4 @@
-import { math, four, util, mesh, render } from "../../build/esm/tesserxel.js"
+import { math, four, ui, mesh, render } from "../../build/esm/tesserxel.js"
 interface rubicBlcMesh extends four.Mesh {
     initPosition: math.Vec4;
     peer: rubicBlcMesh;
@@ -217,7 +217,7 @@ class RubicCtrl {
             new math.Vec4(2, 2, 2, 2),
         ], new math.Vec4(1, 0, 1, 0).wedge(math.Vec4.w).duals().norms().mulfs(math._180));
     }
-    update(state: util.ctrl.ControllerState): void {
+    update(state: ui.ctrl.ControllerState): void {
         if (!state.isKeyHold("AltLeft") && !state.isKeyHold("AltRight")) {
             if (state.isKeyHold(".KeyH")) {
                 this.hollowModel = !this.hollowModel;
@@ -510,7 +510,7 @@ export namespace rubic {
         const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         const app=await four.App.create({canvas,camera,scene,controllerConfig:{ preventDefault: true }});
         app.renderer.core.setDisplayConfig({ opacity: 30 });
-        const camController = new util.ctrl.TrackBallController(cubeGroup);
+        const camController = new ui.ctrl.TrackBallController(cubeGroup);
         const rubicMgr = new RubicMgr(posHash);
         const rubicCtrl = new RubicCtrl(rubicMgr);
         for (let i = 0; i < 1000; i++) rubicCtrl.cycle();

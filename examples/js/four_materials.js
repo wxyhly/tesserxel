@@ -50,7 +50,7 @@ export var four_materials;
         camera.position.y = 2.0;
         camera.lookAt(tesserxel.math.Vec4.wNeg, new tesserxel.math.Vec4());
         scene.add(camera);
-        app.controllerRegistry.add(new tesserxel.util.ctrl.KeepUpController(camera));
+        app.controllerRegistry.add(new tesserxel.ui.ctrl.KeepUpController(camera));
         let t = Math.random() * 12345678;
         app.run(() => {
             spotLight.direction.copy(new tesserxel.math.Vec4(Math.sin(t * 3), Math.cos(t * 3), Math.sin(t * 1.732), Math.cos(t * 1.732)).adds(tesserxel.math.Vec4.y.mulf(6)).norms());

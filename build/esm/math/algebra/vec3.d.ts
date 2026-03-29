@@ -14,6 +14,9 @@ export declare class Vec3 {
     static readonly x: Readonly<Vec3>;
     static readonly y: Readonly<Vec3>;
     static readonly z: Readonly<Vec3>;
+    static readonly xNeg: Readonly<Vec3>;
+    static readonly yNeg: Readonly<Vec3>;
+    static readonly zNeg: Readonly<Vec3>;
     constructor(x?: number, y?: number, z?: number);
     flat(): number[];
     writeBuffer(b: Float32Array, offset?: number): void;

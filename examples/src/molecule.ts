@@ -4,6 +4,7 @@ import * as tesserxel from "../../build/esm/tesserxel.js"
 // import { getStructureInfo, getAtomColor, getAtomRadius, drawStructure, goodLuck } from "/ccahgaolo/chem4d/js/api.js"
 // @ts-ignore
 import { getStructureInfo, getAtomColor, getAtomRadius, drawStructure, goodLuck } from "https://wxyhly.github.io/Chem4D/js/api.js"
+import { SettingGUI } from "../../build/esm/ui/gui.js";
 
 const FOUR = tesserxel.four;
 
@@ -466,7 +467,7 @@ export namespace molecule {
         const graph = getStructureInfo("FnCCCCCO") as Graph;
         let builder = new StructBuilder(graph, atomGeom, bondGeom, bondMat);
 
-        const trackballCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
+        const trackballCtrl = new tesserxel.ui.ctrl.TrackBallController(camera, true);
         const guiCtrl = new GUICtrl(builder);
         app.controllerRegistry.add(trackballCtrl);
         app.controllerRegistry.add(guiCtrl);
@@ -482,7 +483,7 @@ export namespace molecule {
             guiCtrl.builder = builder;
         };
         app.run(() => {
-            if (app.controllerRegistry.states.isKeyHold("KeyH")) {
+            if (app.controllerRegistry.states.isActionActive("heat", "chem")) {
                 builder.startHeat();
             } else {
                 if (builder.heat) builder.stopHeat();
@@ -494,13 +495,29 @@ export namespace molecule {
 }
 const urlp = new URLSearchParams(window.location.search.slice(1));
 const lang = urlp.get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en");
-class GUICtrl implements tesserxel.util.ctrl.IController {
+class GUICtrl implements tesserxel.ui.ctrl.IController {
     builder: StructBuilder;
     constructor(builder: StructBuilder) {
         this.builder = builder;
     }
-    update(state: tesserxel.util.ctrl.ControllerState): void {
-        if (state.isKeyHold(".KeyR")) {
+    registGui(gui: SettingGUI) {
+        gui.keybindingMgr.addGroup("chem", {
+            title: { zh: "分子模型控制", en: "Molecule Control" },
+            actions:
+            {
+                togglemode: {
+                    title: { zh: "切换球棍模型", en: "Toggle Stick Model" },
+                    key:"KeyR", press:true
+                },
+                heat: {
+                    title: { zh: "加热", en: "Heat" },
+                    key: "KeyH",
+                }
+            }
+        })
+    }
+    update(state: tesserxel.ui.ctrl.ControllerState): void {
+        if (state.isActionActive("togglemode", "chem")) {
             this.builder.changeStickMode();
         }
     }

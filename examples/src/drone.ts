@@ -1,4 +1,5 @@
 import * as tesserxel from "../../build/esm/tesserxel.js"
+import { SettingGUI } from "../../build/esm/ui/gui.js";
 const FOUR = tesserxel.four;
 const PHY = tesserxel.physics;
 const Vec4 = tesserxel.math.Vec4;
@@ -75,14 +76,14 @@ export namespace drone {
         world.add(droneP);
         droneP.position.y = 0.2;
         // camera.rotatesb(Bivec.xw.mulf(Math.PI));
-        const freeCamCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        const freeCamCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
         const hud = document.createElement("table");
 
         const droneCtrl = new DroneCtrl(droneP, freeCamCtrl, hud);
         const droneMecanism = new DroneMecanism(droneCtrl);
         world.add(droneMecanism);
-        app.controllerRegistry.add(droneCtrl);
         app.controllerRegistry.add(freeCamCtrl);
+        app.controllerRegistry.add(droneCtrl);
         const coeffFanrotAnimation = 1;
         const values: HTMLTableCellElement[] = [];
         const keys = {
@@ -93,9 +94,9 @@ export namespace drone {
                 "X- Motors", "X+ Motors",
                 "Z- Motors", "Z+ Motors",
                 "W- Motors", "W+ Motors",
-                "Press T to Toggle",
-                "Press B to Toggle",
-                "Press H to Hide",
+                `Press T to Toggle`,
+                `Press B to Toggle`,
+                `Press H to Hide`,
             ],
             "zh": [
                 "高度", "垂直速度分量", "水平速度分量",
@@ -155,11 +156,16 @@ export namespace drone {
             values[14].innerText = droneCtrl.motors[10].toFixed(3) + "; " + droneCtrl.motors[11].toFixed(3);
             values[16].innerText = droneCtrl.automatic ? translate["Automatic Mode"] : translate["Manual Mode"];
             values[17].innerText = droneCtrl.camLock ? translate["Drone Control"] : translate["Camera Control"];
+            app.controllerRegistry.update();
+            const st = app.controllerRegistry.states;
+            const tr = tesserxel.ui.ctrl.shortcut2text;
+            values[16].previousElementSibling.innerHTML = {zh:`按${tr("zh", st.getActionKey("automaticToggle", "drone"))}切换`,en:`Press ${tr("en", st.getActionKey("automaticToggle", "drone"))} to toggle`}[lang];
+            values[17].previousElementSibling.innerHTML = {zh:`按${tr("zh", st.getActionKey("toggleCamlock", "drone"))}切换`,en:`Press ${tr("en", st.getActionKey("toggleCamlock", "drone"))} to toggle`}[lang];
+            values[18].previousElementSibling.innerHTML = {zh:`按${tr("zh", st.getActionKey("hudToggle", "drone"))}隐藏`,en:`Press ${tr("en", st.getActionKey("hudToggle", "drone"))} to hide`}[lang];
             for (let i = 0; i < values.length; i++) {
                 if (values[i].innerText === "-0.0") values[i].innerText = "0.0";
                 if (values[i].innerText === "-0.000") values[i].innerText = "0.000";
             }
-            app.controllerRegistry.update();
             engine.update(world, 1 / 60);
             animateDrone();
             if (droneCtrl.camLock) {
@@ -182,8 +188,11 @@ export namespace drone {
             }
             freeCamCtrl.enabled = !droneCtrl.camLock;
             if (droneCtrl.camPos === -1) {
-                freeCamCtrl.enabled = true;
-                freeCamCtrl.keyConfig = droneCtrl.camLock ? disableKeyConfig : defaultKeyConfig;
+                freeCamCtrl.enabled = !droneCtrl.camLock;
+                // freeCamCtrl.enabled = true;
+                // freeCamCtrl.keyConfig = droneCtrl.camLock ? disableKeyConfig : defaultKeyConfig;
+            } else {
+                freeCamCtrl.enabled = false;
             }
             renderer.render(scene, camera);
             window.requestAnimationFrame(run);
@@ -294,10 +303,10 @@ export namespace drone {
     }
 }
 
-class DroneCtrl implements tesserxel.util.ctrl.IController {
+class DroneCtrl implements tesserxel.ui.ctrl.IController {
     crashed = false;
     camLock = true;
-    camCtrl: tesserxel.util.ctrl.KeepUpController;
+    camCtrl: tesserxel.ui.ctrl.KeepUpController;
     keyConfig = {
         up: "Space",
         down: "ShiftLeft",
@@ -322,6 +331,128 @@ class DroneCtrl implements tesserxel.util.ctrl.IController {
         hudToggle: ".KeyH",
         automaticToggle: ".KeyT",
     }
+    registGui(gui: SettingGUI) {
+        gui.keybindingMgr.addGroup("drone", {
+            "title": {
+                "zh": "无人机控制",
+                "en": "Drone Control"
+            },
+            "actions": {
+                "toggleCamlock": {
+                    "title": { "zh": "切换控制模式", "en": "Toggle Control Mode" },
+                    "key": "KeyB",
+                    "press": true
+                },
+                "hudToggle": {
+                    "title": { "zh": "切换HUD显示", "en": "Toggle HUD" },
+                    "key": "KeyH",
+                    "press": true
+                },
+                "automaticToggle": {
+                    "title": { "zh": "切换自动/手动模式", "en": "Toggle Automatic Mode" },
+                    "key": "KeyT",
+                    "press": true
+                },
+                "up": {
+                    "title": { "zh": "上升（高度）", "en": "Up (Height)" },
+                    "key": "Space"
+                },
+                "down": {
+                    "title": { "zh": "下降（高度）", "en": "Down (Height)" },
+                    "key": "ShiftLeft"
+                },
+                "front": {
+                    "title": { "zh": "前进", "en": "Forward" },
+                    "key": "KeyW"
+                },
+                "back": {
+                    "title": { "zh": "后退", "en": "Backward" },
+                    "key": "KeyS"
+                },
+                "left": {
+                    "title": { "zh": "左移", "en": "Move Left" },
+                    "key": "KeyA"
+                },
+                "right": {
+                    "title": { "zh": "右移", "en": "Move Right" },
+                    "key": "KeyD"
+                },
+                "ana": {
+                    "title": { "zh": "侧前移", "en": "Move Ana" },
+                    "key": "KeyQ"
+                },
+                "kata": {
+                    "title": { "zh": "侧后移", "en": "Move Kata" },
+                    "key": "KeyE"
+                },
+                "turnLeft": {
+                    "title": { "zh": "向左转", "en": "Turn Left" },
+                    "key": "KeyJ"
+                },
+                "turnRight": {
+                    "title": { "zh": "向右转", "en": "Turn Right" },
+                    "key": "KeyL"
+                },
+                "turnAna": {
+                    "title": { "zh": "向侧前转", "en": "Turn Ana" },
+                    "key": "KeyI"
+                },
+                "turnKata": {
+                    "title": { "zh": "向侧后转", "en": "Turn Kata" },
+                    "key": "KeyK"
+                },
+                "spinCW": {
+                    "title": { "zh": "顺时针自转", "en": "Spin Clockwise" },
+                    "key": "KeyU|KeyZ"
+                },
+                "spinCCW": {
+                    "title": { "zh": "逆时针自转", "en": "Spin Counterclockwise" },
+                    "key": "KeyO|KeyX"
+                },
+                "camSpeedIncrease": {
+                    "title": { "zh": "相机加速", "en": "Increase Camera Speed" },
+                    "key": "Equal",
+                    "press": true
+                },
+                "camSpeedDecrease": {
+                    "title": { "zh": "相机减速", "en": "Decrease Camera Speed" },
+                    "key": "Minus",
+                    "press": true
+                },
+
+            },
+            "groups": {
+                "camPos": {
+                    "title": {
+                        "zh": "相机预设位置",
+                        "en": "Camera Presets"
+                    },
+                    "actions": {
+                        "1": {
+                            "title": { "zh": "相机位置1", "en": "Camera Position 1" },
+                            "key": "Digit1",
+                            "press": true
+                        },
+                        "2": {
+                            "title": { "zh": "相机位置2", "en": "Camera Position 2" },
+                            "key": "Digit2",
+                            "press": true
+                        },
+                        "3": {
+                            "title": { "zh": "相机位置3", "en": "Camera Position 3" },
+                            "key": "Digit3",
+                            "press": true
+                        },
+                        "4": {
+                            "title": { "zh": "相机位置4", "en": "Camera Position 4" },
+                            "key": "Digit4",
+                            "press": true
+                        }
+                    }
+                }
+            }
+        });
+    }
     camPos = -1;
     camSpeedAdjustFactor = 1.5;
     // x- x+ z- z+ w- w+
@@ -339,7 +470,7 @@ class DroneCtrl implements tesserxel.util.ctrl.IController {
     wxzPID: PIDCtrl;
     wzwPID: PIDCtrl;
 
-    constructor(rigid: tesserxel.physics.Rigid, camCtrl: tesserxel.util.ctrl.KeepUpController, hudDom: HTMLElement) {
+    constructor(rigid: tesserxel.physics.Rigid, camCtrl: tesserxel.ui.ctrl.KeepUpController, hudDom: HTMLElement) {
         this.rigid = rigid;
         this.camCtrl = camCtrl;
         this.hudDom = hudDom;
@@ -357,111 +488,110 @@ class DroneCtrl implements tesserxel.util.ctrl.IController {
         this.wxzPID = new PIDCtrl(0.1, 0.01, 0.05, 1 / 60);
         this.wzwPID = new PIDCtrl(0.1, 0.01, 0.05, 1 / 60);
     }
-    update(state: tesserxel.util.ctrl.ControllerState): void {
+    update(state: tesserxel.ui.ctrl.ControllerState): void {
         if (!this.crashed) this.checkState();
-        if (state.isKeyHold("AltLeft")) return;
-        if (state.isKeyHold(this.keyConfig.hudToggle)) {
+        if (state.isActionActive("hudToggle", "drone")) {
             this.hudDom.style.display = this.hudDom.style.display === "none" ? "" : "none";
         }
-        if (state.isKeyHold(this.keyConfig.automaticToggle)) {
+        if (state.isActionActive("automaticToggle", "drone")) {
             this.automatic = !this.automatic;
             this.motors.fill(0);
         }
-        if (state.isKeyHold(this.keyConfig.toggleCamlock)) {
+        if (state.isActionActive("toggleCamlock", "drone")) {
             this.camLock = !this.camLock;
             this.camPos = -1;
         }
-        for (let i = 0; i < this.keyConfig.camPos.length; i++) {
-            if (state.isKeyHold(this.keyConfig.camPos[i])) {
+        for (let i = 0; i < 4; i++) {
+            if (state.isActionActive("camPos." + (i + 1), "drone")) {
                 this.camPos = i === 3 ? -1 : i;
                 if (i !== 3) this.camLock = true;
             }
         }
         if (!this.camLock) {
-            if (state.isKeyHold(this.keyConfig.camSpeedDecrease)) {
+            if (state.isActionActive("camSpeedDecrease", "drone")) {
                 this.camCtrl.keyMoveSpeed /= this.camSpeedAdjustFactor;
             }
-            if (state.isKeyHold(this.keyConfig.camSpeedIncrease)) {
+            if (state.isActionActive("camSpeedIncrease", "drone")) {
                 this.camCtrl.keyMoveSpeed *= this.camSpeedAdjustFactor;
             }
         }
         if (this.camLock && !this.automatic) {
             const moveDelta = 0.003;
-            if (state.isKeyHold(this.keyConfig.up)) {
+            if (state.isActionActive("up", "drone")) {
                 this.motors.fill(1);
-            } else if (state.isKeyHold(this.keyConfig.down)) {
+            } else if (state.isActionActive("down", "drone")) {
                 this.motors.fill(-1);
             } else {
                 this.motors.fill(0);
             }
-            if (state.isKeyHold(this.keyConfig.back)) {
+            if (state.isActionActive("back", "drone")) {
                 this.motors[8] += moveDelta;
                 this.motors[9] += moveDelta;
                 this.motors[10] -= moveDelta;
                 this.motors[11] -= moveDelta;
             }
-            if (state.isKeyHold(this.keyConfig.front)) {
+            if (state.isActionActive("front", "drone")) {
                 this.motors[8] -= moveDelta;
                 this.motors[9] -= moveDelta;
                 this.motors[10] += moveDelta;
                 this.motors[11] += moveDelta;
             }
-            if (state.isKeyHold(this.keyConfig.right)) {
+            if (state.isActionActive("right", "drone")) {
                 this.motors[0] += moveDelta;
                 this.motors[1] += moveDelta;
                 this.motors[2] -= moveDelta;
                 this.motors[3] -= moveDelta;
             }
-            if (state.isKeyHold(this.keyConfig.left)) {
+            if (state.isActionActive("left", "drone")) {
                 this.motors[0] -= moveDelta;
                 this.motors[1] -= moveDelta;
                 this.motors[2] += moveDelta;
                 this.motors[3] += moveDelta;
             }
-            if (state.isKeyHold(this.keyConfig.ana)) {
+            if (state.isActionActive("ana", "drone")) {
                 this.motors[4] += moveDelta;
                 this.motors[5] += moveDelta;
                 this.motors[6] -= moveDelta;
                 this.motors[7] -= moveDelta;
             }
-            if (state.isKeyHold(this.keyConfig.kata)) {
+            if (state.isActionActive("kata", "drone")) {
                 this.motors[4] -= moveDelta;
                 this.motors[5] -= moveDelta;
                 this.motors[6] += moveDelta;
                 this.motors[7] += moveDelta;
             }
 
-            if (state.isKeyHold(this.keyConfig.turnRight)) {
+            if (state.isActionActive("turnRight", "drone")) {
                 this.motors[4] -= moveDelta;
                 this.motors[5] += moveDelta;
                 this.motors[6] -= moveDelta;
                 this.motors[7] += moveDelta;
             }
-            if (state.isKeyHold(this.keyConfig.turnLeft)) {
+            if (state.isActionActive("turnLeft", "drone")) {
                 this.motors[4] += moveDelta;
                 this.motors[5] -= moveDelta;
                 this.motors[6] += moveDelta;
                 this.motors[7] -= moveDelta;
             }
-            if (state.isKeyHold(this.keyConfig.spinCW)) {
+            if (state.isActionActive("spinCW", "drone")) {
                 this.motors[8] += moveDelta;
                 this.motors[9] -= moveDelta;
                 this.motors[10] += moveDelta;
                 this.motors[11] -= moveDelta;
             }
-            if (state.isKeyHold(this.keyConfig.spinCCW)) {
+            if (state.isActionActive("spinCCW", "drone")) {
                 this.motors[8] -= moveDelta;
                 this.motors[9] += moveDelta;
                 this.motors[10] -= moveDelta;
                 this.motors[11] += moveDelta;
             }
-            if (state.isKeyHold(this.keyConfig.turnKata)) {
+            if (state.isActionActive("turnKata", "drone")) {
                 this.motors[0] -= moveDelta;
                 this.motors[1] += moveDelta;
                 this.motors[2] -= moveDelta;
                 this.motors[3] += moveDelta;
             }
-            if (state.isKeyHold(this.keyConfig.turnAna)) {
+            if (state.isActionActive("turnAna", "drone")) {
                 this.motors[0] += moveDelta;
                 this.motors[1] -= moveDelta;
                 this.motors[2] += moveDelta;
@@ -500,41 +630,41 @@ class DroneCtrl implements tesserxel.util.ctrl.IController {
         let targetWxz = 0;
         let targetWzw = 0;
         if (this.camLock) {
-            if (state.isKeyHold(this.keyConfig.up)) {
+            if (state.isActionActive("up", "drone")) {
                 targetVy = param.vy;
-            } else if (state.isKeyHold(this.keyConfig.down)) {
+            } else if (state.isActionActive("down", "drone")) {
                 targetVy = -param.vy;
             }
-            if (state.isKeyHold(this.keyConfig.front)) {
+            if (state.isActionActive("front", "drone")) {
                 targetTw = param.vh;
-            } else if (state.isKeyHold(this.keyConfig.back)) {
+            } else if (state.isActionActive("back", "drone")) {
                 targetTw = -param.vh;
             }
 
-            if (state.isKeyHold(this.keyConfig.left)) {
+            if (state.isActionActive("left", "drone")) {
                 targetTx = param.vh;
-            } else if (state.isKeyHold(this.keyConfig.right)) {
+            } else if (state.isActionActive("right", "drone")) {
                 targetTx = -param.vh;
             }
 
-            if (state.isKeyHold(this.keyConfig.ana)) {
+            if (state.isActionActive("ana", "drone")) {
                 targetTz = -param.vh;
-            } else if (state.isKeyHold(this.keyConfig.kata)) {
+            } else if (state.isActionActive("kata", "drone")) {
                 targetTz = param.vh;
             }
-            if (state.isKeyHold(this.keyConfig.turnLeft)) {
+            if (state.isActionActive("turnLeft", "drone")) {
                 targetWxw = -param.w;
-            } else if (state.isKeyHold(this.keyConfig.turnRight)) {
+            } else if (state.isActionActive("turnRight", "drone")) {
                 targetWxw = param.w;
             }
-            if (state.isKeyHold(this.keyConfig.spinCCW)) {
+            if (state.isActionActive("spinCCW", "drone")) {
                 targetWxz = param.w;
-            } else if (state.isKeyHold(this.keyConfig.spinCW)) {
+            } else if (state.isActionActive("spinCW", "drone")) {
                 targetWxz = -param.w;
             }
-            if (state.isKeyHold(this.keyConfig.turnAna)) {
+            if (state.isActionActive("turnAna", "drone")) {
                 targetWzw = param.w;
-            } else if (state.isKeyHold(this.keyConfig.turnKata)) {
+            } else if (state.isActionActive("turnKata", "drone")) {
                 targetWzw = -param.w;
             }
         }

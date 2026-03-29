@@ -613,6 +613,9 @@ declare class Vec3 {
     static readonly x: Readonly<Vec3>;
     static readonly y: Readonly<Vec3>;
     static readonly z: Readonly<Vec3>;
+    static readonly xNeg: Readonly<Vec3>;
+    static readonly yNeg: Readonly<Vec3>;
+    static readonly zNeg: Readonly<Vec3>;
     constructor(x?: number, y?: number, z?: number);
     flat(): number[];
     writeBuffer(b: Float32Array, offset?: number): void;
@@ -2044,9 +2047,134 @@ declare class CWMeshGeometry extends Geometry {
     constructor(cwmesh: CWMesh);
 }
 
+declare abstract class BaseWindow {
+    protected overlay: HTMLDivElement;
+    protected panel: HTMLDivElement;
+    isOpen: boolean;
+    constructor();
+    open(): void;
+    close(): void;
+    abstract render(): void;
+    private injectStyle;
+}
+
+type PlayerSettings = {
+    version: number;
+    keybindings: Record<string, string>;
+    preference: Record<string, string>;
+};
+declare class StorageManager {
+    private static STORAGE_KEY;
+    data: PlayerSettings;
+    constructor();
+    private load;
+    save(): void;
+    private default;
+    migrate(old: any): PlayerSettings;
+    clear(): void;
+}
+
+type I18NText = {
+    zh: string;
+    en: string;
+};
+type KeyBindingAction = {
+    title: I18NText;
+    /** internal code:
+     *  'KeyA' for holding Key A
+     *  '.KeyA' for pressing Key A
+     *  'ControlLeft+.KeyA' for press A while holding CtrlLeft */
+    key: string;
+    press?: boolean;
+};
+type KeyBindingGroup = {
+    title?: I18NText;
+    actions?: Record<string, KeyBindingAction>;
+    groups?: Record<string, KeyBindingGroup>;
+};
+type KeyBindingPreset = Record<string, string>;
+type KeyBindingConfig = {
+    root: KeyBindingGroup;
+    presets: Record<string, KeyBindingPreset>;
+    keyIndex: Record<string, string>;
+};
+declare class KeyBindingUI extends BaseWindow {
+    data: KeyBindingConfig;
+    lang: "zh" | "en";
+    private waitingAction;
+    private combo;
+    onchange: () => void;
+    private changed;
+    storage: StorageManager;
+    constructor(storage: StorageManager);
+    private injectMyStyle;
+    open(): void;
+    close(): void;
+    private cancelWaiting;
+    render(): void;
+    private renderFooter;
+    private onKeyDown;
+    private onKeyUp;
+    private findAction;
+    addGroup(name: string, v: KeyBindingGroup): void;
+    private updateActionKey;
+}
+declare function shortcut2text(lang: "zh" | "en", s: string): string;
+
+declare class PreferenceUI extends BaseWindow {
+    lang: "zh" | "en";
+    settings: StorageManager;
+    constructor(settings: StorageManager);
+    private items;
+    render(): void;
+}
+
+interface BtnDesc {
+    name: string;
+    svgIcon: string;
+    shortcut?: string;
+    title?: {
+        zh: string;
+        en: string;
+    };
+}
+declare class SettingGUI {
+    preferenceMgr: PreferenceUI;
+    keybindingMgr: KeyBindingUI;
+    storageMgr: StorageManager;
+    iconSize: number;
+    onbtnpress: (states: ControllerState) => void;
+    onbtnup: (states: ControllerState) => void;
+    dom: HTMLDivElement;
+    styleDom: HTMLStyleElement;
+    private mainBtnCount;
+    private ctrlReg;
+    lang?: "zh" | "en";
+    isOpen(): boolean;
+    constructor(ctrlReg: ControllerRegistry);
+    private enableDragging;
+    private createBtn;
+    private setBtnPos;
+    addLvl1Button(desc: BtnDesc): HTMLButtonElement;
+    addLvl2Panel(lvl1btn: HTMLButtonElement): HTMLDivElement;
+    addLvl2Button(desc: BtnDesc, lvl2panel: HTMLDivElement): HTMLButtonElement;
+    addLvl3Drop(lvl2btn: HTMLButtonElement, width: number, offset?: number): HTMLDivElement;
+    private refreshBtn;
+    refresh(): void;
+    private setStyle;
+    increaseBtnSize(): void;
+    decreaseBtnSize(): void;
+    openKeybindMgr(): void;
+    openPreferenceMgr(): void;
+}
+
+declare const SVG_HEADER = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='";
+declare const SVG_LINE = "style=\"fill:none;stroke:#FFF;stroke-width:0.25;\"";
+
 interface IController {
     enabled?: boolean;
     update(state: ControllerState): void;
+    registGui?: (gui: SettingGUI) => void;
 }
 interface ControllerConfig {
     preventDefault?: boolean;
@@ -2069,19 +2197,28 @@ interface ControllerState {
     wheelY: number;
     lastUpdateTime?: number;
     mspf: number;
+    storage: StorageManager;
     requestPointerLock: () => void;
     enablePointerLock?: boolean;
     /** PointerLock has been triggered by the mouse */
     isPointerLockedMouseDown?: boolean;
     /** PointerLock has been canceled by key escape */
     isPointerLockEscaped?: boolean;
-    /** code:
+    /** internal code:
      *  'KeyA' for holding Key A
      *  '.KeyA' for pressing Key A
-     *  'ControlLeft+.KeyA' for press A while holding CtrlLeft*/
+     *  'ControlLeft+.KeyA' for press A while holding CtrlLeft */
     isKeyHold: (code: string) => boolean;
+    /** "path.action" from keybindingMgr */
+    isActionHold: (action: string, path: string) => boolean;
+    isActionActive: (action: string, path: string) => boolean;
+    getActionKey: (action: string, path: string) => string;
     isPointerLocked: () => boolean;
     exitPointerLock: () => void;
+    /** each update, check whether there are some ctrlpath with xxx.enable key hold
+     * this can be used to disable other ctrl paths
+     */
+    enabledCtrlPath: string[];
 }
 declare enum KeyState {
     NONE = 0,
@@ -2091,11 +2228,14 @@ declare enum KeyState {
 }
 declare class ControllerRegistry {
     dom: HTMLElement;
+    gui: SettingGUI;
     private ctrls;
     enablePointerLock: boolean;
+    private storage;
     readonly states: ControllerState;
     /** if this is true, prevent default will not work  */
     disableDefaultEvent: boolean;
+    iconSize: number;
     private prevIsPointerLocked;
     private evMouseDown;
     private evMouseUp;
@@ -2105,6 +2245,7 @@ declare class ControllerRegistry {
     private evKeyDown;
     private evContextMenu;
     constructor(dom: HTMLElement, ctrls: Array<IController>, config?: ControllerConfig);
+    private initGUI;
     add(ctrl: IController): void;
     remove(ctrl: IController): void;
     unregist(): void;
@@ -2132,6 +2273,7 @@ declare class TrackBallController implements IController {
     constructor(object?: Obj4, cameraMode?: boolean);
     update(state: ControllerState): void;
     lookAtCenter(): void;
+    registGui(gui: SettingGUI): void;
 }
 declare class FreeFlyController implements IController {
     enabled: boolean;
@@ -2143,30 +2285,6 @@ declare class FreeFlyController implements IController {
     keyRotateSpeed: number;
     damp: number;
     constructor(object?: Obj4);
-    keyConfig: {
-        front: string;
-        back: string;
-        left: string;
-        right: string;
-        ana: string;
-        kata: string;
-        up: string;
-        down: string;
-        turnLeft: string;
-        turnRight: string;
-        turnAna: string;
-        turnKata: string;
-        turnUp: string;
-        turnDown: string;
-        spinCW: string;
-        spinCCW: string;
-        rollCW: string;
-        rollCCW: string;
-        pitchCW: string;
-        pitchCCW: string;
-        disable: string;
-        enable: string;
-    };
     /** how many update cycles (2^n) to normalise rotor to avoid accuracy problem */
     normalisePeriodBit: 4;
     private _bivec;
@@ -2174,6 +2292,7 @@ declare class FreeFlyController implements IController {
     private _moveVec;
     private _vec;
     private normalisePeriodMask;
+    registGui(gui: SettingGUI): void;
     update(state: ControllerState): void;
 }
 declare class KeepUpController implements IController {
@@ -2204,6 +2323,7 @@ declare class KeepUpController implements IController {
         disable: string;
         enable: string;
     };
+    registGui(gui: SettingGUI): void;
     /** how many update cycles (2^n) to normalise rotor to avoid accuracy problem */
     normalisePeriodBit: 4;
     private _bivec;
@@ -2304,6 +2424,7 @@ declare class RetinaController implements IController {
     maxSectionEyeOffset: number;
     minSectionEyeOffset: number;
     size: GPUExtent3DStrict;
+    sectionPresetLabels: string[];
     sectionPresets: (screenSize: GPUExtent3DStrict) => {
         [label: string]: SectionPreset;
     };
@@ -2311,48 +2432,10 @@ declare class RetinaController implements IController {
     private rembemerLastLayers;
     private needResize;
     private currentRetinaRenderPassIndex;
-    keyConfig: {
-        enable: string;
-        disable: string;
-        addOpacity: string;
-        subOpacity: string;
-        addLayer: string;
-        subLayer: string;
-        addRetinaResolution: string;
-        subRetinaResolution: string;
-        addFov: string;
-        subFov: string;
-        toggle3D: string;
-        addEyes3dGap: string;
-        subEyes3dGap: string;
-        addEyes4dGap: string;
-        subEyes4dGap: string;
-        negEyesGap: string;
-        toggleCrosshair: string;
-        rotateLeft: string;
-        rotateRight: string;
-        rotateUp: string;
-        rotateDown: string;
-        refaceFront: string;
-        refaceRight: string;
-        refaceLeft: string;
-        refaceTop: string;
-        refaceBottom: string;
-        toggleRetinaAlpha: string;
-        sectionConfigs: {
-            "retina+sections": string;
-            "retina+bigsections": string;
-            retina: string;
-            sections: string;
-            zsection: string;
-            ysection: string;
-            "retina+zslices": string;
-            "retina+yslices": string;
-        };
-    };
     private alphaBuffer;
-    guiMouseOperation: string;
+    private guiButtons;
     constructor(r: SliceRenderer);
+    registGui(gui: SettingGUI): void;
     private _vec2damp;
     private _vec2euler;
     private _vec3;
@@ -2401,9 +2484,6 @@ declare class RetinaCtrlGui {
     refresh: (param: any) => void;
     createToggleDiv(CtrlBtn: HTMLButtonElement, display?: string): HTMLDivElement;
     createDropBox(CtrlBtn: HTMLButtonElement, offset: number, width?: number): HTMLDivElement;
-    toggle(): void;
-    constructor(retinaCtrl: RetinaController);
-    addBtn(svgIcon: string): HTMLButtonElement;
 }
 
 type ctrl_d_ControllerConfig = ControllerConfig;
@@ -2421,13 +2501,16 @@ type ctrl_d_RetinaController = RetinaController;
 declare const ctrl_d_RetinaController: typeof RetinaController;
 type ctrl_d_RetinaCtrlGui = RetinaCtrlGui;
 declare const ctrl_d_RetinaCtrlGui: typeof RetinaCtrlGui;
+declare const ctrl_d_SVG_HEADER: typeof SVG_HEADER;
+declare const ctrl_d_SVG_LINE: typeof SVG_LINE;
 type ctrl_d_TrackBallController = TrackBallController;
 declare const ctrl_d_TrackBallController: typeof TrackBallController;
 type ctrl_d_VoxelViewerController = VoxelViewerController;
 declare const ctrl_d_VoxelViewerController: typeof VoxelViewerController;
+declare const ctrl_d_shortcut2text: typeof shortcut2text;
 import ctrl_d_sliceconfig = sliceconfig;
 declare namespace ctrl_d {
-  export { ctrl_d_ControllerRegistry as ControllerRegistry, ctrl_d_FreeFlyController as FreeFlyController, ctrl_d_KeepUpController as KeepUpController, ctrl_d_KeyState as KeyState, ctrl_d_RetinaController as RetinaController, ctrl_d_RetinaCtrlGui as RetinaCtrlGui, ctrl_d_TrackBallController as TrackBallController, ctrl_d_VoxelViewerController as VoxelViewerController, ctrl_d_sliceconfig as sliceconfig };
+  export { ctrl_d_ControllerRegistry as ControllerRegistry, ctrl_d_FreeFlyController as FreeFlyController, ctrl_d_KeepUpController as KeepUpController, ctrl_d_KeyState as KeyState, ctrl_d_RetinaController as RetinaController, ctrl_d_RetinaCtrlGui as RetinaCtrlGui, ctrl_d_SVG_HEADER as SVG_HEADER, ctrl_d_SVG_LINE as SVG_LINE, ctrl_d_TrackBallController as TrackBallController, ctrl_d_VoxelViewerController as VoxelViewerController, ctrl_d_shortcut2text as shortcut2text, ctrl_d_sliceconfig as sliceconfig };
   export type { ctrl_d_ControllerConfig as ControllerConfig, ctrl_d_ControllerState as ControllerState, ctrl_d_IController as IController };
 }
 
@@ -3140,10 +3223,10 @@ declare namespace render_d {
   export type { render_d_DisplayConfig as DisplayConfig, render_d_DisplayConfigName as DisplayConfigName, render_d_GeneralShaderState as GeneralShaderState, render_d_IWireframeRenderState as IWireframeRenderState, render_d_RaytracingPipelineDescriptor as RaytracingPipelineDescriptor, render_d_RenderState as RenderState, render_d_RetinaRenderPass as RetinaRenderPass, render_d_RetinaRenderPassDescriptor as RetinaRenderPassDescriptor, render_d_SectionConfig as SectionConfig, render_d_Size3DDict as Size3DDict, render_d_SlicePipelineLayout as SlicePipelineLayout, render_d_SliceRendererConfig as SliceRendererConfig, render_d_TetraSlicePipelineDescriptor as TetraSlicePipelineDescriptor, render_d_TetraVertexState as TetraVertexState, render_d_VoxelBuffer as VoxelBuffer };
 }
 
-declare namespace util_d {
+declare namespace ui_d {
   export {
     ctrl_d as ctrl,
   };
 }
 
-export { four_d as four, math_d as math, mesh_d as mesh, physics_d as physics, render_d as render, util_d as util };
+export { four_d as four, math_d as math, mesh_d as mesh, physics_d as physics, render_d as render, ui_d as ui };

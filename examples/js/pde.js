@@ -136,9 +136,8 @@ export var wave_eq;
         const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
             { buffer: bufferA.buffer }
         ]);
-        let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
-        retinaCtrl.keyConfig.enable = "";
-        let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
+        let retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer);
+        let ctrlReg = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
         function setSize() {
             const width = window.innerWidth * window.devicePixelRatio;
             const height = window.innerHeight * window.devicePixelRatio;
@@ -740,14 +739,14 @@ async function simulateTerrain(erosionRate, coriolis) {
         { buffer: tx06.buffer },
         { buffer: uBlockBuffer },
     ], "renderBindgroup");
-    let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
+    let retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer);
     // retinaCtrl.keyConfig.enable = "";
     // retinaCtrl.toggleSectionConfig("zsection");
     // retinaCtrl.setStereo(false);
     let displayCtrl = new ErosionDisplayController(uBlockJsBuffer);
     let viewObj = new tesserxel.math.Obj4(new tesserxel.math.Vec4, new tesserxel.math.Rotor, new tesserxel.math.Vec4(1, 1, 1, 1));
-    let viewCtrl = new tesserxel.util.ctrl.VoxelViewerController(viewObj);
-    let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+    let viewCtrl = new tesserxel.ui.ctrl.VoxelViewerController(viewObj);
+    let ctrlReg = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
         retinaCtrl, displayCtrl, viewCtrl
     ], { enablePointerLock: true });
     await renderer.init();

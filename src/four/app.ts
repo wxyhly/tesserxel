@@ -1,4 +1,4 @@
-import { ControllerConfig, ControllerRegistry, IController, RetinaController } from "../util/ctrl.js";
+import { ControllerConfig, ControllerRegistry, IController, RetinaController } from "../ui/ctrl.js";
 import { Renderer, RendererConfig } from "./renderer.js";
 import { Camera, PerspectiveCamera, Scene } from "./scene.js";
 

@@ -212,12 +212,12 @@ export var automobile;
         const roadGeom = new tesserxel.four.Geometry(tesserxel.mesh.tetra.loft(spline, tesserxel.mesh.face.cube().setConstantNormal(new Vec4()), 5).generateNormal());
         scene.add(new tesserxel.four.Mesh(roadGeom, new tesserxel.four.LambertMaterial([0.5, 0.5, 0.5])));
         camera.position.w = 0.5;
-        const retinaController = new tesserxel.util.ctrl.RetinaController(renderer.core);
-        const freeCamCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        const retinaController = new tesserxel.ui.ctrl.RetinaController(renderer.core);
+        const freeCamCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
         const hud = document.createElement("table");
         const carCtrl = new CarCtrl(wheelPs, torqueSpringsParamArray, freeCamCtrl, hud);
         world.add(carCtrl);
-        const ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+        const ctrlReg = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
             retinaController, freeCamCtrl, carCtrl
         ], { preventDefault: true });
         function setSize() {

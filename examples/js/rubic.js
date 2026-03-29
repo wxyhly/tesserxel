@@ -1,4 +1,4 @@
-import { math, four, util, mesh } from "../../build/esm/tesserxel.js";
+import { math, four, ui, mesh } from "../../build/esm/tesserxel.js";
 let order = 3;
 let cellGap = 0.1;
 let blockGap = 0.2;
@@ -482,7 +482,7 @@ export var rubic;
         const canvas = document.getElementById("gpu-canvas");
         const app = await four.App.create({ canvas, camera, scene, controllerConfig: { preventDefault: true } });
         app.renderer.core.setDisplayConfig({ opacity: 30 });
-        const camController = new util.ctrl.TrackBallController(cubeGroup);
+        const camController = new ui.ctrl.TrackBallController(cubeGroup);
         const rubicMgr = new RubicMgr(posHash);
         const rubicCtrl = new RubicCtrl(rubicMgr);
         for (let i = 0; i < 1000; i++)

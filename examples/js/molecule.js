@@ -474,7 +474,7 @@ export var molecule;
         camera.position.w = 400;
         const graph = getStructureInfo("FnCCCCCO");
         let builder = new StructBuilder(graph, atomGeom, bondGeom, bondMat);
-        const trackballCtrl = new tesserxel.util.ctrl.TrackBallController(camera, true);
+        const trackballCtrl = new tesserxel.ui.ctrl.TrackBallController(camera, true);
         const guiCtrl = new GUICtrl(builder);
         app.controllerRegistry.add(trackballCtrl);
         app.controllerRegistry.add(guiCtrl);
@@ -490,7 +490,7 @@ export var molecule;
             guiCtrl.builder = builder;
         };
         app.run(() => {
-            if (app.controllerRegistry.states.isKeyHold("KeyH")) {
+            if (app.controllerRegistry.states.isActionActive("heat", "chem")) {
                 builder.startHeat();
             }
             else {
@@ -509,8 +509,23 @@ class GUICtrl {
     constructor(builder) {
         this.builder = builder;
     }
+    registGui(gui) {
+        gui.keybindingMgr.addGroup("chem", {
+            title: { zh: "分子模型控制", en: "Molecule Control" },
+            actions: {
+                togglemode: {
+                    title: { zh: "切换球棍模型", en: "Toggle Stick Model" },
+                    key: "KeyR", press: true
+                },
+                heat: {
+                    title: { zh: "加热", en: "Heat" },
+                    key: "KeyH",
+                }
+            }
+        });
+    }
     update(state) {
-        if (state.isKeyHold(".KeyR")) {
+        if (state.isActionActive("togglemode", "chem")) {
             this.builder.changeStickMode();
         }
     }

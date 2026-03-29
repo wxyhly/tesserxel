@@ -105,14 +105,14 @@ class ShapesApp {
         // bind these buffers to group(1) in pipeline
         this.vertBindGroup = this.renderer.createVertexShaderBindGroup(this.pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, this.camBuffer]);
         // init a trackball controller in order to drag 4d object by mouse and keys
-        this.trackBallController = new tesserxel.util.ctrl.TrackBallController();
+        this.trackBallController = new tesserxel.ui.ctrl.TrackBallController();
         // randomize the initial orientation of the object controlled by trackball controller
         this.trackBallController.object.rotation.randset();
         // init a retina controller in order to adjust retina settings interactively like section thumbails and retina render layers
-        this.retinaController = new tesserxel.util.ctrl.RetinaController(this.renderer);
+        this.retinaController = new tesserxel.ui.ctrl.RetinaController(this.renderer);
         this.setSize();
         this.retinaController.mouseButton = null;
-        this.ctrlRegistry = new tesserxel.util.ctrl.ControllerRegistry(this.canvas, [
+        this.ctrlRegistry = new tesserxel.ui.ctrl.ControllerRegistry(this.canvas, [
             this.trackBallController, this.retinaController
         ], { preventDefault: true, enablePointerLock: true });
         this.mesh = mesh;

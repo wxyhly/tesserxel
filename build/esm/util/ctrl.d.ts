@@ -1,9 +1,14 @@
 import { Obj4 } from "../math/algebra/affine.js";
 import { Vec4 } from "../math/algebra/vec4.js";
 import { SectionConfig, DisplayConfig, SliceRenderer } from "../render/slice/slice.js";
+import { SettingGUI } from "./gui.js";
+import { SettingsManager } from "./storage.js";
+export declare const SVG_HEADER = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='";
+export declare const SVG_LINE = "style=\"fill:none;stroke:#FFF;stroke-width:0.25;\"";
 export interface IController {
     enabled?: boolean;
     update(state: ControllerState): void;
+    registGui?: (gui: SettingGUI) => void;
 }
 export interface ControllerConfig {
     preventDefault?: boolean;
@@ -26,17 +31,22 @@ export interface ControllerState {
     wheelY: number;
     lastUpdateTime?: number;
     mspf: number;
+    storage: SettingsManager;
     requestPointerLock: () => void;
     enablePointerLock?: boolean;
     /** PointerLock has been triggered by the mouse */
     isPointerLockedMouseDown?: boolean;
     /** PointerLock has been canceled by key escape */
     isPointerLockEscaped?: boolean;
-    /** code:
+    /** internal code:
      *  'KeyA' for holding Key A
      *  '.KeyA' for pressing Key A
-     *  'ControlLeft+.KeyA' for press A while holding CtrlLeft*/
+     *  'ControlLeft+.KeyA' for press A while holding CtrlLeft */
     isKeyHold: (code: string) => boolean;
+    /** "path.action" from keybindingMgr */
+    isActionHold: (action: string, path: string) => boolean;
+    isActionActive: (action: string, path: string) => boolean;
+    getActionKey: (action: string, path: string) => string;
     isPointerLocked: () => boolean;
     exitPointerLock: () => void;
 }
@@ -48,11 +58,14 @@ export declare enum KeyState {
 }
 export declare class ControllerRegistry {
     dom: HTMLElement;
+    gui: SettingGUI;
     private ctrls;
     enablePointerLock: boolean;
+    private storage;
     readonly states: ControllerState;
     /** if this is true, prevent default will not work  */
     disableDefaultEvent: boolean;
+    iconSize: number;
     private prevIsPointerLocked;
     private evMouseDown;
     private evMouseUp;
@@ -62,6 +75,7 @@ export declare class ControllerRegistry {
     private evKeyDown;
     private evContextMenu;
     constructor(dom: HTMLElement, ctrls: Array<IController>, config?: ControllerConfig);
+    private initGUI;
     add(ctrl: IController): void;
     remove(ctrl: IController): void;
     unregist(): void;
@@ -89,6 +103,7 @@ export declare class TrackBallController implements IController {
     constructor(object?: Obj4, cameraMode?: boolean);
     update(state: ControllerState): void;
     lookAtCenter(): void;
+    registGui(gui: SettingGUI): void;
 }
 export declare class FreeFlyController implements IController {
     enabled: boolean;
@@ -100,30 +115,6 @@ export declare class FreeFlyController implements IController {
     keyRotateSpeed: number;
     damp: number;
     constructor(object?: Obj4);
-    keyConfig: {
-        front: string;
-        back: string;
-        left: string;
-        right: string;
-        ana: string;
-        kata: string;
-        up: string;
-        down: string;
-        turnLeft: string;
-        turnRight: string;
-        turnAna: string;
-        turnKata: string;
-        turnUp: string;
-        turnDown: string;
-        spinCW: string;
-        spinCCW: string;
-        rollCW: string;
-        rollCCW: string;
-        pitchCW: string;
-        pitchCCW: string;
-        disable: string;
-        enable: string;
-    };
     /** how many update cycles (2^n) to normalise rotor to avoid accuracy problem */
     normalisePeriodBit: 4;
     private _bivec;
@@ -131,6 +122,7 @@ export declare class FreeFlyController implements IController {
     private _moveVec;
     private _vec;
     private normalisePeriodMask;
+    registGui(gui: SettingGUI): void;
     update(state: ControllerState): void;
 }
 export declare class KeepUpController implements IController {
@@ -161,6 +153,7 @@ export declare class KeepUpController implements IController {
         disable: string;
         enable: string;
     };
+    registGui(gui: SettingGUI): void;
     /** how many update cycles (2^n) to normalise rotor to avoid accuracy problem */
     normalisePeriodBit: 4;
     private _bivec;
@@ -261,6 +254,7 @@ export declare class RetinaController implements IController {
     maxSectionEyeOffset: number;
     minSectionEyeOffset: number;
     size: GPUExtent3DStrict;
+    sectionPresetLabels: string[];
     sectionPresets: (screenSize: GPUExtent3DStrict) => {
         [label: string]: SectionPreset;
     };
@@ -268,48 +262,10 @@ export declare class RetinaController implements IController {
     private rembemerLastLayers;
     private needResize;
     private currentRetinaRenderPassIndex;
-    keyConfig: {
-        enable: string;
-        disable: string;
-        addOpacity: string;
-        subOpacity: string;
-        addLayer: string;
-        subLayer: string;
-        addRetinaResolution: string;
-        subRetinaResolution: string;
-        addFov: string;
-        subFov: string;
-        toggle3D: string;
-        addEyes3dGap: string;
-        subEyes3dGap: string;
-        addEyes4dGap: string;
-        subEyes4dGap: string;
-        negEyesGap: string;
-        toggleCrosshair: string;
-        rotateLeft: string;
-        rotateRight: string;
-        rotateUp: string;
-        rotateDown: string;
-        refaceFront: string;
-        refaceRight: string;
-        refaceLeft: string;
-        refaceTop: string;
-        refaceBottom: string;
-        toggleRetinaAlpha: string;
-        sectionConfigs: {
-            "retina+sections": string;
-            "retina+bigsections": string;
-            retina: string;
-            sections: string;
-            zsection: string;
-            ysection: string;
-            "retina+zslices": string;
-            "retina+yslices": string;
-        };
-    };
     private alphaBuffer;
-    guiMouseOperation: string;
+    private guiButtons;
     constructor(r: SliceRenderer);
+    registGui(gui: SettingGUI): void;
     private _vec2damp;
     private _vec2euler;
     private _vec3;
@@ -358,8 +314,5 @@ export declare class RetinaCtrlGui {
     refresh: (param: any) => void;
     createToggleDiv(CtrlBtn: HTMLButtonElement, display?: string): HTMLDivElement;
     createDropBox(CtrlBtn: HTMLButtonElement, offset: number, width?: number): HTMLDivElement;
-    toggle(): void;
-    constructor(retinaCtrl: RetinaController);
-    addBtn(svgIcon: string): HTMLButtonElement;
 }
 export {};

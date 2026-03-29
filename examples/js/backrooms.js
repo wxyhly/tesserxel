@@ -1,4 +1,4 @@
-import { math, four, util, mesh } from "../../build/esm/tesserxel.js";
+import { math, four, ui, mesh } from "../../build/esm/tesserxel.js";
 export var backrooms;
 (function (backrooms) {
     class CarpetTexture extends four.MaterialNode {
@@ -48,7 +48,7 @@ export var backrooms;
             renderConfig: { posdirLightsNumber: 7 * 2 * 3, spotLightsNumber: 1 },
             controllerConfig: { preventDefault: true, enablePointerLock: true }
         });
-        const camController = new util.ctrl.KeepUpController(camera);
+        const camController = new ui.ctrl.KeepUpController(camera);
         app.controllerRegistry.add(camController);
         app.run();
     }

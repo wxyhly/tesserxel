@@ -24,7 +24,7 @@ export namespace four_basic_scene {
         camera.position.w = 3.0;
         // by default retina operations must be enabled by pressing AltLeft key
         // we cancel it manually, so we can directly drag the cubic retina
-        app.retinaController.keyConfig.enable = "";
+        // app.retinaController.keyConfig.enable = "";
         app.run(()=>{
             // For every frame, we rotate the mesh by angle of 0.01 radius degree in both xw and yz direction
             // We got a double clifford rotation here

@@ -8,6 +8,6 @@ import * as render_render from './render/render.js';
 export { render_render as render };
 import * as mesh_mesh from './mesh/mesh.js';
 export { mesh_mesh as mesh };
-import * as util_util from './util/util.js';
-export { util_util as util };
+import * as ui_ui from './ui/ui.js';
+export { ui_ui as ui };
 //# sourceMappingURL=tesserxel.js.map

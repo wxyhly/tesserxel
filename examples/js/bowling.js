@@ -256,7 +256,7 @@ fn pin(uvw:vec4f)->vec4f{
         app.scene.add(lane_mesh);
         app.scene.add(new FOUR.DirectionalLight([0.9, 0.8, 0.8], new tesserxel.math.Vec4(-1, 1, 1, 1).norms()));
         app.scene.add(new FOUR.AmbientLight(0.3));
-        const camCtrl = new tesserxel.util.ctrl.KeepUpController(app.camera);
+        const camCtrl = new tesserxel.ui.ctrl.KeepUpController(app.camera);
         camCtrl.mouseSpeed *= 0.2;
         app.controllerRegistry.add(camCtrl);
         const emitter = new BallEmitter(world, app.scene, app.camera);

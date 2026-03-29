@@ -123,9 +123,9 @@ export async function load() {
     const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
         { buffer: voxelBuffer.buffer }
     ]);
-    let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
-    retinaCtrl.keyConfig.enable = "";
-    let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
+    let retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer);
+    // retinaCtrl.keyConfig.enable = "";
+    let ctrlReg = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
     await renderer.init();
     function setSize() {
         const width = window.innerWidth * window.devicePixelRatio;
@@ -173,9 +173,9 @@ export namespace voxel_shadertoy {
             rayEntryPoint: "mainRay",
             fragmentEntryPoint: "mainFrag"
         });
-        let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
-        retinaCtrl.keyConfig.enable = "";
-        let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
+        let retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer);
+        // retinaCtrl.keyConfig.enable = "";
+        let ctrlReg = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
         await renderer.init();
         function setSize() {
             const width = window.innerWidth * window.devicePixelRatio;
@@ -609,9 +609,9 @@ export namespace rasterizer {
         const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
             { buffer: voxelBuffer.buffer }
         ]);
-        let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
-        retinaCtrl.keyConfig.enable = "";
-        let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
+        let retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer);
+        // retinaCtrl.keyConfig.enable = "";
+        let ctrlReg = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
         await renderer.init();
         function setSize() {
             const width = window.innerWidth * window.devicePixelRatio;

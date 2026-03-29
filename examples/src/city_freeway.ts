@@ -502,11 +502,11 @@ export namespace city_freeway {
         });
         await renderer.init();
         let rtBindGroup = [renderer.createVertexShaderBindGroup(rtPipeline, 1, [camBuffer])];
-        let camController = new tesserxel.util.ctrl.KeepUpController();
+        let camController = new tesserxel.ui.ctrl.KeepUpController();
         camController.object.position.set(0.5, 0.5, 0.5, 3);
         camController.keyMoveSpeed *= 5;
-        let retinaController = new tesserxel.util.ctrl.RetinaController(renderer);
-        let ctrlreg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
+        let retinaController = new tesserxel.ui.ctrl.RetinaController(renderer);
+        let ctrlreg = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
         let camMatJSBuffer = new Float32Array(20);
         renderer.setDisplayConfig({
             opacity: 5,

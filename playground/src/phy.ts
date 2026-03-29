@@ -56,7 +56,7 @@ cube_logic.velocity.randset().mulfs(2);
 cube_logic.angularVelocity.randset().mulfs(5);
 // 设置随机朝向
 cube_logic.rotation.randset();
-app.controllerRegistry.add(new tesserxel.util.ctrl.KeepUpController(app.camera));
+app.controllerRegistry.add(new tesserxel.ui.ctrl.KeepUpController(app.camera));
 app.run(()=>{
     engine.update(world, 1/60);
     // 同步物理逻辑物体与渲染网格物体

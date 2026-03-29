@@ -3,8 +3,8 @@ import * as tesserxel from "../../build/esm/tesserxel.js"
 class MandelApp {
 
     renderer: tesserxel.render.SliceRenderer;
-    camController: tesserxel.util.ctrl.FreeFlyController;
-    retinaController: tesserxel.util.ctrl.RetinaController;
+    camController: tesserxel.ui.ctrl.FreeFlyController;
+    retinaController: tesserxel.ui.ctrl.RetinaController;
     headercode = `
         struct rayOut{
             @location(0) o: vec4f,
@@ -111,12 +111,12 @@ class MandelApp {
         this.renderer = renderer;
         renderer.setDisplayConfig({ screenBackgroundColor: { r: 1, g: 1, b: 1, a: 1 }, retinaResolution: 64 });
         let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
-        let camController = new tesserxel.util.ctrl.FreeFlyController();
+        let camController = new tesserxel.ui.ctrl.FreeFlyController();
         camController.object.position.set(0.001, 0.00141, 0.00172, 3);
         this.camController = camController;
-        let retinaController = new tesserxel.util.ctrl.RetinaController(renderer);
+        let retinaController = new tesserxel.ui.ctrl.RetinaController(renderer);
         this.retinaController = retinaController;
-        let ctrlreg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
+        let ctrlreg = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
         let matModelViewJSBuffer = new Float32Array(20);
         let pipeline = await renderer.createRaytracingPipeline({
             code: this.headercode.replace(/\{replace\}/g, code),

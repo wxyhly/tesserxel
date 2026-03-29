@@ -30,7 +30,7 @@ abstract class LatticeApp {
         let camera = app.camera as tesserxel.four.PerspectiveCamera;
         camera.position.w = 5.0;
         this.scene.add(camera);
-        app.controllerRegistry.add(new tesserxel.util.ctrl.TrackBallController(camera, true));
+        app.controllerRegistry.add(new tesserxel.ui.ctrl.TrackBallController(camera, true));
         app.run();
     }
 }

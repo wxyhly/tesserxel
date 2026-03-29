@@ -225,13 +225,13 @@ export namespace automobile {
         const roadGeom = new tesserxel.four.Geometry(tesserxel.mesh.tetra.loft(spline, tesserxel.mesh.face.cube().setConstantNormal(new Vec4()), 5).generateNormal());
         scene.add(new tesserxel.four.Mesh(roadGeom, new tesserxel.four.LambertMaterial([0.5, 0.5, 0.5])));
         camera.position.w = 0.5;
-        const retinaController = new tesserxel.util.ctrl.RetinaController(renderer.core);
-        const freeCamCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        const retinaController = new tesserxel.ui.ctrl.RetinaController(renderer.core);
+        const freeCamCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
         const hud = document.createElement("table");
         const carCtrl = new CarCtrl(wheelPs, torqueSpringsParamArray, freeCamCtrl, hud);
         world.add(carCtrl);
 
-        const ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+        const ctrlReg = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
             retinaController, freeCamCtrl, carCtrl
         ], { preventDefault: true });
         function setSize() {
@@ -280,10 +280,10 @@ export namespace automobile {
         run();
     }
 }
-class CarCtrl extends tesserxel.physics.Force implements tesserxel.util.ctrl.IController {
+class CarCtrl extends tesserxel.physics.Force implements tesserxel.ui.ctrl.IController {
     crashed = false;
     camLock = true;
-    camCtrl: tesserxel.util.ctrl.KeepUpController;
+    camCtrl: tesserxel.ui.ctrl.KeepUpController;
     keyConfig = {
         turnLeft: "KeyA",
         turnRight: "KeyD",
@@ -321,7 +321,7 @@ class CarCtrl extends tesserxel.physics.Force implements tesserxel.util.ctrl.ICo
         spring: tesserxel.physics.Spring,
         center: tesserxel.math.Vec4,
         dir: tesserxel.math.Vec4
-    }[], camCtrl: tesserxel.util.ctrl.KeepUpController, hudDom: HTMLElement) {
+    }[], camCtrl: tesserxel.ui.ctrl.KeepUpController, hudDom: HTMLElement) {
         super();
         this.wheels = wheels;
         this.torqueSprings = torqueSprings;
@@ -334,7 +334,7 @@ class CarCtrl extends tesserxel.physics.Force implements tesserxel.util.ctrl.ICo
             this.wheels[i].torque.adds(new Bivec(0, 0, -this.state[0]).rotates(this.wheels[i].rotation));
         }
     }
-    update(state: tesserxel.util.ctrl.ControllerState): void {
+    update(state: tesserxel.ui.ctrl.ControllerState): void {
         // if (!this.crashed) this.checkState();
         if (state.isKeyHold("AltLeft")) return;
         if (state.isKeyHold(this.keyConfig.hudToggle)) {

@@ -1,4 +1,4 @@
-import { render, util, math } from "../../build/esm/tesserxel.js";
+import { render, ui, math } from "../../build/esm/tesserxel.js";
 import { createCodemirrorEditor } from "../../playground/build/shadertoy.js"
 const urlp = new URLSearchParams(window.location.search.slice(1));
 const lang = urlp.get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en");
@@ -351,19 +351,23 @@ fn magneticDipoleField(
 
     // Magnetic field
     out.B[0] = m * dGdt(pos, k, time);      // xy
-    out.B[1] = m * dGdx(pos, 2u, k, time);  // xz
-    out.B[3] = m * dGdx(pos, 2u, k, time);  // yz
-    out.B[2] = m * dGdx(pos, 3u, k, time);  // xw
-    out.B[4] = m * dGdx(pos, 3u, k, time);  // yw
+    out.B[1] = m * dGdx(pos, 2u, k, time) + m * dGdx(pos.zwxy, 3u, k, time);  // xz
+    out.B[3] = m * dGdx(pos, 2u, k, time) + m * dGdx(pos.zwxy, 3u, k, time);  // yz
+    out.B[2] = m * dGdx(pos, 3u, k, time) + m * dGdx(pos.zwxy, 2u, k, time);  // xw
+    out.B[4] = m * dGdx(pos, 3u, k, time) + m * dGdx(pos.zwxy, 2u, k, time);  // yw
+    out.B[5] = m * dGdt(pos.zwxy, k, time); // zw
 
     // Electric field (Faraday)
     out.E.x =  m * dGdx(pos, 1u, k, time);
     out.E.y = -m * dGdx(pos, 0u, k, time);
+    
+    out.E.z =  m * dGdx(pos.zwxy, 1u, k, time);
+    out.E.w = -m * dGdx(pos.zwxy, 0u, k, time);
 
     return out;
 }
 fn mainVoxel(pos: vec3<f32>)->vec4f{
-    let f0 = magneticDipoleField(vec4(pos*15.0,0.0),shadertoyTime,2,1);
+    let f = magneticDipoleField(vec4(pos*15.0,0.0),shadertoyTime,2,1);
     return vec4f(hsl2rgb(vec3f(atan2(f.E.y,f.E.x)/3.1415926535*0.5,length(f.E)*1000.0,0.5)), length(f.E)*1000.0);
 }`,
 };
@@ -1903,8 +1907,8 @@ const getDisplayConfigFromShader = (code: string) => {
 class ShadertoyApp {
 
     renderer: render.SliceRenderer;
-    camController: util.ctrl.KeepUpController | util.ctrl.FreeFlyController | util.ctrl.TrackBallController;
-    retinaController: util.ctrl.RetinaController;
+    camController: ui.ctrl.KeepUpController | ui.ctrl.FreeFlyController | ui.ctrl.TrackBallController;
+    retinaController: ui.ctrl.RetinaController;
 
     camBuffer: GPUBuffer;
     inputBuffer: GPUBuffer;
@@ -1933,12 +1937,12 @@ class ShadertoyApp {
         let camBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4 * 4 * 5);
         let inputBuffer = gpu.createBuffer(GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST, 4);
         renderer.setDisplayConfig({ screenBackgroundColor: { r: 1, g: 1, b: 1, a: 1 }, opacity: 5 });
-        let camController = new util.ctrl.KeepUpController() as typeof this.camController;
+        let camController = new ui.ctrl.KeepUpController() as typeof this.camController;
         camController.object.position.set(0, 0, 0, 0);
         this.camController = camController;
-        let retinaController = new util.ctrl.RetinaController(renderer);
+        let retinaController = new ui.ctrl.RetinaController(renderer);
         this.retinaController = retinaController;
-        let ctrlreg = new util.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
+        let ctrlreg = new ui.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
         ctrlreg.disableDefaultEvent = true;
         let matModelViewJSBuffer = new Float32Array(20);
         let inputJSBuffer = new Float32Array(1);
@@ -1992,30 +1996,30 @@ class ShadertoyApp {
             const cfg = getDisplayConfigFromShader(code);
             renderer.setDisplayConfig(cfg);
             retinaController.setDisplayConfig(cfg);
-            if (!(camController instanceof util.ctrl.KeepUpController) && cfg.cameraControl === "keepup") {
-                this.camController = new util.ctrl.KeepUpController(camController.object);
+            if (!(camController instanceof ui.ctrl.KeepUpController) && cfg.cameraControl === "keepup") {
+                this.camController = new ui.ctrl.KeepUpController(camController.object);
                 ctrlreg.remove(camController);
                 ctrlreg.add(this.camController);
                 camController = this.camController;
             }
-            if (!(camController instanceof util.ctrl.FreeFlyController) && cfg.cameraControl === "freefly") {
-                this.camController = new util.ctrl.FreeFlyController(camController.object);
+            if (!(camController instanceof ui.ctrl.FreeFlyController) && cfg.cameraControl === "freefly") {
+                this.camController = new ui.ctrl.FreeFlyController(camController.object);
                 ctrlreg.remove(camController);
                 ctrlreg.add(this.camController);
                 camController = this.camController;
             }
-            if (!(camController instanceof util.ctrl.TrackBallController) && cfg.cameraControl === "trackball") {
-                this.camController = new util.ctrl.TrackBallController(camController.object, true);
+            if (!(camController instanceof ui.ctrl.TrackBallController) && cfg.cameraControl === "trackball") {
+                this.camController = new ui.ctrl.TrackBallController(camController.object, true);
                 ctrlreg.remove(camController);
                 ctrlreg.add(this.camController);
                 camController = this.camController;
             }
             if (cfg.cameraControl === "trackball") {
                 const arr = cfg.trackballCenter || [0, 0, 0, 1];
-                (this.camController as util.ctrl.TrackBallController).center = new math.Vec4(...arr);
-                (this.camController as util.ctrl.TrackBallController).lookAtCenter();
+                (this.camController as ui.ctrl.TrackBallController).center = new math.Vec4(...arr);
+                (this.camController as ui.ctrl.TrackBallController).lookAtCenter();
             }
-            if (((camController as util.ctrl.KeepUpController).keyMoveSpeed) && cfg.keyMoveSpeed) (camController as util.ctrl.KeepUpController).keyMoveSpeed = cfg.keyMoveSpeed;
+            if (((camController as ui.ctrl.KeepUpController).keyMoveSpeed) && cfg.keyMoveSpeed) (camController as ui.ctrl.KeepUpController).keyMoveSpeed = cfg.keyMoveSpeed;
         }
         const codeDom = document.createElement("div");
         document.body.appendChild(codeDom);

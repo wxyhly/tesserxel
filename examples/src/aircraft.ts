@@ -1,11 +1,13 @@
 import * as tesserxel from "../../build/esm/tesserxel.js"
+import { SettingGUI } from "../../build/esm/ui/gui.js";
 const FOUR = tesserxel.four;
 const PHY = tesserxel.physics;
 const Vec4 = tesserxel.math.Vec4;
 const Obj4 = tesserxel.math.Obj4;
 const Bivec = tesserxel.math.Bivec;
 const geomTesseract = new FOUR.TesseractGeometry(1);
-const lang = new URLSearchParams(window.location.search.slice(1)).get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en");
+
+const lang = (new URLSearchParams(window.location.search.slice(1)).get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en")) as "zh" | "en";
 async function loadFile(src: string) {
     return new Promise<string>((resolve, reject) => {
         let xhr = new XMLHttpRequest();
@@ -147,7 +149,7 @@ export namespace aircraft {
         camera.lookAt(Vec4.wNeg, aircraftP.position);
         camera.position.w = -6.7;
         camera.position.z = -2;
-        const freeCamCtrl = new tesserxel.util.ctrl.KeepUpController(camera);
+        const freeCamCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
         freeCamCtrl.keyMoveSpeed *= 5;
         const hud = document.createElement("div");
         document.body.appendChild(hud);
@@ -428,10 +430,10 @@ export namespace aircraft {
         return { mesh: track, wireframe };
     }
 }
-class AircraftCtrl implements tesserxel.util.ctrl.IController {
+class AircraftCtrl implements tesserxel.ui.ctrl.IController {
     crashed = false;
     camLock = false;
-    camCtrl: tesserxel.util.ctrl.KeepUpController;
+    camCtrl: tesserxel.ui.ctrl.KeepUpController;
     canvas: HTMLCanvasElement;
     keyConfig = {
         throttlep: "ArrowUp",
@@ -463,6 +465,163 @@ class AircraftCtrl implements tesserxel.util.ctrl.IController {
         brakeYm: "KeyU",
         brakeYp: "KeyO",
     }
+    registGui(gui: SettingGUI) {
+        gui.keybindingMgr.addGroup("aircraft", {
+            "title": {
+                "zh": "飞行控制", "en": "Aircraft Controls"
+            },
+            "actions": {
+                "toggleCamlock": {
+                    "title": { "zh": "切换控制模式", "en": "Toggle Control Mode" },
+                    "key": "KeyB",
+                    "press": true
+                },
+                "automaticCenter": {
+                    "title": { "zh": "自动回正", "en": "Auto Center" },
+                    "key": "KeyC"
+                },
+                "throttlep": {
+                    "title": { "zh": "增加引擎功率", "en": "Increase Throttle" },
+                    "key": "ArrowUp"
+                },
+                "throttlem": {
+                    "title": { "zh": "降低引擎功率", "en": "Decrease Throttle" },
+                    "key": "ArrowDown"
+                },
+                "elevatorp": {
+                    "title": { "zh": "俯仰上", "en": "Pitch Up" },
+                    "key": "KeyW"
+                },
+                "elevatorm": {
+                    "title": { "zh": "俯仰下", "en": "Pitch Down" },
+                    "key": "KeyS"
+                },
+                "aileronXm": {
+                    "title": { "zh": "左横滚", "en": "Roll Left" },
+                    "key": "KeyA"
+                },
+                "aileronXp": {
+                    "title": { "zh": "右横滚", "en": "Roll Right" },
+                    "key": "KeyD"
+                },
+                "aileronYm": {
+                    "title": { "zh": "侧前横滚", "en": "Roll Ana" },
+                    "key": "KeyQ"
+                },
+                "aileronYp": {
+                    "title": { "zh": "侧后横滚", "en": "Roll Kata" },
+                    "key": "KeyE"
+                },
+                "spinCW": {
+                    "title": { "zh": "顺时针自转", "en": "Spin Clockwise" },
+                    "key": "KeyZ"
+                },
+                "spinCCW": {
+                    "title": { "zh": "逆时针自转", "en": "Spin Counterclockwise" },
+                    "key": "KeyX"
+                },
+                "flapp": {
+                    "title": { "zh": "襟翼增加", "en": "Flaps Increase" },
+                    "key": "KeyF",
+                    "press": true
+                },
+                "flapm": {
+                    "title": { "zh": "襟翼减少", "en": "Flaps Decrease" },
+                    "key": "LeftShift+KeyF",
+                    "press": true
+                },
+                "brake": {
+                    "title": { "zh": "刹车", "en": "Brake" },
+                    "key": "KeyK",
+                    "press": true
+                },
+                "brakeXm": {
+                    "title": { "zh": "左刹车", "en": "Brake Left" },
+                    "key": "KeyJ"
+                },
+                "brakeXp": {
+                    "title": { "zh": "右刹车", "en": "Brake Right" },
+                    "key": "KeyL"
+                },
+                "brakeYm": {
+                    "title": { "zh": "侧前刹车", "en": "Brake Ana" },
+                    "key": "KeyU"
+                },
+                "brakeYp": {
+                    "title": { "zh": "侧后刹车", "en": "Brake Kata" },
+                    "key": "KeyO"
+                },
+
+                "fovp": {
+                    "title": { "zh": "增加视野角", "en": "Increase FOV" },
+                    "key": "Digit9"
+                },
+                "fovm": {
+                    "title": { "zh": "减少视野角", "en": "Decrease FOV" },
+                    "key": "Digit0"
+                },
+                "camSpeedIncrease": {
+                    "title": { "zh": "相机移动加速", "en": "Increase Camera Speed" },
+                    "key": "Equal",
+                    "press": true
+                },
+                "camSpeedDecrease": {
+                    "title": { "zh": "相机移动减速", "en": "Decrease Camera Speed" },
+                    "key": "Minus",
+                    "press": true
+                },
+                "hudToggle": {
+                    "title": { "zh": "切换HUD显示", "en": "Toggle HUD" },
+                    "key": "KeyH",
+                    "press": true
+                },
+            },
+            "groups": {
+                "camPos": {
+                    "title": {
+                        "zh": "相机预设位置", "en": "Camera Presets"
+                    },
+                    "actions": {
+                        "1": {
+                            "title": { "zh": "相机位置1", "en": "Camera Position 1" },
+                            "key": "Digit1",
+                            "press": true
+                        },
+                        "2": {
+                            "title": { "zh": "相机位置2", "en": "Camera Position 2" },
+                            "key": "Digit2",
+                            "press": true
+                        },
+                        "3": {
+                            "title": { "zh": "相机位置3", "en": "Camera Position 3" },
+                            "key": "Digit3",
+                            "press": true
+                        },
+                        "4": {
+                            "title": { "zh": "相机位置4", "en": "Camera Position 4" },
+                            "key": "Digit4",
+                            "press": true
+                        },
+                        "5": {
+                            "title": { "zh": "相机位置5", "en": "Camera Position 5" },
+                            "key": "Digit5",
+                            "press": true
+                        },
+                        "6": {
+                            "title": { "zh": "相机位置6", "en": "Camera Position 6" },
+                            "key": "Digit6",
+                            "press": true
+                        },
+                        "7": {
+                            "title": { "zh": "相机位置7", "en": "Camera Position 7" },
+                            "key": "Digit7",
+                            "press": true
+                        }
+                    }
+                }
+            }
+        });
+    }
     camPos = -1;
     camSpeedAdjustFactor = 1.5;
     // x- x+ z- z+ w- w+
@@ -486,7 +645,7 @@ class AircraftCtrl implements tesserxel.util.ctrl.IController {
     rollYPID: PIDCtrl;
     dt: number = 1 / 60;
     brake = false;
-    constructor(rigid: tesserxel.physics.Rigid, camCtrl: tesserxel.util.ctrl.KeepUpController, canvas: HTMLCanvasElement, hudDom: HTMLElement, camera: tesserxel.four.PerspectiveCamera) {
+    constructor(rigid: tesserxel.physics.Rigid, camCtrl: tesserxel.ui.ctrl.KeepUpController, canvas: HTMLCanvasElement, hudDom: HTMLElement, camera: tesserxel.four.PerspectiveCamera) {
         this.rigid = rigid;
         this.camCtrl = camCtrl;
         this.canvas = canvas;
@@ -495,36 +654,35 @@ class AircraftCtrl implements tesserxel.util.ctrl.IController {
         this.rollXPID = new PIDCtrl(0.5, 0.01, 0.2);
         this.rollYPID = new PIDCtrl(0.5, 0.01, 0.2);
     }
-    update(state: tesserxel.util.ctrl.ControllerState): void {
-        this.updateHud();
-        if (state.isKeyHold("AltLeft")) return;
-        if (state.isKeyHold(this.keyConfig.hudToggle)) {
+    update(state: tesserxel.ui.ctrl.ControllerState): void {
+        this.updateHud(state);
+        if (state.isActionActive("hudToggle", "aircraft")) {
             this.hudDom.style.display = this.hudDom.style.display === "none" ? "" : "none";
         }
-        if (state.isKeyHold(this.keyConfig.toggleCamlock)) {
+        if (state.isActionActive("toggleCamlock", "aircraft")) {
             this.camLock = !this.camLock;
             this.camPos = -1;
         }
-        for (let i = 0; i < this.keyConfig.camPos.length; i++) {
-            if (state.isKeyHold(this.keyConfig.camPos[i])) {
+        for (let i = 0; i < 7; i++) {
+            if (state.isActionActive("camPos." + (i + 1), "aircraft")) {
                 this.camPos = i === 7 ? -1 : i;
                 if (i !== 7) this.camLock = true;
             }
         }
         if (!this.camLock) {
-            if (state.isKeyHold(this.keyConfig.camSpeedDecrease)) {
+            if (state.isActionActive("camSpeedDecrease", "aircraft")) {
                 this.camCtrl.keyMoveSpeed /= this.camSpeedAdjustFactor;
             }
-            if (state.isKeyHold(this.keyConfig.camSpeedIncrease)) {
+            if (state.isActionActive("camSpeedIncrease", "aircraft")) {
                 this.camCtrl.keyMoveSpeed *= this.camSpeedAdjustFactor;
             }
         }
 
         const fovDelta = 5;
-        if (state.isKeyHold(this.keyConfig.fovm)) {
+        if (state.isActionActive("fovm", "aircraft")) {
             this.camera.fov += fovDelta;
             this.camera.needsUpdate = true;
-        } else if (state.isKeyHold(this.keyConfig.fovp)) {
+        } else if (state.isActionActive("fovp", "aircraft")) {
             this.camera.fov -= fovDelta;
             this.camera.needsUpdate = true;
         }
@@ -537,9 +695,9 @@ class AircraftCtrl implements tesserxel.util.ctrl.IController {
             const rudderDelta = 0.1;
             const flapDelta = 0.2;
             const spinDelta = 1;
-            if (state.isKeyHold(this.keyConfig.throttlep)) {
+            if (state.isActionActive("throttlep", "aircraft")) {
                 this.controls.throttle += throttleDelta;
-            } else if (state.isKeyHold(this.keyConfig.throttlem)) {
+            } else if (state.isActionActive("throttlem", "aircraft")) {
                 this.controls.throttle -= throttleDelta;
             }
             const param = {
@@ -577,67 +735,67 @@ class AircraftCtrl implements tesserxel.util.ctrl.IController {
             this.controls.aileron2 += dPitchTarget;
             this.controls.aileron3 += dPitchTarget;
 
-            if (state.isKeyHold(this.keyConfig.aileronXm)) {
+            if (state.isActionActive("aileronXm", "aircraft")) {
                 this.controls.rudderX = rudderDelta;
-            } else if (state.isKeyHold(this.keyConfig.aileronXp)) {
+            } else if (state.isActionActive("aileronXp", "aircraft")) {
                 this.controls.rudderX = -rudderDelta;
             }
 
-            if (state.isKeyHold(this.keyConfig.aileronYm)) {
+            if (state.isActionActive("aileronYm", "aircraft")) {
                 this.controls.rudderY = -rudderDelta;
-            } else if (state.isKeyHold(this.keyConfig.aileronYp)) {
+            } else if (state.isActionActive("aileronYp", "aircraft")) {
                 this.controls.rudderY = rudderDelta;
             }
 
-            if (state.isKeyHold(this.keyConfig.aileronYm)) {
+            if (state.isActionActive("aileronYm", "aircraft")) {
                 this.controls.aileron2 -= aileronDelta / 2 * Math.sqrt(3);
                 this.controls.aileron3 += aileronDelta / 2 * Math.sqrt(3);
-            } else if (state.isKeyHold(this.keyConfig.aileronYp)) {
+            } else if (state.isActionActive("aileronYp", "aircraft")) {
                 this.controls.aileron2 += aileronDelta / 2 * Math.sqrt(3);
                 this.controls.aileron3 -= aileronDelta / 2 * Math.sqrt(3);
             }
-            if (state.isKeyHold(this.keyConfig.aileronXm)) {
+            if (state.isActionActive("aileronXm", "aircraft")) {
                 this.controls.aileron1 += aileronDelta;
                 this.controls.aileron2 -= aileronDelta / 2;
                 this.controls.aileron3 -= aileronDelta / 2;
-            } else if (state.isKeyHold(this.keyConfig.aileronXp)) {
+            } else if (state.isActionActive("aileronXp", "aircraft")) {
                 this.controls.aileron1 -= aileronDelta;
                 this.controls.aileron2 += aileronDelta / 2;
                 this.controls.aileron3 += aileronDelta / 2;
             }
 
-            if (state.isKeyHold(this.keyConfig.flapp)) {
-                this.controls.flap += flapDelta;
-            } else if (state.isKeyHold(this.keyConfig.flapm)) {
+            if (state.isActionActive("flapm", "aircraft")) {
                 this.controls.flap -= flapDelta;
+            } else if (state.isActionActive("flapp", "aircraft")) {
+                this.controls.flap += flapDelta;
             }
 
             this.controls.spinnor = 0;
-            if (state.isKeyHold(this.keyConfig.spinCCW)) {
+            if (state.isActionActive("spinCCW", "aircraft")) {
                 this.controls.spinnor = spinDelta;
-            } else if (state.isKeyHold(this.keyConfig.spinCW)) {
+            } else if (state.isActionActive("spinCW", "aircraft")) {
                 this.controls.spinnor = -spinDelta;
             }
 
-            if (state.isKeyHold(this.keyConfig.brake)) {
+            if (state.isActionActive("brake", "aircraft")) {
                 this.brake = !this.brake;
             }
             if (this.brake) {
                 this.controls.brake1 = 0.7;
                 this.controls.brake2 = 0.7;
                 this.controls.brake3 = 0.7;
-                if (state.isKeyHold(this.keyConfig.brakeXm)) {
+                if (state.isActionActive("brakeXm", "aircraft")) {
                     this.controls.brake1 -= brakeDelta * 6;
                 }
-                if (state.isKeyHold(this.keyConfig.brakeXp)) {
+                if (state.isActionActive("brakeXp", "aircraft")) {
                     this.controls.brake2 -= brakeDelta * 6;
                     this.controls.brake3 -= brakeDelta * 6;
                 }
-                if (state.isKeyHold(this.keyConfig.brakeYp)) {
+                if (state.isActionActive("brakeYp", "aircraft")) {
                     this.controls.brake2 -= brakeDelta * 4;
                     this.controls.brake1 -= brakeDelta * 2;
                 }
-                if (state.isKeyHold(this.keyConfig.brakeYm)) {
+                if (state.isActionActive("brakeYm", "aircraft")) {
                     this.controls.brake3 -= brakeDelta * 4;
                     this.controls.brake1 -= brakeDelta * 2;
                 }
@@ -645,24 +803,24 @@ class AircraftCtrl implements tesserxel.util.ctrl.IController {
                 this.controls.brake1 = 0;
                 this.controls.brake2 = 0;
                 this.controls.brake3 = 0;
-                if (state.isKeyHold(this.keyConfig.brakeXp)) {
+                if (state.isActionActive("brakeXp", "aircraft")) {
                     this.controls.brake1 += brakeDelta * 6;
                 }
-                if (state.isKeyHold(this.keyConfig.brakeXm)) {
+                if (state.isActionActive("brakeXm", "aircraft")) {
                     this.controls.brake2 += brakeDelta * 6;
                     this.controls.brake3 += brakeDelta * 6;
                 }
-                if (state.isKeyHold(this.keyConfig.brakeYm)) {
+                if (state.isActionActive("brakeYm", "aircraft")) {
                     this.controls.brake2 += brakeDelta * 4;
                     this.controls.brake1 += brakeDelta * 2;
                 }
-                if (state.isKeyHold(this.keyConfig.brakeYp)) {
+                if (state.isActionActive("brakeYp", "aircraft")) {
                     this.controls.brake3 += brakeDelta * 4;
                     this.controls.brake1 += brakeDelta * 2;
                 }
             }
 
-            if (state.isKeyHold(this.keyConfig.automaticCenter)) {
+            if (state.isActionActive("automaticCenter", "aircraft")) {
                 let rollX = Math.acos(Vec4.x.rotate(this.rigid.rotation).y) - Math.PI / 2;
                 let rollY = Math.acos(Vec4.z.rotate(this.rigid.rotation).y) - Math.PI / 2;
                 const aileronX = this.rollXPID.step(0 - rollX, this.dt);
@@ -708,7 +866,7 @@ class AircraftCtrl implements tesserxel.util.ctrl.IController {
         this.controls.flap = Math.min(Math.max(this.controls.flap, 0), 1);
         this.camera.fov = Math.min(Math.max(this.camera.fov, 5), 150);
     }
-    updateHud() {
+    updateHud(state: tesserxel.ui.ctrl.ControllerState) {
         const _v = Vec4.w.rotate(this.rigid.rotation); _v.y = 0; _v.norms();
         const vw = (-this.rigid.velocity.dot(_v))?.toFixed(2);
         _v.copy(Vec4.x).rotates(this.rigid.rotation); _v.y = 0; _v.norms();
@@ -739,7 +897,7 @@ class AircraftCtrl implements tesserxel.util.ctrl.IController {
                 "wRollL-R": "ω Roll L-R",
                 "wRollA-K": "ω Roll A-K",
                 "wSpin": "ωSpin",
-                "ctrlMode": "Press B to toggle",
+                "ctrlMode": `Press ${tesserxel.ui.ctrl.shortcut2text(lang, state.getActionKey("toggleCamlock", "aircraft"))} to toggle`,
                 "camMode": "Camera Control",
                 "aircraftMode": "Aircraft Control",
                 "fov": "Camera FOV",
@@ -767,7 +925,7 @@ class AircraftCtrl implements tesserxel.util.ctrl.IController {
                 "wRollL-R": "左右横滚角速度",
                 "wRollA-K": "侧前后横滚角速度",
                 "wSpin": "自转角速度",
-                "ctrlMode": "按B切换模式",
+                "ctrlMode": `按${tesserxel.ui.ctrl.shortcut2text(lang, state.getActionKey("toggleCamlock", "aircraft"))}切换模式`,
                 "camMode": "控制相机",
                 "aircraftMode": "控制飞机",
                 "fov": "相机视野角"

@@ -142,9 +142,8 @@ export namespace wave_eq {
         const renderBindgroup = gpu.createBindGroup(pipeline.pipeline, 1, [
             { buffer: bufferA.buffer }
         ]);
-        let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
-        retinaCtrl.keyConfig.enable = "";
-        let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
+        let retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer);
+        let ctrlReg = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [retinaCtrl]);
 
         function setSize() {
             const width = window.innerWidth * window.devicePixelRatio;
@@ -197,7 +196,7 @@ export namespace wave_eq {
     }
 }
 
-class ErosionDisplayController implements tesserxel.util.ctrl.IController {
+class ErosionDisplayController implements tesserxel.ui.ctrl.IController {
     water: number = 1;
     sediment: number = 0;
 
@@ -214,7 +213,7 @@ class ErosionDisplayController implements tesserxel.util.ctrl.IController {
     constructor(jsBuffer: Float32Array) {
         this.buffer = jsBuffer;
     }
-    update(state: tesserxel.util.ctrl.ControllerState) {
+    update(state: tesserxel.ui.ctrl.ControllerState) {
         if (state.isKeyHold("KeyO")) {
             this.water = 0;
         }
@@ -755,14 +754,14 @@ async function simulateTerrain(erosionRate: number, coriolis?: boolean) {
         { buffer: tx06.buffer },
         { buffer: uBlockBuffer },
     ], "renderBindgroup");
-    let retinaCtrl = new tesserxel.util.ctrl.RetinaController(renderer);
+    let retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer);
     // retinaCtrl.keyConfig.enable = "";
     // retinaCtrl.toggleSectionConfig("zsection");
     // retinaCtrl.setStereo(false);
     let displayCtrl = new ErosionDisplayController(uBlockJsBuffer);
     let viewObj = new tesserxel.math.Obj4(new tesserxel.math.Vec4, new tesserxel.math.Rotor, new tesserxel.math.Vec4(1, 1, 1, 1));
-    let viewCtrl = new tesserxel.util.ctrl.VoxelViewerController(viewObj);
-    let ctrlReg = new tesserxel.util.ctrl.ControllerRegistry(canvas, [
+    let viewCtrl = new tesserxel.ui.ctrl.VoxelViewerController(viewObj);
+    let ctrlReg = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
         retinaCtrl, displayCtrl, viewCtrl
     ], { enablePointerLock: true });
 

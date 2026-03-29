@@ -154,9 +154,9 @@ export namespace hh {
         fragBindGroup: GPUBindGroup;
         camBuffer: GPUBuffer;
         camMatJSBuffer = new Float32Array(4 * 5);
-        trackBallController: tesserxel.util.ctrl.TrackBallController;
-        retinaController: tesserxel.util.ctrl.RetinaController;
-        ctrlRegistry: tesserxel.util.ctrl.ControllerRegistry;
+        trackBallController: tesserxel.ui.ctrl.TrackBallController;
+        retinaController: tesserxel.ui.ctrl.RetinaController;
+        ctrlRegistry: tesserxel.ui.ctrl.ControllerRegistry;
         context: GPUCanvasContext;
         mesh: tesserxel.mesh.TetraMesh;
         varies = new ArrayBuffer(12);
@@ -202,15 +202,15 @@ export namespace hh {
             this.vertBindGroup = this.renderer.createVertexShaderBindGroup(this.pipeline, 1, [positionBuffer, normalBuffer, uvwBuffer, this.camBuffer]);
             this.fragBindGroup = this.renderer.createFragmentShaderBindGroup(this.pipeline, 0, [this.camBuffer]);
             // init a trackball controller in order to drag 4d object by mouse and keys
-            this.trackBallController = new tesserxel.util.ctrl.TrackBallController();
+            this.trackBallController = new tesserxel.ui.ctrl.TrackBallController();
             // randomize the initial orientation of the object controlled by trackball controller
             this.trackBallController.object.position.w = -0.98;
             // init a retina controller in order to adjust retina settings interactively like section thumbails and retina render layers
-            this.retinaController = new tesserxel.util.ctrl.RetinaController(this.renderer);
+            this.retinaController = new tesserxel.ui.ctrl.RetinaController(this.renderer);
             this.mesh = mesh;
             this.setSize();
             this.retinaController.mouseButton = null;
-            this.ctrlRegistry = new tesserxel.util.ctrl.ControllerRegistry(this.canvas, [
+            this.ctrlRegistry = new tesserxel.ui.ctrl.ControllerRegistry(this.canvas, [
                 this.trackBallController, this.retinaController
             ], { preventDefault: true, enablePointerLock: true });
             window.addEventListener("resize", this.setSize.bind(this));

@@ -1,4 +1,4 @@
-import { math, four, util, physics } from "../../build/esm/tesserxel.js";
+import { math, four, ui, physics } from "../../build/esm/tesserxel.js";
 export var navigation;
 (function (navigation) {
     class GlomeSurfaceScatter {
@@ -82,7 +82,7 @@ export var navigation;
         const skyBox = new NishitaPlanetSkyBox();
         scene.skyBox = skyBox;
         renderer.setBackgroundColor([1, 1, 1, 1]);
-        const camController = new util.ctrl.FreeFlyController(camera);
+        const camController = new ui.ctrl.FreeFlyController(camera);
         const timeCtrl = new TimeCtrl();
         app.controllerRegistry.add(camController);
         app.controllerRegistry.add(timeCtrl);
@@ -95,7 +95,7 @@ export var navigation;
         function run() {
             app.controllerRegistry.update();
             if (!timeCtrl.timePaused)
-                time += app.controllerRegistry.states.mspf / 60_00;
+                time += (app.controllerRegistry.states.mspf / 60_00) * timeCtrl.timespeed;
             sunLight.direction = solar_sys.getRelSunPos(time);
             skyBox.setSunPosition(sunLight.direction);
             // calculate camera's and world's y-w planes, whether they are aligned
@@ -129,9 +129,26 @@ export var navigation;
         }
     }
     class TimeCtrl {
+        timespeed = 1;
+        registGui(gui) {
+            gui.keybindingMgr.addGroup("timectrl", {
+                title: { zh: "场景时间控制", en: "Scene Time Ctrl" },
+                actions: {
+                    pause: { title: { zh: "暂停/重启时间流逝", en: "Pause/Resume" }, key: "KeyP", press: true },
+                    slow: { title: { zh: "减缓时间流逝", en: "Slow Down Time" }, key: "Minus", press: true },
+                    fast: { title: { zh: "加速时间流逝", en: "Speed Up Time" }, key: "Equal", press: true }
+                }
+            });
+        }
         update(state) {
-            if (state.isKeyHold(".KeyP")) {
+            if (state.isActionActive("pause", "timectrl")) {
                 this.timePaused = !this.timePaused;
+            }
+            if (state.isActionActive("slow", "timectrl")) {
+                this.timespeed = Math.max(0.1, this.timespeed * 0.8);
+            }
+            if (state.isActionActive("fast", "timectrl")) {
+                this.timespeed = Math.min(50, this.timespeed / 0.8);
             }
         }
         timePaused = false;
