@@ -363,7 +363,7 @@ export var rigid_test;
     }
     rigid_test.load = load;
 })(rigid_test || (rigid_test = {}));
-async function loadSTLinks(pointsOnS2, factor) {
+async function loadSTLinks(pointsOnS2, factor, staticMode) {
     const engine = new phy.Engine({ substep: 30 });
     const world = new phy.World();
     // world.gravity.set();
@@ -442,7 +442,8 @@ async function loadSTLinks(pointsOnS2, factor) {
         // rendering
         renderer.render(scene, camera);
         // simulating physics
-        engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000) / pointsOnS2.length);
+        if (!staticMode)
+            engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000) / pointsOnS2.length);
         window.requestAnimationFrame(run);
     }
     run();
@@ -467,12 +468,14 @@ export var st_st_link4;
     }
     st_st_link4.load = load;
 })(st_st_link4 || (st_st_link4 = {}));
-// export namespace st_st_link6 {
-//     export async function load() {
-//         const vs = new math.Polytope([4, 3]).getRegularPolytope();
-//         loadSTLinks(vs[0].map(v => v.norms()) as unknown as tesserxel.math.Vec3[], 0.4);
-//     }
-// }
+export var st_st_link12;
+(function (st_st_link12) {
+    async function load() {
+        const vs = new math.Polytope([3, 5]).getRegularPolytope();
+        loadSTLinks(vs[0].map(v => v.norms()), 0.27, true);
+    }
+    st_st_link12.load = load;
+})(st_st_link12 || (st_st_link12 = {}));
 export var st_ts_chain;
 (function (st_ts_chain) {
     async function load() {

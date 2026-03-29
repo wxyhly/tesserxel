@@ -378,7 +378,7 @@ export namespace rigid_test {
         run();
     }
 }
-async function loadSTLinks(pointsOnS2: tesserxel.math.Vec3[], factor: number) {
+async function loadSTLinks(pointsOnS2: tesserxel.math.Vec3[], factor: number, staticMode?: boolean) {
     const engine = new phy.Engine({ substep: 30 });
     const world = new phy.World();
     // world.gravity.set();
@@ -468,7 +468,7 @@ async function loadSTLinks(pointsOnS2: tesserxel.math.Vec3[], factor: number) {
         // rendering
         renderer.render(scene, camera);
         // simulating physics
-        engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000) / pointsOnS2.length);
+        if (!staticMode) engine.update(world, Math.min(1 / 15, controllerRegistry.states.mspf / 1000) / pointsOnS2.length);
         window.requestAnimationFrame(run);
     }
     run();
@@ -490,12 +490,12 @@ export namespace st_st_link4 {
     }
 }
 
-// export namespace st_st_link6 {
-//     export async function load() {
-//         const vs = new math.Polytope([4, 3]).getRegularPolytope();
-//         loadSTLinks(vs[0].map(v => v.norms()) as unknown as tesserxel.math.Vec3[], 0.4);
-//     }
-// }
+export namespace st_st_link12 {
+    export async function load() {
+        const vs = new math.Polytope([3, 5]).getRegularPolytope();
+        loadSTLinks(vs[0].map(v => v.norms()) as unknown as tesserxel.math.Vec3[], 0.27, true);
+    }
+}
 
 export namespace st_ts_chain {
     export async function load() {
