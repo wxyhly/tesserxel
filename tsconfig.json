@@ -9,7 +9,7 @@
         "moduleResolution": "bundler",
         "sourceMap": true,
         "declaration": true,
-        "declarationDir": "build/dts",
+        "strict": false,
         "types": [
             "@webgpu/types"
         ]

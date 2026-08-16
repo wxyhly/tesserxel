@@ -3223,8 +3223,11 @@ declare namespace render_d {
   export type { render_d_DisplayConfig as DisplayConfig, render_d_DisplayConfigName as DisplayConfigName, render_d_GeneralShaderState as GeneralShaderState, render_d_IWireframeRenderState as IWireframeRenderState, render_d_RaytracingPipelineDescriptor as RaytracingPipelineDescriptor, render_d_RenderState as RenderState, render_d_RetinaRenderPass as RetinaRenderPass, render_d_RetinaRenderPassDescriptor as RetinaRenderPassDescriptor, render_d_SectionConfig as SectionConfig, render_d_Size3DDict as Size3DDict, render_d_SlicePipelineLayout as SlicePipelineLayout, render_d_SliceRendererConfig as SliceRendererConfig, render_d_TetraSlicePipelineDescriptor as TetraSlicePipelineDescriptor, render_d_TetraVertexState as TetraVertexState, render_d_VoxelBuffer as VoxelBuffer };
 }
 
+type ui_d_SettingGUI = SettingGUI;
+declare const ui_d_SettingGUI: typeof SettingGUI;
 declare namespace ui_d {
   export {
+    ui_d_SettingGUI as SettingGUI,
     ctrl_d as ctrl,
   };
 }

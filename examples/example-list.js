@@ -101,8 +101,8 @@ let examples = [
                     { target: "rigids::ditorus", zh: "圆环环链", en: "Ditorus Chain" },
                     { target: "rigids::dt_ts_chain", zh: "圆环环链（静态）", en: "Ditorus Chain (Static)" },
                     { target: "rigids::st_st_link2", zh: "双球环扣", en: "Dihedron-ST Link" },
-                    { target: "rigids::st_st_link4", zh: "四球环扣", en: "tetrahedron-ST Link" },
-                    { target: "rigids::st_st_link12", zh: "十二球环扣（静态）", en: "dodecahedron-ST Link (Static)" },
+                    { target: "rigids::st_st_link4", zh: "四球环扣", en: "Tetrahedron-ST Link" },
+                    { target: "rigids::st_st_link12", zh: "十二球环扣（静态）", en: "Dodecahedron-ST Link (Static)" },
                     // { target: "rigids::st_st_chain", zh: "纯环球组成的链（静态）", en: "Chain made of only STs (Static)" },
                 ]
             },

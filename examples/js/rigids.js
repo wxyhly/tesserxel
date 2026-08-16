@@ -363,21 +363,21 @@ export var rigid_test;
     }
     rigid_test.load = load;
 })(rigid_test || (rigid_test = {}));
-async function loadSTLinks(pointsOnS2, factor, staticMode, chainMode) {
+async function loadSTLinks(pointsOnS2, factor, staticMode, chainMode, animation) {
     const engine = new phy.Engine({ substep: 30 });
+    engine.narrowPhase.maxIteration = 50;
     const world = new phy.World();
-    // world.gravity.set();
+    world.gravity.set();
     const scene = new FOUR.Scene();
     // define physical materials: frictions and restitutions
     const phyMatChain = new phy.Material(0.4, 0.4);
     const phyMatGround = new phy.Material(1, 0.4);
     // define render materials
     const renderMatGround = new FOUR.LambertMaterial([0.2, 1, 0.2, 0.03]);
-    // add ground
-    addRigidToScene(world, scene, renderMatGround, new phy.Rigid({
-        geometry: new phy.rigid.Plane(new math.Vec4(0, 1)),
-        mass: 0, material: phyMatGround
-    }));
+    const renderMatRoom = new FOUR.LambertMaterial([0.8, 0.6, 0.3, 0.08]);
+    // renderMatRoom.cullMode = "back";
+    const roomSize = 2.5;
+    addRoom(roomSize, world, phyMatGround, scene, renderMatRoom);
     // add spheritorus - spheritorus link
     const color = [
         [1, 0.1, 0.1, 1],
@@ -450,7 +450,7 @@ async function loadSTLinks(pointsOnS2, factor, staticMode, chainMode) {
     });
     // controllers
     const camCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
-    camCtrl.keyMoveSpeed = 0.01;
+    camCtrl.keyMoveSpeed = 0.003;
     const retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer.core);
     const emitCtrl = new EmitGlomeController(world, scene, camera, renderer);
     emitCtrl.glomeRadius = 0.8;
@@ -461,12 +461,19 @@ async function loadSTLinks(pointsOnS2, factor, staticMode, chainMode) {
         camCtrl,
         emitCtrl
     ], { enablePointerLock: true });
+    controllerRegistry.add(new GravityCtrl(world));
     function run() {
         // syncronise physics world and render scene
         updateRidigsInScene();
         // update controller states
         controllerRegistry.update();
         // rendering
+        // if (animation) {
+        //     scene.child[1].position.set();
+        //     scene.child[1].rotation.set();
+        //     scene.child[2].copyObj4(animation[c++]);
+        //     if (c >= animation.length) c = 0;
+        // }
         renderer.render(scene, camera);
         // simulating physics
         if (!staticMode)
@@ -477,8 +484,115 @@ async function loadSTLinks(pointsOnS2, factor, staticMode, chainMode) {
 }
 export var st_st_link2;
 (function (st_st_link2) {
+    const _vec4 = new Vec4;
+    const _COS30 = Math.sqrt(3) / 2;
+    const _r = new Rotor;
+    const maxIteration = 20;
+    function detectSTST(a, b) {
+        let depth = -Infinity;
+        // position and rotation are b in a's frame 
+        let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+        let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+        let tempa = b.majorRadius * 0.5;
+        let tempb = b.majorRadius * _COS30;
+        // choose 3 initial points (120 degree) on b for iteration
+        let initialPB = [
+            math.vec4Pool.pop().set(tempa, 0, 0, tempb),
+            math.vec4Pool.pop().set(tempa, 0, 0, -tempb),
+            math.vec4Pool.pop().set(-b.majorRadius)
+        ];
+        let newP = math.vec4Pool.pop();
+        let prevPInA = math.vec4Pool.pop();
+        let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
+        for (let p of initialPB) {
+            // newP and p are in b
+            newP.copy(p);
+            let needContinue = false;
+            for (let iterationCount = 0; iterationCount < maxIteration; iterationCount++) {
+                // from b to a
+                newP.rotates(rotation).adds(position);
+                let k = a.majorRadius / Math.hypot(newP.x, newP.w);
+                if (!isFinite(k)) {
+                    needContinue = true;
+                    break;
+                }
+                // project to a
+                newP.set(newP.x * k, 0, 0, newP.w * k);
+                prevPInA.copy(newP);
+                // from a to b
+                newP.subs(position).rotatesconj(rotation);
+                k = b.majorRadius / Math.hypot(newP.x, newP.w);
+                if (!isFinite(k)) {
+                    needContinue = true;
+                    break;
+                }
+                // project to b
+                newP.set(newP.x * k, 0, 0, newP.w * k);
+                // test if iteration still moves
+                let dx = Math.abs(newP.x - p.x);
+                let dw = Math.abs(newP.w - p.w);
+                p.copy(newP);
+                if (dx + dw < epsilon) {
+                    break;
+                }
+            }
+            if (needContinue)
+                continue;
+            // else there might be collision
+            // transform newP to a, then compare newP and prevPInA
+            newP.rotates(rotation).adds(position);
+            let normal = newP.sub(prevPInA);
+            let d = a.minorRadius + b.minorRadius - normal.norm();
+            depth = Math.max(depth, d);
+            // if (depth < 0) continue;
+            // console.log(converge);
+            // normal.rotates(a.rigid.rotation).norms();
+            // let point = newP.rotate(a.rigid.rotation).adds(a.rigid.position);
+            // point.addmulfs(normal, -b.minorRadius + depth * 0.5);
+            // this.collisionList.push({
+            //     normal, point, depth, a: a.rigid, b: b.rigid
+            // })
+        }
+        return depth;
+    }
     async function load() {
-        loadSTLinks([math.Vec3.x, math.Vec3.xNeg], 0.66);
+        // const rs = new Array(4096).fill(0).map(e => new tesserxel.math.Obj4);
+        let factor = 0.6;
+        // for (let factor = 0.6; factor < Math.SQRT1_2; factor += 5e1) {
+        // const a = new phy.rigid.Spheritorus(1, factor);
+        // a.rigid = new tesserxel.four.Object as unknown as tesserxel.physics.Rigid;
+        // const b = new phy.rigid.Spheritorus(1, factor);
+        // b.rigid = new tesserxel.four.Object as unknown as tesserxel.physics.Rigid;
+        // b.rigid.rotates(math.Rotor.lookAtbb(math.Bivec.xw, math.Bivec.yz));
+        // const state = new math.Obj4;
+        // let d = detectSTST(a, b);
+        // let d2 = d;
+        // for (let step = 0; step < 1e9; step++) {
+        //     if (d > 0) {
+        //         console.log("intersected", factor);
+        //         break;
+        //     }
+        //     state.copyObj4(b.rigid);
+        //     b.rigid.translates(math.Vec4.rand().mulfs(Math.max(-d, 1e-3)));
+        //     if ((d2 = detectSTST(a, b)) > 0) b.rigid.copyObj4(state); else d = d2;
+        //     state.copyObj4(b.rigid);
+        //     b.rigid.rotatesb(math.Bivec.rand().mulfs(Math.max(-d, 1e-3)));
+        //     if ((d2 = detectSTST(a, b)) > 0) b.rigid.copyObj4(state); else d = d2;
+        //     if (b.rigid.position.norminf() > 1.5) {
+        //         console.log("unlocked, minR/majR:", factor.toPrecision(3), "steps:", step);
+        //         break;
+        //     }
+        //     if ((step & 7) === 0) {
+        //         rs.push(rs.shift().copyObj4(b.rigid));
+        //     }
+        //     if (step % 1e6 === 0) console.log(factor, "progress: ", step);
+        //     // console.log(b.rigid.position, factor);
+        //     // }
+        // }
+        loadSTLinks([math.Vec3.x, math.Vec3.xNeg], factor);
+        // loadSTLinks([math.Vec3.x, math.Vec3.xNeg], factor, true, false, rs);
+        // const world = new phy.World();
+        // world.add(a,b);
     }
     st_st_link2.load = load;
 })(st_st_link2 || (st_st_link2 = {}));
@@ -1599,6 +1713,30 @@ export var ditorus;
     }
     ditorus.load = load;
 })(ditorus || (ditorus = {}));
+class GravityCtrl {
+    gravity = true;
+    world;
+    constructor(w) {
+        this.world = w;
+    }
+    registGui(gui) {
+        gui.keybindingMgr.addGroup("gravity", {
+            title: { zh: "重力控制", en: "Gravity Ctrl" },
+            actions: {
+                toggle: {
+                    title: { zh: "切换重力", en: "Toggle Gravity" },
+                    key: "KeyG", press: true
+                }
+            }
+        });
+    }
+    update(state) {
+        if (state.isActionActive("toggle", "gravity")) {
+            this.gravity = !this.gravity;
+            this.world.gravity.y = this.gravity ? -9.8 : 0;
+        }
+    }
+}
 async function loadMaxwell(cb) {
     const engine = new phy.Engine({ substep: 30, forceAccumulator: phy.force_accumulator.RK4 });
     const world = new phy.World();
@@ -1621,23 +1759,13 @@ async function loadMaxwell(cb) {
     // controllers
     const camCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
     camCtrl.keyMoveSpeed = 0.01;
-    const gravityCtrl = {
-        update: function (state) {
-            if (state.isKeyHold(".KeyG")) {
-                gravityCtrl.gravity = !gravityCtrl.gravity;
-                world.gravity.y = gravityCtrl.gravity ? -9.8 : 0;
-            }
-        },
-        enabled: true,
-        gravity: true
-    };
     const emitCtrl = new EmitGlomeController(world, scene, camera, app.renderer);
     emitCtrl.glomeRadius = 1;
     emitCtrl.maximumBulletDistance = 70;
     emitCtrl.initialSpeed = 10;
     app.controllerRegistry.add(camCtrl);
+    app.controllerRegistry.add(new GravityCtrl(world));
     app.controllerRegistry.add(emitCtrl);
-    app.controllerRegistry.add(gravityCtrl);
     app.renderer.core.setDisplayConfig({
         screenBackgroundColor: [1, 1, 1, 1],
         sectionStereoEyeOffset: 0.5,
