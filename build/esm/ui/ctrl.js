@@ -1721,7 +1721,7 @@ class RetinaController {
             if (on("sectionConfigs." + label)) {
                 state.storage.data.preference['sectionConfig'] = label;
                 state.storage.save();
-                this.toggleSectionConfig(label);
+                this.toggleSectionConfig(label, displayConfig, stereo);
             }
         }
         delta = (on("rotateDown") ? -1 : 0) + (on("rotateUp") ? 1 : 0);
@@ -1876,7 +1876,7 @@ class RetinaController {
         this.retinaFov = fov;
         this.needsUpdateRetinaCamera = true;
     }
-    toggleSectionConfig(index) {
+    toggleSectionConfig(index, dstConfig, overrideStereo) {
         if (this.currentSectionConfig === index)
             return;
         let preset = this.sectionPresets(this.renderer.getDisplayConfig("canvasSize"))[index];
@@ -1891,11 +1891,12 @@ class RetinaController {
             layers = this.rembemerLastLayers;
             this.rembemerLastLayers = null;
         }
-        let stereo = this.renderer.getStereoMode();
+        let stereo = overrideStereo ?? this.renderer.getStereoMode();
         let sections = preset[(stereo ? "eye2" : "eye1")];
         this.displayConfigChanged = true;
-        this.tempDisplayConfig.retinaLayers = layers;
-        this.tempDisplayConfig.sections = sections;
+        let target = dstConfig ?? this.tempDisplayConfig;
+        target.retinaLayers = layers;
+        target.sections = sections;
         this.currentSectionConfig = index;
         // refresh gui
         if (!this.guiButtons["slice"]) {
@@ -1917,17 +1918,17 @@ class RetinaController {
     setDisplayConfig(config) {
         if (config.canvasSize)
             this.setSize(config.canvasSize);
-        if (config.opacity)
+        if (config.opacity !== undefined)
             this.setOpacity(config.opacity);
-        if (config.retinaLayers)
+        if (config.retinaLayers !== undefined)
             this.setLayers(config.retinaLayers);
-        if (config.retinaResolution)
+        if (config.retinaResolution !== undefined)
             this.setRetinaResolution(config.retinaResolution);
-        if (config.crosshair)
+        if (config.crosshair !== undefined)
             this.setCrosshairSize(config.crosshair);
-        if (config.retinaStereoEyeOffset)
+        if (config.retinaStereoEyeOffset !== undefined)
             this.setRetinaEyeOffset(config.retinaStereoEyeOffset);
-        if (config.sectionStereoEyeOffset)
+        if (config.sectionStereoEyeOffset !== undefined)
             this.setSectionEyeOffset(config.sectionStereoEyeOffset);
         if (config.screenBackgroundColor) {
             this.tempDisplayConfig.screenBackgroundColor = config.screenBackgroundColor;

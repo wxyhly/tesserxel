@@ -321,8 +321,8 @@ class NarrowPhase {
     }
     detectSpheritorusSpheritorus(a, b) {
         // position and rotation are b in a's frame 
-        let position = new Vec4().subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
-        let rotation = new Rotor().copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
+        let position = _vec4.subset(b.rigid.position, a.rigid.position).rotatesconj(a.rigid.rotation);
+        let rotation = _r.copy(b.rigid.rotation).mulslconj(a.rigid.rotation);
         let tempa = b.majorRadius * 0.5;
         let tempb = b.majorRadius * _COS30;
         // choose 3 initial points (120 degree) on b for iteration
@@ -333,7 +333,7 @@ class NarrowPhase {
         ];
         let newP = vec4Pool.pop();
         let prevPInA = vec4Pool.pop();
-        let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.001;
+        let epsilon = Math.min(a.minorRadius, b.minorRadius) * 0.01;
         for (let p of initialPB) {
             // newP and p are in b
             newP.copy(p);

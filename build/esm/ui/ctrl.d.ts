@@ -307,7 +307,7 @@ export declare class RetinaController implements IController {
     setRetinaResolution(retinaResolution: number): void;
     setRetinaSize(size: number): void;
     setRetinaFov(fov: number): void;
-    toggleSectionConfig(index: string): void;
+    toggleSectionConfig(index: string, dstConfig?: DisplayConfig, overrideStereo?: boolean): void;
     setSize(size: GPUExtent3DStrict): void;
     setDisplayConfig(config: DisplayConfig): void;
 }
