@@ -71,6 +71,11 @@ class Mesh extends Object$1 {
     material;
     uObjMatBuffer;
     bindGroup;
+    /** optional storage buffer holding one affine transform per instance,
+     *  it is exposed to the vertex shader as an extra binding of the vertex bind group */
+    instanceBuffer;
+    /** number of instances drawn by this mesh, 1 when not instanced */
+    instanceCount;
     constructor(geometry, material) {
         super();
         this.geometry = geometry;

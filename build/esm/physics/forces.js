@@ -28,7 +28,7 @@ class ForceAccumulator {
             if (o.force.norm1() > 0) {
                 o.acceleration.addmulfs(o.force, o.invMass);
             }
-            if (o.inertiaIsotroy) {
+            if (o.inertiaIsotropy) {
                 if (o.torque.norm1() > 0)
                     o.angularAcceleration.set().addmulfs(o.torque, o.invInertia.xy);
             }

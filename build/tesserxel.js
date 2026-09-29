@@ -8029,6 +8029,11 @@ return vec4f(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1.0))
         material;
         uObjMatBuffer;
         bindGroup;
+        /** optional storage buffer holding one affine transform per instance,
+         *  it is exposed to the vertex shader as an extra binding of the vertex bind group */
+        instanceBuffer;
+        /** number of instances drawn by this mesh, 1 when not instanced */
+        instanceCount;
         constructor(geometry, material) {
             super();
             this.geometry = geometry;
@@ -8471,6 +8476,8 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
                     m.uObjMatBuffer,
                     this.uCamMatBuffer
                 ];
+                if (m.instanceBuffer)
+                    buffers.push(m.instanceBuffer);
                 m.bindGroup = this.core.createVertexShaderBindGroup(pipeline, 1, buffers, m.material.identifier);
             }
             if (!m.material.bindGroup) {
@@ -8609,8 +8616,9 @@ fn acesFilm(x: vec3<f32>)-> vec3<f32> {
                             tetraCount = 0;
                             tetraState = true;
                         }
-                        renderState.sliceTetras(mesh.bindGroup, mesh.geometry.jsBuffer.count);
-                        tetraCount += mesh.geometry.jsBuffer.count;
+                        let instanceCount = mesh.instanceCount ?? 1;
+                        renderState.sliceTetras(mesh.bindGroup, mesh.geometry.jsBuffer.count, instanceCount);
+                        tetraCount += mesh.geometry.jsBuffer.count * instanceCount;
                         if (tetraCount > this.maxTetraNumInOnePass) {
                             renderState.drawTetras(binding);
                             tetraState = false;
@@ -14045,7 +14053,7 @@ span.btn-yellow button{background: #BB7;}
         // this is diagonalbMatrix under principal axes coordinates
         inertia = new Bivec();
         invInertia = new Bivec();
-        inertiaIsotroy; // whether using scalar inertia
+        inertiaIsotropy; // whether using scalar inertia
         // only apply to active type object
         sleep = false;
         // for tracing debug
@@ -14133,7 +14141,7 @@ span.btn-yellow button{background: #BB7;}
                 rigid.type = "still";
             if (rigid.inertia) {
                 rigid.invInertia.xy = 1 / rigid.inertia.xy;
-                if (!rigid.inertiaIsotroy) {
+                if (!rigid.inertiaIsotropy) {
                     rigid.invInertia.xz = 1 / rigid.inertia.xz;
                     rigid.invInertia.yz = 1 / rigid.inertia.yz;
                     rigid.invInertia.xw = 1 / rigid.inertia.xw;
@@ -14183,7 +14191,7 @@ span.btn-yellow button{background: #BB7;}
                 // todo
                 // let inertia = new Matrix(6,6);
                 rigid.inertia.xy = 1;
-                rigid.inertiaIsotroy = true;
+                rigid.inertiaIsotropy = true;
                 rigid.type = "active";
             }
             ;
@@ -14207,7 +14215,7 @@ span.btn-yellow button{background: #BB7;}
                 this.inertiaCoefficient = inertiaCoefficient;
             }
             initializeMassInertia(rigid) {
-                rigid.inertiaIsotroy = true;
+                rigid.inertiaIsotropy = true;
                 rigid.inertia.xy = rigid.mass * this.radiusSqr * this.inertiaCoefficient;
             }
         }
@@ -14271,7 +14279,7 @@ span.btn-yellow button{background: #BB7;}
                 // [aId  P; P'  aId]
                 const p = iClinicMat.subMatrix(0, 3, 3, 3);
                 if (p.norm1() < 1e-5) {
-                    rigid.inertiaIsotroy = true;
+                    rigid.inertiaIsotropy = true;
                     rigid.inertia.set(...inertiaMat.diag()).mulfs(rigid.mass * 0.2); // factor for solid
                     return;
                 }
@@ -14327,8 +14335,8 @@ span.btn-yellow button{background: #BB7;}
                 let mins = Math.min(this.size.x, this.size.y, this.size.z, this.size.w);
                 let maxs = Math.max(this.size.x, this.size.y, this.size.z, this.size.w);
                 let isoratio = mins / maxs;
-                rigid.inertiaIsotroy = isoratio > 0.95;
-                if (rigid.inertiaIsotroy) {
+                rigid.inertiaIsotropy = isoratio > 0.95;
+                if (rigid.inertiaIsotropy) {
                     rigid.inertia.xy = rigid.mass * (mins + maxs) * (mins + maxs) * 0.2;
                 }
                 else {
@@ -14363,8 +14371,8 @@ span.btn-yellow button{background: #BB7;}
             }
             initializeMassInertia(rigid) {
                 let isoratio = this.radius1 / this.radius2;
-                rigid.inertiaIsotroy = isoratio > 0.95 && isoratio < 1.05;
-                if (rigid.inertiaIsotroy) {
+                rigid.inertiaIsotropy = isoratio > 0.95 && isoratio < 1.05;
+                if (rigid.inertiaIsotropy) {
                     rigid.inertia.xy = rigid.mass * (this.radius1 + this.radius2) * (this.radius1 + this.radius2) * 0.2;
                 }
                 else {
@@ -14428,7 +14436,7 @@ span.btn-yellow button{background: #BB7;}
                 this.boundingGlome = majorRadius + minorRadius;
             }
             initializeMassInertia(rigid) {
-                rigid.inertiaIsotroy = false;
+                rigid.inertiaIsotropy = false;
                 let maj = this.majorRadius * this.majorRadius;
                 let min = this.minorRadius * this.minorRadius;
                 let half = maj + 5 * min;
@@ -14451,7 +14459,7 @@ span.btn-yellow button{background: #BB7;}
                 this.boundingGlome = majorRadius + minorRadius;
             }
             initializeMassInertia(rigid) {
-                rigid.inertiaIsotroy = false;
+                rigid.inertiaIsotropy = false;
                 let maj = this.majorRadius * this.majorRadius;
                 let min = this.minorRadius * this.minorRadius;
                 let half = 2 * maj + 5 * min;
@@ -14475,7 +14483,7 @@ span.btn-yellow button{background: #BB7;}
                 this.boundingGlome = Math.max(majorRadius1, majorRadius2) + minorRadius;
             }
             initializeMassInertia(rigid) {
-                rigid.inertiaIsotroy = false;
+                rigid.inertiaIsotropy = false;
                 let maj1 = this.majorRadius1 * this.majorRadius1;
                 let maj2 = this.majorRadius2 * this.majorRadius2;
                 let min = this.minorRadius * this.minorRadius;
@@ -14500,7 +14508,7 @@ span.btn-yellow button{background: #BB7;}
                 this.boundingGlome = majorRadius + minorRadius12;
             }
             initializeMassInertia(rigid) {
-                rigid.inertiaIsotroy = false;
+                rigid.inertiaIsotropy = false;
                 let maj1 = this.majorRadius * this.majorRadius;
                 this.majorRadius * this.middleRadius;
                 let min = this.middleRadius * this.middleRadius;
@@ -14826,7 +14834,7 @@ span.btn-yellow button{background: #BB7;}
                 if (o.force.norm1() > 0) {
                     o.acceleration.addmulfs(o.force, o.invMass);
                 }
-                if (o.inertiaIsotroy) {
+                if (o.inertiaIsotropy) {
                     if (o.torque.norm1() > 0)
                         o.angularAcceleration.set().addmulfs(o.torque, o.invInertia.xy);
                 }
@@ -17578,7 +17586,7 @@ span.btn-yellow button{background: #BB7;}
                 if (a.mass > 0) {
                     let pA = vec4Pool.pop().subset(point, a.position);
                     let torqueA = bivecPool.pop().wedgevvset(normal, pA);
-                    if (a.inertiaIsotroy) {
+                    if (a.inertiaIsotropy) {
                         collision.dwA = torqueA.mulfs(a.invInertia.xy);
                     }
                     else {
@@ -17591,7 +17599,7 @@ span.btn-yellow button{background: #BB7;}
                 if (b?.mass > 0) {
                     let pB = vec4Pool.pop().subset(point, b.position);
                     let torqueB = bivecPool.pop().wedgevvset(pB, normal);
-                    if (b.inertiaIsotroy) {
+                    if (b.inertiaIsotropy) {
                         collision.dwB = torqueB.mulfs(b.invInertia.xy);
                     }
                     else {

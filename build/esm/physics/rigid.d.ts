@@ -32,7 +32,7 @@ export declare class Rigid extends Obj4 {
     invMass: number;
     inertia: Bivec | undefined;
     invInertia: Bivec | undefined;
-    inertiaIsotroy: boolean;
+    inertiaIsotropy: boolean;
     sleep: boolean;
     label?: string;
     velocity: Vec4;

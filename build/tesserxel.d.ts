@@ -1852,6 +1852,11 @@ declare class Mesh extends Object$1 {
     material: Material$1;
     uObjMatBuffer: GPUBuffer;
     bindGroup: GPUBindGroup;
+    /** optional storage buffer holding one affine transform per instance,
+     *  it is exposed to the vertex shader as an extra binding of the vertex bind group */
+    instanceBuffer?: GPUBuffer;
+    /** number of instances drawn by this mesh, 1 when not instanced */
+    instanceCount?: number;
     constructor(geometry: Geometry, material: Material$1);
 }
 declare class Geometry {
@@ -2677,7 +2682,7 @@ declare class Rigid extends Obj4 {
     invMass: number;
     inertia: Bivec | undefined;
     invInertia: Bivec | undefined;
-    inertiaIsotroy: boolean;
+    inertiaIsotropy: boolean;
     sleep: boolean;
     label?: string;
     velocity: Vec4;

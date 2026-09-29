@@ -197,7 +197,7 @@ export class IterativeImpulseSolver extends Solver {
             if (a.mass > 0) {
                 let pA = vec4Pool.pop().subset(point, a.position);
                 let torqueA = bivecPool.pop().wedgevvset(normal, pA);
-                if (a.inertiaIsotroy) {
+                if (a.inertiaIsotropy) {
                     collision.dwA = torqueA.mulfs(a.invInertia.xy);
                 } else {
                     torqueA.rotatesconj(a.rotation);
@@ -209,7 +209,7 @@ export class IterativeImpulseSolver extends Solver {
             if (b?.mass > 0) {
                 let pB = vec4Pool.pop().subset(point, b.position);
                 let torqueB = bivecPool.pop().wedgevvset(pB, normal);
-                if (b.inertiaIsotroy) {
+                if (b.inertiaIsotropy) {
                     collision.dwB = torqueB.mulfs(b.invInertia.xy);
                 } else {
                     torqueB.rotatesconj(b.rotation);

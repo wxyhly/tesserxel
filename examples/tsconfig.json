@@ -6,8 +6,9 @@
         ],
         "target": "ES2022",
         "sourceMap": true,
+        "strict": false,
         "outDir": "js",
-        "baseUrl": ".",
+        "rootDir": "./src",
         "module": "EsNext",
         "moduleResolution": "Bundler",
         "types": [

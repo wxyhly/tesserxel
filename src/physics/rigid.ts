@@ -38,7 +38,7 @@ export class Rigid extends Obj4 {
     // this is diagonalbMatrix under principal axes coordinates
     inertia: Bivec | undefined = new Bivec();
     invInertia: Bivec | undefined = new Bivec();
-    inertiaIsotroy: boolean; // whether using scalar inertia
+    inertiaIsotropy: boolean; // whether using scalar inertia
     // only apply to active type object
     sleep: boolean = false;
     // for tracing debug
@@ -125,7 +125,7 @@ export abstract class RigidGeometry {
         if (!rigid.mass && rigid.type === "active") rigid.type = "still";
         if (rigid.inertia) {
             rigid.invInertia.xy = 1 / rigid.inertia.xy;
-            if (!rigid.inertiaIsotroy) {
+            if (!rigid.inertiaIsotropy) {
                 rigid.invInertia.xz = 1 / rigid.inertia.xz;
                 rigid.invInertia.yz = 1 / rigid.inertia.yz;
                 rigid.invInertia.xw = 1 / rigid.inertia.xw;
@@ -172,7 +172,7 @@ export namespace rigid {
             // todo
             // let inertia = new Matrix(6,6);
             rigid.inertia.xy = 1;
-            rigid.inertiaIsotroy = true;
+            rigid.inertiaIsotropy = true;
             rigid.type = "active";
         };
         updateCoord() {
@@ -194,7 +194,7 @@ export namespace rigid {
             this.inertiaCoefficient = inertiaCoefficient;
         }
         initializeMassInertia(rigid: Rigid) {
-            rigid.inertiaIsotroy = true;
+            rigid.inertiaIsotropy = true;
             rigid.inertia.xy = rigid.mass * this.radiusSqr * this.inertiaCoefficient;
         }
     }
@@ -285,7 +285,7 @@ export namespace rigid {
             // [aId  P; P'  aId]
             const p = iClinicMat.subMatrix(0, 3, 3, 3);
             if (p.norm1() < 1e-5) {
-                rigid.inertiaIsotroy = true;
+                rigid.inertiaIsotropy = true;
                 rigid.inertia.set(...inertiaMat.diag()).mulfs(rigid.mass * 0.2); // factor for solid
                 return;
             }
@@ -342,8 +342,8 @@ export namespace rigid {
             let mins = Math.min(this.size.x, this.size.y, this.size.z, this.size.w);
             let maxs = Math.max(this.size.x, this.size.y, this.size.z, this.size.w);
             let isoratio = mins / maxs;
-            rigid.inertiaIsotroy = isoratio > 0.95;
-            if (rigid.inertiaIsotroy) {
+            rigid.inertiaIsotropy = isoratio > 0.95;
+            if (rigid.inertiaIsotropy) {
                 rigid.inertia.xy = rigid.mass * (mins + maxs) * (mins + maxs) * 0.2;
             } else {
                 let x = this.size.x * this.size.x;
@@ -374,8 +374,8 @@ export namespace rigid {
         }
         initializeMassInertia(rigid: Rigid) {
             let isoratio = this.radius1 / this.radius2;
-            rigid.inertiaIsotroy = isoratio > 0.95 && isoratio < 1.05;
-            if (rigid.inertiaIsotroy) {
+            rigid.inertiaIsotropy = isoratio > 0.95 && isoratio < 1.05;
+            if (rigid.inertiaIsotropy) {
                 rigid.inertia.xy = rigid.mass * (this.radius1 + this.radius2) * (this.radius1 + this.radius2) * 0.2;
             } else {
                 let x = this.radius1 * this.radius1;
@@ -440,7 +440,7 @@ export namespace rigid {
             this.boundingGlome = majorRadius + minorRadius;
         }
         initializeMassInertia(rigid: Rigid) {
-            rigid.inertiaIsotroy = false;
+            rigid.inertiaIsotropy = false;
             let maj = this.majorRadius * this.majorRadius;
             let min = this.minorRadius * this.minorRadius;
             let half = maj + 5 * min;
@@ -469,7 +469,7 @@ export namespace rigid {
             this.boundingGlome = majorRadius + minorRadius;
         }
         initializeMassInertia(rigid: Rigid) {
-            rigid.inertiaIsotroy = false;
+            rigid.inertiaIsotropy = false;
             let maj = this.majorRadius * this.majorRadius;
             let min = this.minorRadius * this.minorRadius;
             let half = 2 * maj + 5 * min;
@@ -496,7 +496,7 @@ export namespace rigid {
             this.boundingGlome = Math.max(majorRadius1, majorRadius2) + minorRadius;
         }
         initializeMassInertia(rigid: Rigid) {
-            rigid.inertiaIsotroy = false;
+            rigid.inertiaIsotropy = false;
             let maj1 = this.majorRadius1 * this.majorRadius1;
             let maj2 = this.majorRadius2 * this.majorRadius2;
             let min = this.minorRadius * this.minorRadius;
@@ -524,7 +524,7 @@ export namespace rigid {
             this.boundingGlome = majorRadius + minorRadius12;
         }
         initializeMassInertia(rigid: Rigid) {
-            rigid.inertiaIsotroy = false;
+            rigid.inertiaIsotropy = false;
             let maj1 = this.majorRadius * this.majorRadius;
             let maj2 = this.majorRadius * this.middleRadius;
             let min = this.middleRadius * this.middleRadius;

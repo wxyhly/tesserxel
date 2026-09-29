@@ -142,6 +142,8 @@ class Renderer {
                 m.uObjMatBuffer,
                 this.uCamMatBuffer
             ];
+            if (m.instanceBuffer)
+                buffers.push(m.instanceBuffer);
             m.bindGroup = this.core.createVertexShaderBindGroup(pipeline, 1, buffers, m.material.identifier);
         }
         if (!m.material.bindGroup) {
@@ -280,8 +282,9 @@ class Renderer {
                         tetraCount = 0;
                         tetraState = true;
                     }
-                    renderState.sliceTetras(mesh.bindGroup, mesh.geometry.jsBuffer.count);
-                    tetraCount += mesh.geometry.jsBuffer.count;
+                    let instanceCount = mesh.instanceCount ?? 1;
+                    renderState.sliceTetras(mesh.bindGroup, mesh.geometry.jsBuffer.count, instanceCount);
+                    tetraCount += mesh.geometry.jsBuffer.count * instanceCount;
                     if (tetraCount > this.maxTetraNumInOnePass) {
                         renderState.drawTetras(binding);
                         tetraState = false;

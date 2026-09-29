@@ -110,10 +110,26 @@ let examples = [
                 group: "rotating_rigids", zh: "旋转陀螺", en: "Rotating Gyros",
                 child: [
                     { target: "rigids::gyro_conic_prism", zh: "圆锥柱陀螺", en: "Conic Prism Gyro" },
-                    { target: "rigids::gyro_cylindral_cone", zh: "圆柱锥陀螺", en: "Cylindral Cone Gyro" },
+                    { target: "rigids::gyro_cylindrone", zh: "圆柱锥陀螺", en: "Cylindrone Gyro" },
+                    { target: "rigids::roll_cylindrone", zh: "圆柱锥滚动", en: "Cylindrone" },
                     { target: "rigids::gyro_dicone", zh: "圆锥锥陀螺", en: "Dicone Gyro" },
                     { target: "rigids::gyro_duocone", zh: "双圆锥陀螺", en: "Duospindle(Duocone) Gyro" },
                     { target: "rigids::gyro_sphericone", zh: "球锥陀螺", en: "Sphericone Gyro" },
+                ]
+            }, {
+                group: "rotating_rigids", zh: "非柱锥滚动", en: "Non-cone/cylinder Rolling",
+                child: [
+                    { target: "rigids::roll_biconic_crind", zh: "牟合圆双锥盖滚动", en: "Biconic Crind" },
+                    { target: "rigids::roll_dicrind", zh: "二重牟合方盖滚动", en: "Dicrind" },
+                    { target: "rigids::roll_octahedral_crind", zh: "牟合正八面盖滚动", en: "Octahedral Crind" },
+                    { target: "rigids::roll_cubic_crind", zh: "牟合立方盖滚动", en: "Cubic Crind" },
+                    { target: "rigids::roll_cylindrical_crind", zh: "牟合圆柱盖滚动", en: "Cylindrical Crind" },
+                    { target: "rigids::roll_duocrind", zh: "双牟合方盖滚动", en: "Duocrind" },
+                    { target: "rigids::roll_4oloid", zh: "圆-球链凸包(四维Oloid)", en: "4-Oloid" },
+                    { target: "rigids::roll_glomicon", zh: "球锥双圆锥双拼", en: "Sphericone-Duospindle" },
+                    { target: "rigids::roll_semidisphenoid", zh: "双圆半锲", en: "Duocircular Semidisphenoid" },
+                    { target: "rigids::roll_trefoil", zh: "三叶结", en: "Trefoil Knot" },
+                    { target: "rigids::roll_3_5_knot", zh: "3,5-环面扭结", en: "3,5-Flat Torus Knot" },
                 ]
             },
             {
@@ -420,6 +436,10 @@ let info = {
         "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆锥柱陀螺。使用鼠标左键发射超球轰击它可以看到该陀螺具有一定的稳定性。",
         "en": "<b>Control: Keep up mode</b><br>Spinning conic prismatical gyro. Click left mouse button to fire glomes and hit it, which can be shown that this gyro is stable while spinning."
     },
+    "rigids::gyro_conic_prism": {
+        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆锥柱陀螺。使用鼠标左键发射超球轰击它可以看到该陀螺具有一定的稳定性。",
+        "en": "<b>Control: Keep up mode</b><br>Spinning conic prismatical gyro. Click left mouse button to fire glomes and hit it, which can be shown that this gyro is stable while spinning."
+    },
     "rigids::gyro_dicone": {
         "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆锥锥陀螺。使用鼠标左键发射超球轰击它可以看到该陀螺具有一定的稳定性。",
         "en": "<b>Control: Keep up mode</b><br>Spinning diconic gyro. Click left mouse button to fire glomes and hit it, which can be shown that this gyro is stable while spinning."
@@ -432,9 +452,13 @@ let info = {
         "zh": "<b>控制：保持竖直模式</b><br>快速旋转的球锥陀螺，可以看到它不能保持稳定旋转。使用鼠标左键发射超球轰击它。",
         "en": "<b>Control: Keep up mode</b><br>Spinning sphericonic gyro. It can be seen that this gyro is not stable. Click left mouse button to fire glomes and hit it."
     },
-    "rigids::gyro_cylindral_cone": {
+    "rigids::gyro_cylindrone": {
         "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆柱锥陀螺，可以看到它不能保持稳定旋转。使用鼠标左键发射超球轰击它。",
-        "en": "<b>Control: Keep up mode</b><br>Spinning conic prismatical gyro. It can be seen that this gyro is not stable. Click left mouse button to fire glomes and hit it."
+        "en": "<b>Control: Keep up mode</b><br>Spinning cylindronic gyro. It can be seen that this gyro is not stable. Click left mouse button to fire glomes and hit it."
+    },
+    "rigids::roll_cylindrone": {
+        "zh": "<b>控制：保持竖直模式</b><br>圆柱锥也可以像锥一样滚动。使用鼠标左键发射超球轰击它。",
+        "en": "<b>Control: Keep up mode</b><br>Cylindrone can roll like a cone. Click left mouse button to fire glomes and hit it."
     },
     "rigids::dzhanibekov2": {
         "en": "<b>Control: Trackball mode</b><br>4D version of Dzhanibekov effect (or Tennis racket theorem). If the supercuboid is rotated around the plane formed by the shortest and longest edges, the rotation direction will inverse frequently. This corresponds to two different periods in two directions. This was firstly proposed in Marc ten bosch's paper, but with wrong simulation result. ",
