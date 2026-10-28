@@ -201,7 +201,8 @@ export namespace rigid {
     export class Convex extends RigidGeometry {
         points: Vec4[];
         _cachePoints: Vec4[];
-        constructor(points: Vec4[]) {
+        autoGenerateInertia = true;
+        constructor(points: Vec4[], disableAutoGenerateInertia = false) {
             super();
             this.points = points;
             this.obb = AABB.fromPoints(points);
@@ -210,6 +211,7 @@ export namespace rigid {
                 this.boundingGlome = Math.max(this.boundingGlome, i.normsqr());
             }
             this.boundingGlome = Math.sqrt(this.boundingGlome);
+            this.autoGenerateInertia = !disableAutoGenerateInertia;
         }
         private getPointsInertia(points: Vec4[], mass: number) {
             const inertiaMat = new Matrix(6);
@@ -238,6 +240,7 @@ export namespace rigid {
             return inertiaMat.mulfs(mass / points.length);
         }
         initializeMassInertia(rigid: Rigid) {
+            if (rigid.inertia?.norm1() > 0 || !this.autoGenerateInertia) return;
             // todo inertia calc
             const tempMat = new Matrix(6);
             // const Rt = Rotor.rand();

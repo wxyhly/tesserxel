@@ -114,6 +114,63 @@ function initScene(scene: tesserxel.four.Scene) {
     ));
     scene.setBackgroundColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
 }
+class ObjectController implements tesserxel.ui.ctrl.IController {
+    enabled: boolean = true;
+    keyMoveSpeed = 0.001;
+    camera: tesserxel.math.Obj4;
+    object: tesserxel.physics.Rigid;
+    private _moveVec = new math.Vec4();
+    constructor(camera: tesserxel.math.Obj4, object: tesserxel.physics.Rigid) {
+        this.camera = camera;
+        this.object = object;
+    }
+    registGui(gui: tesserxel.ui.SettingGUI): void {
+        gui.keybindingMgr.addGroup("objmover", {
+            title: { zh: "物体移动控制", en: "Object Move Ctrl" },
+            actions: {
+                front: {
+                    title: { zh: "前进", en: "Move Forward" },
+                    key: "KeyT"
+                },
+                back: {
+                    title: { zh: "后退", en: "Move Backward" },
+                    key: "KeyG"
+                },
+                left: {
+                    title: { zh: "左移", en: "Move Left" },
+                    key: "KeyF"
+                },
+                right: {
+                    title: { zh: "右移", en: "Move Right" },
+                    key: "KeyH"
+                },
+                ana: {
+                    title: { zh: "侧前移", en: "Move Ana" },
+                    key: "KeyR"
+                },
+                kata: {
+                    title: { zh: "侧后移", en: "Move Kata" },
+                    key: "KeyY"
+                },
+            }
+        });
+    }
+    update(state: tesserxel.ui.ctrl.ControllerState): void {
+        let delta: number;
+        this._moveVec.set();
+        const on = (k: string) => state.isActionActive(k, "objmover");
+        let keyMoveSpeed = this.keyMoveSpeed * Math.min(state.mspf, 16);
+        delta = (on("left") ? -1 : 0) + (on("right") ? 1 : 0);
+        if (delta) this._moveVec.x = delta * keyMoveSpeed;
+        delta = (on("up") ? 1 : 0) + (on("down") ? -1 : 0);
+        if (delta) this._moveVec.y = delta * keyMoveSpeed;
+        delta = (on("ana") ? -1 : 0) + (on("kata") ? 1 : 0);
+        if (delta) this._moveVec.z = delta * keyMoveSpeed;
+        delta = (on("front") ? -1 : 0) + (on("back") ? 1 : 0);
+        if (delta) this._moveVec.w = delta * keyMoveSpeed;
+        this.object.velocity.adds(this._moveVec.rotates(this.camera.rotation));
+    }
+}
 class EmitGlomeController implements tesserxel.ui.ctrl.IController {
     enabled: boolean = true;
     world: tesserxel.physics.World; scene: tesserxel.four.Scene;
@@ -1181,9 +1238,9 @@ async function loadGyroScene(cwmesh: tesserxel.mesh.CWMesh | Vec4[], material: t
     const controllerRegistry = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
         retinaCtrl,
         camCtrl,
-        new EmitGlomeController(world, scene, camera, renderer)
+        new EmitGlomeController(world, scene, camera, renderer),
+        new ObjectController(camera, gyroLogic)
     ], { enablePointerLock: true });
-
     function run() {
         // syncronise physics world and render scene
         updateRidigsInScene();
@@ -1193,6 +1250,7 @@ async function loadGyroScene(cwmesh: tesserxel.mesh.CWMesh | Vec4[], material: t
         renderer.render(scene, camera);
         // simulating physics
         if (material.compiled) engine.update(world, 1 / 50);
+        // console.log(gyroLogic.position.y.toFixed(4));
         window.requestAnimationFrame(run);
     }
     return { gyroLogic, run };
@@ -1278,18 +1336,22 @@ export namespace roll_cylindrone {
     }
 }
 const inertiaR = 1;
+function randRoll(gyroLogic: tesserxel.physics.Rigid) {
+    gyroLogic.inertiaIsotropy = true;
+    gyroLogic.invInertia.set(1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR);
+    gyroLogic.inertia.set(inertiaR, inertiaR, inertiaR, inertiaR, inertiaR, inertiaR);
+    gyroLogic.angularVelocity.randset().mulfs(3);
+}
 export namespace roll_biconic_crind {
     export async function load() {
-        const mesh1 = tesserxel.mesh.cw.polytope([32]).apply(v => v.set(v.x, 0, 0, v.y)).data[0] as Vec4[];
-        const mesh2 = tesserxel.mesh.cw.ball2(24, 24).data[0] as Vec4[];
+        const mesh1 = tesserxel.mesh.cw.polytope([48]).apply(v => v.set(v.x, 0, 0, v.y)).data[0] as Vec4[];
+        const mesh2 = tesserxel.mesh.cw.ball2(36, 36).data[0] as Vec4[];
         const mesh = mesh1.concat(mesh2);
         mesh.forEach(v => v.x *= Math.SQRT1_2);
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
-        gyroLogic.inertiaIsotropy = true;
-        gyroLogic.invInertia.set(1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR);
-        gyroLogic.inertia.set(inertiaR, inertiaR, inertiaR, inertiaR, inertiaR, inertiaR);
-        gyroLogic.position.y = 0.2;
+
+        randRoll(gyroLogic);
         run();
     }
 }
@@ -1302,19 +1364,16 @@ export namespace roll_dicrind {
 
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
-        gyroLogic.inertiaIsotropy = true;
-        gyroLogic.invInertia.set(1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR);
-        gyroLogic.inertia.set(inertiaR, inertiaR, inertiaR, inertiaR, inertiaR, inertiaR);
-        gyroLogic.position.y = 0.2;
+        randRoll(gyroLogic);
         run();
     }
 }
 export namespace roll_cubic_crind {
     export async function load() {
         const mesh = [] as Vec4[];
-        for (let i = 0; i < 32; i++) {
-            const cos = Math.cos(i * Math.PI * 2 / 32);
-            const sin = Math.sin(i * Math.PI * 2 / 32);
+        for (let i = 0; i < 64; i++) {
+            const cos = Math.cos(i * Math.PI * 2 / 64);
+            const sin = Math.sin(i * Math.PI * 2 / 64);
             mesh.push(new Vec4(cos, sin, sin, sin));
             mesh.push(new Vec4(cos, sin, sin, -sin));
             mesh.push(new Vec4(cos, sin, -sin, sin));
@@ -1323,19 +1382,16 @@ export namespace roll_cubic_crind {
 
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
-        gyroLogic.inertiaIsotropy = true;
-        gyroLogic.invInertia.set(1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR);
-        gyroLogic.inertia.set(inertiaR, inertiaR, inertiaR, inertiaR, inertiaR, inertiaR);
-        gyroLogic.position.y = 0.2;
+        randRoll(gyroLogic);
         run();
     }
 }
 export namespace roll_octahedral_crind {
     export async function load() {
         const mesh = [] as Vec4[];
-        for (let i = 0; i < 32; i++) {
-            const cos = Math.cos(i * Math.PI * 2 / 32);
-            const sin = Math.sin(i * Math.PI * 2 / 32) * Math.sqrt(3);
+        for (let i = 0; i < 64; i++) {
+            const cos = Math.cos(i * Math.PI * 2 / 64);
+            const sin = Math.sin(i * Math.PI * 2 / 64) * Math.sqrt(3);
             mesh.push(new Vec4(cos, sin, 0, 0));
             mesh.push(new Vec4(cos, 0, sin, 0));
             mesh.push(new Vec4(cos, 0, 0, sin));
@@ -1343,10 +1399,7 @@ export namespace roll_octahedral_crind {
 
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
-        gyroLogic.inertiaIsotropy = true;
-        gyroLogic.invInertia.set(1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR);
-        gyroLogic.inertia.set(inertiaR, inertiaR, inertiaR, inertiaR, inertiaR, inertiaR);
-        gyroLogic.position.y = 0.2;
+        randRoll(gyroLogic);
         run();
     }
 }
@@ -1354,23 +1407,19 @@ export namespace roll_octahedral_crind {
 export namespace roll_cylindrical_crind {
     export async function load() {
         const mesh = [] as Vec4[];
-        for (let i = 0; i < 32; i++) {
-            const cos = Math.cos(i * Math.PI * 2 / 32);
-            const sin = Math.sin(i * Math.PI * 2 / 32);
-            for (let j = 0; j < 32; j++) {
-                const c = Math.cos(j * Math.PI * 2 / 32);
-                const s = Math.sin(j * Math.PI * 2 / 32);
+        for (let i = 0; i < 64; i++) {
+            const cos = Math.cos(i * Math.PI * 2 / 64);
+            const sin = Math.sin(i * Math.PI * 2 / 64);
+            for (let j = 0; j < 64; j++) {
+                const c = Math.cos(j * Math.PI * 2 / 64);
+                const s = Math.sin(j * Math.PI * 2 / 64);
                 mesh.push(new Vec4(cos, sin, sin * c, sin * s));
             }
         }
 
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
-        gyroLogic.inertiaIsotropy = true;
-        gyroLogic.invInertia.set(1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR);
-        gyroLogic.inertia.set(inertiaR, inertiaR, inertiaR, inertiaR, inertiaR, inertiaR);
-        gyroLogic.position.y = 0.2;
-        gyroLogic.rotation.randset();
+        randRoll(gyroLogic);
         run();
     }
 }
@@ -1378,9 +1427,9 @@ export namespace roll_cylindrical_crind {
 export namespace roll_duocrind {
     export async function load() {
         const mesh = [] as Vec4[];
-        for (let i = 0; i < 32; i++) {
-            const cos = Math.cos(i * Math.PI * 2 / 32);
-            const sin = Math.sin(i * Math.PI * 2 / 32);
+        for (let i = 0; i < 64; i++) {
+            const cos = Math.cos(i * Math.PI * 2 / 64);
+            const sin = Math.sin(i * Math.PI * 2 / 64);
             mesh.push(new Vec4(0, cos, sin, 0));
             mesh.push(new Vec4(0, cos, 0, sin));
             mesh.push(new Vec4(cos, 0, sin, 0));
@@ -1389,10 +1438,7 @@ export namespace roll_duocrind {
 
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
-        gyroLogic.inertiaIsotropy = true;
-        gyroLogic.invInertia.set(1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR);
-        gyroLogic.inertia.set(inertiaR, inertiaR, inertiaR, inertiaR, inertiaR, inertiaR);
-        gyroLogic.position.y = 0.2;
+        randRoll(gyroLogic);
         run();
     }
 }
@@ -1412,10 +1458,7 @@ export namespace roll_glomicon {
 
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
-        gyroLogic.inertiaIsotropy = true;
-        gyroLogic.invInertia.set(1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR);
-        gyroLogic.inertia.set(inertiaR, inertiaR, inertiaR, inertiaR, inertiaR, inertiaR);
-        gyroLogic.position.y = 0.2;
+        randRoll(gyroLogic);
         run();
     }
 }
@@ -1428,10 +1471,7 @@ export namespace roll_4oloid {
         const mesh = mesh1.concat(mesh2);
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
-        gyroLogic.inertiaIsotropy = true;
-        gyroLogic.invInertia.set(1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR);
-        gyroLogic.inertia.set(inertiaR, inertiaR, inertiaR, inertiaR, inertiaR, inertiaR);
-        gyroLogic.position.y = 0.2;
+        randRoll(gyroLogic);
         run();
     }
 }
@@ -1443,10 +1483,7 @@ export namespace roll_semidisphenoid {
         const mesh = mesh1.concat(mesh2);
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
-        gyroLogic.inertiaIsotropy = true;
-        gyroLogic.invInertia.set(1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR);
-        gyroLogic.inertia.set(inertiaR, inertiaR, inertiaR, inertiaR, inertiaR, inertiaR);
-        gyroLogic.position.y = 0.2;
+        randRoll(gyroLogic);
         run();
     }
 }
@@ -1454,44 +1491,248 @@ export namespace roll_semidisphenoid {
 export namespace roll_trefoil {
     export async function load() {
         const mesh = [] as Vec4[];
-        for (let i = 0; i < 48; i++) {
-            const sin3 = Math.sin(i * Math.PI * 2 / 48 * 3);
-            const cos3 = Math.cos(i * Math.PI * 2 / 48 * 3);
+        for (let i = 0; i < 96; i++) {
+            const sin3 = Math.sin(i * Math.PI * 2 / 96 * 3);
+            const cos3 = Math.cos(i * Math.PI * 2 / 96 * 3);
 
-            const sin2 = Math.sin(i * Math.PI * 2 / 48 * 2);
-            const cos2 = Math.cos(i * Math.PI * 2 / 48 * 2);
+            const sin2 = Math.sin(i * Math.PI * 2 / 96);
+            const cos2 = Math.cos(i * Math.PI * 2 / 96);
             mesh.push(new Vec4(sin3, cos3, sin2, cos2));
         }
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
-        gyroLogic.inertiaIsotropy = true;
-        gyroLogic.invInertia.set(1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR);
-        gyroLogic.inertia.set(inertiaR, inertiaR, inertiaR, inertiaR, inertiaR, inertiaR);
-        gyroLogic.position.y = 0.2;
+        randRoll(gyroLogic);
         run();
     }
 }
 export namespace roll_3_5_knot {
     export async function load() {
         const mesh = [] as Vec4[];
-        for (let i = 0; i < 75; i++) {
-            const sin3 = Math.sin(i * Math.PI * 2 / 75 * 3);
-            const cos3 = Math.cos(i * Math.PI * 2 / 75 * 3);
+        for (let i = 0; i < 150; i++) {
+            const sin3 = Math.sin(i * Math.PI * 2 / 150 * 3);
+            const cos3 = Math.cos(i * Math.PI * 2 / 150 * 3);
 
-            const sin2 = Math.sin(i * Math.PI * 2 / 75 * 5);
-            const cos2 = Math.cos(i * Math.PI * 2 / 75 * 5);
+            const sin2 = Math.sin(i * Math.PI * 2 / 150 * 5);
+            const cos2 = Math.cos(i * Math.PI * 2 / 150 * 5);
             mesh.push(new Vec4(sin3, cos3, sin2, cos2));
         }
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
-        gyroLogic.inertiaIsotropy = true;
-        gyroLogic.invInertia.set(1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR, 1 / inertiaR);
-        gyroLogic.inertia.set(inertiaR, inertiaR, inertiaR, inertiaR, inertiaR, inertiaR);
-        gyroLogic.position.y = 0.2;
+        randRoll(gyroLogic);
+        run();
+    }
+}
+function polyhedricon(schlafli: [number, number], biv: tesserxel.math.Bivec, sign: boolean) {
+    const cw = tesserxel.mesh.cw.polytope(schlafli);
+    if (schlafli[0] === 3 && schlafli[1] === 4) {
+        cw.data[0] = [Vec4.x.clone(), Vec4.xNeg.clone(), Vec4.y.clone(), Vec4.yNeg.clone(), Vec4.z.clone(), Vec4.zNeg.clone()];
+    }
+    if (schlafli[0] === 3 && schlafli[1] === 3) {
+        cw.data[0] = [new Vec4(1, 1, 1, 0), new Vec4(1, -1, -1, 0), new Vec4(-1, 1, -1, 0), new Vec4(-1, -1, 1, 0)];
+    }
+    if (schlafli[0] === 5 && schlafli[1] === 3) {
+        const phi = (1 + Math.sqrt(5)) / 2;
+        const invphi = 1 / phi;
+        cw.data[0] = [
+            new Vec4(1, 1, 1, 0), new Vec4(1, 1, -1, 0), new Vec4(1, -1, 1, 0), new Vec4(1, -1, -1, 0),
+            new Vec4(-1, 1, 1, 0), new Vec4(-1, 1, -1, 0), new Vec4(-1, -1, 1, 0), new Vec4(-1, -1, -1, 0),
+            new Vec4(0, invphi, phi, 0), new Vec4(0, invphi, -phi, 0),
+            new Vec4(0, -invphi, phi, 0), new Vec4(0, -invphi, -phi, 0),
+            new Vec4(invphi, phi, 0, 0), new Vec4(invphi, -phi, 0, 0),
+            new Vec4(-invphi, phi, 0, 0), new Vec4(-invphi, -phi, 0, 0),
+            new Vec4(phi, 0, invphi, 0), new Vec4(phi, 0, -invphi, 0),
+            new Vec4(-phi, 0, invphi, 0), new Vec4(-phi, 0, -invphi, 0)
+        ];
+    }
+    if (schlafli[0] === 3 && schlafli[1] === 5) {
+        const phi = (1 + Math.sqrt(5)) / 2;
+        cw.data[0] = [
+            new Vec4(0, 1, phi, 0), new Vec4(0, 1, -phi, 0),
+            new Vec4(0, -1, phi, 0), new Vec4(0, -1, -phi, 0),
+            new Vec4(1, phi, 0, 0), new Vec4(1, -phi, 0, 0),
+            new Vec4(-1, phi, 0, 0), new Vec4(-1, -phi, 0, 0),
+            new Vec4(phi, 0, 1, 0), new Vec4(phi, 0, -1, 0),
+            new Vec4(-phi, 0, 1, 0), new Vec4(-phi, 0, -1, 0)
+        ].map(v => v.norms());
+    }
+    const side = (cw.data[0] as tesserxel.math.Vec4[]).map((v, idx) => sign ? v.wedgeb(biv).w >= -1e-2 : v.wedgeb(biv).w <= 1e-2);
+    const s = new Set<number>;
+    side.forEach((e, idx) => { if (e) { s.add(idx) } });
+    cw.data[1] = [];
+    cw.data[2] = [];
+    cw.data[3] = [];
+    cw.deleteSelection(new tesserxel.mesh.CWMeshSelection(cw, [s, new Set, new Set, new Set]));
+    cw.makeRotatoid(biv.duals(), 96, Math.PI);
+    return cw.data[0] as Vec4[];
+}
+export namespace sphericon_cube {
+    export async function load() {
+        // x/\(y+z)
+        const onehalf = polyhedricon([4, 3], new Bivec(1, 1).norms(), true);
+        // x/\y+y/\z
+        const anotherhalf = polyhedricon([4, 3], new Bivec(1, 0, 0, -1).norms(), false);
+        // anotherhalf.forEach(v=>v.rotates(Rotor.lookAtbb(new Bivec(1, 1).norms(),new Bivec(1, 0, 0, 1).norms())));
+        const mesh = onehalf.concat(anotherhalf);
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        gyroLogic.angularVelocity.randset().mulfs(4);
+        // gyroLogic.angularVelocity.set(0, 0, 0, 0, 0, 3);
+        run();
+    }
+}
+export namespace sphericon_oct {
+    export async function load() {
+        const onehalf = polyhedricon([3, 4], new Bivec(1, 1).norms(), true);
+        const anotherhalf = polyhedricon([3, 4], new Bivec(1, 0, 0, 1).norms(), false);
+        const mesh = onehalf.concat(anotherhalf);
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        gyroLogic.angularVelocity.randset().mulfs(4);
         run();
     }
 }
 
+export namespace sphericon_icos {
+    export async function load() {
+        const phi = (1 + Math.sqrt(5)) / 2;
+        const onehalf = polyhedricon([3, 5], new Vec4(1, 1, 1, 0).wedge(new Vec4(0, 1, phi, 0)).norms(), true);
+        const anotherhalf = polyhedricon([3, 5], new Vec4(1, 1, 1, 0).wedge(new Vec4(-1, -phi, 0, 0)).norms(), false);
+        const mesh = onehalf.concat(anotherhalf);
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        gyroLogic.rotation.set();
+        gyroLogic.rotation.l.set(0, 0, -1);
+        gyroLogic.rotation.r.set(1, 1).norms();
+        gyroLogic.angularVelocity.xz = 4.2;
+        run();
+    }
+}
+
+export namespace sphericon_dodec {
+    export async function load() {
+        const phi = (1 + Math.sqrt(5)) / 2;
+        const invphi = 1 / phi;
+        const onehalf = polyhedricon([5, 3], new Vec4(1, 1, 1, 0).wedge(new Vec4(0, invphi, phi, 0)).norms(), true);
+        const anotherhalf = polyhedricon([5, 3], new Vec4(1, 1, 1, 0).wedge(new Vec4(invphi, phi, 0, 0)).norms(), false);
+        const mesh = onehalf.concat(anotherhalf);
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        gyroLogic.rotation.randset();
+        run();
+    }
+}
+export namespace sphericon_tetra {
+    export async function load() {
+        const onehalf = polyhedricon([3, 3], new Bivec(1, 1).norms(), true);
+        const anotherhalf = polyhedricon([3, 3], new Bivec(1, 0, 0, 1).norms(), false);
+        const mesh = onehalf.concat(anotherhalf);
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        run();
+    }
+}
+
+export namespace wobbler1 {
+    export async function load() {
+        const mesh1 = tesserxel.mesh.cw.ball2(32, 32).apply(v => v.set(v.z, v.y, v.x, v.z)).data[0] as Vec4[]
+        const mesh = mesh1.concat(mesh1.map(v => v.add(Vec4.x.mulf(0.3))));
+        mesh.forEach(v => v.x -= 0.15);
+        mesh.forEach(v => v.addmulfs(Vec4.rand(), 0.01));
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+
+        const engine = new phy.Engine({ substep: 30, forceAccumulator: phy.force_accumulator.RK4 });
+        const world = new phy.World();
+        // world.gravity.set();
+        const scene = new FOUR.Scene();
+        let camera = new FOUR.PerspectiveCamera();
+        camera.position.w = 4;
+        camera.position.y = 0.6;
+        scene.add(camera);
+        scene.add(new FOUR.AmbientLight(0.3));
+        scene.add(new FOUR.DirectionalLight(
+            [2.2, 2.0, 1.9],
+            new math.Vec4(0.2, 0.6, 0.1, 0.3).norms()
+        ));
+        scene.add(new FOUR.DirectionalLight(
+            [0.05, 0.2, 0.4],
+            new math.Vec4(-0.24, -0.1, -0.79, -0.1).norms()
+        ));
+        const roomFourMat = new tesserxel.four.LambertMaterial([0.6, 0.8, 0.2, 0.2]);
+        addRoom(8, world, new phy.Material(0.6, 0.4), scene, roomFourMat);
+        scene.setBackgroundColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
+        
+        let gyroLogic1 = new phy.Rigid({
+            geometry: new phy.rigid.Convex(mesh1,true),
+            mass: 5,
+            material: new phy.Material(0.6, 0.4)
+        });
+        const gap = 1.5;
+        const mesh2 = mesh1.map(v => v.clone());
+        gyroLogic1.position.x = -gap;
+        let gyroLogic2 = new phy.Rigid({
+            geometry: new phy.rigid.Convex(mesh2,true),
+            mass: 5,
+            material: new phy.Material(0.6, 0.4)
+        });
+        gyroLogic2.position.x = gap;
+        gyroLogic1.inertia.xy = gyroLogic2.inertia.xy = 1;
+        gyroLogic1.inertiaIsotropy = gyroLogic2.inertiaIsotropy = true;
+        let gyroLogic = new phy.Rigid([gyroLogic1, gyroLogic2]);
+        let halfgeom = new FOUR.Geometry(tesserxel.mesh.tetra.convexhull(mesh).generateNormal(Math.PI / 3).setUVWAsPosition());
+        let gyroDisplay1 = new FOUR.Mesh(halfgeom, mat);
+        gyroDisplay1.position.x = -gap;
+        let gyroDisplay2 = new FOUR.Mesh(halfgeom, mat);
+        gyroDisplay2.position.x = gap;
+        let gyroDisplay = new FOUR.Object();
+        let axis = new FOUR.Mesh(new FOUR.SpherinderSideGeometry(0.22, 0.22, 2.8), mat);
+        axis.rotatesb(tesserxel.math.Bivec.xw.mulf(Math.PI / 2));
+        gyroDisplay.add(gyroDisplay1, gyroDisplay2, axis);
+        scene.add(gyroDisplay);
+        gyroDisplay.alwaysUpdateCoord = true;
+        world.add(gyroLogic);
+        // gyroLogic.angularVelocity.yw = 2;
+        gyroLogic.position.y = 1.2;
+        gyroLogic.position.w = 3;
+        // gyroLogic.velocity.z = -0.;
+        gyroLogic.velocity.w = -1;
+        gyroLogic.inertiaIsotropy = true;
+        gyroLogic.inertia.xy = 1;
+        rigidsInSceneLists.push([gyroDisplay as any, gyroLogic]);
+        const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+        const app = await tesserxel.four.App.create({ canvas, camera, scene, controllerConfig: { enablePointerLock: true } }); const renderer = app.renderer;
+        renderer.core.setDisplayConfig({
+            screenBackgroundColor: [1, 1, 1, 1],
+            sectionStereoEyeOffset: 0.5,
+            opacity: 20
+        });
+        const camCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
+        const retinaCtrl = new tesserxel.ui.ctrl.RetinaController(renderer.core);
+        const controllerRegistry = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [
+            retinaCtrl,
+            camCtrl,
+            new EmitGlomeController(world, scene, camera, renderer),
+            new ObjectController(camera, gyroLogic),
+        ], { enablePointerLock: true });
+
+        function run() {
+            // syncronise physics world and render scene
+            updateRidigsInScene();
+            // update controller states
+            controllerRegistry.update();
+            // rendering
+            renderer.render(scene, camera);
+            // simulating physics
+            if (mat.compiled) engine.update(world, 1 / 50);
+            window.requestAnimationFrame(run);
+        }
+        run();
+    }
+}
 
 export namespace thermo_stats {
 

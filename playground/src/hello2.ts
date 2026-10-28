@@ -25,9 +25,6 @@ app.scene.add(mesh);
 // 默认所有对象都位于坐标原点。因此要将相机向后移动一点点以便看到位于原点的超立方体
 // 注：w轴指向相机背后(跟三维图形学中的z轴类似)
 app.camera.position.w = 3.0;
-// 默认所有体素立方体的控制操作都需要按住Alt键来激活
-//我们可以手动将键位配置为空来取消激活步骤
-app.retinaController.keyConfig.enable = "";
 // 开始执行帧循环
 app.run(()=>{
     // 每一帧我们在xw、yz两方向上各旋转0.01弧度，得到等角双旋转
@@ -62,9 +59,7 @@ app.scene.add(mesh);
 // So we need to move the camera backward a little bit to see the tesseract at the origin.
 // Note: The w-axis points behind the camera (similar to the z-axis in 3D graphics)
 app.camera.position.w = 3.0;
-// By default, all voxel cube controls require holding down the Alt key to activate.
-// We can manually set the key configuration to empty to remove this requirement.
-app.retinaController.keyConfig.enable = "";
+// Voxel controls require holding Alt by default; change this in the in-app key bindings.
 // Start the frame loop
 app.run(()=>{
     // Each frame, rotate 0.01 radians in both the xw and yz planes

@@ -9842,7 +9842,7 @@ fn normalizeVec4s(vec4s: mat4x4f) -> mat4x4f{
                 this.data[dim] = this.data[dim].filter((face, faceId) => (del = !selDim.has(faceId),
                     remapping[dim].set(faceId, del ? -1 : newId++),
                     del));
-                this.orientation[dim] = this.orientation[dim].filter((face, faceId) => !selDim.has(faceId));
+                this.orientation[dim] = this.orientation[dim]?.filter((face, faceId) => !selDim.has(faceId));
             }
             for (const [dim, dataDim] of this.data.entries()) {
                 const remapDim = remapping[dim - 1];
@@ -14223,7 +14223,8 @@ span.btn-yellow button{background: #BB7;}
         class Convex extends RigidGeometry {
             points;
             _cachePoints;
-            constructor(points) {
+            autoGenerateInertia = true;
+            constructor(points, disableAutoGenerateInertia = false) {
                 super();
                 this.points = points;
                 this.obb = AABB.fromPoints(points);
@@ -14232,6 +14233,7 @@ span.btn-yellow button{background: #BB7;}
                     this.boundingGlome = Math.max(this.boundingGlome, i.normsqr());
                 }
                 this.boundingGlome = Math.sqrt(this.boundingGlome);
+                this.autoGenerateInertia = !disableAutoGenerateInertia;
             }
             getPointsInertia(points, mass) {
                 const inertiaMat = new Matrix(6);
@@ -14253,6 +14255,8 @@ span.btn-yellow button{background: #BB7;}
                 return inertiaMat.mulfs(mass / points.length);
             }
             initializeMassInertia(rigid) {
+                if (rigid.inertia?.norm1() > 0 || !this.autoGenerateInertia)
+                    return;
                 // todo inertia calc
                 new Matrix(6);
                 // const Rt = Rotor.rand();

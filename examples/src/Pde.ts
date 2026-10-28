@@ -164,7 +164,7 @@ export namespace wave_eq {
             uBlockJsBuffer[1] = dt;
             for (let i = 0; i < step; i++) {
                 t += dt;
-                uBlockJsBuffer[0] = (t>Math.PI*2) ? 0 : (Math.sin(t * 4));
+                uBlockJsBuffer[0] = (t > Math.PI * 2) ? 0 : (Math.sin(t * 4));
                 device.queue.writeBuffer(uBlockBuffer, 0, uBlockJsBuffer);
                 passEncoder.setPipeline(computePipeline1);
                 passEncoder.setBindGroup(0, computeBindgroup1);
@@ -210,15 +210,17 @@ class ErosionDisplayController implements tesserxel.ui.ctrl.IController {
 
     enabled: boolean = true;
     buffer: Float32Array;
-    constructor(jsBuffer: Float32Array) {
+    constructor(jsBuffer: Float32Array, waterSpeed = 0.1) {
         this.buffer = jsBuffer;
+        this.waterSpeed = waterSpeed;
     }
+    waterSpeed: number;
     update(state: tesserxel.ui.ctrl.ControllerState) {
         if (state.isKeyHold("KeyO")) {
             this.water = 0;
         }
         if (state.isKeyHold("KeyL")) {
-            this.water += 0.5;
+            this.water += this.waterSpeed;
         }
         if (state.isKeyHold(".KeyP")) {
             this.sediment = this.sediment ? 0 : 0.1;
@@ -253,14 +255,19 @@ class ErosionDisplayController implements tesserxel.ui.ctrl.IController {
     }
 
 }
-export namespace erosion {
+export namespace erosion1 {
     export async function load() {
-        await simulateTerrain(1);
+        await simulateTerrain(1, false, 1.0, true);
+    }
+}
+export namespace erosion2 {
+    export async function load() {
+        await simulateTerrain(1, false, 5);
     }
 }
 export namespace river_evolution {
     export async function load() {
-        await simulateTerrain(0);
+        await simulateTerrain(0, false, 0.95);
     }
 }
 export namespace coriolis {
@@ -268,7 +275,7 @@ export namespace coriolis {
         await simulateTerrain(1, true);
     }
 }
-async function simulateTerrain(erosionRate: number, coriolis?: boolean) {
+async function simulateTerrain(erosionRate: number, coriolis?: boolean, evaporationScale = 1.0, originalConfig = false) {
     const gpu = await new tesserxel.render.GPU().init();
     const simres = 202;
     const heightscale = 10;
@@ -280,6 +287,19 @@ async function simulateTerrain(erosionRate: number, coriolis?: boolean) {
     let tx04 = tesserxel.render.createVoxelBuffer(gpu, resolution, 4);// fxy
     let tx05 = tesserxel.render.createVoxelBuffer(gpu, resolution, 2);// fz
     let tx06 = tesserxel.render.createVoxelBuffer(gpu, resolution, 4);// dbg
+    const waterVolumeScale = originalConfig ? "l * l" : "l * l * l";
+    const velocityDepthScale = originalConfig ? "l" : "l * l";
+    const sedimentWaterClamp = originalConfig
+        ? "0.0, 1.0, (d1 - kdmax) / kdmax + 1.0"
+        : "(d1 - kdmax) / kdmax + 1.0, 0.0, 1.0";
+    const waterAfterErosion = originalConfig ? "d1" : "d1 - ds";
+    const thermalThreshold = originalConfig ? "rt * ka + ki" : "rt * 0.8 + 0.1";
+    const fluxCap = originalConfig
+        ? "let fluxK = min(1.0, d * l * l / (dt * flux_out));"
+        : `var fluxK = 1.0;
+    if (flux_out > 0.0) {
+        fluxK = min(1.0, d * ${waterVolumeScale} / (dt * flux_out));
+    }`;
     let computeCode = tesserxel.four.NoiseWGSLHeader + `
             struct Vec4Attachment{
                 size: vec4<u32>,
@@ -308,17 +328,17 @@ async function simulateTerrain(erosionRate: number, coriolis?: boolean) {
             const l = 0.8;
             const dt = 0.05;
             const rainRate = 0.02;
-            const evaporationRate = 0.1;
+            const evaporationRate = 0.1 * ${evaporationScale};
             const A = 10.0;
             const g = 9.81;
             const pipelen = 0.8;
             const flux_coeff = 2.0 * 9.81 / 0.8 * 0.05;
             const kc = 0.1;
-            const ks = 2.0 * ${erosionRate};
+            const ks = ${originalConfig ? 2.0 : 3.0} * ${erosionRate};
             const kd = 4.0 * ${erosionRate};
             const kav = 9.0; // sedimentflow speed
             const kh = 2.0;
-            const kt = 1.0;
+            const kt = ${originalConfig ? 1.0 : 0.25} * ${erosionRate};
             const ka = 0.8*5 * ${heightscale};
             const ki = 0.1*5 * ${heightscale};
             const kk = 0.05; // corioli
@@ -358,272 +378,964 @@ async function simulateTerrain(erosionRate: number, coriolis?: boolean) {
                 tx00.data[offset].w = 1.0;
             }
             @compute @workgroup_size(8,8,4)
-            fn main1(@builtin(global_invocation_id) pos: vec3<u32>){
-                if(pos.x >= tx05.size.x || pos.y >= tx01.size.y || pos.z >= tx06.size.z){
-                    return;
-                }
-                let seed = uBlock.seed;
-                let offset = pos.x + tx04.size.x * (pos.y + tx00.size.y * pos.z);
-                let sizeXY = i32(tx00.size.x * tx00.size.y);
-                let sizeXYZ = sizeXY * i32(tx00.size.z);
-                var offsetxp: i32 = 1; if(pos.x == tx00.size.x - 1) { offsetxp -= i32(tx00.size.x); }
-                var offsetxm: i32 = -1; if(pos.x == 0) { offsetxm +=  i32(tx00.size.x); }
-                var offsetyp: i32 = i32(tx00.size.x); if(pos.y == tx00.size.y - 1) { offsetyp -= sizeXY; }
-                var offsetym: i32 = -i32(tx00.size.x); if(pos.y == 0) { offsetym += sizeXY; }
-                var offsetzp: i32 = sizeXY; if(pos.z == tx00.size.z - 1) { offsetzp -= sizeXYZ; }
-                var offsetzm: i32 = -sizeXY; if(pos.z == 0) { offsetzm += sizeXYZ; }
+fn main1(@builtin(global_invocation_id) pos: vec3<u32>) {
+    if (
+        pos.x >= tx00.size.x ||
+        pos.y >= tx00.size.y ||
+        pos.z >= tx00.size.z
+    ) {
+        return;
+    }
 
-                let bdhere = tx00.data[offset];
-                let b = bdhere.x; let d = bdhere.y;
-                let waterh = b + d;
+    if (
+        tx01.size.x == 0u ||
+        tx02.size.x == 0u ||
+        tx03.size.x == 0u ||
+        tx04.size.x == 0u ||
+        tx05.size.x == 0u ||
+        tx06.size.x == 0u ||
+        uBlock.seed < -1.0e30
+    ) {
+        return;
+    }
 
-                let ioffset = i32(offset);
-                let b_dxm = tx00.data[ioffset + offsetxm];
-                let b_dxp = tx00.data[ioffset + offsetxp];
-                let b_dym = tx00.data[ioffset + offsetym];
-                let b_dyp = tx00.data[ioffset + offsetyp];
-                let b_dzm = tx00.data[ioffset + offsetzm];
-                let b_dzp = tx00.data[ioffset + offsetzp];
+    let offset =
+        pos.x +
+        tx00.size.x * (
+            pos.y +
+            tx00.size.y * pos.z
+        );
 
-                var fxy = tx02.data[offset];
-                fxy = max(vec4f(0.0), fxy + flux_coeff * (
-                    vec4(waterh) - vec4(b_dxm.x, b_dxp.x, b_dym.x, b_dyp.x) - vec4(b_dxm.y, b_dxp.y, b_dym.y, b_dyp.y)
-                ));
-                
-                var fz = tx03.data[offset];
-                fz = max(vec2<f32>(0.0), fz + flux_coeff  * (
-                    vec2(waterh) - vec2(b_dzm.x, b_dzp.x) - vec2(b_dzm.y, b_dzp.y)
-                ));
+    let sizeX = i32(tx00.size.x);
+    let sizeY = i32(tx00.size.y);
+    let sizeZ = i32(tx00.size.z);
 
-                let flux_out = fxy.x + fxy.y + fxy.z + fxy.w + fz.x + fz.y;
-                let fluxK = min(1.0, d * l * l / (dt * flux_out));
-                fxy *= fluxK; fz *= fluxK;
-                tx04.data[offset] = fxy;
-                tx05.data[offset] = fz;
-            }
-            @compute @workgroup_size(8,8,4) 
-            fn main2(@builtin(global_invocation_id) pos: vec3<u32>){
-                if(pos.x >= tx00.size.x || pos.y >= tx00.size.y || pos.z >= tx00.size.z){
-                    return;
-                }
-                let seed = uBlock.seed;
-                let offset = pos.x + tx00.size.x*(pos.y + tx00.size.y*pos.z);
-                let sizeX = i32(tx00.size.x);
-                let sizeY = i32(tx00.size.y);
-                let sizeZ = i32(tx00.size.z);
-                let sizeXY = sizeX * sizeY;
-                let sizeXYZ = sizeXY * sizeZ;
-                var offsetxp: i32 = 1; if(pos.x == tx00.size.x - 1) { offsetxp -= sizeX; }
-                var offsetxm: i32 = -1; if(pos.x == 0) { offsetxm +=  sizeX; }
-                var offsetyp: i32 = sizeX; if(pos.y == tx00.size.y - 1) { offsetyp -= sizeXY; }
-                var offsetym: i32 = -sizeX; if(pos.y == 0) { offsetym += sizeXY; }
-                var offsetzp: i32 = sizeXY; if(pos.z == tx00.size.z - 1) { offsetzp -= sizeXYZ; }
-                var offsetzm: i32 = -sizeXY; if(pos.z == 0) { offsetzm += sizeXYZ; }
-                let bdhere = tx00.data[offset];
-                let b:f32 = bdhere.x; let d = bdhere.y;
-                let waterh = b + d;
+    let sizeXY = sizeX * sizeY;
+    let sizeXYZ = sizeXY * sizeZ;
 
-                let ioffset = i32(offset);
-                let f_xm = tx04.data[ioffset + offsetxm].y;
-                let f_xp = tx04.data[ioffset + offsetxp].x;
-                let f_ym = tx04.data[ioffset + offsetym].w;
-                let f_yp = tx04.data[ioffset + offsetyp].z;
-                let f_zm = tx05.data[ioffset + offsetzm].y;
-                let f_zp = tx05.data[ioffset + offsetzp].x;
-                
-                let b_dxm = tx00.data[ioffset + offsetxm];
-                let b_dxp = tx00.data[ioffset + offsetxp];
-                let b_dym = tx00.data[ioffset + offsetym];
-                let b_dyp = tx00.data[ioffset + offsetyp];
-                let b_dzm = tx00.data[ioffset + offsetzm];
-                let b_dzp = tx00.data[ioffset + offsetzp];
+    // 周期边界
+    var offsetxp: i32 = 1;
+    if (pos.x == tx00.size.x - 1) {
+        offsetxp -= sizeX;
+    }
 
-                let fxy = tx04.data[offset];
-                let fz = tx05.data[offset];
-                let flux_out = fxy.x + fxy.y + fxy.z + fxy.w + fz.x + fz.y;
-                let flux_in = f_xm + f_xp + f_ym + f_yp + f_zm + f_zp;
-                var d1 = max(0.0, d + dt * ((flux_in - flux_out) / ( l * l) + rainRate - d * evaporationRate));
-                var w = vec3(
-                    fxy.y - fxy.x + f_xm - f_xp,
-                    fxy.w - fxy.z + f_ym - f_yp,
-                    fz.y - fz.x + f_zm - f_zp,
-                );
-                let dvx = kk * w.y * dt;
-                let dvy = - kk * w.x * dt;
-                let newfxy = vec4(
-                    fxy.x - dvx, fxy.y + dvx,
-                    fxy.z - dvy, fxy.w + dvy
-                );
-                let da = d + d1;
-                if( da <= 0.0001 || d1 < 0.0001 ){ w = vec3(0.0); } else { w /= da * l;}
-                let v = length(w);
-                let N = normalize(vec4(
-                    b_dxp.x - b_dxm.x,
-                    b_dyp.x - b_dym.x,
-                    b_dzp.x - b_dzm.x, 2.0
-                ));
-                let waterN = normalize(vec4(
-                    b_dxp.x + b_dxp.y - b_dxm.x - b_dxm.y,
-                    b_dyp.x + b_dyp.y - b_dym.x - b_dym.y,
-                    b_dzp.x + b_dzp.y - b_dzm.x - b_dzm.y, 2.0
-                ));
-                let slopeSin = 0.5;//-dot(vec4(w,dot(w,-waterN.xyz)),N);
-                let slope = max(0.1, slopeSin);
-                // let V = vec4(w,dot(waterN.xyz,w));
-                let c = max(0.0, kc * v * slope) * clamp(0.0, 1.0, (d1 - kdmax) / kdmax + 1);
-                // let c = max(0.0, kc * v * length(N.xyz)) * clamp(0.0, 1.0, (d1 - kdmax) / kdmax + 1);
-                // let c = max(0.0, kc * v * ( - dot(N, V))) * clamp(0.0, 1.0, (d1 - kdmax) / kdmax + 1);
+    var offsetxm: i32 = -1;
+    if (pos.x == 0) {
+        offsetxm += sizeX;
+    }
 
-                // avocation
+    var offsetyp: i32 = sizeX;
+    if (pos.y == tx00.size.y - 1) {
+        offsetyp -= sizeXY;
+    }
 
-                let avoc = vec3<f32>(pos) - w * dt * kav;
-                // let avoc = vec3<f32>(pos) - w * dt * kav / (d + d1);
-                var a1 = vec3<i32>(floor(avoc));
-                if(a1.x < 0){a1.x += sizeX;} if(a1.x >= sizeX){a1.x -= sizeX;}
-                if(a1.y < 0){a1.y += sizeY;} if(a1.y >= sizeY){a1.y -= sizeY;}
-                if(a1.z < 0){a1.z += sizeZ;} if(a1.z >= sizeZ){a1.z -= sizeZ;}
-                
-                let ammmoffset = a1.x + sizeX*(a1.y + sizeY*a1.z);
-                
-                offsetxp = 1; if(a1.x == sizeX - 1) { offsetxp -= sizeX; }
-                offsetyp = sizeX; if(a1.y == sizeY - 1) { offsetyp -= sizeXY; }
-                offsetzp = sizeXY; if(a1.z == sizeZ - 1) { offsetzp -= sizeXYZ; }
+    var offsetym: i32 = -sizeX;
+    if (pos.y == 0) {
+        offsetym += sizeXY;
+    }
 
-                let a3 = avoc - floor(avoc);
+    var offsetzp: i32 = sizeXY;
+    if (pos.z == tx00.size.z - 1) {
+        offsetzp -= sizeXYZ;
+    }
 
-                let s = mix(
-                    mix(
-                        mix(
-                            tx00.data[ammmoffset].z,
-                            tx00.data[ammmoffset + offsetxp].z,
-                            a3.x
-                        ),
-                        mix(
-                            tx00.data[ammmoffset + offsetyp].z,
-                            tx00.data[ammmoffset + offsetyp + offsetxp].z,
-                            a3.x
-                        ),
-                        a3.y
-                    ),
-                    mix(
-                        mix(
-                            tx00.data[ammmoffset + offsetzp].z,
-                            tx00.data[ammmoffset + offsetzp + offsetxp].z,
-                            a3.x
-                        ),
-                        mix(
-                            tx00.data[ammmoffset + offsetzp + offsetyp].z,
-                            tx00.data[ammmoffset + offsetzp + offsetyp + offsetxp].z,
-                            a3.x
-                        ),
-                        a3.y
-                    ),
-                    a3.z
-                );
-                // let s = bdhere.z;
-                let rt = bdhere.w;
-                let ds = dt * mix(kd, ks * rt, step(s, c)) * (s - c);
-               
-                tx01.data[offset] = vec4f(
-                    b + ds, d1, s - ds,
-                    max(0.1, rt - dt * kh * ks * max(0.0, s - c))
-                );
-                tx02.data[offset] = newfxy * kdp;
-                tx03.data[offset] = tx05.data[offset] * kdp;
-                tx06.data[offset] = vec4f(
-                    w, c
-                );
-            }
-            @compute @workgroup_size(8,8,4) 
-            fn main3(@builtin(global_invocation_id) pos: vec3<u32>){
-                if(pos.x >= tx05.size.x || pos.y >= tx01.size.y || pos.z >= tx06.size.z){
-                    return;
-                }
-                let seed = uBlock.seed;
-                let offset = pos.x + tx00.size.x*(pos.y + tx00.size.y*pos.z);
-                let sizeX = i32(tx02.size.x);
-                let sizeY = i32(tx03.size.y);
-                let sizeZ = i32(tx04.size.z);
-                let sizeXY = sizeX * sizeY;
-                let sizeXYZ = sizeXY * sizeZ;
-                var offsetxp: i32 = 1; if(pos.x == tx00.size.x - 1) { offsetxp -= sizeX; }
-                var offsetxm: i32 = -1; if(pos.x == 0) { offsetxm +=  sizeX; }
-                var offsetyp: i32 = sizeX; if(pos.y == tx00.size.y - 1) { offsetyp -= sizeXY; }
-                var offsetym: i32 = -sizeX; if(pos.y == 0) { offsetym += sizeXY; }
-                var offsetzp: i32 = sizeXY; if(pos.z == tx00.size.z - 1) { offsetzp -= sizeXYZ; }
-                var offsetzm: i32 = -sizeXY; if(pos.z == 0) { offsetzm += sizeXYZ; }
-                let bdsr = tx01.data[offset];
-                let b = bdsr.x;
+    var offsetzm: i32 = -sizeXY;
+    if (pos.z == 0) {
+        offsetzm += sizeXYZ;
+    }
 
-                let ioffset = i32(offset);
-                let b_xm = tx01.data[ioffset + offsetxm].x;
-                let b_xp = tx01.data[ioffset + offsetxp].x;
-                let b_ym = tx01.data[ioffset + offsetym].x;
-                let b_yp = tx01.data[ioffset + offsetyp].x;
-                let b_zm = tx01.data[ioffset + offsetzm].x;
-                let b_zp = tx01.data[ioffset + offsetzp].x;
-                
-                var hxm = b - b_xm;
-                var hxp = b - b_xp;
-                var hym = b - b_ym;
-                var hyp = b - b_yp;
-                var hzm = b - b_zm;
-                var hzp = b - b_zp;
+    let ioffset = i32(offset);
 
-                let rt = bdsr.w;
-                let tiltAngle = rt * ka + ki;
+    let bdhere = tx00.data[offset];
 
-                hxm *= step(tiltAngle, hxm);
-                hxp *= step(tiltAngle, hxp);
-                hym *= step(tiltAngle, hym);
-                hyp *= step(tiltAngle, hyp);
-                hzm *= step(tiltAngle, hzm);
-                hzp *= step(tiltAngle, hzp);
+    let b = bdhere.x;
+    let d = ${originalConfig ? "bdhere.y" : "max(0.0, bdhere.y)"};
 
-                let H = max(max(max(hxm,hxp),max(hym,hyp)),max(hzm,hzp));
-                var sCoeff = H * dt * kt * rt * 0.5 / (hxm + hxp + hym + hyp + hzm + hzp);
-                if( H == 0.0) {sCoeff = 0.0;}
-                tx04.data[ioffset] = vec4f(hxm, hxp, hym, hyp) * sCoeff;
-                tx05.data[ioffset] = vec2<f32>(hzm, hzp) * sCoeff;
-            }
-            @compute @workgroup_size(8,8,4) 
-            fn main4(@builtin(global_invocation_id) pos: vec3<u32>){
-                if(pos.x >= tx01.size.x || pos.y >= tx06.size.y || pos.z >= tx00.size.z){
-                    return;
-                }
-                let seed = uBlock.seed;
-                let offset = pos.x + tx05.size.x*(pos.y + tx00.size.y*pos.z);
-                let sizeX = i32(tx02.size.x);
-                let sizeY = i32(tx03.size.y);
-                let sizeZ = i32(tx00.size.z);
-                let sizeXY = sizeX * sizeY;
-                let sizeXYZ = sizeXY * sizeZ;
-                var offsetxp: i32 = 1; if(pos.x == tx00.size.x - 1) { offsetxp -= sizeX; }
-                var offsetxm: i32 = -1; if(pos.x == 0) { offsetxm +=  sizeX; }
-                var offsetyp: i32 = sizeX; if(pos.y == tx00.size.y - 1) { offsetyp -= sizeXY; }
-                var offsetym: i32 = -sizeX; if(pos.y == 0) { offsetym += sizeXY; }
-                var offsetzp: i32 = sizeXY; if(pos.z == tx00.size.z - 1) { offsetzp -= sizeXYZ; }
-                var offsetzm: i32 = -sizeXY; if(pos.z == 0) { offsetzm += sizeXYZ; }
-                let bdsr = tx01.data[offset];
-                let hxy = tx04.data[offset];
-                let hz = tx05.data[offset];
-                let b = bdsr.x; let d = bdsr.y;
+    let waterh = b + d;
 
-                let ioffset = i32(offset);
-                let hxm = tx04.data[ioffset + offsetxm].y;
-                let hxp = tx04.data[ioffset + offsetxp].x;
-                let hym = tx04.data[ioffset + offsetym].w;
-                let hyp = tx04.data[ioffset + offsetyp].z;
-                let hzm = tx05.data[ioffset + offsetzm].y;
-                let hzp = tx05.data[ioffset + offsetzp].x;
-                tx00.data[ioffset] = vec4f(b + (
-                        hxm + hxp + hym + hyp + hzm + hzp
-                    ) - (
-                        hxy.z + hxy.w + hxy.x + hxy.y + hz.x + hz.y
-                    ),
-                    bdsr.yzw
-                );
-            }
+    let b_dxm = tx00.data[ioffset + offsetxm];
+    let b_dxp = tx00.data[ioffset + offsetxp];
+    let b_dym = tx00.data[ioffset + offsetym];
+    let b_dyp = tx00.data[ioffset + offsetyp];
+    let b_dzm = tx00.data[ioffset + offsetzm];
+    let b_dzp = tx00.data[ioffset + offsetzp];
+
+    // tx02 / tx03：
+    // 上一轮 main2 写入的、这一轮要继续使用的水流
+    var fxy = tx02.data[offset];
+    var fz = tx03.data[offset];
+
+    // 3 个水平维度：
+    // x/y/z 每条边长都是 l
+    //
+    // 这里保持原有 flux_coeff 作为调节参数，
+    // 只改变后面的水量归一化。
+    fxy = max(
+        vec4f(0.0),
+        fxy + flux_coeff * (
+            vec4f(waterh)
+            -
+            vec4f(
+                b_dxm.x + b_dxm.y,
+                b_dxp.x + b_dxp.y,
+                b_dym.x + b_dym.y,
+                b_dyp.x + b_dyp.y
+            )
+        )
+    );
+
+    fz = max(
+        vec2f(0.0),
+        fz + flux_coeff * (
+            vec2f(waterh)
+            -
+            vec2f(
+                b_dzm.x + b_dzm.y,
+                b_dzp.x + b_dzp.y
+            )
+        )
+    );
+
+    let flux_out =
+        fxy.x +
+        fxy.y +
+        fxy.z +
+        fxy.w +
+        fz.x +
+        fz.y;
+
+    ${fluxCap}
+
+    fxy *= fluxK;
+    fz *= fluxK;
+
+    // tx04 / tx05：
+    // 本轮最终确定的 hydraulic flux
+    //
+    // main2 会从这里读取 incoming/outgoing flux。
+    tx04.data[offset] = fxy;
+    tx05.data[offset] = fz;
+}
+    @compute @workgroup_size(8,8,4)
+fn main2(@builtin(global_invocation_id) pos: vec3<u32>) {
+    if (
+        pos.x >= tx00.size.x ||
+        pos.y >= tx00.size.y ||
+        pos.z >= tx00.size.z
+    ) {
+        return;
+    }
+
+    if (
+        tx01.size.x == 0u ||
+        tx02.size.x == 0u ||
+        tx03.size.x == 0u ||
+        tx04.size.x == 0u ||
+        tx05.size.x == 0u ||
+        tx06.size.x == 0u ||
+        uBlock.seed < -1.0e30
+    ) {
+        return;
+    }
+
+    let offset =
+        pos.x +
+        tx00.size.x * (
+            pos.y +
+            tx00.size.y * pos.z
+        );
+
+    let sizeX = i32(tx00.size.x);
+    let sizeY = i32(tx00.size.y);
+    let sizeZ = i32(tx00.size.z);
+
+    let sizeXY = sizeX * sizeY;
+    let sizeXYZ = sizeXY * sizeZ;
+
+    // 周期边界
+    var offsetxp: i32 = 1;
+    if (pos.x == tx00.size.x - 1) {
+        offsetxp -= sizeX;
+    }
+
+    var offsetxm: i32 = -1;
+    if (pos.x == 0) {
+        offsetxm += sizeX;
+    }
+
+    var offsetyp: i32 = sizeX;
+    if (pos.y == tx00.size.y - 1) {
+        offsetyp -= sizeXY;
+    }
+
+    var offsetym: i32 = -sizeX;
+    if (pos.y == 0) {
+        offsetym += sizeXY;
+    }
+
+    var offsetzp: i32 = sizeXY;
+    if (pos.z == tx00.size.z - 1) {
+        offsetzp -= sizeXYZ;
+    }
+
+    var offsetzm: i32 = -sizeXY;
+    if (pos.z == 0) {
+        offsetzm += sizeXYZ;
+    }
+
+    let ioffset = i32(offset);
+
+    // 当前 voxel 的 terrain / water
+    let bdhere = tx00.data[offset];
+
+    let b = bdhere.x;
+    let d = ${originalConfig ? "bdhere.y" : "max(0.0, bdhere.y)"};
+
+    // ------------------------------------------------------------
+    // hydraulic flux
+    // ------------------------------------------------------------
+
+    let f_xm =
+        tx04.data[ioffset + offsetxm].y;
+
+    let f_xp =
+        tx04.data[ioffset + offsetxp].x;
+
+    let f_ym =
+        tx04.data[ioffset + offsetym].w;
+
+    let f_yp =
+        tx04.data[ioffset + offsetyp].z;
+
+    let f_zm =
+        tx05.data[ioffset + offsetzm].y;
+
+    let f_zp =
+        tx05.data[ioffset + offsetzp].x;
+
+    let fxy = tx04.data[offset];
+    let fz = tx05.data[offset];
+
+    let flux_out =
+        fxy.x +
+        fxy.y +
+        fxy.z +
+        fxy.w +
+        fz.x +
+        fz.y;
+
+    let flux_in =
+        f_xm +
+        f_xp +
+        f_ym +
+        f_yp +
+        f_zm +
+        f_zp;
+
+    var d1 = max(
+        0.0,
+        d +
+        dt * (
+            (flux_in - flux_out) /
+            (${waterVolumeScale})
+            +
+            rainRate
+            -
+            d * evaporationRate
+        )
+    );
+
+    // ------------------------------------------------------------
+    // water velocity
+    // ------------------------------------------------------------
+
+    var w = vec3f(
+        fxy.y - fxy.x + f_xm - f_xp,
+        fxy.w - fxy.z + f_ym - f_yp,
+        fz.y - fz.x + f_zm - f_zp
+    );
+
+    // Coriolis
+    let dvx = kk * w.y * dt;
+    let dvy = -kk * w.x * dt;
+
+    let newfxy = vec4f(
+        fxy.x - dvx,
+        fxy.y + dvx,
+        fxy.z - dvy,
+        fxy.w + dvy
+    );
+
+    let da = d + d1;
+
+    if (
+        da <= 0.0001 ||
+        d1 < 0.0001
+    ) {
+        w = vec3f(0.0);
+    } else {
+        w /= da * ${velocityDepthScale};
+    }
+
+    let v = length(w);
+
+    // ------------------------------------------------------------
+    // terrain normal
+    // ------------------------------------------------------------
+
+    // 这些变量必须在 N 之前声明。
+    let b_dxm =
+        tx00.data[ioffset + offsetxm];
+
+    let b_dxp =
+        tx00.data[ioffset + offsetxp];
+
+    let b_dym =
+        tx00.data[ioffset + offsetym];
+
+    let b_dyp =
+        tx00.data[ioffset + offsetyp];
+
+    let b_dzm =
+        tx00.data[ioffset + offsetzm];
+
+    let b_dzp =
+        tx00.data[ioffset + offsetzp];
+
+    let N = normalize(
+        vec4f(
+            b_dxp.x - b_dxm.x,
+            b_dyp.x - b_dym.x,
+            b_dzp.x - b_dzm.x,
+            2.0
+        )
+    );
+
+    let waterN = normalize(
+        vec4f(
+            b_dxp.x + b_dxp.y
+                - b_dxm.x - b_dxm.y,
+
+            b_dyp.x + b_dyp.y
+                - b_dym.x - b_dym.y,
+
+            b_dzp.x + b_dzp.y
+                - b_dzm.x - b_dzm.y,
+
+            2.0
+        )
+    );
+
+    // 暂时保持你原来的经验参数。
+    // 之后如果要进一步处理 erosion capacity，
+    // 可以再把这里改成真正由地形坡度计算。
+    let slopeSin = 0.5;
+
+    let slope = max(
+        0.1,
+        slopeSin
+    );
+
+    // sediment carrying capacity
+    let c =
+        max(
+            0.0,
+            kc * v * slope
+        )
+        *
+        clamp(${sedimentWaterClamp});
+
+    // ------------------------------------------------------------
+    // sediment advection
+    // ------------------------------------------------------------
+    //
+    // 注意：
+    // 这里只能从 tx00 读取旧 sediment。
+    //
+    // 因为 main2 的所有 invocation 是并行执行的，
+    // 不能一边写 tx01 一边把 tx01 当作邻居 sediment
+    // 来读取，否则会产生 GPU data race。
+    //
+
+    let avoc =
+        vec3f(pos) -
+        w * dt * kav;
+
+    var a1 =
+        vec3<i32>(floor(avoc));
+
+    if (a1.x < 0) {
+        a1.x += sizeX;
+    }
+
+    if (a1.x >= sizeX) {
+        a1.x -= sizeX;
+    }
+
+    if (a1.y < 0) {
+        a1.y += sizeY;
+    }
+
+    if (a1.y >= sizeY) {
+        a1.y -= sizeY;
+    }
+
+    if (a1.z < 0) {
+        a1.z += sizeZ;
+    }
+
+    if (a1.z >= sizeZ) {
+        a1.z -= sizeZ;
+    }
+
+    let ammmoffset =
+        a1.x +
+        sizeX * (
+            a1.y +
+            sizeY * a1.z
+        );
+
+    var sampleOffsetX: i32 = 1;
+
+    if (a1.x == sizeX - 1) {
+        sampleOffsetX -= sizeX;
+    }
+
+    var sampleOffsetY: i32 = sizeX;
+
+    if (a1.y == sizeY - 1) {
+        sampleOffsetY -= sizeXY;
+    }
+
+    var sampleOffsetZ: i32 = sizeXY;
+
+    if (a1.z == sizeZ - 1) {
+        sampleOffsetZ -= sizeXYZ;
+    }
+
+    let a3 =
+        avoc - floor(avoc);
+
+    // trilinear interpolation of sediment
+    let s = mix(
+        mix(
+            mix(
+                tx00.data[
+                    ammmoffset
+                ].z,
+
+                tx00.data[
+                    ammmoffset +
+                    sampleOffsetX
+                ].z,
+
+                a3.x
+            ),
+
+            mix(
+                tx00.data[
+                    ammmoffset +
+                    sampleOffsetY
+                ].z,
+
+                tx00.data[
+                    ammmoffset +
+                    sampleOffsetY +
+                    sampleOffsetX
+                ].z,
+
+                a3.x
+            ),
+
+            a3.y
+        ),
+
+        mix(
+            mix(
+                tx00.data[
+                    ammmoffset +
+                    sampleOffsetZ
+                ].z,
+
+                tx00.data[
+                    ammmoffset +
+                    sampleOffsetZ +
+                    sampleOffsetX
+                ].z,
+
+                a3.x
+            ),
+
+            mix(
+                tx00.data[
+                    ammmoffset +
+                    sampleOffsetZ +
+                    sampleOffsetY
+                ].z,
+
+                tx00.data[
+                    ammmoffset +
+                    sampleOffsetZ +
+                    sampleOffsetY +
+                    sampleOffsetX
+                ].z,
+
+                a3.x
+            ),
+
+            a3.y
+        ),
+
+        a3.z
+    );
+
+    let rt = bdhere.w;
+
+    // ------------------------------------------------------------
+    // erosion / deposition
+    // ------------------------------------------------------------
+    //
+    // s < c：
+    //     当前泥沙低于承载能力 -> erosion
+    //     ds < 0
+    //     terrain 减少
+    //     sediment 增加
+    //     water 增加
+    //
+    // s > c：
+    //     当前泥沙超过承载能力 -> deposition
+    //     ds > 0
+    //     terrain 增加
+    //     sediment 减少
+    //     water 减少
+    //
+    let ds =
+        dt *
+        mix(
+            ks * rt,
+            kd,
+            step(c, s)
+        ) *
+        (s - c);
+
+    // ------------------------------------------------------------
+    // tx01 = hydraulic erosion/deposition result
+    //
+    // tx01:
+    //     x = terrain
+    //     y = water
+    //     z = sediment
+    //     w = erosion rate / rt
+    // ------------------------------------------------------------
+
+    tx01.data[offset] = vec4f(
+        b + ds,
+        ${waterAfterErosion},
+        s - ds,
+        max(
+            0.1,
+            rt -
+            dt *
+            kh *
+            ks *
+            max(0.0, s - c)
+        )
+    );
+
+    // ------------------------------------------------------------
+    // tx02 / tx03
+    //
+    // 保存下一轮 hydraulic simulation 使用的 flux。
+    // 这两个 buffer 的原有语义不变。
+    // ------------------------------------------------------------
+
+    tx02.data[offset] =
+        newfxy * kdp;
+
+    tx03.data[offset] =
+        tx05.data[offset] * kdp;
+
+    // ------------------------------------------------------------
+    // tx06 = debug
+    //
+    // xyz = velocity
+    // w   = sediment capacity
+    // ------------------------------------------------------------
+
+    tx06.data[offset] =
+        vec4f(w, c);
+}
+
+@compute @workgroup_size(8,8,4)
+fn main3(@builtin(global_invocation_id) pos: vec3<u32>) {
+    if (
+        pos.x >= tx00.size.x ||
+        pos.y >= tx00.size.y ||
+        pos.z >= tx00.size.z
+    ) {
+        return;
+    }
+
+    if (
+        tx01.size.x == 0u ||
+        tx02.size.x == 0u ||
+        tx03.size.x == 0u ||
+        tx04.size.x == 0u ||
+        tx05.size.x == 0u ||
+        tx06.size.x == 0u ||
+        uBlock.seed < -1.0e30
+    ) {
+        return;
+    }
+
+    let offset =
+        pos.x +
+        tx00.size.x * (
+            pos.y +
+            tx00.size.y * pos.z
+        );
+
+    let sizeX = i32(tx00.size.x);
+    let sizeY = i32(tx00.size.y);
+    let sizeZ = i32(tx00.size.z);
+
+    let sizeXY = sizeX * sizeY;
+    let sizeXYZ = sizeXY * sizeZ;
+
+    var offsetxp: i32 = 1;
+
+    if (pos.x == tx00.size.x - 1) {
+        offsetxp -= sizeX;
+    }
+
+    var offsetxm: i32 = -1;
+
+    if (pos.x == 0) {
+        offsetxm += sizeX;
+    }
+
+    var offsetyp: i32 = sizeX;
+
+    if (pos.y == tx00.size.y - 1) {
+        offsetyp -= sizeXY;
+    }
+
+    var offsetym: i32 = -sizeX;
+
+    if (pos.y == 0) {
+        offsetym += sizeXY;
+    }
+
+    var offsetzp: i32 = sizeXY;
+
+    if (pos.z == tx00.size.z - 1) {
+        offsetzp -= sizeXYZ;
+    }
+
+    var offsetzm: i32 = -sizeXY;
+
+    if (pos.z == 0) {
+        offsetzm += sizeXYZ;
+    }
+
+    let bdsr =
+        tx01.data[offset];
+
+    let b =
+        bdsr.x;
+
+    let ioffset =
+        i32(offset);
+
+    // ------------------------------------------------------------
+    // terrain height differences
+    // ------------------------------------------------------------
+
+    let b_xm =
+        tx01.data[
+            ioffset + offsetxm
+        ].x;
+
+    let b_xp =
+        tx01.data[
+            ioffset + offsetxp
+        ].x;
+
+    let b_ym =
+        tx01.data[
+            ioffset + offsetym
+        ].x;
+
+    let b_yp =
+        tx01.data[
+            ioffset + offsetyp
+        ].x;
+
+    let b_zm =
+        tx01.data[
+            ioffset + offsetzm
+        ].x;
+
+    let b_zp =
+        tx01.data[
+            ioffset + offsetzp
+        ].x;
+
+    var hxm =
+        b - b_xm;
+
+    var hxp =
+        b - b_xp;
+
+    var hym =
+        b - b_ym;
+
+    var hyp =
+        b - b_yp;
+
+    var hzm =
+        b - b_zm;
+
+    var hzp =
+        b - b_zp;
+
+    let rt =
+        bdsr.w;
+
+    let tiltAngle =
+        ${thermalThreshold};
+
+    hxm *= step(tiltAngle, hxm);
+    hxp *= step(tiltAngle, hxp);
+    hym *= step(tiltAngle, hym);
+    hyp *= step(tiltAngle, hyp);
+    hzm *= step(tiltAngle, hzm);
+    hzp *= step(tiltAngle, hzp);
+
+    // 最大需要搬运的高度差
+    let H =
+        max(
+            max(hxm, hxp),
+            max(
+                hym,
+                hyp
+            )
+        );
+
+    let H2 =
+        max(
+            hzm,
+            hzp
+        );
+
+    let Hmax =
+        max(H, H2);
+
+    let Hsum =
+        hxm +
+        hxp +
+        hym +
+        hyp +
+        hzm +
+        hzp;
+
+    var sCoeff = 0.0;
+
+    if (Hmax > 0.0 && Hsum > 0.0) {
+        sCoeff =
+            Hmax *
+            dt *
+            kt *
+            rt *
+            0.5 /
+            Hsum;
+    }
+
+    // ------------------------------------------------------------
+    // tx04 / tx05
+    //
+    // 这里重新利用 hydraulic 阶段的临时 buffer，
+    // 现在它们变成 thermal outgoing material。
+    //
+    // tx04:
+    //     x = -x 方向 outgoing
+    //     y = +x 方向 outgoing
+    //     z = -y 方向 outgoing
+    //     w = +y 方向 outgoing
+    //
+    // tx05:
+    //     x = +z 方向 outgoing
+    //     y = -z 方向 outgoing
+    // ------------------------------------------------------------
+
+    tx04.data[ioffset] =
+        vec4f(
+            hxm,
+            hxp,
+            hym,
+            hyp
+        ) * sCoeff;
+
+    tx05.data[ioffset] =
+        vec2f(
+            hzm,
+            hzp
+        ) * sCoeff;
+}
+
+@compute @workgroup_size(8,8,4)
+fn main4(@builtin(global_invocation_id) pos: vec3<u32>) {
+    if (
+        pos.x >= tx00.size.x ||
+        pos.y >= tx00.size.y ||
+        pos.z >= tx00.size.z
+    ) {
+        return;
+    }
+
+    if (
+        tx01.size.x == 0u ||
+        tx02.size.x == 0u ||
+        tx03.size.x == 0u ||
+        tx04.size.x == 0u ||
+        tx05.size.x == 0u ||
+        tx06.size.x == 0u ||
+        uBlock.seed < -1.0e30
+    ) {
+        return;
+    }
+
+    let offset =
+        pos.x +
+        tx00.size.x * (
+            pos.y +
+            tx00.size.y * pos.z
+        );
+
+    let sizeX = i32(tx00.size.x);
+    let sizeY = i32(tx00.size.y);
+    let sizeZ = i32(tx00.size.z);
+
+    let sizeXY = sizeX * sizeY;
+    let sizeXYZ = sizeXY * sizeZ;
+
+    var offsetxp: i32 = 1;
+
+    if (pos.x == tx00.size.x - 1) {
+        offsetxp -= sizeX;
+    }
+
+    var offsetxm: i32 = -1;
+
+    if (pos.x == 0) {
+        offsetxm += sizeX;
+    }
+
+    var offsetyp: i32 = sizeX;
+
+    if (pos.y == tx00.size.y - 1) {
+        offsetyp -= sizeXY;
+    }
+
+    var offsetym: i32 = -sizeX;
+
+    if (pos.y == 0) {
+        offsetym += sizeXY;
+    }
+
+    var offsetzp: i32 = sizeXY;
+
+    if (pos.z == tx00.size.z - 1) {
+        offsetzp -= sizeXYZ;
+    }
+
+    var offsetzm: i32 = -sizeXY;
+
+    if (pos.z == 0) {
+        offsetzm += sizeXYZ;
+    }
+
+    let bdsr =
+        tx01.data[offset];
+
+    let hxy =
+        tx04.data[offset];
+
+    let hz =
+        tx05.data[offset];
+
+    let b =
+        bdsr.x;
+
+    let d =
+        bdsr.y;
+
+    let ioffset =
+        i32(offset);
+
+    // ------------------------------------------------------------
+    // thermal incoming material
+    // ------------------------------------------------------------
+
+    let hxm =
+        tx04.data[
+            ioffset + offsetxm
+        ].y;
+
+    let hxp =
+        tx04.data[
+            ioffset + offsetxp
+        ].x;
+
+    let hym =
+        tx04.data[
+            ioffset + offsetym
+        ].w;
+
+    let hyp =
+        tx04.data[
+            ioffset + offsetyp
+        ].z;
+
+    let hzm =
+        tx05.data[
+            ioffset + offsetzm
+        ].y;
+
+    let hzp =
+        tx05.data[
+            ioffset + offsetzp
+        ].x;
+
+    let incoming =
+        hxm +
+        hxp +
+        hym +
+        hyp +
+        hzm +
+        hzp;
+
+    let outgoing =
+        hxy.x +
+        hxy.y +
+        hxy.z +
+        hxy.w +
+        hz.x +
+        hz.y;
+
+    // terrain:
+    //
+    //     new = old + incoming - outgoing
+    //
+    // water / sediment / rt 保持 main2 的结果。
+    tx00.data[ioffset] =
+        vec4f(
+            b + incoming - outgoing,
+            d,
+            bdsr.z,
+            bdsr.w
+        );
+}
             `;
     const raytracingShaderCode = `
             struct Vec4Attachment{
@@ -758,7 +1470,7 @@ async function simulateTerrain(erosionRate: number, coriolis?: boolean) {
     // retinaCtrl.keyConfig.enable = "";
     // retinaCtrl.toggleSectionConfig("zsection");
     // retinaCtrl.setStereo(false);
-    let displayCtrl = new ErosionDisplayController(uBlockJsBuffer);
+    let displayCtrl = new ErosionDisplayController(uBlockJsBuffer, originalConfig ? 0.5 : 0.1);
     let viewObj = new tesserxel.math.Obj4(new tesserxel.math.Vec4, new tesserxel.math.Rotor, new tesserxel.math.Vec4(1, 1, 1, 1));
     let viewCtrl = new tesserxel.ui.ctrl.VoxelViewerController(viewObj);
     let ctrlReg = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [

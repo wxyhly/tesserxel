@@ -2,10 +2,40 @@ import * as tesserxel from "../../build/esm/tesserxel.js"
 
 const FOUR = tesserxel.four;
 const canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
+type GlomeBatch = { color: number[], positions: tesserxel.math.Vec4[] };
+
+class LatticeInstancedPhongMaterial extends FOUR.PhongMaterial {
+    constructor(color: number[]) {
+        super(color, 50);
+    }
+
+    getShaderCode(renderer: tesserxel.four.Renderer) {
+        let code = super.getShaderCode(renderer);
+        let binding = this.fetchBuffers.length + 3;
+        code.vs = code.vs
+            .replace(
+                `fn apply(afmat: tsxAffineMat, points: mat4x4f) -> mat4x4f{`,
+                `struct LatticeInstance{
+    matrix: mat4x4f,
+    vector: vec4f,
+}
+@group(1) @binding(${binding}) var<storage, read> latticeInstances: array<LatticeInstance>;
+fn apply(afmat: tsxAffineMat, points: mat4x4f) -> mat4x4f{`
+            )
+            .replace(
+                `let worldPos = apply(uObjMat.pos,input.pos);`,
+                `let instance = latticeInstances[index];
+    let worldPos = apply(uObjMat.pos,apply(tsxAffineMat(instance.matrix,instance.vector),input.pos));`
+            );
+        return code;
+    }
+}
+
 abstract class LatticeApp {
     renderer: tesserxel.four.Renderer;
     scene: tesserxel.four.Scene;
     glomeGeometry: tesserxel.four.GlomeGeometry
+    glomeBounds = 0.4;
     abstract defineScene(): void;
     async init() {
         const app =await tesserxel.four.App.create({ canvas, controllerConfig: { enablePointerLock: true } });
@@ -14,6 +44,12 @@ abstract class LatticeApp {
         this.renderer.core.setDisplayConfig({ opacity: 5.0, sectionStereoEyeOffset: 0.5 });
         this.scene.backGroundColor = [0.6, 0.8, 0.9, 0.2];
         this.glomeGeometry = new FOUR.GlomeGeometry(0.4, 1);
+        const updateOBB = this.glomeGeometry.updateOBB.bind(this.glomeGeometry);
+        this.glomeGeometry.updateOBB = () => {
+            updateOBB();
+            this.glomeGeometry.obb.min.set(-this.glomeBounds, -this.glomeBounds, -this.glomeBounds, -this.glomeBounds);
+            this.glomeGeometry.obb.max.set(this.glomeBounds, this.glomeBounds, this.glomeBounds, this.glomeBounds);
+        };
         this.defineScene();
         this.scene.add(new FOUR.AmbientLight(0.1));
         let dirLight = new FOUR.DirectionalLight([2.1, 2.0, 1.8]);
@@ -33,26 +69,60 @@ abstract class LatticeApp {
         app.controllerRegistry.add(new tesserxel.ui.ctrl.TrackBallController(camera, true));
         app.run();
     }
+
+    addGlomeInstances(batches: GlomeBatch[]) {
+        let bound = 0.4;
+        for (const batch of batches) {
+            for (const position of batch.positions) {
+                bound = Math.max(bound,
+                    Math.abs(position.x) + 0.4,
+                    Math.abs(position.y) + 0.4,
+                    Math.abs(position.z) + 0.4,
+                    Math.abs(position.w) + 0.4
+                );
+            }
+        }
+        this.glomeBounds = bound;
+
+        for (const batch of batches) {
+            if (!batch.positions.length) continue;
+            const instanceData = new Float32Array(batch.positions.length * 20);
+            for (let i = 0; i < batch.positions.length; i++) {
+                const offset = i * 20;
+                instanceData[offset] = 1;
+                instanceData[offset + 5] = 1;
+                instanceData[offset + 10] = 1;
+                instanceData[offset + 15] = 1;
+                batch.positions[i].writeBuffer(instanceData, offset + 16);
+            }
+            const instanceBuffer = this.renderer.gpu.createBuffer(
+                GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+                instanceData,
+                "LatticeGlomeInstances"
+            );
+            const mesh = new FOUR.Mesh(this.glomeGeometry, new LatticeInstancedPhongMaterial(batch.color));
+            mesh.instanceBuffer = instanceBuffer;
+            mesh.instanceCount = batch.positions.length;
+            this.scene.add(mesh);
+        }
+    }
 }
 
 export namespace hc_sp {
     class App extends LatticeApp {
         defineScene() {
-            let { scene, glomeGeometry } = this;
             const range = 1;
+            const positions: tesserxel.math.Vec4[] = [];
             for (let x = -range; x <= range; x++) {
                 for (let y = -range; y <= range; y++) {
                     for (let z = -range; z <= range; z++) {
                         for (let w = -range; w <= range; w++) {
-                            let glomeMesh = new FOUR.Mesh(glomeGeometry, new FOUR.PhongMaterial(
-                                [1, 0.2, 0.1], 50
-                            ));
-                            glomeMesh.position.set(x * 2, y * 2, z * 2, w * 2);
-                            scene.add(glomeMesh);
+                            positions.push(new tesserxel.math.Vec4(x * 2, y * 2, z * 2, w * 2));
                         }
                     }
                 }
             }
+            this.addGlomeInstances([{ color: [1, 0.2, 0.1], positions }]);
         }
     }
     export async function load() {
@@ -63,28 +133,23 @@ export namespace hc_sp {
 export namespace hc_vc {
     class App extends LatticeApp {
         defineScene() {
-            let { scene, glomeGeometry } = this;
             const range = 1;
+            const redPositions: tesserxel.math.Vec4[] = [];
+            const cyanPositions: tesserxel.math.Vec4[] = [];
             for (let x = -range; x <= range; x++) {
                 for (let y = -range; y <= range; y++) {
                     for (let z = -range; z <= range; z++) {
                         for (let w = -range; w <= range; w++) {
-                            let glomeMesh = new FOUR.Mesh(glomeGeometry, new FOUR.PhongMaterial(
-                                [1, 0.2, 0.1], 50
-                            ));
-                            glomeMesh.position.set(x * 2, y * 2, z * 2, w * 2);
-                            scene.add(glomeMesh);
-                            if ((x !== range && y !== range && z !== range && w !== range) || true) {
-                                let glomeMesh2 = new FOUR.Mesh(glomeGeometry, new FOUR.PhongMaterial(
-                                    [0, 0.8, 1.0], 50
-                                ));
-                                glomeMesh2.position.set(x * 2 + 1, y * 2 + 1, z * 2 + 1, w * 2 + 1);
-                                scene.add(glomeMesh2);
-                            }
+                            redPositions.push(new tesserxel.math.Vec4(x * 2, y * 2, z * 2, w * 2));
+                            cyanPositions.push(new tesserxel.math.Vec4(x * 2 + 1, y * 2 + 1, z * 2 + 1, w * 2 + 1));
                         }
                     }
                 }
             }
+            this.addGlomeInstances([
+                { color: [1, 0.2, 0.1], positions: redPositions },
+                { color: [0, 0.8, 1.0], positions: cyanPositions }
+            ]);
         }
     }
     export async function load() {
@@ -95,29 +160,32 @@ export namespace hc_vc {
 export namespace iso6o {
     class App extends LatticeApp {
         defineScene() {
-            let { scene, glomeGeometry } = this;
             const range = 6;
             const cst = Math.sqrt(3) / 2;
+            const redPositions: tesserxel.math.Vec4[] = [];
+            const purplePositions: tesserxel.math.Vec4[] = [];
             for (let x = -range; x <= range; x++) {
                 for (let y = -range; y <= range; y++) {
                     for (let z = -range; z <= range; z++) {
                         for (let w = -range; w <= range; w++) {
-                            let glomeMesh = new FOUR.Mesh(glomeGeometry, new FOUR.PhongMaterial(
-                                [1, 0.2, 0.1, 0.4], 50
-                            ));
-                            glomeMesh.position.set(x + y * 0.5, y * cst, z + w * 0.5, w * cst);
-                            const norm = glomeMesh.position.norm();
+                            const position = new tesserxel.math.Vec4(x + y * 0.5, y * cst, z + w * 0.5, w * cst);
+                            const norm = position.norm();
                             if (norm <= 2) {
-                                glomeMesh.position.mulfs(2);
+                                position.mulfs(2);
                                 if (norm < 1.2) {
-                                    glomeMesh.material = new FOUR.PhongMaterial([0.4, 0.0, 1.0], 50);
+                                    purplePositions.push(position);
+                                } else {
+                                    redPositions.push(position);
                                 }
-                                scene.add(glomeMesh);
                             }
                         }
                     }
                 }
             }
+            this.addGlomeInstances([
+                { color: [1, 0.2, 0.1, 0.4], positions: redPositions },
+                { color: [0.4, 0.0, 1.0], positions: purplePositions }
+            ]);
         }
 
     }
@@ -128,29 +196,32 @@ export namespace iso6o {
 export namespace l6_4 {
     class App extends LatticeApp {
         defineScene() {
-            let { scene, glomeGeometry } = this;
             const range = 6;
             const cst = Math.sqrt(3) / 2;
+            const redPositions: tesserxel.math.Vec4[] = [];
+            const purplePositions: tesserxel.math.Vec4[] = [];
             for (let x = -range; x <= range; x++) {
                 for (let y = -range; y <= range; y++) {
                     for (let z = -range; z <= range; z++) {
                         for (let w = -range; w <= range; w++) {
-                            let glomeMesh = new FOUR.Mesh(glomeGeometry, new FOUR.PhongMaterial(
-                                [1, 0.2, 0.1, 0.4], 50
-                            ));
-                            glomeMesh.position.set(x, y, z + w * 0.5, w * cst);
-                            const norm = glomeMesh.position.norm();
+                            const position = new tesserxel.math.Vec4(x, y, z + w * 0.5, w * cst);
+                            const norm = position.norm();
                             if (norm <= 2) {
-                                glomeMesh.position.mulfs(2);
+                                position.mulfs(2);
                                 if (norm < 1.2) {
-                                    glomeMesh.material = new FOUR.PhongMaterial([0.4, 0.0, 1.0], 50);
+                                    purplePositions.push(position);
+                                } else {
+                                    redPositions.push(position);
                                 }
-                                scene.add(glomeMesh);
                             }
                         }
                     }
                 }
             }
+            this.addGlomeInstances([
+                { color: [1, 0.2, 0.1, 0.4], positions: redPositions },
+                { color: [0.4, 0.0, 1.0], positions: purplePositions }
+            ]);
         }
 
     }
@@ -162,31 +233,36 @@ export namespace l6_4 {
 export namespace l20 {
     class App extends LatticeApp {
         defineScene() {
-            let { scene, glomeGeometry } = this;
             const range = 12;
             const cst = 4 - Math.sqrt(5);
+            const redPositions: tesserxel.math.Vec4[] = [];
+            const purplePositions: tesserxel.math.Vec4[] = [];
             for (let x = -range; x <= range; x++) {
                 for (let y = -range; y <= range; y++) {
                     for (let z = -range; z <= range; z++) {
                         for (let w = -range; w <= range; w++) {
-                            let glomeMesh = new FOUR.Mesh(glomeGeometry, new FOUR.PhongMaterial(
-                                [1, 0.2, 0.1, 0.4], 50
-                            ));
-
-                            glomeMesh.position.set(x + y + z - cst * w, x + y - cst * z + w, x - cst * y + w + z, -cst * x + y + z + w);
-
-                            glomeMesh.position.mulfs(0.4045 * 3);
-                            const norm = glomeMesh.position.norm();
+                            const px = x + y + z - cst * w;
+                            const py = x + y - cst * z + w;
+                            const pz = x - cst * y + w + z;
+                            const pw = -cst * x + y + z + w;
+                            const scale = 0.4045 * 3;
+                            const pxs = px * scale, pys = py * scale, pzs = pz * scale, pws = pw * scale;
+                            const norm = Math.hypot(pxs, pys, pzs, pws);
                             if (norm <= 6.2) {
                                 if (norm < 3) {
-                                    glomeMesh.material = new FOUR.PhongMaterial([0.4, 0.0, 1.0], 50);
+                                    purplePositions.push(new tesserxel.math.Vec4(pxs, pys, pzs, pws));
+                                } else {
+                                    redPositions.push(new tesserxel.math.Vec4(pxs, pys, pzs, pws));
                                 }
-                                scene.add(glomeMesh);
                             }
                         }
                     }
                 }
             }
+            this.addGlomeInstances([
+                { color: [1, 0.2, 0.1, 0.4], positions: redPositions },
+                { color: [0.4, 0.0, 1.0], positions: purplePositions }
+            ]);
         }
 
     }

@@ -235,7 +235,7 @@ export class CWMesh {
                     del
                 )
             ) as Face[] | Vec4[];
-            this.orientation[dim] = this.orientation[dim].filter(
+            this.orientation[dim] = this.orientation[dim]?.filter(
                 (face: boolean[], faceId: number) => !selDim.has(faceId)
             );
         }

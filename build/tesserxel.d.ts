@@ -2730,7 +2730,8 @@ declare namespace rigid {
     class Convex extends RigidGeometry {
         points: Vec4[];
         _cachePoints: Vec4[];
-        constructor(points: Vec4[]);
+        autoGenerateInertia: boolean;
+        constructor(points: Vec4[], disableAutoGenerateInertia?: boolean);
         private getPointsInertia;
         initializeMassInertia(rigid: Rigid): void;
     }

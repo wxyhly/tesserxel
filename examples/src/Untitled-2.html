@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+  <meta charset="utf-8">
+  <title>生成纯SVG动画（绝对平滑三棱台/正八面体）</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f5;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      color: #333;
+      font-weight: 600;
+    }
+
+    .preview {
+      background: #fff;
+      padding: 16px;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, .08);
+      display: flex;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
+    .controls {
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 14px;
+      background: #e63946;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    button:hover {
+      background: #d62839;
+    }
+
+    .status {
+      color: #2a9d8f;
+      font-size: 13px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 200px;
+      box-sizing: border-box;
+      font-family: "SF Mono", Consolas, monospace;
+      font-size: 10px;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      resize: vertical;
+      background: #fff;
+      color: #333;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h2>纯 SVG 动画（绝对平滑三棱台/正八面体）</h2>
+    <div class="preview" id="preview"></div>
+    <div class="controls">
+      <button onclick="copySVG()">📋 复制 SVG 代码</button>
+      <span class="status" id="status"></span>
+    </div>
+    <textarea id="svgText" readonly></textarea>
+  </div>
+
+  <script>
+    function buildSVG() {
+      const W = 15;
+      const H = W * Math.sqrt(1.5);
+
+      const A = 200;
+      const PHI = Math.asin(H / A);
+      const OMEGA = Math.PI / 2;
+      const PHASE0 = Math.PI / 2;
+      const EASE_TIME = 0.5, MIN_SPEED = 0.2, PAUSE_DUR = 0.5;
+      const TOTAL_VT = 4;
+      const SIM_DT = 0.0005;
+      const N_UNIFORM = 200;
+
+      // ===== 正交投影参数（等轴测视角） =====
+      const yaw = Math.PI / 4;
+      const pitch = Math.atan(1 / Math.SQRT2);
+      const cosYaw = Math.cos(yaw);
+      const sinYaw = Math.sin(yaw);
+      const cosPitch = Math.cos(pitch);
+      const sinPitch = Math.sin(pitch);
+
+      function project(x, y, z) {
+        const sx = cosYaw * x + sinYaw * z;
+        const sy = sinPitch * sinYaw * x + cosPitch * y - sinPitch * cosYaw * z;
+        return { x: sx, y: -sy };
+      }
+
+      function f(x) {
+        let s = x.toFixed(1);
+        if (s === '-0.0' || s === '0.0') return '0';
+        if (s.endsWith('.0')) s = s.slice(0, -2);
+        s = s.replace(/^-0\./, '-.').replace(/^0\./, '.');
+        return s;
+      }
+      function fk(x) {
+        if (x === 0) return '0';
+        if (x === 1) return '1';
+        let s = x.toFixed(5);
+        s = s.replace(/0+$/, '').replace(/\.$/, '');
+        s = s.replace(/^0\./, '.');
+        return s;
+      }
+      function ss(u) { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); }
+      function spd(vt) {
+        const d = Math.abs(vt - 3);
+        if (d >= EASE_TIME) return 1;
+        return MIN_SPEED + (1 - MIN_SPEED) * ss(d / EASE_TIME);
+      }
+
+      // 时间线模拟
+      const timeline = [];
+      let t = 0, vt = 0, pauseEndT = -1, pauseStartT = -1;
+      while (vt < TOTAL_VT - 1e-9) {
+        timeline.push({ t, vt });
+        if (t < pauseEndT) { t += SIM_DT; continue; }
+        const speed = spd(vt);
+        let vtNext = vt + SIM_DT * speed;
+        if (vt < 3 && vtNext >= 3) {
+          vt = 3; pauseStartT = t; pauseEndT = t + PAUSE_DUR;
+          timeline.push({ t, vt: 3 });
+          t += SIM_DT; continue;
+        }
+        if (vtNext >= TOTAL_VT) vt = TOTAL_VT; else vt = vtNext;
+        t += SIM_DT;
+      }
+      timeline.push({ t, vt: TOTAL_VT });
+      const TOTAL_TIME = t;
+      const TOTAL_DUR = TOTAL_TIME.toFixed(4) + 's';
+
+      function stateAt(time) {
+        if (time <= timeline[0].t) return timeline[0].vt;
+        const last = timeline[timeline.length - 1];
+        if (time >= last.t) return last.vt;
+        let lo = 0, hi = timeline.length - 1;
+        while (hi - lo > 1) {
+          const mid = (lo + hi) >> 1;
+          if (timeline[mid].t <= time) lo = mid; else hi = mid;
+        }
+        return timeline[lo].vt;
+      }
+
+      function getTriangle(cx, s) {
+        return [
+          project(cx, s * 0.5, 0),
+          project(cx, -s * 0.25, s * 0.4330127),
+          project(cx, -s * 0.25, -s * 0.4330127)
+        ];
+      }
+
+      // 生成绝对平滑路径
+      function mainPathAt(vt) {
+        const xPhase = OMEGA * vt + PHASE0;
+        const sL = A * Math.sin(xPhase - PHI);
+        const sR = A * Math.sin(xPhase + PHI);
+
+        const L = getTriangle(-W / 2, sL);
+        const R = getTriangle(W / 2, sR);
+
+        let d = '';
+
+        // 左面 3 条边
+        d += `M${f(L[0].x)},${f(L[0].y)}L${f(L[1].x)},${f(L[1].y)}`;
+        d += `M${f(L[1].x)},${f(L[1].y)}L${f(L[2].x)},${f(L[2].y)}`;
+        d += `M${f(L[2].x)},${f(L[2].y)}L${f(L[0].x)},${f(L[0].y)}`;
+
+        // 右面 3 条边
+        d += `M${f(R[0].x)},${f(R[0].y)}L${f(R[1].x)},${f(R[1].y)}`;
+        d += `M${f(R[1].x)},${f(R[1].y)}L${f(R[2].x)},${f(R[2].y)}`;
+        d += `M${f(R[2].x)},${f(R[2].y)}L${f(R[0].x)},${f(R[0].y)}`;
+
+        // 6 条侧棱连线
+        if (sL * sR > 0 && sL<=0) {
+          // 三棱台（柱体）：平行连接
+          d += `M${f(L[0].x)},${f(L[0].y)}L${f(R[0].x)},${f(R[0].y)}`;
+          d += `M${f(L[0].x)},${f(L[0].y)}L${f(R[0].x)},${f(R[0].y)}`;
+
+          d += `M${f(L[1].x)},${f(L[1].y)}L${f(R[1].x)},${f(R[1].y)}`;
+          d += `M${f(L[1].x)},${f(L[1].y)}L${f(R[1].x)},${f(R[1].y)}`;
+
+          d += `M${f(L[2].x)},${f(L[2].y)}L${f(R[2].x)},${f(R[2].y)}`;
+          d += `M${f(L[2].x)},${f(L[2].y)}L${f(R[2].x)},${f(R[2].y)}`;
+        }else if (sL * sR > 0 && sL>0) {
+          // 三棱台（柱体）：平行连接
+          d += `M${f(L[1].x)},${f(L[1].y)}L${f(R[1].x)},${f(R[1].y)}`;
+          d += `M${f(L[2].x)},${f(L[2].y)}L${f(R[2].x)},${f(R[2].y)}`;
+          
+          d += `M${f(L[0].x)},${f(L[0].y)}L${f(R[0].x)},${f(R[0].y)}`;
+          d += `M${f(L[2].x)},${f(L[2].y)}L${f(R[2].x)},${f(R[2].y)}`;
+          
+          d += `M${f(L[0].x)},${f(L[0].y)}L${f(R[0].x)},${f(R[0].y)}`;
+          d += `M${f(L[1].x)},${f(L[1].y)}L${f(R[1].x)},${f(R[1].y)}`;
+        } else if (sL < 0) {
+          // 正八面体（扭棱）：交叉连接（完全按照您的映射）
+          d += `M${f(L[0].x)},${f(L[0].y)}L${f(R[1].x)},${f(R[1].y)}`; // 1-b
+          d += `M${f(L[0].x)},${f(L[0].y)}L${f(R[2].x)},${f(R[2].y)}`; // 1-c
+
+          d += `M${f(L[1].x)},${f(L[1].y)}L${f(R[0].x)},${f(R[0].y)}`; // 2-a
+          d += `M${f(L[1].x)},${f(L[1].y)}L${f(R[2].x)},${f(R[2].y)}`; // 2-c
+
+          d += `M${f(L[2].x)},${f(L[2].y)}L${f(R[0].x)},${f(R[0].y)}`; // 3-a
+          d += `M${f(L[2].x)},${f(L[2].y)}L${f(R[1].x)},${f(R[1].y)}`; // 3-b
+        } else {
+          d += `M${f(L[1].x)},${f(L[1].y)}L${f(R[0].x)},${f(R[0].y)}`;
+          d += `M${f(L[2].x)},${f(L[2].y)}L${f(R[0].x)},${f(R[0].y)}`;
+
+          d += `M${f(L[0].x)},${f(L[0].y)}L${f(R[1].x)},${f(R[1].y)}`;
+          d += `M${f(L[2].x)},${f(L[2].y)}L${f(R[1].x)},${f(R[1].y)}`;
+
+          d += `M${f(L[0].x)},${f(L[0].y)}L${f(R[2].x)},${f(R[2].y)}`;
+          d += `M${f(L[1].x)},${f(L[1].y)}L${f(R[2].x)},${f(R[2].y)}`;
+        }
+
+        return d;
+      }
+
+      // 极高密度采样，确保奇点平滑
+      const timeSet = new Set();
+      for (let i = 0; i <= N_UNIFORM; i++) timeSet.add((i / N_UNIFORM) * TOTAL_TIME);
+
+      if (pauseStartT >= 0) {
+        for (let tt = pauseStartT - 0.1; tt <= pauseStartT + 0.1; tt += 0.001)
+          if (tt >= 0 && tt <= TOTAL_TIME) timeSet.add(tt);
+        for (let tt = pauseEndT - 0.1; tt <= pauseEndT + 0.1; tt += 0.001)
+          if (tt >= 0 && tt <= TOTAL_TIME) timeSet.add(tt);
+        timeSet.add(pauseStartT);
+        timeSet.add(pauseEndT);
+      }
+      // 第一次过零点处超高密度
+      for (let tt = 0.2; tt <= 0.4; tt += 0.0005) {
+        if (tt >= 0 && tt <= TOTAL_TIME) timeSet.add(tt);
+      }
+
+      const times = Array.from(timeSet).filter(tt => tt >= 0 && tt <= TOTAL_TIME).sort((a, b) => a - b);
+      const uniqueTimes = [];
+      let prevT = -1;
+      for (const tt of times) {
+        if (tt - prevT > 1e-5) { uniqueTimes.push(tt); prevT = tt; }
+      }
+      if (uniqueTimes[0] !== 0) uniqueTimes.unshift(0);
+      if (uniqueTimes[uniqueTimes.length - 1] !== TOTAL_TIME) uniqueTimes.push(TOTAL_TIME);
+
+      const kts = [], mainPvs = [];
+      for (const time of uniqueTimes) {
+        kts.push(fk(time / TOTAL_TIME));
+        mainPvs.push(mainPathAt(stateAt(time)));
+      }
+
+      const ktStr = kts.join(';');
+      const mainStr = mainPvs.join(';');
+
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-120 -120 240 240" width="480" height="480">' +
+        '<path fill="none" stroke="#1a1a1a" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">' +
+        '<animate attributeName="d" begin="0s" dur="' + TOTAL_DUR + '" repeatCount="indefinite" calcMode="linear" keyTimes="' + ktStr + '" values="' + mainStr + '"/>' +
+        '</path>' +
+        '</svg>';
+    }
+
+    const svgString = buildSVG();
+
+    document.getElementById('preview').innerHTML = svgString;
+
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        document.getElementById('svgText').value = svgString;
+      });
+    });
+
+    console.log('SVG 长度：' + svgString.length + ' 字符');
+
+    function copySVG() {
+      const ta = document.getElementById('svgText');
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      try {
+        if (document.execCommand('copy')) {
+          document.getElementById('status').textContent = '✓ 已复制';
+        } else {
+          navigator.clipboard.writeText(svgString).then(
+            () => document.getElementById('status').textContent = '✓ 已复制',
+            () => document.getElementById('status').textContent = '✗ 请手动复制'
+          );
+        }
+      } catch (e) {
+        document.getElementById('status').textContent = '✗ 请手动复制';
+      }
+    }
+  </script>
+</body>
+
+</html>

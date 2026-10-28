@@ -44,6 +44,7 @@ class MandelApp {
             var dr: f32 = 1.0;
             var r: f32 = 0.0;
             for (var i = 0; i < MANDELBROTSTEPS ; i++) {
+                {init}
                 r = length(z);
                 if (r>MAXMANDELBROTDIST){ break;}
                 {replace}
@@ -100,7 +101,7 @@ class MandelApp {
         return render(rayOrigin, rayDir);
         }
         `
-    async load(code: string, fnDE: (pos: tesserxel.math.Vec4) => number) {
+    async load(code: string, fnDE: (pos: tesserxel.math.Vec4) => number, init = "") {
         let gpu = await new tesserxel.render.GPU().init();
         let canvas = document.getElementById("gpu-canvas") as HTMLCanvasElement;
         let context = gpu.getContext(canvas);
@@ -119,7 +120,7 @@ class MandelApp {
         let ctrlreg = new tesserxel.ui.ctrl.ControllerRegistry(canvas, [camController, retinaController], { preventDefault: true, enablePointerLock: true });
         let matModelViewJSBuffer = new Float32Array(20);
         let pipeline = await renderer.createRaytracingPipeline({
-            code: this.headercode.replace(/\{replace\}/g, code),
+            code: this.headercode.replace(/\{replace\}/g, code).replace(/\{init\}/g, init),
             rayEntryPoint: "mainRay",
             fragmentEntryPoint: "mainFragment"
         });
@@ -255,6 +256,70 @@ export namespace mandelbulb_spherical {
             }
             return 0.5 * Math.log(r) * r / dr;
         });
+        app.run();
+    }
+}
+
+export namespace mandelbrot_quaternion {
+    export async function load() {
+        let app = await new MandelApp().load(
+            `
+                dr = 2.0*r*dr + 1.0;
+                z = vec4f(
+                    z.x*z.x-z.y*z.y-z.z*z.z-z.w*z.w,
+                    2.0*z.x*z.y,
+                    2.0*z.x*z.z,
+                    2.0*z.x*z.w
+                ) + pos;
+            `, (pos: tesserxel.math.Vec4) => {
+            const MAXMANDELBROTDIST = 1.5;
+            const MANDELBROTSTEPS = 32;
+            let z = new tesserxel.math.Vec4();
+            let dr = 1.0;
+            let r = 0.0;
+            for (let i = 0; i < MANDELBROTSTEPS; i++) {
+                r = z.norm();
+                if (r > MAXMANDELBROTDIST) { break; }
+                dr = 2.0 * r * dr + 1.0;
+                z.set(
+                    z.x * z.x - z.y * z.y - z.z * z.z - z.w * z.w,
+                    2.0 * z.x * z.y,
+                    2.0 * z.x * z.z,
+                    2.0 * z.x * z.w
+                ).adds(pos);
+            }
+            return 0.5 * Math.log(r) * r / dr;
+        }, "if (i == 0) { z = vec4f(0.0); }");
+        app.run();
+    }
+}
+
+export namespace mandelbrot_julia {
+    export async function load() {
+        let app = await new MandelApp().load(
+            `
+                var zr = vec2f(z.x,z.y);
+                let c = vec2f(pos.z,pos.w);
+                dr = 2.0*r*dr + 1.0;
+                zr = vec2f(zr.x*zr.x-zr.y*zr.y, 2.0*zr.x*zr.y)+c;
+                z = vec4f(zr, 0.0, 0.0);
+            `, (pos: tesserxel.math.Vec4) => {
+            const MAXMANDELBROTDIST = 1.5;
+            const MANDELBROTSTEPS = 32;
+            let zr = new tesserxel.math.Vec2(pos.x, pos.y);
+            const c = new tesserxel.math.Vec2(pos.z, pos.w);
+            let dz = new tesserxel.math.Vec2(1, 0);
+            let dc = new tesserxel.math.Vec2();
+            let dr = 1.0;
+            let r = 0.0;
+            for (let i = 0; i < MANDELBROTSTEPS; i++) {
+                r = zr.norm();
+                if (r > MAXMANDELBROTDIST) { break; }
+                dr = 2.0 * r * dr + 1.0;
+                zr.set(zr.x * zr.x - zr.y * zr.y, 2 * zr.x * zr.y).adds(c);
+            }
+            return 0.5 * Math.log(r) * r / dr;
+        }, "if (i == 0) { z = vec4f(pos.xy, 0.0, 0.0); }");
         app.run();
     }
 }

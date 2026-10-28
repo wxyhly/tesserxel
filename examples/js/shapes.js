@@ -228,6 +228,85 @@ export var torisphere;
     }
     torisphere.load = load;
 })(torisphere || (torisphere = {}));
+export var spherinders4;
+(function (spherinders4) {
+    async function load() {
+        let fragCode = `
+
+        // 轴表与调色板：改这两处即可切换多胞体 / 配色
+        const AXES: array<vec4f, 4> = array<vec4f, 4>(
+            vec4f(1.0, 0.0, 0.0, 0.0),
+            vec4f(0.0, 1.0, 0.0, 0.0),
+            vec4f(0.0, 0.0, 1.0, 0.0),
+            vec4f(0.0, 0.0, 0.0, 1.0),
+        );
+
+        const PALETTE: array<vec4f, 4> = array<vec4f, 4>(
+            vec4f(1.0, 0.3, 0.3, 0.1),
+            vec4f(0.3, 1.0, 0.3, 0.1),
+            vec4f(0.3, 0.5, 1.0, 0.1),
+            vec4f(1.0, 1.0, 0.3, 1.0),
+        );
+
+        fn isTesseractEdge(q: vec4f) -> bool {
+            let s = array<f32, 4>(q.x*q.x, q.y*q.y, q.z*q.z, q.w*q.w);
+            var m1: f32 = -1.0;
+            var m2: f32 = -1.0;
+            var m3: f32 = -1.0;
+            for (var i: u32 = 0u; i < 4u; i = i + 1u) {
+                let v   = s[i];
+                let gt1 = v > m1;
+                let gt2 = v > m2;
+                let gt3 = v > m3;
+                let newM3 = select(select(m3, v, gt3), m2, gt2);
+                let newM2 = select(select(m2, v, gt2), m1, gt1);
+                let newM1 = select(m1, v, gt1);
+                m3 = newM3; m2 = newM2; m1 = newM1;
+            }
+            return (m1 - m3) < 0.2;
+        }
+
+        // q: 已归一化的 S³ 方向
+        // 返回: 该方向射线最先命中的球柱面的颜色
+        fn spherinderColor(q: vec4f) -> vec4f {
+            // 命中参数 s_i = r / sqrt(1 - (q·a_i)^2)，半径相同则比较 (q·a_i)^2 取最大
+            var bestG: f32 = 1e9;   // 初始为大数，用于取最小 g
+            var bestIdx: u32 = 0u;
+            for (var i: u32 = 0u; i < 4u; i = i + 1u) {
+                let d = dot(q, AXES[i]);
+                let g = d * d;
+                let better = g < bestG;   // 取最小 g = 最远命中
+                bestG = select(bestG, g, better);
+                bestIdx = select(bestIdx, i, better);
+            }
+
+            return PALETTE[bestIdx];
+        }
+            @fragment fn main(vary: fInputType) -> @location(0) vec4f {
+                const ambientLight = vec3<f32>(0.1);
+                const frontLightColor = vec3<f32>(5.0,4.6,3.5);
+                const backLightColor = vec3<f32>(0.1,1.2,1.4);
+                const directionalLight_dir = vec4f(0.1,0.5,0.4,-1.0);
+                let checkerboard = fract(vary.uvw.z * 4.0) - 0.5;
+                let factor = 0.2;//step(checkerboard, 0.0);
+                if(isTesseractEdge(vary.uvw)) {
+                    return vec4f(1.0,1.0,1.0, 1.0);
+                }
+                return spherinderColor(vary.uvw);
+                // mix(hsb2rgb(vec3<f32>(vary.uvw.x,0.7,1.0)), hsb2rgb(vec3<f32>(vary.uvw.y,1.0,0.7)), factor);
+                // color = color * (
+                //     frontLightColor * max(0, dot(directionalLight_dir , vary.normal)) + backLightColor * max(0, -dot(directionalLight_dir , vary.normal))
+                // );
+                // return vec4f(pow(color,vec3<f32>(0.6))*0.5, mix(0.2,1.0,factor));
+            }`;
+        const mesh = tesserxel.mesh.tetra.glome(1.5, 32, 32, 16);
+        mesh.setUVWAsPosition();
+        let app = await new ShapesApp().init(fragCode, mesh);
+        app.retinaController.setOpacity(10.0);
+        app.run();
+    }
+    spherinders4.load = load;
+})(spherinders4 || (spherinders4 = {}));
 export var glome;
 (function (glome) {
     async function load() {

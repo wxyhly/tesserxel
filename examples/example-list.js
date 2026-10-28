@@ -72,6 +72,7 @@ let examples = [
                     { target: "shapes::tiger", zh: "双圆环", en: "Tiger (Duotorus)" },
                     { target: "shapes::ditorus", zh: "圆环环", en: "Ditorus" },
                     { target: "shapes::glome", zh: "超球", en: "Glome (Hyphersphere)" },
+                    { target: "shapes::spherinders4", zh: "四球柱交集", en: "Quadrispherinder" },
                     { target: "shapes::suzanne3d", zh: "猴头旋转体", en: "Suzanne Rotatoid" }
                 ]
             }
@@ -117,17 +118,32 @@ let examples = [
                     { target: "rigids::gyro_sphericone", zh: "球锥陀螺", en: "Sphericone Gyro" },
                 ]
             }, {
-                group: "rotating_rigids", zh: "非柱锥滚动", en: "Non-cone/cylinder Rolling",
+                group: "iregular_rollings", zh: "不规则滚动", en: "Iregular Rollings",
                 child: [
-                    { target: "rigids::roll_biconic_crind", zh: "牟合圆双锥盖滚动", en: "Biconic Crind" },
-                    { target: "rigids::roll_dicrind", zh: "二重牟合方盖滚动", en: "Dicrind" },
-                    { target: "rigids::roll_octahedral_crind", zh: "牟合正八面盖滚动", en: "Octahedral Crind" },
-                    { target: "rigids::roll_cubic_crind", zh: "牟合立方盖滚动", en: "Cubic Crind" },
-                    { target: "rigids::roll_cylindrical_crind", zh: "牟合圆柱盖滚动", en: "Cylindrical Crind" },
-                    { target: "rigids::roll_duocrind", zh: "双牟合方盖滚动", en: "Duocrind" },
+                    {
+                        group: "crinds", zh: "超牟合方盖", en: "Hypercrinds",
+                        child: [
+                            { target: "rigids::roll_biconic_crind", zh: "牟合圆双锥盖滚动", en: "Biconic Crind" },
+                            { target: "rigids::roll_dicrind", zh: "二重牟合方盖滚动", en: "Dicrind" },
+                            { target: "rigids::roll_octahedral_crind", zh: "牟合正八面盖滚动", en: "Octahedral Crind" },
+                            { target: "rigids::roll_cubic_crind", zh: "牟合立方盖滚动", en: "Cubic Crind" },
+                            { target: "rigids::roll_cylindrical_crind", zh: "牟合圆柱盖滚动", en: "Cylindrical Crind" },
+                            { target: "rigids::roll_duocrind", zh: "双牟合方盖滚动", en: "Duocrind" }
+                        ]
+                    },
+                    {
+                        group: "polyhedral_sphericon", zh: "正多面体Sphericon", en: "polyhedral Sphericons",
+                        child: [
+                            { target: "rigids::sphericon_cube", zh: "立方Sphericon", en: "Cubical Sphericon" },
+                            { target: "rigids::sphericon_oct", zh: "正八面Sphericon", en: "Octahedral Sphericon" },
+                            { target: "rigids::sphericon_dodec", zh: "正十二面Sphericon", en: "Dodecahedral Sphericon" },
+                            { target: "rigids::sphericon_icos", zh: "正二十面Sphericon", en: "Icosahedral Sphericon" },
+                        ]
+                    },
                     { target: "rigids::roll_4oloid", zh: "圆-球链凸包(四维Oloid)", en: "4-Oloid" },
                     { target: "rigids::roll_glomicon", zh: "球锥双圆锥双拼", en: "Sphericone-Duospindle" },
-                    { target: "rigids::roll_semidisphenoid", zh: "双圆半锲", en: "Duocircular Semidisphenoid" },
+                    { target: "rigids::roll_semidisphenoid", zh: "双圆半锲(无法滚动)", en: "Duocircular Semidisphenoid (non-rollable)" },
+                    { target: "rigids::wobbler1", zh: "球柱Wobbler", en: "Spherinder Wobbler" },
                     { target: "rigids::roll_trefoil", zh: "三叶结", en: "Trefoil Knot" },
                     { target: "rigids::roll_3_5_knot", zh: "3,5-环面扭结", en: "3,5-Flat Torus Knot" },
                 ]
@@ -183,7 +199,8 @@ let examples = [
             { target: "rigids::st_pile", zh: "球环堆", en: "Spheritorus Pile" },
             { target: "pde::wave_eq", zh: "三维波动方程", en: "Wave Equation" },
             { target: "pde::river_evolution", zh: "河流演化", en: "River Evolution" },
-            { target: "pde::erosion", zh: "流水侵蚀（试验）", en: "Hydraulic Erosion (Experimental)" },
+            { target: "pde::erosion1", zh: "流水侵蚀1（原版）", en: "Hydraulic Erosion 1 (Original)" },
+            { target: "pde::erosion2", zh: "流水侵蚀2（AI优化）", en: "Hydraulic Erosion 2 (AI-Optimized)" },
         ]
     },
     {
@@ -211,6 +228,8 @@ let examples = [
             { target: "mengersponge::menger_sponge2", zh: "门格海绵2", en: "Menger Sponge 2" },
             { target: "mandelbulb::mandelbulb_hopf", zh: "Mandelbulb Hopf坐标", en: "Mandelbulb Hopf Coord" },
             { target: "mandelbulb::mandelbulb_spherical", zh: "Mandelbulb 球坐标", en: "Mandelbulb Spherical Coord" },
+            { target: "mandelbulb::mandelbrot_quaternion", zh: "四元数Mandelbrot集", en: "Quaternion Mandelbrot Set" },
+            { target: "mandelbulb::mandelbrot_julia", zh: "Mandelbrot-Julia集", en: "Mandelbrot-Julia Set" },
             { target: "mandelbulb::julia_quaternion", zh: "四元数Julia集", en: "Quaternion Julia Set" },
         ]
     },
@@ -233,6 +252,10 @@ let examples = [
         ]
     },
 ];
+const rollToolDesc = {
+    "zh": "使用F/H/T/G/R/Y给它在左右前后侧前后施加微小推力，使用鼠标左键发射超球轰击它",
+    "en": "Use F/H/T/G/R/Y to give it a small push in left/right/front/back/ana/kata direction. Click left mouse button to fire glomes and hit it"
+}
 // todo: magicCube4D
 let info = {
     nogpu: {
@@ -282,6 +305,14 @@ let info = {
     "mandelbulb::julia_quaternion": {
         "zh": "<b>控制：自由飞行模式</b><br>使用四元数的Julia集。迭代公式为：z->z<sup>2</sup>+(-0.125-0.256<i>i</i>+0.847<i>j</i>+0.0895<i>k</i>)",
         "en": "<b>Control: Free fly mode</b><br>Julia set with quaternion number. The iteration fomular is: z->z<sup>2</sup>+(-0.125-0.256<i>i</i>+0.847<i>j</i>+0.0895<i>k</i>)"
+    },
+    "mandelbulb::mandelbrot_quaternion": {
+        "zh": "<b>控制：自由飞行模式</b><br>在四元数参数空间中迭代 z->z<sup>2</sup>+c，初值 z=0，四维位置作为参数 c。由于四元数虚部的对称形，整个分形其实就是Mandelbrot集绕实轴旋转的旋转体。",
+        "en": "<b>Control: Free fly mode</b><br>Quaternion Mandelbrot set using z->z<sup>2</sup>+c with z=0 and the 4D position as c. Due to the symmetry of the imaginary part of quaternion, the whole fractal is actually a solid of revolution of Mandelbrot set around real axis."
+    },
+    "mandelbulb::mandelbrot_julia": {
+        "zh": "<b>控制：自由飞行模式</b><br>将复数初值 z<sub>0</sub> 与参数 c 合并为四维点 (Re(z<sub>0</sub>), Im(z<sub>0</sub>), Re(c), Im(c))，并迭代通常的复数公式 z->z<sup>2</sup>+c。",
+        "en": "<b>Control: Free fly mode</b><br>Combines the complex initial value z<sub>0</sub> and parameter c into a 4D point (Re(z<sub>0</sub>), Im(z<sub>0</sub>), Re(c), Im(c)), then iterates the ordinary complex formula z->z<sup>2</sup>+c."
     },
     "city_freeway": {
         "zh": "<b>控制：保持竖直模式</b><br>四维世界的地面是三维的，人们可以在三维地面上修建城市与空间曲线道路。这是一条单边4x3车道的双向道路。",
@@ -379,9 +410,13 @@ let info = {
         "zh": "求解环面T^3上的三维波动方程描述的4个干涉波源。",
         "en": "Solve wave equation of 4 interferenced wave source on T3 manifold."
     },
-    "pde::erosion": {
-        "zh": "通过降雨模拟四维世界中的地形侵蚀与河流演化。地形由三维单形分形噪声生成。",
-        "en": "River evolution simulated by rain fall and and terrain erosion. Terrain is generated by fractal 3d simplex noise."
+    "pde::erosion1": {
+        "zh": "Hqak手调的原始侵蚀参数配置。通过降雨模拟四维世界中的地形侵蚀与河流演化。地形由三维单形分形噪声生成。<br><b>显示快捷键：</b>按住 O 将水量显示倍率设为 0；按住 L 持续增加水量显示倍率；按 P 切换泥沙显示；按住 Y/H 增减地形对比度，U/J 调整最不透明的地形海拔，I/K 增减地形不透明度。",
+        "en": "The original erosion parameters hand-tuned by Hqak. Rain-driven terrain erosion and river evolution in a 4D world. Terrain is generated by fractal 3D simplex noise.<br><b>Display controls:</b> Hold O to set the water display scale to 0; hold L to increase it; press P to toggle sediment display; hold Y/H to increase/decrease terrain contrast, U/J to adjust the most opaque terrain elevation, and I/K to increase/decrease terrain opacity."
+    },
+    "pde::erosion2": {
+        "zh": "AI优化调参后的侵蚀配置。通过降雨模拟四维世界中的地形侵蚀与河流演化。地形由三维单形分形噪声生成。<br><b>显示快捷键：</b>按住 O 将水量显示倍率设为 0；按住 L 持续增加水量显示倍率；按 P 切换泥沙显示；按住 Y/H 增减地形对比度，U/J 调整最不透明的地形海拔，I/K 增减地形不透明度。",
+        "en": "The erosion parameters optimized by AI. Rain-driven terrain erosion and river evolution in a 4D world. Terrain is generated by fractal 3D simplex noise.<br><b>Display controls:</b> Hold O to set the water display scale to 0; hold L to increase it; press P to toggle sediment display; hold Y/H to increase/decrease terrain contrast, U/J to adjust the most opaque terrain elevation, and I/K to increase/decrease terrain opacity."
     },
     "rigids::e_charge": {
         "zh": "<b>控制：保持竖直模式</b><br>静电点电荷模拟。红球与蓝球分别带有等量异种电荷，静电力随距离三次方衰减。使用键盘G开启/关闭重力。",
@@ -433,32 +468,32 @@ let info = {
         "en": "<b>Control: Keep up mode</b><br>Two sets of current-carrying coils in the shape of Hopf fibrations with different chirality and different radii. The field distribution outside of each set of coils is an ideal dual magnetic dipole field, and the inside is a uniform dual magnetic field. The dual magnetic fields inside the two sets of coils can be superimposed to synthesize a uniform simple magnetic field."
     },
     "rigids::gyro_conic_prism": {
-        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆锥柱陀螺。使用鼠标左键发射超球轰击它可以看到该陀螺具有一定的稳定性。",
-        "en": "<b>Control: Keep up mode</b><br>Spinning conic prismatical gyro. Click left mouse button to fire glomes and hit it, which can be shown that this gyro is stable while spinning."
+        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆锥柱陀螺。" + rollToolDesc.zh + "可以看到该陀螺具有一定的稳定性。",
+        "en": "<b>Control: Keep up mode</b><br>Spinning conic prismatical gyro. " + rollToolDesc.en + ", which can be shown that this gyro is stable while spinning."
     },
     "rigids::gyro_conic_prism": {
-        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆锥柱陀螺。使用鼠标左键发射超球轰击它可以看到该陀螺具有一定的稳定性。",
-        "en": "<b>Control: Keep up mode</b><br>Spinning conic prismatical gyro. Click left mouse button to fire glomes and hit it, which can be shown that this gyro is stable while spinning."
+        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆锥柱陀螺。" + rollToolDesc.zh + "可以看到该陀螺具有一定的稳定性。",
+        "en": "<b>Control: Keep up mode</b><br>Spinning conic prismatical gyro. " + rollToolDesc.en + ", which can be shown that this gyro is stable while spinning."
     },
     "rigids::gyro_dicone": {
-        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆锥锥陀螺。使用鼠标左键发射超球轰击它可以看到该陀螺具有一定的稳定性。",
-        "en": "<b>Control: Keep up mode</b><br>Spinning diconic gyro. Click left mouse button to fire glomes and hit it, which can be shown that this gyro is stable while spinning."
+        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆锥锥陀螺。" + rollToolDesc.zh + "可以看到该陀螺具有一定的稳定性。",
+        "en": "<b>Control: Keep up mode</b><br>Spinning diconic gyro. " + rollToolDesc.en + ", which can be shown that this gyro is stable while spinning."
     },
     "rigids::gyro_duocone": {
-        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的双圆锥陀螺，可以看到它不能保持稳定旋转。使用鼠标左键发射超球轰击它。",
-        "en": "<b>Control: Keep up mode</b><br>Spinning duoconic gyro. It can be seen that this gyro is not stable. Click left mouse button to fire glomes and hit it."
+        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的双圆锥陀螺，可以看到它不能保持稳定旋转。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>Spinning duoconic gyro. It can be seen that this gyro is not stable. " + rollToolDesc.en + "."
     },
     "rigids::gyro_sphericone": {
-        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的球锥陀螺，可以看到它不能保持稳定旋转。使用鼠标左键发射超球轰击它。",
-        "en": "<b>Control: Keep up mode</b><br>Spinning sphericonic gyro. It can be seen that this gyro is not stable. Click left mouse button to fire glomes and hit it."
+        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的球锥陀螺，可以看到它不能保持稳定旋转。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>Spinning sphericonic gyro. It can be seen that this gyro is not stable. " + rollToolDesc.en + "."
     },
     "rigids::gyro_cylindrone": {
-        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆柱锥陀螺，可以看到它不能保持稳定旋转。使用鼠标左键发射超球轰击它。",
-        "en": "<b>Control: Keep up mode</b><br>Spinning cylindronic gyro. It can be seen that this gyro is not stable. Click left mouse button to fire glomes and hit it."
+        "zh": "<b>控制：保持竖直模式</b><br>快速旋转的圆柱锥陀螺，可以看到它不能保持稳定旋转。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>Spinning cylindronic gyro. It can be seen that this gyro is not stable. " + rollToolDesc.en + "."
     },
     "rigids::roll_cylindrone": {
-        "zh": "<b>控制：保持竖直模式</b><br>圆柱锥也可以像锥一样滚动。使用鼠标左键发射超球轰击它。",
-        "en": "<b>Control: Keep up mode</b><br>Cylindrone can roll like a cone. Click left mouse button to fire glomes and hit it."
+        "zh": "<b>控制：保持竖直模式</b><br>圆柱锥也可以像锥一样滚动。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>Cylindrone can roll like a cone. " + rollToolDesc.en + "."
     },
     "rigids::dzhanibekov2": {
         "en": "<b>Control: Trackball mode</b><br>4D version of Dzhanibekov effect (or Tennis racket theorem). If the supercuboid is rotated around the plane formed by the shortest and longest edges, the rotation direction will inverse frequently. This corresponds to two different periods in two directions. This was firstly proposed in Marc ten bosch's paper, but with wrong simulation result. ",
@@ -481,8 +516,8 @@ let info = {
         "zh": "<b>控制：轨迹球模式</b><br>提示：需要等大约半分钟才会有旋转翻转效应。<br>若初始旋转是非等角双旋转则可能会发生贾尼别科夫效应，且越接近完美等角双旋转翻转周期会变得越长。",
     },
     "rigids::dice_yugu233": {
-        "en": "<b>Control: Keep up mode</b><br>4D Dice designed by yugu233, click the link to see: <a target='_blank' href='https://www.bilibili.com/video/BV1PoqYYeEtp/'>the original design</a>. Click left mouse button to fire glomes and hit them.",
-        "zh": "<b>控制：保持竖直模式</b><br>由yugu2333设计的四维骰子：<a target='_blank' href='https://www.bilibili.com/video/BV1PoqYYeEtp/'>出处见链接</a>。使用鼠标左键发射超球轰击它们。",
+        "en": "<b>Control: Keep up mode</b><br>4D Dice designed by yugu233, appeared in the game <a href='https://store.steampowered.com/app/3635130/4D_Intuition/' target='_blank'>4D Intuition</a>. Click the link to see: <a target='_blank' href='https://www.bilibili.com/video/BV1PoqYYeEtp/'>the original design</a>. Click left mouse button to fire glomes and hit them.",
+        "zh": "<b>控制：保持竖直模式</b><br>《<a href='https://store.steampowered.com/app/3635130/4D_Intuition/' target='_blank'>四维直觉</a>》游戏中出现的由yugu233设计的四维骰子：<a target='_blank' href='https://www.bilibili.com/video/BV1PoqYYeEtp/'>出处见链接</a>。使用鼠标左键发射超球轰击它们。",
     },
     "drone": {
         "en": "<b>In Drone Control:</b><br>Use Space/Shift to rise/descend drone, W/A/S/D/Q/E to drift, and I/J/K/L/U/O to steer.<br><br><b>In Camera Control: Keep up mode</b><br>Press =/- to adjust camera move speed.<br><br><b>Special Operations:</b><br>Press key B to toggle camera/drone control. Press key 1/2/3 to toggle different camera positions on the drone, press key 4 for free camera. Press Key T to enter automatic mode, this helps you to better handle drone pose. Press H to hide overlapped texts.",
@@ -530,8 +565,8 @@ let info = {
     },
 
     "pde::river_evolution": {
-        "zh": "<b>控制：保持竖直模式</b><br>四维星球的三维大地上的河流演化模拟。未模拟地形侵蚀。",
-        "en": "<b>Control: Keep up mode</b><br>4D planet's river evolution simulation on 3D ground. Terrain erosion is not simulated."
+        "zh": "<b>控制：保持竖直模式</b><br>四维星球的三维大地上的河流演化模拟。仅有降雨和蒸发，不模拟水蚀或热侵蚀。<br><b>显示快捷键：</b>按住 O 将水量显示倍率设为 0；按住 L 持续增加水量显示倍率；按 P 切换泥沙显示；按住 Y/H 增减地形对比度，U/J 调整地形显示中心，I/K 增减地形不透明度。",
+        "en": "<b>Control: Keep up mode</b><br>River evolution on the 3D ground of a 4D planet, with rainfall and evaporation only; neither hydraulic nor thermal terrain erosion is simulated.<br><b>Display controls:</b> Hold O to set the water display scale to 0; hold L to increase it; press P to toggle sediment display; hold Y/H to increase/decrease terrain contrast, U/J to adjust the terrain display center, and I/K to increase/decrease terrain opacity."
     },
     "vsepr::hyperdiamond": {
         "zh": "<b>控制：轨迹球模式</b><br>四维超金刚石晶体模型。突出显示了中间的超金刚烷骨架单元结构。",

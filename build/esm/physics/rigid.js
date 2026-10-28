@@ -198,7 +198,8 @@ var rigid;
     class Convex extends RigidGeometry {
         points;
         _cachePoints;
-        constructor(points) {
+        autoGenerateInertia = true;
+        constructor(points, disableAutoGenerateInertia = false) {
             super();
             this.points = points;
             this.obb = AABB.fromPoints(points);
@@ -207,6 +208,7 @@ var rigid;
                 this.boundingGlome = Math.max(this.boundingGlome, i.normsqr());
             }
             this.boundingGlome = Math.sqrt(this.boundingGlome);
+            this.autoGenerateInertia = !disableAutoGenerateInertia;
         }
         getPointsInertia(points, mass) {
             const inertiaMat = new Matrix(6);
@@ -228,6 +230,8 @@ var rigid;
             return inertiaMat.mulfs(mass / points.length);
         }
         initializeMassInertia(rigid) {
+            if (rigid.inertia?.norm1() > 0 || !this.autoGenerateInertia)
+                return;
             // todo inertia calc
             new Matrix(6);
             // const Rt = Rotor.rand();

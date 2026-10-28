@@ -246,7 +246,7 @@ class CWMesh {
             this.data[dim] = this.data[dim].filter((face, faceId) => (del = !selDim.has(faceId),
                 remapping[dim].set(faceId, del ? -1 : newId++),
                 del));
-            this.orientation[dim] = this.orientation[dim].filter((face, faceId) => !selDim.has(faceId));
+            this.orientation[dim] = this.orientation[dim]?.filter((face, faceId) => !selDim.has(faceId));
         }
         for (const [dim, dataDim] of this.data.entries()) {
             const remapDim = remapping[dim - 1];
