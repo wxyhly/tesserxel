@@ -140,12 +140,19 @@ let examples = [
                             { target: "rigids::sphericon_icos", zh: "正二十面Sphericon", en: "Icosahedral Sphericon" },
                         ]
                     },
-                    { target: "rigids::roll_4oloid", zh: "圆-球链凸包(四维Oloid)", en: "4-Oloid" },
-                    { target: "rigids::roll_glomicon", zh: "球锥双圆锥双拼", en: "Sphericone-Duospindle" },
-                    { target: "rigids::roll_semidisphenoid", zh: "双圆半锲(无法滚动)", en: "Duocircular Semidisphenoid (non-rollable)" },
                     { target: "rigids::wobbler1", zh: "球柱Wobbler", en: "Spherinder Wobbler" },
                     { target: "rigids::roll_trefoil", zh: "三叶结", en: "Trefoil Knot" },
                     { target: "rigids::roll_3_5_knot", zh: "3,5-环面扭结", en: "3,5-Flat Torus Knot" },
+                    { target: "rigids::roll_4oloid", zh: "圆-球链凸包(四维Oloid)", en: "4-Oloid" },
+                    { target: "rigids::roll_glomicon", zh: "球锥双圆锥双拼", en: "Sphericone-Duospindle" },
+                    { target: "rigids::roll_duocylindrical_f", zh: "双圆柱台", en: "Duocylindrical frustum" },
+                    { target: "rigids::roll_duocylindrical_c", zh: "双圆柱锥", en: "Duocylindrical cone" },
+                    { target: "rigids::roll_circular_square_f", zh: "圆四棱台", en: "circular-square frustum" },
+                    { target: "rigids::roll_square_conical_f", zh: "四棱圆台", en: "square-conical frustum" },
+                    { target: "rigids::roll_square_conical_c", zh: "四棱圆锥", en: "square-conical cone" },
+                    { target: "rigids::roll_semidisphenoid", zh: "双圆半锲(无法滚动)", en: "Duocircular Semidisphenoid (non-rollable)" },
+                    { target: "rigids::roll_1skewed_duocone", zh: "单斜双圆锥(无法持续滚动)", en: "Mono-oblique Duocone(cannot roll steadily)" },
+                    { target: "rigids::roll_2skewed_duocone", zh: "双斜双圆锥(无法持续滚动)", en: "Bi-oblique Duocone(cannot roll steadily)" }
                 ]
             },
             {
@@ -236,8 +243,6 @@ let examples = [
     {
         group: "dev", zh: "开发示例", en: "Coding Examples",
         child: [
-            { target: "shadertoy::voxel", zh: "Shadertoy体素编辑器", en: "Shadertoy: Voxel" },
-            { target: "shadertoy::cam", zh: "Shadertoy光追编辑器", en: "Shadertoy: Raytracing" },
             {
                 group: "dev", zh: "你好四面体", en: "Hello Tetrahedron",
                 child: [
@@ -249,6 +254,15 @@ let examples = [
             { target: "four_basic_scene", zh: "创建简单Four场景", en: "Basic Four Scene Creation" },
             { target: "four_materials", zh: "Four材质与灯光", en: "Four Materials & Lights" },
             { target: "voxeltest::rasterizer", zh: "四面体素软光栅化器演示", en: "Tetrahedra Voxel Rasterizer Demo" },
+        ]
+    },
+    {
+        group: "mathfn", zh: "公式代码生成", en: "Equation / Code generation",
+        child: [
+            { target: "mathfn", zh: "四维实函数", en: "Real Functions" },
+            { target: "mathfn::complexfn", zh: "复变函数", en: "Complex Functions" },
+            { target: "shadertoy::voxel", zh: "Shadertoy体素编辑器", en: "Shadertoy: Voxel" },
+            { target: "shadertoy::cam", zh: "Shadertoy光追编辑器", en: "Shadertoy: Raytracing" },
         ]
     },
 ];
@@ -286,6 +300,14 @@ let info = {
         "zh": "<b>控制：轨迹球模式</b><br>一个表面绘制着许多平圆环纬面的超球。默认摄像机在超球内部，通过鼠标滚轮可缩小至超立方体外部。",
         "en": `<b>Control: Trackball mode</b><br>A glome(Hypersphere) painted by several flat tori which are equi-latitude surface. The default camera position is inside the glome, get out of the glome by scrolling your mouse wheel.`,
     },
+    "mathfn": {
+        "zh": "<b>控制：轨迹球模式</b><br>通过函数表达式，生成参数曲线、参数曲面加厚、参数三维胞或四维隐函数等值面。",
+        "en": "<b>Control: Trackball mode</b><br>Build parametric curves, thickened parametric surfaces, parametric 3D cells, or 4D implicit level sets from function expressions."
+    },
+    "mathfn::complexfn": {
+        "zh": "<b>控制：轨迹球模式</b><br>复显函数 f(z) 支持标准复平面着色和四维图像；复隐函数 f(z₁,z₂)=0 通过四维复数网格投影重建二维零曲面。可拖动平移复平面、滚轮缩放并调整网格范围与细分。",
+        "en": "<b>Control: Trackball mode</b><br>Explore explicit complex functions with domain coloring and a 4D graph, or reconstruct the 2D zero surface of an implicit function f(z₁,z₂)=0 by projecting a 4D complex grid. Pan and zoom the complex plane, or adjust the implicit domain and grid resolution."
+    },
     "mengersponge::menger_sponge1": {
         "zh": "<b>控制：自由飞行模式</b><br>门格海绵分形的第一种四维类比。从正面看上去，它在三维视野中的投影恰为三维门格海绵，因此严格来说它在三维视野中的体积为零，很难被看见。",
         "en": `<b>Control: Free fly mode</b><br>The first analogue of Menger sponge. In the front view, it's projection in 3D retina is exactly 3D Menger sponge, which has zero volume hence can be seen difficultly.`,
@@ -307,7 +329,7 @@ let info = {
         "en": "<b>Control: Free fly mode</b><br>Julia set with quaternion number. The iteration fomular is: z->z<sup>2</sup>+(-0.125-0.256<i>i</i>+0.847<i>j</i>+0.0895<i>k</i>)"
     },
     "mandelbulb::mandelbrot_quaternion": {
-        "zh": "<b>控制：自由飞行模式</b><br>在四元数参数空间中迭代 z->z<sup>2</sup>+c，初值 z=0，四维位置作为参数 c。由于四元数虚部的对称形，整个分形其实就是Mandelbrot集绕实轴旋转的旋转体。",
+        "zh": "<b>控制：自由飞行模式</b><br>在四元数参数空间中迭代 z->z<sup>2</sup>+c，初值 z=0，四维位置作为参数 c。由于四元数虚部的对称性，整个分形其实就是Mandelbrot集绕实轴旋转的旋转体。",
         "en": "<b>Control: Free fly mode</b><br>Quaternion Mandelbrot set using z->z<sup>2</sup>+c with z=0 and the 4D position as c. Due to the symmetry of the imaginary part of quaternion, the whole fractal is actually a solid of revolution of Mandelbrot set around real axis."
     },
     "mandelbulb::mandelbrot_julia": {
@@ -494,6 +516,98 @@ let info = {
     "rigids::roll_cylindrone": {
         "zh": "<b>控制：保持竖直模式</b><br>圆柱锥也可以像锥一样滚动。" + rollToolDesc.zh + "。",
         "en": "<b>Control: Keep up mode</b><br>Cylindrone can roll like a cone. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_biconic_crind": {
+        "zh": "<b>控制：保持竖直模式</b><br>牟合圆双锥盖是一个圆和一个与它垂直的球的凸包，具有2个滚动自由度，兼具柱和锥两种滚动模式。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The biconic crind is the convex hull of a circle and a sphere perpendicular to it. It has 2 rolling degrees of freedom of both cylindrical and conical rolling modes. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_dicrind": {
+        "zh": "<b>控制：保持竖直模式</b><br>二重牟合方盖是两个互相垂直的球的凸包，具有2个滚动自由度。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The dicrind is the convex hull of two perpendicular spheres. It has 2 rolling degrees of freedom. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_octahedral_crind": {
+        "zh": "<b>控制：保持竖直模式</b><br>牟合正八面盖由四个圆柱柱相交得到。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The octahedral crind is the intersection of four cylindrical columns. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_cubic_crind": {
+        "zh": "<b>控制：保持竖直模式</b><br>牟合立方盖由三个圆柱柱相交得到。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The cubic crind is the intersection of three cylindrical columns. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_cylindrical_crind": {
+        "zh": "<b>控制：保持竖直模式</b><br>牟合圆柱盖由一个圆柱柱和一个与它垂直的球柱相交得到，具有1自由度的圆柱柱和2自由度的球柱两种滚动模式。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The cylindrical crind is the intersection of a cylindrical column and a perpendicular spherinder. It has a 1-degree-of-freedom cylindrical-column rolling mode and a 2-degree-of-freedom spherinder rolling mode. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_duocrind": {
+        "zh": "<b>控制：保持竖直模式</b><br>双牟合方盖是另一种由四个圆柱柱相交得到的形体。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The duocrind is another shape formed by the intersection of four cylindrical columns. " + rollToolDesc.en + "."
+    },
+    "rigids::sphericon_cube": {
+        "zh": "<b>控制：保持竖直模式</b><br>立方Sphericon由立方体沿不同对称轴各旋转180°得到的两个半个旋转体拼合而成，不能连续滚动。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The cubical sphericon is formed by joining two halves of a cube, each rotated 180° about a different symmetry axis. It cannot roll continuously. " + rollToolDesc.en + "."
+    },
+    "rigids::sphericon_oct": {
+        "zh": "<b>控制：保持竖直模式</b><br>正八面Sphericon由正八面体沿不同对称轴各旋转180°得到的两个半个旋转体拼合而成，不能连续滚动。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The octahedral sphericon is formed by joining two halves of an octahedron, each rotated 180° about a different symmetry axis. It cannot roll continuously. " + rollToolDesc.en + "."
+    },
+    "rigids::sphericon_dodec": {
+        "zh": "<b>控制：保持竖直模式</b><br>正十二面Sphericon由正十二面体沿不同对称轴各旋转180°得到的两个半个旋转体拼合而成，不能连续滚动。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The dodecahedral sphericon is formed by joining two halves of a dodecahedron, each rotated 180° about a different symmetry axis. It cannot roll continuously. " + rollToolDesc.en + "."
+    },
+    "rigids::sphericon_icos": {
+        "zh": "<b>控制：保持竖直模式</b><br>正二十面Sphericon由正二十面体沿不同对称轴各旋转180°得到的两个半个旋转体拼合而成，可以连续滚动。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The icosahedral sphericon is formed by joining two halves of an icosahedron, each rotated 180° about a different symmetry axis. It can roll continuously. " + rollToolDesc.en + "."
+    },
+    "rigids::wobbler1": {
+        "zh": "<b>控制：保持竖直模式</b><br>球柱Wobbler是斜切球柱形成的形体，滚动时看起来会像波浪一样起伏。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The spherinder wobbler is an obliquely sliced spherinder that appears to undulate like a wave as it rolls. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_trefoil": {
+        "zh": "<b>控制：保持竖直模式</b><br>三叶结的凸包，具有两种滚动模式。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The convex hull of a trefoil knot, with two rolling modes. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_3_5_knot": {
+        "zh": "<b>控制：保持竖直模式</b><br>3,5-环面扭结的凸包，具有两种滚动模式。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The convex hull of a (3,5) torus knot, with two rolling modes. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_4oloid": {
+        "zh": "<b>控制：保持竖直模式</b><br>圆-球链凸包是三维Oloid的旋转体，可以进行2自由度的蛇形滚动。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The circle-spherinder convex hull is the rotational body of the 3D Oloid and can roll in a snake-like motion with 2 degrees of freedom. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_glomicon": {
+        "zh": "<b>控制：保持竖直模式</b><br>球锥双圆锥双拼是三维Sphericon的旋转体，由两个半个球锥和双圆锥拼接而成。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The sphericone-duospindle is the rotational body of the 3D Sphericon, formed by joining two halves of a sphericone and a duocone. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_duocylindrical_f": {
+        "zh": "<b>控制：保持竖直模式</b><br>双圆柱台是在双圆柱的基础上向一个方向倾斜收缩得到的类似圆台的四维几何体，具有柱和锥两种滚动模式。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The duocylindrical frustum is a four-dimensional, frustum-like shape made by tilting and tapering a duocylinder in one direction. It has both cylindrical and conical rolling modes. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_duocylindrical_c": {
+        "zh": "<b>控制：保持竖直模式</b><br>双圆柱锥是在双圆柱的基础上向一个方向倾斜收缩得到的类似圆锥的四维几何体，具有柱和锥两种滚动模式。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The duocylindrical cone is a four-dimensional, cone-like shape made by tilting and tapering a duocylinder in one direction. It has both cylindrical and conical rolling modes. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_circular_square_f": {
+        "zh": "<b>控制：保持竖直模式</b><br>圆四棱台是双圆柱台的离散化版本。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The circular-square frustum is a discretized version of the duocylindrical frustum. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_square_conical_f": {
+        "zh": "<b>控制：保持竖直模式</b><br>四棱圆台是双圆柱台的另一种离散化版本。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The square-conical frustum is another discretized version of the duocylindrical frustum. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_square_conical_c": {
+        "zh": "<b>控制：保持竖直模式</b><br>四棱圆锥是双圆柱锥的另一种离散化版本。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The square-conical cone is another discretized version of the duocylindrical cone. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_semidisphenoid": {
+        "zh": "<b>控制：保持竖直模式</b><br>双圆半锲由yz平面和zw平面上的单位圆分别向x正、负半轴平移一定距离后取凸包得到。它没有旋转对称性，无法滚动。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The duocircular semidisphenoid is the convex hull of unit circles in the yz and zw planes, translated by a distance in the positive and negative x directions respectively. It has no rotational symmetry and cannot roll. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_1skewed_duocone": {
+        "zh": "<b>控制：保持竖直模式</b><br>单斜双圆锥由双圆锥的一个圆周在其所在平面内平移一定距离后重新取凸包得到。它保留旋转对称性，但滚动时重心不能保持不变，因此无法持续滚动。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The mono-oblique duocone is formed by translating one of the duocone's circles within its plane and taking the convex hull again. It retains rotational symmetry, but its gravity coneter does not remain unchanged as it rolls, so it cannot roll continuously. " + rollToolDesc.en + "."
+    },
+    "rigids::roll_2skewed_duocone": {
+        "zh": "<b>控制：保持竖直模式</b><br>双斜双圆锥由双圆锥的两个圆周各自在其所在平面内平移一定距离后重新取凸包得到。它没有旋转对称性，滚动时重心不能保持不变，因此无法持续滚动。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The bi-oblique duocone is formed by translating each of the duocone's circles within its plane and taking the convex hull again. It has no rotational symmetry, and its gravity coneter does not remain unchanged as it rolls, so it cannot roll continuously. " + rollToolDesc.en + "."
     },
     "rigids::dzhanibekov2": {
         "en": "<b>Control: Trackball mode</b><br>4D version of Dzhanibekov effect (or Tennis racket theorem). If the supercuboid is rotated around the plane formed by the shortest and longest edges, the rotation direction will inverse frequently. This corresponds to two different periods in two directions. This was firstly proposed in Marc ten bosch's paper, but with wrong simulation result. ",

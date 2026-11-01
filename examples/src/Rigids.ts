@@ -1487,7 +1487,127 @@ export namespace roll_semidisphenoid {
         run();
     }
 }
+export namespace roll_1skewed_duocone {
+    export async function load() {
+        const mesh1 = tesserxel.mesh.cw.polytope([32]).apply(v => v.set(v.x - 0.5, 0, 0, v.y)).data[0] as Vec4[];
+        const mesh2 = tesserxel.mesh.cw.polytope([32]).apply(v => v.set(0.5, v.x, v.y, 0)).data[0] as Vec4[];
+        const mesh = mesh1.concat(mesh2);
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        run();
+    }
+}
+export namespace roll_2skewed_duocone {
+    export async function load() {
+        const mesh1 = tesserxel.mesh.cw.polytope([32]).apply(v => v.set(v.x - 0.5, 0, -0.5, v.y)).data[0] as Vec4[];
+        const mesh2 = tesserxel.mesh.cw.polytope([32]).apply(v => v.set(0.5, v.x, v.y + 0.5, 0)).data[0] as Vec4[];
+        const mesh = mesh1.concat(mesh2);
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        run();
+    }
+}
 
+export namespace roll_duocylindrical_f {
+    export async function load() {
+        const mesh = [] as Vec4[];
+        for (let i = 0; i < 32; i++) {
+            const cos = Math.cos(i * Math.PI * 2 / 32);
+            const sin = Math.sin(i * Math.PI * 2 / 32);
+            for (let j = 0; j < 32; j++) {
+                const c = Math.cos(j * Math.PI * 2 / 32);
+                const s = Math.sin(j * Math.PI * 2 / 32);
+                mesh.push(new Vec4(cos*(1+c*0.5), sin*(1+c*0.5), c, s));
+            }
+        }
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        gyroLogic.rotation.randset();
+        run();
+    }
+}
+export namespace roll_duocylindrical_c {
+    export async function load() {
+        const mesh = [] as Vec4[];
+        for (let i = 0; i < 32; i++) {
+            const cos = Math.cos(i * Math.PI * 2 / 32);
+            const sin = Math.sin(i * Math.PI * 2 / 32);
+            for (let j = 0; j < 32; j++) {
+                const c = Math.cos(j * Math.PI * 2 / 32);
+                const s = Math.sin(j * Math.PI * 2 / 32);
+                mesh.push(new Vec4(cos*(1+c), sin*(1+c), c, s));
+            }
+        }
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        gyroLogic.rotation.randset();
+        run();
+    }
+}
+
+export namespace roll_circular_square_f {
+    export async function load() {
+        const mesh = [] as Vec4[];
+        for (let i = 0; i < 32; i++) {
+            const cos = Math.cos(i * Math.PI * 2 / 32);
+            const sin = Math.sin(i * Math.PI * 2 / 32);
+            for (let j = 0; j < 4; j++) {
+                const c = Math.cos(j * Math.PI * 2 / 4);
+                const s = Math.sin(j * Math.PI * 2 / 4);
+                mesh.push(new Vec4(cos*(1+c*0.5), sin*(1+c*0.5), c, s));
+            }
+        }
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        gyroLogic.rotation.randset();
+        run();
+    }
+}
+
+export namespace roll_square_conical_c {
+    export async function load() {
+        const mesh = [] as Vec4[];
+        for (let i = 0; i < 32; i++) {
+            const cos = Math.cos(i * Math.PI * 2 / 32);
+            const sin = Math.sin(i * Math.PI * 2 / 32);
+            for (let j = 0; j < 4; j++) {
+                const c = Math.cos(j * Math.PI * 2 / 4);
+                const s = Math.sin(j * Math.PI * 2 / 4);
+                mesh.push(new Vec4(cos*(1+c), sin*(1+c), c, s));
+            }
+        }
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        gyroLogic.rotation.randset();
+        run();
+    }
+}
+
+export namespace roll_square_conical_f {
+    export async function load() {
+        const mesh = [] as Vec4[];
+        for (let i = 0; i < 4; i++) {
+            const cos = Math.cos(i * Math.PI * 2 / 4);
+            const sin = Math.sin(i * Math.PI * 2 / 4);
+            for (let j = 0; j < 32; j++) {
+                const c = Math.cos(j * Math.PI * 2 / 32);
+                const s = Math.sin(j * Math.PI * 2 / 32);
+                mesh.push(new Vec4(cos*(1+c*0.5), sin*(1+c*0.5), c, s));
+            }
+        }
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        gyroLogic.rotation.randset();
+        run();
+    }
+}
 export namespace roll_trefoil {
     export async function load() {
         const mesh = [] as Vec4[];
@@ -1665,9 +1785,9 @@ export namespace wobbler1 {
         const roomFourMat = new tesserxel.four.LambertMaterial([0.6, 0.8, 0.2, 0.2]);
         addRoom(8, world, new phy.Material(0.6, 0.4), scene, roomFourMat);
         scene.setBackgroundColor({ r: 0.8, g: 0.9, b: 1.0, a: 0.01 });
-        
+
         let gyroLogic1 = new phy.Rigid({
-            geometry: new phy.rigid.Convex(mesh1,true),
+            geometry: new phy.rigid.Convex(mesh1, true),
             mass: 5,
             material: new phy.Material(0.6, 0.4)
         });
@@ -1675,7 +1795,7 @@ export namespace wobbler1 {
         const mesh2 = mesh1.map(v => v.clone());
         gyroLogic1.position.x = -gap;
         let gyroLogic2 = new phy.Rigid({
-            geometry: new phy.rigid.Convex(mesh2,true),
+            geometry: new phy.rigid.Convex(mesh2, true),
             mass: 5,
             material: new phy.Material(0.6, 0.4)
         });
@@ -1733,6 +1853,7 @@ export namespace wobbler1 {
         run();
     }
 }
+
 
 export namespace thermo_stats {
 

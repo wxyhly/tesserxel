@@ -1449,6 +1449,137 @@ export var roll_semidisphenoid;
     }
     roll_semidisphenoid.load = load;
 })(roll_semidisphenoid || (roll_semidisphenoid = {}));
+export var roll_1skewed_duocone;
+(function (roll_1skewed_duocone) {
+    async function load() {
+        const mesh1 = tesserxel.mesh.cw.polytope([32]).apply(v => v.set(v.x - 0.5, 0, 0, v.y)).data[0];
+        const mesh2 = tesserxel.mesh.cw.polytope([32]).apply(v => v.set(0.5, v.x, v.y, 0)).data[0];
+        const mesh = mesh1.concat(mesh2);
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        run();
+    }
+    roll_1skewed_duocone.load = load;
+})(roll_1skewed_duocone || (roll_1skewed_duocone = {}));
+export var roll_2skewed_duocone;
+(function (roll_2skewed_duocone) {
+    async function load() {
+        const mesh1 = tesserxel.mesh.cw.polytope([32]).apply(v => v.set(v.x - 0.5, 0, -0.5, v.y)).data[0];
+        const mesh2 = tesserxel.mesh.cw.polytope([32]).apply(v => v.set(0.5, v.x, v.y + 0.5, 0)).data[0];
+        const mesh = mesh1.concat(mesh2);
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        run();
+    }
+    roll_2skewed_duocone.load = load;
+})(roll_2skewed_duocone || (roll_2skewed_duocone = {}));
+export var roll_duocylindrical_f;
+(function (roll_duocylindrical_f) {
+    async function load() {
+        const mesh = [];
+        for (let i = 0; i < 32; i++) {
+            const cos = Math.cos(i * Math.PI * 2 / 32);
+            const sin = Math.sin(i * Math.PI * 2 / 32);
+            for (let j = 0; j < 32; j++) {
+                const c = Math.cos(j * Math.PI * 2 / 32);
+                const s = Math.sin(j * Math.PI * 2 / 32);
+                mesh.push(new Vec4(cos * (1 + c * 0.5), sin * (1 + c * 0.5), c, s));
+            }
+        }
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        gyroLogic.rotation.randset();
+        run();
+    }
+    roll_duocylindrical_f.load = load;
+})(roll_duocylindrical_f || (roll_duocylindrical_f = {}));
+export var roll_duocylindrical_c;
+(function (roll_duocylindrical_c) {
+    async function load() {
+        const mesh = [];
+        for (let i = 0; i < 32; i++) {
+            const cos = Math.cos(i * Math.PI * 2 / 32);
+            const sin = Math.sin(i * Math.PI * 2 / 32);
+            for (let j = 0; j < 32; j++) {
+                const c = Math.cos(j * Math.PI * 2 / 32);
+                const s = Math.sin(j * Math.PI * 2 / 32);
+                mesh.push(new Vec4(cos * (1 + c), sin * (1 + c), c, s));
+            }
+        }
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        gyroLogic.rotation.randset();
+        run();
+    }
+    roll_duocylindrical_c.load = load;
+})(roll_duocylindrical_c || (roll_duocylindrical_c = {}));
+export var roll_circular_square_f;
+(function (roll_circular_square_f) {
+    async function load() {
+        const mesh = [];
+        for (let i = 0; i < 32; i++) {
+            const cos = Math.cos(i * Math.PI * 2 / 32);
+            const sin = Math.sin(i * Math.PI * 2 / 32);
+            for (let j = 0; j < 4; j++) {
+                const c = Math.cos(j * Math.PI * 2 / 4);
+                const s = Math.sin(j * Math.PI * 2 / 4);
+                mesh.push(new Vec4(cos * (1 + c * 0.5), sin * (1 + c * 0.5), c, s));
+            }
+        }
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        gyroLogic.rotation.randset();
+        run();
+    }
+    roll_circular_square_f.load = load;
+})(roll_circular_square_f || (roll_circular_square_f = {}));
+export var roll_square_conical_c;
+(function (roll_square_conical_c) {
+    async function load() {
+        const mesh = [];
+        for (let i = 0; i < 32; i++) {
+            const cos = Math.cos(i * Math.PI * 2 / 32);
+            const sin = Math.sin(i * Math.PI * 2 / 32);
+            for (let j = 0; j < 4; j++) {
+                const c = Math.cos(j * Math.PI * 2 / 4);
+                const s = Math.sin(j * Math.PI * 2 / 4);
+                mesh.push(new Vec4(cos * (1 + c), sin * (1 + c), c, s));
+            }
+        }
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        gyroLogic.rotation.randset();
+        run();
+    }
+    roll_square_conical_c.load = load;
+})(roll_square_conical_c || (roll_square_conical_c = {}));
+export var roll_square_conical_f;
+(function (roll_square_conical_f) {
+    async function load() {
+        const mesh = [];
+        for (let i = 0; i < 4; i++) {
+            const cos = Math.cos(i * Math.PI * 2 / 4);
+            const sin = Math.sin(i * Math.PI * 2 / 4);
+            for (let j = 0; j < 32; j++) {
+                const c = Math.cos(j * Math.PI * 2 / 32);
+                const s = Math.sin(j * Math.PI * 2 / 32);
+                mesh.push(new Vec4(cos * (1 + c * 0.5), sin * (1 + c * 0.5), c, s));
+            }
+        }
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const { gyroLogic, run } = await loadGyroScene(mesh, mat);
+        randRoll(gyroLogic);
+        gyroLogic.rotation.randset();
+        run();
+    }
+    roll_square_conical_f.load = load;
+})(roll_square_conical_f || (roll_square_conical_f = {}));
 export var roll_trefoil;
 (function (roll_trefoil) {
     async function load() {
