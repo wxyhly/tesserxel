@@ -32,7 +32,7 @@ you can also write your own shader from scratch without submodule four.
 
 ### Physics
 - Support GJK algorithm for collision detection of convex polytopes.
-- Support Spheritorus/Torisphere/Tiger/Duotorus collision detection.
+- Support Spheritorus/Torisphere/Tiger/Ditorus collision detection.
 - Support 4D electric/magnetic dipoles simulation.
 - 4D Drone/Aircraft Simulation in examples.
 
@@ -49,7 +49,7 @@ you can also write your own shader from scratch without submodule four.
 - Option 3: Use npm to install tesserxel. 
 You can also use typescript features from typescript declaration files in `/build/esm/` folder. 
 
-See more in [Documentation](/tesserxel/docs/) (TODO).
+See more in [Tesserxel Series](https://wxyhly-en.github.io/categories/Tesserxel-Series/).
 
 ## Appendix: Introduction to fourth spatial dimension
 Here "4D space" is not "spacetime" in physics! If you count time, our journey with tesserxel is in 5d spacetime world.

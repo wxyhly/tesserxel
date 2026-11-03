@@ -128,7 +128,7 @@ let examples = [
                             { target: "rigids::roll_octahedral_crind", zh: "牟合正八面盖滚动", en: "Octahedral Crind" },
                             { target: "rigids::roll_cubic_crind", zh: "牟合立方盖滚动", en: "Cubic Crind" },
                             { target: "rigids::roll_cylindrical_crind", zh: "牟合圆柱盖滚动", en: "Cylindrical Crind" },
-                            { target: "rigids::roll_duocrind", zh: "双牟合方盖滚动", en: "Duocrind" }
+                            { target: "rigids::roll_duocrind", zh: "牟合双方盖滚动", en: "Duocrind" }
                         ]
                     },
                     {

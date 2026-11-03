@@ -116,7 +116,7 @@ function initScene(scene: tesserxel.four.Scene) {
 }
 class ObjectController implements tesserxel.ui.ctrl.IController {
     enabled: boolean = true;
-    keyMoveSpeed = 0.001;
+    keyMoveSpeed = 0.0015;
     camera: tesserxel.math.Obj4;
     object: tesserxel.physics.Rigid;
     private _moveVec = new math.Vec4();
@@ -1348,7 +1348,17 @@ export namespace roll_biconic_crind {
         const mesh2 = tesserxel.mesh.cw.ball2(36, 36).data[0] as Vec4[];
         const mesh = mesh1.concat(mesh2);
         mesh.forEach(v => v.x *= Math.SQRT1_2);
-        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const t1 = new tesserxel.four.WgslTexture(`
+        fn main(uvw:vec4f)->vec4f{
+            let id = step(uvw.w,0.0);
+            return vec4f(mix(vec3f(1.0, 0.0, 0.0), vec3f(1.0, 1.0, 1.0), id),1.0);
+        }`, "main");
+        const t2 = new tesserxel.four.WgslTexture(`
+        fn main2(uvw:vec4f)->vec4f{
+            let id = step(uvw.w,0.0);
+            return vec4f(mix(vec3f(1.0, 1.0, 0.0), vec3f(0.0, 0.6, 1.0), id),1.0);
+        }`, "main2");
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture(t1, t2));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
 
         randRoll(gyroLogic);
@@ -1361,8 +1371,17 @@ export namespace roll_dicrind {
         const mesh2 = tesserxel.mesh.cw.ball2(24, 24).data[0] as Vec4[];
         const mesh = mesh1.concat(mesh2);
         mesh.forEach(v => (v.x *= Math.SQRT1_2, v.z *= Math.SQRT1_2));
-
-        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const t1 = new tesserxel.four.WgslTexture(`
+        fn main(uvw:vec4f)->vec4f{
+            let id = step(uvw.x*uvw.z,0);
+            return vec4f(mix(vec3f(1.0, 0.0, 0.0), vec3f(1.0, 1.0, 1.0), id),1.0);
+        }`, "main");
+        const t2 = new tesserxel.four.WgslTexture(`
+        fn main2(uvw:vec4f)->vec4f{
+            let id = step(uvw.x*uvw.z,0);
+            return vec4f(mix(vec3f(1.0, 1.0, 0.0), vec3f(0.0, 0.6, 1.0), id),1.0);
+        }`, "main2");
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture(t1, t2));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
         randRoll(gyroLogic);
         run();
@@ -1379,8 +1398,19 @@ export namespace roll_cubic_crind {
             mesh.push(new Vec4(cos, sin, -sin, sin));
             mesh.push(new Vec4(cos, sin, -sin, -sin));
         }
-
-        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const t1 = new tesserxel.four.WgslTexture(`
+        fn main(uvw:vec4f)->vec4f{
+            let id = step(abs(uvw.y),max(abs(uvw.z),abs(uvw.w)));
+            let id2 = step(abs(uvw.z),abs(uvw.w));
+            return vec4f(mix(vec3f(1.0, 0.0, 0.0), mix(vec3f(0.2, 0.0, 1.0), vec3f(1.0, 1.0, 1.0), id2), id),1.0);
+        }`, "main");
+        const t2 = new tesserxel.four.WgslTexture(`
+        fn main2(uvw:vec4f)->vec4f{
+            let id = step(abs(uvw.y),max(abs(uvw.z),abs(uvw.w)));
+            let id2 = step(abs(uvw.z),abs(uvw.w));
+            return vec4f(mix(vec3f(1.0, 1.0, 0.0), mix(vec3f(0.8, 0.0, 0.8), vec3f(0.0, 1.0, 0.6),id2), id),1.0);
+        }`, "main2");
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture(t1, t2));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
         randRoll(gyroLogic);
         run();
@@ -1396,8 +1426,17 @@ export namespace roll_octahedral_crind {
             mesh.push(new Vec4(cos, 0, sin, 0));
             mesh.push(new Vec4(cos, 0, 0, sin));
         }
-
-        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const t1 = new tesserxel.four.WgslTexture(`
+        fn main(uvw:vec4f)->vec4f{
+            let id = step(uvw.w*uvw.y*uvw.z,0.0);
+            return vec4f(mix(vec3f(1.0, 0.0, 0.0), vec3f(1.0, 1.0, 1.0), id),1.0);
+        }`, "main");
+        const t2 = new tesserxel.four.WgslTexture(`
+        fn main2(uvw:vec4f)->vec4f{
+            let id = step(uvw.w*uvw.y*uvw.z,0.0);
+            return vec4f(mix(vec3f(1.0, 1.0, 0.0), vec3f(0.0, 0.6, 1.0), id),1.0);
+        }`, "main2");
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture(t1, t2));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
         randRoll(gyroLogic);
         run();
@@ -1416,8 +1455,18 @@ export namespace roll_cylindrical_crind {
                 mesh.push(new Vec4(cos, sin, sin * c, sin * s));
             }
         }
+        const t1 = new tesserxel.four.WgslTexture(`
+        fn main(uvw:vec4f)->vec4f{
+            let id = step(uvw.y*uvw.y,uvw.z*uvw.z+uvw.w*uvw.w);
+            return vec4f(mix(vec3f(1.0, 0.0, 0.0), vec3f(1.0, 1.0, 1.0), id),1.0);
+        }`, "main");
+        const t2 = new tesserxel.four.WgslTexture(`
+        fn main2(uvw:vec4f)->vec4f{
+            let id = step(uvw.y*uvw.y,uvw.z*uvw.z+uvw.w*uvw.w);
+            return vec4f(mix(vec3f(1.0, 1.0, 0.0), vec3f(0.0, 0.6, 1.0), id),1.0);
+        }`, "main2");
 
-        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture(t1, t2));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
         randRoll(gyroLogic);
         run();
@@ -1435,8 +1484,19 @@ export namespace roll_duocrind {
             mesh.push(new Vec4(cos, 0, sin, 0));
             mesh.push(new Vec4(cos, 0, 0, sin));
         }
-
-        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
+        const t1 = new tesserxel.four.WgslTexture(`
+        fn main(uvw:vec4f)->vec4f{
+            let id = step(uvw.x*uvw.y,0);
+            let id2 = step(uvw.z*uvw.w,0);
+            return vec4f(mix(mix(vec3f(1.0, 0.0, 0.0), vec3f(0.0, 0.8, 0.0), id2), mix(vec3f(0.0, 0.0, 1.0), vec3f(1.0, 1.0, 1.0), id2), id),1.0);
+        }`, "main");
+        const t2 = new tesserxel.four.WgslTexture(`
+        fn main2(uvw:vec4f)->vec4f{
+            let id = step(uvw.x*uvw.y,0);
+            let id2 = step(uvw.z*uvw.w,0);
+            return vec4f(mix(mix(vec3f(0.7, 0.4, 0.3), vec3f(1.0, 0.8, 0.0), id2), mix(vec3f(0.8, 0.0, 1.0), vec3f(1.0, 1.0, 0.0), id2), id),1.0);
+        }`, "main2");
+        const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture(t1, t2));
         const { gyroLogic, run } = await loadGyroScene(mesh, mat);
         randRoll(gyroLogic);
         run();
@@ -1519,7 +1579,7 @@ export namespace roll_duocylindrical_f {
             for (let j = 0; j < 32; j++) {
                 const c = Math.cos(j * Math.PI * 2 / 32);
                 const s = Math.sin(j * Math.PI * 2 / 32);
-                mesh.push(new Vec4(cos*(1+c*0.5), sin*(1+c*0.5), c, s));
+                mesh.push(new Vec4(cos * (1 + c * 0.5), sin * (1 + c * 0.5), c, s));
             }
         }
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
@@ -1538,7 +1598,7 @@ export namespace roll_duocylindrical_c {
             for (let j = 0; j < 32; j++) {
                 const c = Math.cos(j * Math.PI * 2 / 32);
                 const s = Math.sin(j * Math.PI * 2 / 32);
-                mesh.push(new Vec4(cos*(1+c), sin*(1+c), c, s));
+                mesh.push(new Vec4(cos * (1 + c), sin * (1 + c), c, s));
             }
         }
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
@@ -1558,7 +1618,7 @@ export namespace roll_circular_square_f {
             for (let j = 0; j < 4; j++) {
                 const c = Math.cos(j * Math.PI * 2 / 4);
                 const s = Math.sin(j * Math.PI * 2 / 4);
-                mesh.push(new Vec4(cos*(1+c*0.5), sin*(1+c*0.5), c, s));
+                mesh.push(new Vec4(cos * (1 + c * 0.5), sin * (1 + c * 0.5), c, s));
             }
         }
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
@@ -1578,7 +1638,7 @@ export namespace roll_square_conical_c {
             for (let j = 0; j < 4; j++) {
                 const c = Math.cos(j * Math.PI * 2 / 4);
                 const s = Math.sin(j * Math.PI * 2 / 4);
-                mesh.push(new Vec4(cos*(1+c), sin*(1+c), c, s));
+                mesh.push(new Vec4(cos * (1 + c), sin * (1 + c), c, s));
             }
         }
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
@@ -1598,7 +1658,7 @@ export namespace roll_square_conical_f {
             for (let j = 0; j < 32; j++) {
                 const c = Math.cos(j * Math.PI * 2 / 32);
                 const s = Math.sin(j * Math.PI * 2 / 32);
-                mesh.push(new Vec4(cos*(1+c*0.5), sin*(1+c*0.5), c, s));
+                mesh.push(new Vec4(cos * (1 + c * 0.5), sin * (1 + c * 0.5), c, s));
             }
         }
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));
@@ -1644,6 +1704,12 @@ export namespace roll_3_5_knot {
 }
 function polyhedricon(schlafli: [number, number], biv: tesserxel.math.Bivec, sign: boolean) {
     const cw = tesserxel.mesh.cw.polytope(schlafli);
+    if (schlafli[0] === 4 && schlafli[1] === 3) {
+        cw.data[0] = [
+            new Vec4(1, 1, 1, 0), new Vec4(1, -1, -1, 0), new Vec4(-1, 1, -1, 0), new Vec4(-1, -1, 1, 0),
+            new Vec4(-1, -1, -1, 0), new Vec4(-1, 1, 1, 0), new Vec4(1, -1, 1, 0), new Vec4(1, 1, -1, 0),
+        ];
+    }
     if (schlafli[0] === 3 && schlafli[1] === 4) {
         cw.data[0] = [Vec4.x.clone(), Vec4.xNeg.clone(), Vec4.y.clone(), Vec4.yNeg.clone(), Vec4.z.clone(), Vec4.zNeg.clone()];
     }
@@ -1677,7 +1743,7 @@ function polyhedricon(schlafli: [number, number], biv: tesserxel.math.Bivec, sig
     }
     const side = (cw.data[0] as tesserxel.math.Vec4[]).map((v, idx) => sign ? v.wedgeb(biv).w >= -1e-2 : v.wedgeb(biv).w <= 1e-2);
     const s = new Set<number>;
-    side.forEach((e, idx) => { if (e) { s.add(idx) } });
+    side.forEach((e, idx) => { if (e !== (schlafli[0] === 4 && schlafli[1] === 3)) { s.add(idx) } });
     cw.data[1] = [];
     cw.data[2] = [];
     cw.data[3] = [];
