@@ -1667,7 +1667,7 @@ export var sphericon_cube;
         // x/\(y+z)
         const onehalf = polyhedricon([4, 3], new Bivec(1, 1).norms(), true);
         // x/\y+y/\z
-        const anotherhalf = polyhedricon([4, 3], new Bivec(1, 0, 0, -1).norms(), false);
+        const anotherhalf = polyhedricon([4, 3], new Bivec(1, 0, 0, 1).norms(), false);
         // anotherhalf.forEach(v=>v.rotates(Rotor.lookAtbb(new Bivec(1, 1).norms(),new Bivec(1, 0, 0, 1).norms())));
         const mesh = onehalf.concat(anotherhalf);
         const mat = new tesserxel.four.LambertMaterial(new tesserxel.four.CheckerTexture([0, 0, 0, 1], [1, 1, 1, 1]));

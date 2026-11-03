@@ -538,7 +538,7 @@ let info = {
         "en": "<b>Control: Keep up mode</b><br>The cylindrical crind is the intersection of a cylindrical column and a perpendicular spherinder. It has a 1-degree-of-freedom cylindrical-column rolling mode and a 2-degree-of-freedom spherinder rolling mode. " + rollToolDesc.en + "."
     },
     "rigids::roll_duocrind": {
-        "zh": "<b>控制：保持竖直模式</b><br>双牟合方盖是另一种由四个圆柱柱相交得到的形体。" + rollToolDesc.zh + "。",
+        "zh": "<b>控制：保持竖直模式</b><br>牟合双方盖是另一种由四个圆柱柱相交得到的形体。" + rollToolDesc.zh + "。",
         "en": "<b>Control: Keep up mode</b><br>The duocrind is another shape formed by the intersection of four cylindrical columns. " + rollToolDesc.en + "."
     },
     "rigids::sphericon_cube": {
