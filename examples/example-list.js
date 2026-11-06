@@ -114,7 +114,7 @@ let examples = [
                     { target: "rigids::gyro_cylindrone", zh: "圆柱锥陀螺", en: "Cylindrone Gyro" },
                     { target: "rigids::roll_cylindrone", zh: "圆柱锥滚动", en: "Cylindrone" },
                     { target: "rigids::gyro_dicone", zh: "圆锥锥陀螺", en: "Dicone Gyro" },
-                    { target: "rigids::gyro_duocone", zh: "双圆锥陀螺", en: "Duospindle(Duocone) Gyro" },
+                    { target: "rigids::gyro_duocone", zh: "双圆锥陀螺", en: "Duospindle Gyro" },
                     { target: "rigids::gyro_sphericone", zh: "球锥陀螺", en: "Sphericone Gyro" },
                 ]
             }, {
@@ -134,6 +134,7 @@ let examples = [
                     {
                         group: "polyhedral_sphericon", zh: "正多面体Sphericon", en: "polyhedral Sphericons",
                         child: [
+                            { target: "rigids::sphericon_tetra", zh: "正四面Sphericon", en: "Tetrahedral Sphericon" },
                             { target: "rigids::sphericon_cube", zh: "立方Sphericon", en: "Cubical Sphericon" },
                             { target: "rigids::sphericon_oct", zh: "正八面Sphericon", en: "Octahedral Sphericon" },
                             { target: "rigids::sphericon_dodec", zh: "正十二面Sphericon", en: "Dodecahedral Sphericon" },
@@ -151,8 +152,8 @@ let examples = [
                     { target: "rigids::roll_square_conical_f", zh: "四棱圆台", en: "square-conical frustum" },
                     { target: "rigids::roll_square_conical_c", zh: "四棱圆锥", en: "square-conical cone" },
                     { target: "rigids::roll_semidisphenoid", zh: "双圆半锲(无法滚动)", en: "Duocircular Semidisphenoid (non-rollable)" },
-                    { target: "rigids::roll_1skewed_duocone", zh: "单斜双圆锥(无法持续滚动)", en: "Mono-oblique Duocone(cannot roll steadily)" },
-                    { target: "rigids::roll_2skewed_duocone", zh: "双斜双圆锥(无法持续滚动)", en: "Bi-oblique Duocone(cannot roll steadily)" }
+                    { target: "rigids::roll_1skewed_duocone", zh: "单斜双圆锥(无法持续滚动)", en: "Mono-oblique Duospindle(cannot roll steadily)" },
+                    { target: "rigids::roll_2skewed_duocone", zh: "双斜双圆锥(无法持续滚动)", en: "Bi-oblique Duospindle(cannot roll steadily)" }
                 ]
             },
             {
@@ -287,6 +288,10 @@ let info = {
     "shapes::tiger": {
         "zh": "<b>控制：轨迹球模式</b><br>双圆环是一种旋转体，它由轮胎形状的环面绕平行于轮胎所在大圆的平面轴旋转得到。本例中的双圆环由八面体网格构成，每个八面体网格被分成了5个四面体进行渲染。",
         "en": `<b>Control: Trackball mode</b><br>Tiger(or duotorus) is obtained by rotating a torus surface around an "axis plane" parallel to main circle of torus. In this example, the mesh consists of octahedral grids, each grid is divided into 5 tetrahedrons for rendering. `,
+    },
+    "shapes::spherinders4": {
+        "zh": "<b>控制：轨迹球模式</b><br>四个沿坐标轴排列的等大球柱的交集的球极投影。可切换高亮显示不同的球柱表面。白色框架是辅助定位用的超立方体，其顶点坐标为(±1,±1,±1,±1)。",
+        "en": "<b>Control: Trackball mode</b><br>Stereographic projection of the intersection of four equal-sized spherinders aligned with the coordinate axes. Toggle the buttons to highlight different spherinder surfaces. The white frame is a reference tesseract with vertices at (±1,±1,±1,±1).",
     },
     "instanced_cubes": {
         "zh": "<b>控制：轨迹球模式</b><br>通过实例化渲染加速渲染了4096个超立方体。这些超立方体位置朝向均为随机均匀分布。",
@@ -549,6 +554,10 @@ let info = {
         "zh": "<b>控制：保持竖直模式</b><br>正八面Sphericon由正八面体沿不同对称轴各旋转180°得到的两个半个旋转体拼合而成，不能连续滚动。" + rollToolDesc.zh + "。",
         "en": "<b>Control: Keep up mode</b><br>The octahedral sphericon is formed by joining two halves of an octahedron, each rotated 180° about a different symmetry axis. It cannot roll continuously. " + rollToolDesc.en + "."
     },
+    "rigids::sphericon_tetra": {
+        "zh": "<b>控制：保持竖直模式</b><br>正四面Sphericon由正四面体沿不同对称轴各旋转180°得到的两个半个旋转体拼合而成，不能连续滚动。" + rollToolDesc.zh + "。",
+        "en": "<b>Control: Keep up mode</b><br>The tetrahedral sphericon is formed by joining two halves of a tetrahedron, each rotated 180° about a different symmetry axis. It cannot roll continuously. " + rollToolDesc.en + "."
+    },
     "rigids::sphericon_dodec": {
         "zh": "<b>控制：保持竖直模式</b><br>正十二面Sphericon由正十二面体沿不同对称轴各旋转180°得到的两个半个旋转体拼合而成，不能连续滚动。" + rollToolDesc.zh + "。",
         "en": "<b>Control: Keep up mode</b><br>The dodecahedral sphericon is formed by joining two halves of a dodecahedron, each rotated 180° about a different symmetry axis. It cannot roll continuously. " + rollToolDesc.en + "."
@@ -575,7 +584,7 @@ let info = {
     },
     "rigids::roll_glomicon": {
         "zh": "<b>控制：保持竖直模式</b><br>球锥双圆锥双拼是三维Sphericon的旋转体，由两个半个球锥和双圆锥拼接而成。" + rollToolDesc.zh + "。",
-        "en": "<b>Control: Keep up mode</b><br>The sphericone-duospindle is the rotational body of the 3D Sphericon, formed by joining two halves of a sphericone and a duocone. " + rollToolDesc.en + "."
+        "en": "<b>Control: Keep up mode</b><br>The sphericone-duospindle is the rotational body of the 3D Sphericon, formed by joining two halves of a sphericone and a duospindle. " + rollToolDesc.en + "."
     },
     "rigids::roll_duocylindrical_f": {
         "zh": "<b>控制：保持竖直模式</b><br>双圆柱台是在双圆柱的基础上向一个方向倾斜收缩得到的类似圆台的四维几何体，具有柱和锥两种滚动模式。" + rollToolDesc.zh + "。",
@@ -603,11 +612,11 @@ let info = {
     },
     "rigids::roll_1skewed_duocone": {
         "zh": "<b>控制：保持竖直模式</b><br>单斜双圆锥由双圆锥的一个圆周在其所在平面内平移一定距离后重新取凸包得到。它保留旋转对称性，但滚动时重心不能保持不变，因此无法持续滚动。" + rollToolDesc.zh + "。",
-        "en": "<b>Control: Keep up mode</b><br>The mono-oblique duocone is formed by translating one of the duocone's circles within its plane and taking the convex hull again. It retains rotational symmetry, but its gravity coneter does not remain unchanged as it rolls, so it cannot roll continuously. " + rollToolDesc.en + "."
+        "en": "<b>Control: Keep up mode</b><br>The mono-oblique duospindle is formed by translating one of the duospindle's circles within its plane and taking the convex hull again. It retains rotational symmetry, but its gravity coneter does not remain unchanged as it rolls, so it cannot roll continuously. " + rollToolDesc.en + "."
     },
     "rigids::roll_2skewed_duocone": {
         "zh": "<b>控制：保持竖直模式</b><br>双斜双圆锥由双圆锥的两个圆周各自在其所在平面内平移一定距离后重新取凸包得到。它没有旋转对称性，滚动时重心不能保持不变，因此无法持续滚动。" + rollToolDesc.zh + "。",
-        "en": "<b>Control: Keep up mode</b><br>The bi-oblique duocone is formed by translating each of the duocone's circles within its plane and taking the convex hull again. It has no rotational symmetry, and its gravity coneter does not remain unchanged as it rolls, so it cannot roll continuously. " + rollToolDesc.en + "."
+        "en": "<b>Control: Keep up mode</b><br>The bi-oblique duospindle is formed by translating each of the duospindle's circles within its plane and taking the convex hull again. It has no rotational symmetry, and its gravity coneter does not remain unchanged as it rolls, so it cannot roll continuously. " + rollToolDesc.en + "."
     },
     "rigids::dzhanibekov2": {
         "en": "<b>Control: Trackball mode</b><br>4D version of Dzhanibekov effect (or Tennis racket theorem). If the supercuboid is rotated around the plane formed by the shortest and longest edges, the rotation direction will inverse frequently. This corresponds to two different periods in two directions. This was firstly proposed in Marc ten bosch's paper, but with wrong simulation result. ",

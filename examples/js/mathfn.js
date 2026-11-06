@@ -46,9 +46,6 @@ const functionPresets = {
         { mode: "volume", name: { zh: "猴鞍胞", en: "4D Monkey Saddle" },
             expressions: ["u", "v", "t", "u*u*u-3*u*v*v+t*t"],
             ranges: { u: { min: -1, max: 1 }, v: { min: -1, max: 1 }, t: { min: -1, max: 1 } }, density: 12 },
-        { mode: "volume", name: { zh: "弯曲立方体", en: "Twisted Cube Cell" },
-            expressions: ["u", "v", "t", "0.5*sin(pi*u)*sin(pi*v)*sin(pi*t)"],
-            ranges: { u: { min: -1, max: 1 }, v: { min: -1, max: 1 }, t: { min: -1, max: 1 } }, density: 12 },
         { mode: "implicit", name: { zh: "光锥(球锥)", en: "Light Cone (Sphone)" },
             expressions: ["x^2+y^2+z^2-w^2"],
             ranges: { x: { min: -1.5, max: 1.5 }, y: { min: -1.5, max: 1.5 }, z: { min: -1.5, max: 1.5 }, w: { min: -1.5, max: 1.5 } }, density: 8 },
@@ -70,6 +67,9 @@ const functionPresets = {
         { mode: "implicit", name: { zh: "四维多裤衩", en: "4D Multi-sock" },
             expressions: ["x^2+y^2+z^2+w^2+2*(x*y*z+x*y*w+x*z*w+y*z*w)-1"],
             ranges: { x: { min: -1.5, max: 1.5 }, y: { min: -1.5, max: 1.5 }, z: { min: -1.5, max: 1.5 }, w: { min: -1.5, max: 1.5 } }, density: 12 },
+        { mode: "implicit", name: { zh: "方形双圆环", en: "Cubic Tiger" },
+            expressions: ["(max(abs(x),abs(y))-1)^2+(max(abs(z),abs(w))-1)^2-0.2"],
+            ranges: { x: { min: -1.5, max: 1.5 }, y: { min: -1.5, max: 1.5 }, z: { min: -1.5, max: 1.5 }, w: { min: -1.5, max: 1.5 } }, density: 8 },
     ],
     complexExplicit: [
         { value: "z^2", name: { zh: "平方", en: "Square" }, center: { re: 0, im: 0 }, span: 4, density: 28, thickness: 0.06 },
@@ -239,19 +239,26 @@ class ExpressionParser {
                 };
             }
             this.take();
-            const argument = this.additive();
+            const arguments_ = [this.additive()];
+            while (this.peek() === ",") {
+                this.take();
+                arguments_.push(this.additive());
+            }
             this.expect(")");
             const funcs = {
                 sin: Math.sin, cos: Math.cos, tan: Math.tan,
                 sh: Math.sinh, ch: Math.cosh, th: Math.tanh,
                 sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh,
                 exp: Math.exp, ln: Math.log, log: Math.log,
-                sqrt: Math.sqrt, abs: Math.abs
+                sqrt: Math.sqrt, abs: Math.abs, max: Math.max, min: Math.min
             };
             const fn = funcs[token];
             if (!fn)
                 throw localizedError(this.zh, `不支持的函数：${token}`, `Unsupported function: ${token}`);
-            return vars => fn(argument(vars));
+            if (token !== "max" && token !== "min" && arguments_.length !== 1) {
+                throw localizedError(this.zh, `${token} 函数必须且只能有一个参数`, `${token} requires exactly one argument`);
+            }
+            return vars => fn(...arguments_.map(argument => argument(vars)));
         }
         throw localizedError(this.zh, `表达式语法错误：${token}`, `Expression syntax error: ${token}`);
     }

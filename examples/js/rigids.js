@@ -1721,7 +1721,7 @@ function polyhedricon(schlafli, biv, sign) {
     }
     const side = cw.data[0].map((v, idx) => sign ? v.wedgeb(biv).w >= -1e-2 : v.wedgeb(biv).w <= 1e-2);
     const s = new Set;
-    side.forEach((e, idx) => { if (e !== (schlafli[0] === 4 && schlafli[1] === 3)) {
+    side.forEach((e, idx) => { if (e !== (schlafli[0] <= 4 && schlafli[1] === 3)) {
         s.add(idx);
     } });
     cw.data[1] = [];

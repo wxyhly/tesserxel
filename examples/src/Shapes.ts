@@ -129,7 +129,7 @@ class ShapesApp {
         this.retinaController.setSize({ width, height });
     }
     camMatJSBuffer = new Float32Array(20);
-    run() {
+    run(renderBindGroups?: { group: number, binding: GPUBindGroup }[]) {
         this.ctrlRegistry.update();
         this.trackBallController.object.getAffineMat4().writeBuffer(this.camMatJSBuffer);
         this.gpu.device.queue.writeBuffer(this.camBuffer, 0, this.camMatJSBuffer);
@@ -139,11 +139,11 @@ class ShapesApp {
         this.renderer.render(this.context, (rs) => {
             rs.beginTetras(this.pipeline);
             rs.sliceTetras(this.vertBindGroup, this.mesh.count);
-            rs.drawTetras();
+            rs.drawTetras(renderBindGroups);
         }, this.wireFrameScene ? (rs) => {
             this.wireFrameScene.render(rs);
         } : undefined);
-        window.requestAnimationFrame(this.run.bind(this));
+        window.requestAnimationFrame(() => this.run(renderBindGroups));
     }
 }
 let commonFragCode = `
@@ -234,8 +234,10 @@ export namespace spherinders4 {
             vec4f(1.0, 0.3, 0.3, 0.1),
             vec4f(0.3, 1.0, 0.3, 0.1),
             vec4f(0.3, 0.5, 1.0, 0.1),
-            vec4f(1.0, 1.0, 0.3, 1.0),
+            vec4f(1.0, 1.0, 0.3, 0.1),
         );
+
+        @group(1) @binding(0) var<uniform> highlightedAxes: vec4f;
 
         fn isTesseractEdge(q: vec4f) -> bool {
             let s = array<f32, 4>(q.x*q.x, q.y*q.y, q.z*q.z, q.w*q.w);
@@ -269,7 +271,8 @@ export namespace spherinders4 {
                 bestIdx = select(bestIdx, i, better);
             }
 
-            return PALETTE[bestIdx];
+            let paletteColor = PALETTE[bestIdx];
+            return vec4f(paletteColor.rgb, select(paletteColor.a, 1.0, highlightedAxes[bestIdx] > 0.5));
         }
             @fragment fn main(vary: fInputType) -> @location(0) vec4f {
                 const ambientLight = vec3<f32>(0.1);
@@ -291,8 +294,75 @@ export namespace spherinders4 {
             const mesh = tesserxel.mesh.tetra.glome(1.5, 32, 32, 16);
             mesh.setUVWAsPosition();
         let app = await new ShapesApp().init(fragCode, mesh);
-        app.retinaController.setOpacity(10.0);
-        app.run();
+            const highlightBuffer = app.gpu.device.createBuffer({
+                size: 16,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+            });
+            const highlightState = new Float32Array([0, 0, 0, 1]);
+            app.gpu.device.queue.writeBuffer(highlightBuffer, 0, highlightState);
+            const highlightBindGroup = app.gpu.device.createBindGroup({
+                layout: app.pipeline.renderPipeline.getBindGroupLayout(1),
+                entries: [{ binding: 0, resource: { buffer: highlightBuffer } }]
+            });
+            const highlightPanel = document.createElement("div");
+            highlightPanel.className = "axes-highlight-panel";
+            const highlightLabel = document.createElement("div");
+            highlightLabel.style.color = "white";
+            highlightLabel.innerText = new URLSearchParams(window.location.search.slice(1)).has("en")
+                ? "Highlight Spherinders"
+                : "高亮球柱";
+            highlightPanel.appendChild(highlightLabel);
+            const highlightButtons = document.createElement("table");
+            highlightButtons.className = "axes-highlight-controls";
+            highlightPanel.appendChild(highlightButtons);
+            const buttonRow = highlightButtons.insertRow();
+            const axisColors = ["#f44", "#4c4", "#58f", "#dd2"];
+            axisColors.forEach((color, index) => {
+                const button = buttonRow.insertCell();
+                button.innerText = (index + 1).toString();
+                button.className = "clickable";
+                button.style.color = color;
+                button.setAttribute("aria-label", `Toggle axis ${index + 1} highlight`);
+                button.setAttribute("aria-pressed", (highlightState[index] === 1).toString());
+                button.classList.toggle("selected", highlightState[index] === 1);
+                button.onclick = () => {
+                    highlightState[index] = highlightState[index] ? 0 : 1;
+                    app.gpu.device.queue.writeBuffer(highlightBuffer, 0, highlightState);
+                    button.classList.toggle("selected", highlightState[index] === 1);
+                    button.setAttribute("aria-pressed", (highlightState[index] === 1).toString());
+                };
+            });
+            const highlightCss = document.createElement("style");
+            highlightCss.textContent = `
+                .axes-highlight-panel {
+                    position: fixed;
+                    top: 50px;
+                    left: 20px;
+                    z-index: 9999;
+                }
+                .axes-highlight-controls {
+                    border-collapse: collapse;
+                    margin-top: 4px;
+                }
+                .axes-highlight-controls td {
+                    width: 28px;
+                    height: 28px;
+                    border: 1px solid grey;
+                    text-align: center;
+                    font-weight: bold;
+                    background: rgba(255, 255, 255, 0.5);
+                }
+                .axes-highlight-controls td.clickable {
+                    cursor: pointer;
+                }
+                .axes-highlight-controls td.selected {
+                    box-shadow: inset 0 0 0 2px currentColor;
+                }
+            `;
+            document.head.appendChild(highlightCss);
+            document.body.appendChild(highlightPanel);
+            app.retinaController.setOpacity(10.0);
+            app.run([{ group: 1, binding: highlightBindGroup }]);
     }
 }
 export namespace glome {

@@ -1743,7 +1743,7 @@ function polyhedricon(schlafli: [number, number], biv: tesserxel.math.Bivec, sig
     }
     const side = (cw.data[0] as tesserxel.math.Vec4[]).map((v, idx) => sign ? v.wedgeb(biv).w >= -1e-2 : v.wedgeb(biv).w <= 1e-2);
     const s = new Set<number>;
-    side.forEach((e, idx) => { if (e !== (schlafli[0] === 4 && schlafli[1] === 3)) { s.add(idx) } });
+    side.forEach((e, idx) => { if (e !== (schlafli[0] <= 4 && schlafli[1] === 3)) { s.add(idx) } });
     cw.data[1] = [];
     cw.data[2] = [];
     cw.data[3] = [];
@@ -1751,6 +1751,7 @@ function polyhedricon(schlafli: [number, number], biv: tesserxel.math.Bivec, sig
     cw.makeRotatoid(biv.duals(), 96, Math.PI);
     return cw.data[0] as Vec4[];
 }
+
 export namespace sphericon_cube {
     export async function load() {
         // x/\(y+z)
