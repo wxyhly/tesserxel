@@ -59,7 +59,6 @@ app.scene.add(mesh);
 // So we need to move the camera backward a little bit to see the tesseract at the origin.
 // Note: The w-axis points behind the camera (similar to the z-axis in 3D graphics)
 app.camera.position.w = 3.0;
-// Voxel controls require holding Alt by default; change this in the in-app key bindings.
 // Start the frame loop
 app.run(()=>{
     // Each frame, rotate 0.01 radians in both the xw and yz planes

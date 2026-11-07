@@ -1222,7 +1222,7 @@ export class RetinaController implements IController {
             actions: {
                 enable: {
                     title: { zh: "按住启用控制", en: "Hold to Enable" },
-                    key: "AltLeft"
+                    key: "Backquote"
                 },
                 disable: {
                     title: { zh: "按住禁用控制", en: "Hold to Disable" },
