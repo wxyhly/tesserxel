@@ -6,6 +6,512 @@ const Obj4 = tesserxel.math.Obj4;
 const Bivec = tesserxel.math.Bivec;
 const geomTesseract = new FOUR.TesseractGeometry(1);
 const lang = (new URLSearchParams(window.location.search.slice(1)).get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en"));
+const HUD_COLORS = {
+    text: "#d8ffd2",
+    grid: "#76c96b",
+    gridFaint: "#76c96b66",
+    accent: "#eaef43",
+    marker: "#eaff43",
+    track: "#76c96b88",
+    thumbOutline: "#10200f"
+};
+const HUD_STROKE_WIDTHS = {
+    thin: 1,
+    thick: 3,
+    tripletTrack: 1.5,
+    tripletDifference: 1.5
+};
+const HUD_LAYOUT = {
+    root: { top: 50, left: 0 },
+    viewBox: { width: 300, height: 440 },
+    controls: {
+        bar: { y: 34, length: 80, markerHalfHeight: 5, endTickHalfHeight: 3 },
+        throttle: { x: 10 },
+        flap: { x: 110 },
+        text: { titleOffset: { x: 0, y: -16 }, valueOffset: { x: 0, y: -4 }, titleSize: 9, valueSize: 7 }
+    },
+    triplet: {
+        firstCenter: { x: 60, y: 96 },
+        gapX: 100,
+        instances: [
+            { key: "aileron", trackStart: -22, commonZeroOffsetY: 0, commonTravel: 20, centered: true },
+            { key: "brake", trackStart: 0, commonZeroOffsetY: 20, commonTravel: 40, centered: false }
+        ],
+        radius: 22,
+        pointRadius: 3.5,
+        differenceRadius: 4,
+        centerDotRadius: 1.5,
+        labelRadius: 25,
+        labelOffsetY: 2,
+        commonBarOffsetX: -40,
+        commonAxisHalfLength: 20,
+        commonZeroHalfLength: 4,
+        commonRange: 1,
+        differenceScaleFactor: 22,
+        directions: [0, 2 * Math.PI / 3, 4 * Math.PI / 3],
+        text: { titleOffsetY: -38, readoutOffsetY: -26, commonOffsetX: -50, differenceOffsetX: 0, titleSize: 9, readoutSize: 7 }
+    },
+    verticalBar: {
+        firstCenter: { x: 20, y: 160 },
+        gapX: 50,
+        halfLength: 20,
+        centerHalfWidth: 4,
+        tickHalfWidth: 3,
+        labelOffset: { x: 2, y: 2 },
+        tickSpacing: 10,
+        text: { titleGap: 10, valueGap: 8, titleSize: 7, valueSize: 7 },
+        instruments: [
+            { key: "height", step: 10 },
+            { key: "pitch", step: 15 },
+            { key: "speedVertical", step: 5 },
+            { key: "angular0", step: 0.2 }
+        ]
+    },
+    horizontalBar: {
+        firstCenter: { x: 50, y: 210 },
+        gapX: 100,
+        halfLength: 40,
+        halfHeight: 4,
+        labelOffsetY: 10,
+        tickSpacing: 20,
+        text: { titleOffsetY: -12, valueOffsetY: 20, titleSize: 8, valueSize: 7 },
+        instruments: [
+            { key: "speedForward", step: 5 },
+            { key: "angular5", step: 0.5 }
+        ]
+    },
+    vector: {
+        firstCenter: { x: 50, y: 276 },
+        columns: 2,
+        gapX: 100,
+        gapY: 85,
+        radius: 25,
+        innerRings: [17, 8],
+        axisHalfLength: 29,
+        tickLabelOffset: { x: 1, y: 1.5 },
+        upperTickLabelOffsetY: -1,
+        lowerTickLabelOffsetY: 4,
+        text: { titleOffsetY: -36, valueOffsetY: 37, titleSize: 7, valueSize: 7 },
+        instruments: [
+            { key: "attitude", scale: 15, ticks: [5, 10, 15] },
+            { key: "roll", scale: 0.3, ticks: [0.1, 0.2, 0.3] },
+            { key: "sideSpeed", scale: 12, ticks: [4, 8, 12] },
+            { key: "yaw", scale: 0.3, ticks: [0.1, 0.2, 0.3] }
+        ]
+    },
+    cameraText: {
+        origin: { x: 10, y: 18 },
+        fovOffsetY: 18,
+        hintOffsetY: 35,
+        presetHintOffsetY: 47,
+        titleSize: 9,
+        fovSize: 11,
+        hintSize: 8
+    }
+};
+class AircraftHud {
+    root;
+    values = new Map();
+    sliders = new Map();
+    differences = new Map();
+    bars = new Map();
+    vectors = new Map();
+    commonMarkers = new Map();
+    aircraftGroup;
+    cameraGroup;
+    cameraModeHint;
+    cameraPresetHint;
+    aileronDifferenceScale = 0.01;
+    tripletLayout(name) {
+        const index = HUD_LAYOUT.triplet.instances.findIndex(instance => instance.key === name);
+        if (index < 0)
+            throw new Error(`Missing aircraft HUD triplet layout: ${name}`);
+        const instance = HUD_LAYOUT.triplet.instances[index];
+        return {
+            ...instance,
+            center: {
+                x: HUD_LAYOUT.triplet.firstCenter.x + index * HUD_LAYOUT.triplet.gapX,
+                y: HUD_LAYOUT.triplet.firstCenter.y
+            }
+        };
+    }
+    createTextDrawings() {
+        const text = (x, y, content, attributes = "") => `<text x="${x}" y="${y}" ${attributes}>${content}</text>`;
+        const value = (x, y, key, size, anchor = "middle", dataAttribute = "data-value") => text(x, y, "", `text-anchor="${anchor}" font-size="${size}" ${dataAttribute}="${key}"`);
+        const readout = (x, y, label, key, size) => `<text x="${x}" y="${y}" font-size="${size}" text-anchor="start">${label} <tspan data-value="${key}"></tspan></text>`;
+        const labels = {
+            camera: lang === "zh" ? "相机视野角" : "CAMERA FOV",
+            throttle: lang === "zh" ? "引擎功率" : "THROTTLE",
+            flap: lang === "zh" ? "襟翼" : "FLAPS",
+            aileron: lang === "zh" ? "副翼" : "AILERONS",
+            brake: lang === "zh" ? "起落架刹车" : "GEAR BRAKES",
+            common: lang === "zh" ? "共模" : "COMMN",
+            difference: lang === "zh" ? "差模" : "DIFF",
+            height: lang === "zh" ? "高度" : "ALT",
+            pitch: lang === "zh" ? "俯仰角" : "PITCH",
+            speedVertical: lang === "zh" ? "垂直速度" : "VERTICAL SPEED",
+            angular0: lang === "zh" ? "俯仰角速度" : "PITCH RATE",
+            speedForward: lang === "zh" ? "前进速度" : "AHEAD VELOCITY",
+            angular5: lang === "zh" ? "自转角速度" : "SPIN RATE",
+            attitude: lang === "zh" ? "横滚姿态" : "ROLL ATTITUDE",
+            roll: lang === "zh" ? "横滚角速度" : "ROLL RATE",
+            sideSpeed: lang === "zh" ? "侧向速度" : "LATERAL SPEED",
+            yaw: lang === "zh" ? "偏航角速度" : "YAW RATE"
+        };
+        const camera = HUD_LAYOUT.cameraText;
+        const cameraText = `<g data-camera>${text(camera.origin.x, camera.origin.y, labels.camera, `font-size="${camera.titleSize}"`)}${value(camera.origin.x, camera.origin.y + camera.fovOffsetY, "fov", camera.fovSize, "start")}${text(camera.origin.x, camera.origin.y + camera.hintOffsetY, "", `font-size="${camera.hintSize}" data-camera-mode-hint`)}${text(camera.origin.x, camera.origin.y + camera.presetHintOffsetY, "", `font-size="${camera.hintSize}" data-camera-preset-hint`)}</g>`;
+        const controls = ["throttle", "flap"].map(key => {
+            const origin = HUD_LAYOUT.controls[key];
+            const layout = HUD_LAYOUT.controls.text;
+            return text(origin.x + layout.titleOffset.x, HUD_LAYOUT.controls.bar.y + layout.titleOffset.y, labels[key], `font-size="${layout.titleSize}"`)
+                + value(origin.x + layout.valueOffset.x, HUD_LAYOUT.controls.bar.y + layout.valueOffset.y, key, layout.valueSize, "start");
+        }).join("");
+        const triplets = HUD_LAYOUT.triplet.instances.map((instance, index) => {
+            const centerX = HUD_LAYOUT.triplet.firstCenter.x + index * HUD_LAYOUT.triplet.gapX;
+            const centerY = HUD_LAYOUT.triplet.firstCenter.y;
+            const layout = HUD_LAYOUT.triplet.text;
+            const title = text(centerX, centerY + layout.titleOffsetY, labels[instance.key], `font-size="${layout.titleSize}" font-weight="700" text-anchor="middle"`);
+            const commonX = centerX + layout.commonOffsetX;
+            const readoutY = centerY + layout.readoutOffsetY;
+            const common = readout(commonX, readoutY, labels.common, `${instance.key}Common`, layout.readoutSize);
+            const differenceX = centerX + layout.differenceOffsetX;
+            const difference = readout(differenceX, readoutY, labels.difference, `${instance.key}Difference`, layout.readoutSize);
+            return title + common + difference;
+        }).join("");
+        const verticalBars = HUD_LAYOUT.verticalBar.instruments.map((instrument, index) => {
+            const x = HUD_LAYOUT.verticalBar.firstCenter.x + index * HUD_LAYOUT.verticalBar.gapX;
+            const y = HUD_LAYOUT.verticalBar.firstCenter.y;
+            const layout = HUD_LAYOUT.verticalBar.text;
+            return text(x, y - HUD_LAYOUT.verticalBar.halfLength - layout.titleGap, labels[instrument.key], `font-size="${layout.titleSize}" text-anchor="middle"`)
+                + value(x, y + HUD_LAYOUT.verticalBar.halfLength + layout.valueGap, instrument.key, layout.valueSize);
+        }).join("");
+        const horizontalBars = HUD_LAYOUT.horizontalBar.instruments.map((instrument, index) => {
+            const x = HUD_LAYOUT.horizontalBar.firstCenter.x + index * HUD_LAYOUT.horizontalBar.gapX;
+            const y = HUD_LAYOUT.horizontalBar.firstCenter.y;
+            const layout = HUD_LAYOUT.horizontalBar.text;
+            return text(x, y + layout.titleOffsetY, labels[instrument.key], `font-size="${layout.titleSize}" text-anchor="middle"`)
+                + value(x, y + layout.valueOffsetY, instrument.key, layout.valueSize);
+        }).join("");
+        const vectors = HUD_LAYOUT.vector.instruments.map((instrument, index) => {
+            const column = index % HUD_LAYOUT.vector.columns;
+            const row = Math.floor(index / HUD_LAYOUT.vector.columns);
+            const x = HUD_LAYOUT.vector.firstCenter.x + column * HUD_LAYOUT.vector.gapX;
+            const y = HUD_LAYOUT.vector.firstCenter.y + row * HUD_LAYOUT.vector.gapY;
+            const layout = HUD_LAYOUT.vector.text;
+            return text(x, y + layout.titleOffsetY, labels[instrument.key], `font-size="${layout.titleSize}" text-anchor="middle"`)
+                + value(x, y + layout.valueOffsetY, instrument.key, layout.valueSize, "middle", "data-vector-value");
+        }).join("");
+        return `${cameraText}<g data-aircraft>${controls}${triplets}${verticalBars}${horizontalBars}${vectors}${this.createDrawings()}</g>`;
+    }
+    createDrawings() {
+        const controls = ["throttle", "flap"].map(name => {
+            const origin = HUD_LAYOUT.controls[name];
+            const { y, length, markerHalfHeight, endTickHalfHeight } = HUD_LAYOUT.controls.bar;
+            const end = origin.x + length;
+            return `<line x1="${origin.x}" y1="${y}" x2="${end}" y2="${y}"/><line x1="${origin.x}" y1="${y - endTickHalfHeight}" x2="${origin.x}" y2="${y + endTickHalfHeight}" stroke="var(--hud-accent)" stroke-width="var(--hud-stroke-thin)"/><line x1="${end}" y1="${y - endTickHalfHeight}" x2="${end}" y2="${y + endTickHalfHeight}" stroke="var(--hud-accent)" stroke-width="var(--hud-stroke-thin)"/><line x1="${origin.x}" y1="${y - markerHalfHeight}" x2="${origin.x}" y2="${y + markerHalfHeight}" stroke="var(--hud-text)" stroke-width="var(--hud-stroke-thick)" data-marker="${name}"/>`;
+        }).join("");
+        const triplets = HUD_LAYOUT.triplet.instances.map((instance, index) => {
+            const x = HUD_LAYOUT.triplet.firstCenter.x + index * HUD_LAYOUT.triplet.gapX;
+            const y = HUD_LAYOUT.triplet.firstCenter.y;
+            const commonX = x + HUD_LAYOUT.triplet.commonBarOffsetX;
+            const commonZeroY = y + instance.commonZeroOffsetY;
+            const centerMarker = instance.centered
+                ? `<circle cx="${x}" cy="${y}" r="${HUD_LAYOUT.triplet.centerDotRadius}" fill="var(--hud-accent)" stroke="none"/>`
+                : "";
+            return `<g data-common-tape="${instance.key}"><line x1="${commonX}" y1="${y - HUD_LAYOUT.triplet.commonAxisHalfLength}" x2="${commonX}" y2="${y + HUD_LAYOUT.triplet.commonAxisHalfLength}"/><line x1="${commonX - HUD_LAYOUT.triplet.commonZeroHalfLength}" y1="${commonZeroY}" x2="${commonX + HUD_LAYOUT.triplet.commonZeroHalfLength}" y2="${commonZeroY}" stroke="var(--hud-grid)"/><line x1="${commonX - HUD_LAYOUT.triplet.commonZeroHalfLength}" y1="${commonZeroY}" x2="${commonX + HUD_LAYOUT.triplet.commonZeroHalfLength}" y2="${commonZeroY}" stroke="var(--hud-accent)" stroke-width="var(--hud-stroke-thick)" data-common-marker="${instance.key}"/></g><g data-triplet="${instance.key}"><g data-tracks/><g data-points/>${centerMarker}<circle cx="${x}" cy="${y}" r="${HUD_LAYOUT.triplet.differenceRadius}" fill="none" stroke="var(--hud-accent)" stroke-width="var(--hud-stroke-triplet-difference)" data-difference/></g>`;
+        }).join("");
+        const verticalBars = HUD_LAYOUT.verticalBar.instruments.map((instrument, index) => {
+            const x = HUD_LAYOUT.verticalBar.firstCenter.x + index * HUD_LAYOUT.verticalBar.gapX;
+            const y = HUD_LAYOUT.verticalBar.firstCenter.y;
+            const halfLength = HUD_LAYOUT.verticalBar.halfLength;
+            const halfWidth = HUD_LAYOUT.verticalBar.centerHalfWidth;
+            return `<line x1="${x}" y1="${y - halfLength}" x2="${x}" y2="${y + halfLength}"/><line x1="${x - halfWidth}" y1="${y}" x2="${x + halfWidth}" y2="${y}" stroke="var(--hud-marker)" stroke-width="var(--hud-stroke-thick)"/><g data-tape="${instrument.key}"/>`;
+        }).join("");
+        const horizontalBars = HUD_LAYOUT.horizontalBar.instruments.map((instrument, index) => {
+            const center = {
+                x: HUD_LAYOUT.horizontalBar.firstCenter.x + index * HUD_LAYOUT.horizontalBar.gapX,
+                y: HUD_LAYOUT.horizontalBar.firstCenter.y
+            };
+            const halfLength = HUD_LAYOUT.horizontalBar.halfLength;
+            const halfHeight = HUD_LAYOUT.horizontalBar.halfHeight;
+            return `<line x1="${center.x - halfLength}" y1="${center.y}" x2="${center.x + halfLength}" y2="${center.y}"/><g data-tape="${instrument.key}"/><line x1="${center.x}" y1="${center.y - halfHeight}" x2="${center.x}" y2="${center.y + halfHeight}" stroke="var(--hud-marker)" stroke-width="var(--hud-stroke-thick)"/>`;
+        }).join("");
+        const vectorCharts = HUD_LAYOUT.vector.instruments.map((instrument, index) => {
+            const column = index % HUD_LAYOUT.vector.columns;
+            const row = Math.floor(index / HUD_LAYOUT.vector.columns);
+            const x = HUD_LAYOUT.vector.firstCenter.x + column * HUD_LAYOUT.vector.gapX;
+            const y = HUD_LAYOUT.vector.firstCenter.y + row * HUD_LAYOUT.vector.gapY;
+            const rings = `<circle cx="${x}" cy="${y}" r="${HUD_LAYOUT.vector.radius}" data-vector-origin="${instrument.key}"/>`
+                + HUD_LAYOUT.vector.innerRings.map(radius => `<circle cx="${x}" cy="${y}" r="${radius}"/>`).join("");
+            const half = HUD_LAYOUT.vector.axisHalfLength;
+            const axes = `<path d="M${x - half} ${y}h${half * 2}M${x} ${y - half}v${half * 2}"/>`;
+            const needle = `<line x1="${x}" y1="${y}" x2="${x}" y2="${y}" data-vector-needle="${instrument.key}"/>`;
+            return { rings: rings + axes, needle };
+        });
+        return `<g fill="none" stroke="var(--hud-grid)" stroke-width="var(--hud-stroke-thin)">${controls}${triplets}${verticalBars}${horizontalBars}</g><g fill="none" stroke="var(--hud-grid-faint)" stroke-width="var(--hud-stroke-thin)">${vectorCharts.map(chart => chart.rings).join("")}</g><g fill="none" stroke="var(--hud-accent)" stroke-width="var(--hud-stroke-thick)">${vectorCharts.map(chart => chart.needle).join("")}</g>`;
+    }
+    formatValue(value, digits) {
+        return Math.abs(value) < 0.5 * 10 ** -digits ? (0).toFixed(digits) : value.toFixed(digits);
+    }
+    formatKey(code) {
+        const keyLabels = {
+            ControlLeft: "Ctrl",
+            ControlRight: "Ctrl",
+            ShiftLeft: "Shift",
+            ShiftRight: "Shift",
+            AltLeft: "Alt",
+            AltRight: "Alt",
+            MetaLeft: "Meta",
+            MetaRight: "Meta",
+            ArrowUp: "↑",
+            ArrowDown: "↓",
+            ArrowLeft: "←",
+            ArrowRight: "→"
+        };
+        if (!code)
+            return lang === "zh" ? "未设置" : "Unbound";
+        return code.split("|").map(combo => combo.split("+").map(part => {
+            const key = part.replace(/^\./, "");
+            if (keyLabels[key])
+                return keyLabels[key];
+            if (key.startsWith("Key"))
+                return key.slice(3);
+            if (key.startsWith("Digit"))
+                return key.slice(5);
+            if (key.startsWith("Numpad"))
+                return `Num${key.slice(6)}`;
+            return key;
+        }).join("+")).join("/");
+    }
+    constructor(root) {
+        this.root = root;
+        root.style.cssText = `position:fixed;top:${HUD_LAYOUT.root.top}px;left:${HUD_LAYOUT.root.left}px;z-index:10;pointer-events:none;`;
+        root.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${HUD_LAYOUT.viewBox.width} ${HUD_LAYOUT.viewBox.height}" width="100%" aria-label="Aircraft instruments" style="display:block;overflow:visible;background:transparent;--hud-text:${HUD_COLORS.text};--hud-grid:${HUD_COLORS.grid};--hud-grid-faint:${HUD_COLORS.gridFaint};--hud-accent:${HUD_COLORS.accent};--hud-marker:${HUD_COLORS.marker};--hud-track:${HUD_COLORS.track};--hud-thumb-outline:${HUD_COLORS.thumbOutline};--hud-stroke-thin:${HUD_STROKE_WIDTHS.thin};--hud-stroke-thick:${HUD_STROKE_WIDTHS.thick};--hud-stroke-triplet-track:${HUD_STROKE_WIDTHS.tripletTrack};--hud-stroke-triplet-difference:${HUD_STROKE_WIDTHS.tripletDifference}" font-family="system-ui,sans-serif" fill="var(--hud-text)">
+${this.createTextDrawings()}
+</svg>`;
+        this.aircraftGroup = root.querySelector("[data-aircraft]");
+        this.cameraGroup = root.querySelector("[data-camera]");
+        this.cameraModeHint = root.querySelector("[data-camera-mode-hint]");
+        this.cameraPresetHint = root.querySelector("[data-camera-preset-hint]");
+        for (const element of root.querySelectorAll("[data-value]"))
+            this.values.set(element.dataset.value, element);
+        for (const instrument of [...HUD_LAYOUT.verticalBar.instruments, ...HUD_LAYOUT.horizontalBar.instruments]) {
+            this.bars.set(instrument.key, root.querySelector(`[data-tape="${instrument.key}"]`));
+        }
+        for (const [index, instrument] of HUD_LAYOUT.vector.instruments.entries()) {
+            const column = index % HUD_LAYOUT.vector.columns;
+            const row = Math.floor(index / HUD_LAYOUT.vector.columns);
+            this.vectors.set(instrument.key, {
+                x: HUD_LAYOUT.vector.firstCenter.x + column * HUD_LAYOUT.vector.gapX,
+                y: HUD_LAYOUT.vector.firstCenter.y + row * HUD_LAYOUT.vector.gapY,
+                radius: HUD_LAYOUT.vector.radius,
+                scale: instrument.scale,
+                ticks: instrument.ticks,
+                needle: root.querySelector(`[data-vector-needle="${instrument.key}"]`),
+                value: root.querySelector(`[data-vector-value="${instrument.key}"]`)
+            });
+        }
+        const tickLabels = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        tickLabels.setAttribute("fill", "var(--hud-text)");
+        tickLabels.setAttribute("font-size", "5");
+        tickLabels.setAttribute("stroke", "none");
+        for (const vector of this.vectors.values()) {
+            const ticks = vector.ticks;
+            for (const tick of ticks) {
+                const radius = tick / vector.scale * vector.radius;
+                const digits = Number.isInteger(tick) ? 0 : (tick.toString().split(".")[1]?.length ?? 0);
+                const label = this.formatValue(tick, digits);
+                for (const direction of [-1, 1]) {
+                    const layout = HUD_LAYOUT.vector;
+                    const horizontalPosition = { x: direction * radius, y: layout.tickLabelOffset.y };
+                    const verticalPosition = {
+                        x: layout.tickLabelOffset.x,
+                        y: -direction * radius + (direction > 0 ? layout.upperTickLabelOffsetY : layout.lowerTickLabelOffsetY)
+                    };
+                    tickLabels.insertAdjacentHTML("beforeend", `<text x="${vector.x + horizontalPosition.x}" y="${vector.y + horizontalPosition.y}" text-anchor="${direction > 0 ? "start" : "end"}">${direction * tick < 0 ? `-${label}` : label}</text><text x="${vector.x + verticalPosition.x}" y="${vector.y + verticalPosition.y}" text-anchor="start">${direction > 0 ? label : `-${label}`}</text>`);
+                }
+            }
+        }
+        const needleGroup = root.querySelector('[data-vector-needle="attitude"]').parentElement;
+        this.aircraftGroup.insertBefore(tickLabels, needleGroup);
+        for (const config of HUD_LAYOUT.triplet.instances) {
+            const name = config.key;
+            const { x: cx, y: cy } = this.tripletLayout(name).center;
+            const group = root.querySelector(`[data-triplet="${name}"]`);
+            const tracks = group.querySelector("[data-tracks]");
+            const points = group.querySelector("[data-points]");
+            this.commonMarkers.set(name, root.querySelector(`[data-common-marker="${name}"]`));
+            for (const angle of HUD_LAYOUT.triplet.directions) {
+                const ux = Math.cos(angle), uy = -Math.sin(angle);
+                tracks.insertAdjacentHTML("beforeend", `<line x1="${cx + ux * config.trackStart}" y1="${cy + uy * config.trackStart}" x2="${cx + ux * HUD_LAYOUT.triplet.radius}" y2="${cy + uy * HUD_LAYOUT.triplet.radius}" stroke="var(--hud-track)" stroke-width="var(--hud-stroke-triplet-track)"/><circle cx="${cx}" cy="${cy}" r="${HUD_LAYOUT.triplet.pointRadius}" fill="${HUD_COLORS.marker}" stroke="${HUD_COLORS.thumbOutline}"/>`);
+                points.appendChild(tracks.lastElementChild.cloneNode(true));
+                tracks.lastElementChild.remove();
+            }
+            const commonX = cx + HUD_LAYOUT.triplet.commonBarOffsetX;
+            const commonMarker = this.commonMarkers.get(name);
+            const markerHalfLength = HUD_LAYOUT.triplet.commonZeroHalfLength;
+            commonMarker.setAttribute("x1", `${commonX - markerHalfLength}`);
+            commonMarker.setAttribute("x2", `${commonX + markerHalfLength}`);
+            commonMarker.setAttribute("y1", `${cy + config.commonZeroOffsetY}`);
+            commonMarker.setAttribute("y2", `${cy + config.commonZeroOffsetY}`);
+            group.querySelector("[data-difference]").setAttribute("cx", `${cx}`);
+            group.querySelector("[data-difference]").setAttribute("cy", `${cy}`);
+            this.sliders.set(name, Array.from(points.querySelectorAll("circle")));
+            this.differences.set(name, group.querySelector("[data-difference]"));
+            const labels = group.querySelector("[data-labels]") ?? document.createElementNS("http://www.w3.org/2000/svg", "g");
+            labels.setAttribute("fill", "var(--hud-text)");
+            labels.setAttribute("font-size", "6");
+            labels.setAttribute("stroke", "none");
+            for (const [index, letter] of ["A", "B", "C"].entries()) {
+                const angle = HUD_LAYOUT.triplet.directions[index];
+                labels.insertAdjacentHTML("beforeend", `<text x="${cx + Math.cos(angle) * HUD_LAYOUT.triplet.labelRadius}" y="${cy - Math.sin(angle) * HUD_LAYOUT.triplet.labelRadius + HUD_LAYOUT.triplet.labelOffsetY}" text-anchor="middle">${letter}</text>`);
+            }
+            group.appendChild(labels);
+        }
+    }
+    update(data) {
+        const set = (key, value) => {
+            const element = this.values.get(key);
+            if (!element)
+                throw new Error(`Missing aircraft HUD value element: ${key}`);
+            element.textContent = value;
+        };
+        set("fov", `${this.formatValue(data.fov, 0)}°`);
+        this.cameraModeHint.textContent = lang === "zh"
+            ? `${this.formatKey(data.cameraModeKey)}：切换控制飞机/控制相机`
+            : `${this.formatKey(data.cameraModeKey)}: Toggle aircraft view/control`;
+        this.cameraPresetHint.textContent = lang === "zh"
+            ? `相机机位 ${data.cameraPresetKeys.map(key => this.formatKey(key)).join(" ")}`
+            : `Camera Pos: ${data.cameraPresetKeys.map(key => this.formatKey(key)).join(" ")}`;
+        this.aircraftGroup.style.display = data.aircraftMode ? "" : "none";
+        this.cameraGroup.style.display = data.aircraftMode ? "none" : "";
+        set("throttle", this.formatValue(data.throttle, 2));
+        set("flap", this.formatValue(data.flap, 2));
+        set("height", this.formatValue(data.height, 1));
+        set("speedForward", this.formatValue(data.speedForward, 1));
+        set("speedVertical", this.formatValue(data.speedVertical, 1));
+        const aileronCommon = (data.ailerons[0] + data.ailerons[1] + data.ailerons[2]) / 3;
+        const brakeCommon = (data.brakes[0] + data.brakes[1] + data.brakes[2]) / 3;
+        set("aileronCommon", this.formatValue(aileronCommon, 1));
+        set("aileronDifference", this.formatValue(this.tripletMagnitude(data.ailerons), 3));
+        set("brakeCommon", this.formatValue(brakeCommon, 2));
+        set("brakeDifference", this.formatValue(this.tripletMagnitude(data.brakes), 2));
+        set("pitch", this.formatValue(data.pitch, 1) + "°");
+        set("angular0", this.formatValue(data.angular[0], 3));
+        set("angular5", this.formatValue(data.angular[5], 3));
+        const vectorValues = [
+            [data.rollLR, data.rollAK],
+            [data.angular[3], data.angular[4]],
+            [data.speedLR, data.speedAK],
+            [data.angular[1], data.angular[2]]
+        ];
+        HUD_LAYOUT.vector.instruments.forEach((instrument, index) => {
+            const [x, y] = vectorValues[index];
+            const vector = this.vectors.get(instrument.key);
+            vector.value.textContent = this.formatValue(Math.hypot(x, y), 3);
+            this.updateVector(instrument.key, x, y);
+        });
+        const horizontalValues = {
+            speedForward: data.speedForward,
+            angular5: data.angular[5]
+        };
+        HUD_LAYOUT.horizontalBar.instruments.forEach((instrument, index) => {
+            const center = {
+                x: HUD_LAYOUT.horizontalBar.firstCenter.x + index * HUD_LAYOUT.horizontalBar.gapX,
+                y: HUD_LAYOUT.horizontalBar.firstCenter.y
+            };
+            this.updateTape(instrument.key, horizontalValues[instrument.key], center, instrument.step);
+        });
+        const verticalValues = {
+            height: data.height,
+            pitch: data.pitch,
+            speedVertical: data.speedVertical,
+            angular0: data.angular[0]
+        };
+        HUD_LAYOUT.verticalBar.instruments.forEach((instrument, index) => {
+            this.updateVerticalTape(instrument.key, verticalValues[instrument.key], index, instrument.step);
+        });
+        for (const name of ["throttle", "flap"]) {
+            const marker = this.root.querySelector(`[data-marker="${name}"]`);
+            const value = { throttle: data.throttle, flap: data.flap }[name];
+            const x = HUD_LAYOUT.controls[name].x + HUD_LAYOUT.controls.bar.length * value;
+            marker.setAttribute("x1", `${x}`);
+            marker.setAttribute("x2", `${x}`);
+        }
+        const aileronLayout = this.tripletLayout("aileron");
+        const brakeLayout = this.tripletLayout("brake");
+        this.updateTriplet("aileron", data.ailerons, aileronLayout, this.aileronDifferenceScale);
+        this.updateTriplet("brake", data.brakes, brakeLayout, 1);
+        this.updateCommonMarker("aileron", aileronCommon, aileronLayout);
+        this.updateCommonMarker("brake", brakeCommon, brakeLayout);
+    }
+    updateCommonMarker(name, value, layout) {
+        const marker = this.commonMarkers.get(name);
+        const cy = layout.center.y + layout.commonZeroOffsetY - value / HUD_LAYOUT.triplet.commonRange * layout.commonTravel;
+        marker.setAttribute("y1", `${cy}`);
+        marker.setAttribute("y2", `${cy}`);
+    }
+    tripletMagnitude(values) {
+        const x = values[0] - (values[1] + values[2]) / 2;
+        const y = (values[1] - values[2]) * Math.sqrt(3) / 2;
+        return Math.hypot(x, y);
+    }
+    updateTape(name, value, center, step) {
+        const tape = this.bars.get(name);
+        const layout = HUD_LAYOUT.horizontalBar;
+        const base = Math.round(value / step);
+        const fraction = value / step - base;
+        tape.innerHTML = "";
+        for (let i = -2; i <= 2; i++) {
+            const x = center.x + i * layout.tickSpacing - fraction * layout.tickSpacing;
+            const tickValue = (base + i) * step;
+            tape.insertAdjacentHTML("beforeend", `<line x1="${x}" y1="${center.y - layout.halfHeight}" x2="${x}" y2="${center.y + layout.halfHeight}" stroke="var(--hud-grid)"/><text x="${x}" y="${center.y + layout.labelOffsetY}" text-anchor="middle" fill="var(--hud-text)" stroke="none" font-size="6">${this.formatValue(tickValue, step < 1 ? 2 : 0)}</text>`);
+        }
+    }
+    updateVerticalTape(name, value, index, step) {
+        const tape = this.bars.get(name);
+        const layout = HUD_LAYOUT.verticalBar;
+        const x = layout.firstCenter.x + index * layout.gapX;
+        const base = Math.round(value / step);
+        const fraction = value / step - base;
+        tape.innerHTML = "";
+        for (let i = -2; i <= 2; i++) {
+            const y = layout.firstCenter.y - i * layout.tickSpacing + fraction * layout.tickSpacing;
+            const tickValue = (base + i) * step;
+            const x1 = x - layout.tickHalfWidth, x2 = x + layout.tickHalfWidth;
+            tape.insertAdjacentHTML("beforeend", `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="var(--hud-grid)"/><text x="${x2 + layout.labelOffset.x}" y="${y + layout.labelOffset.y}" fill="var(--hud-text)" stroke="none" font-size="6">${this.formatValue(tickValue, step < 1 ? 2 : 0)}</text>`);
+        }
+    }
+    updateVector(name, xValue, yValue) {
+        const vector = this.vectors.get(name);
+        vector.needle.setAttribute("x2", `${vector.x + xValue / vector.scale * vector.radius}`);
+        vector.needle.setAttribute("y2", `${vector.y - yValue / vector.scale * vector.radius}`);
+    }
+    updateTriplet(name, values, layout, differenceScale) {
+        const center = layout.center;
+        const unit = HUD_LAYOUT.triplet.directions.map(angle => ({ x: Math.cos(angle), y: -Math.sin(angle) }));
+        const thumbs = this.sliders.get(name);
+        let dx = 0, dy = 0;
+        for (let i = 0; i < 3; i++) {
+            const slider = layout.centered ? Math.max(-1, Math.min(1, values[i])) : Math.max(0, Math.min(1, values[i]));
+            const displayValue = layout.centered ? Math.sign(slider) * Math.cbrt(Math.abs(slider)) : slider;
+            const distance = displayValue * HUD_LAYOUT.triplet.radius;
+            thumbs[i].setAttribute("cx", `${center.x + unit[i].x * distance}`);
+            thumbs[i].setAttribute("cy", `${center.y + unit[i].y * distance}`);
+            dx += values[i] * unit[i].x;
+            dy += values[i] * unit[i].y;
+        }
+        const scale = HUD_LAYOUT.triplet.differenceScaleFactor / differenceScale;
+        const magnitude = Math.hypot(dx, dy);
+        const maxMagnitude = differenceScale;
+        if (magnitude > maxMagnitude) {
+            dx *= maxMagnitude / magnitude;
+            dy *= maxMagnitude / magnitude;
+        }
+        this.differences.get(name).setAttribute("cx", `${center.x + dx * scale}`);
+        this.differences.get(name).setAttribute("cy", `${center.y + dy * scale}`);
+    }
+}
 async function loadFile(src) {
     return new Promise((resolve, reject) => {
         let xhr = new XMLHttpRequest();
@@ -393,7 +899,7 @@ class AircraftCtrl {
         spinCW: "KeyZ",
         spinCCW: "KeyX",
         flapp: ".KeyF",
-        flapm: "LeftShift+.KeyF",
+        flapm: "ShiftLeft+.KeyF",
         toggleCamlock: ".KeyB",
         fovp: "Digit9",
         fovm: "Digit0",
@@ -585,6 +1091,7 @@ class AircraftCtrl {
     };
     rigid;
     hudDom;
+    hud;
     camera;
     rollXPID;
     rollYPID;
@@ -595,6 +1102,7 @@ class AircraftCtrl {
         this.camCtrl = camCtrl;
         this.canvas = canvas;
         this.hudDom = hudDom;
+        this.hud = new AircraftHud(hudDom);
         this.camera = camera;
         this.rollXPID = new PIDCtrl(0.5, 0.01, 0.2);
         this.rollYPID = new PIDCtrl(0.5, 0.01, 0.2);
@@ -803,104 +1311,35 @@ class AircraftCtrl {
         const _v = Vec4.w.rotate(this.rigid.rotation);
         _v.y = 0;
         _v.norms();
-        const vw = (-this.rigid.velocity.dot(_v))?.toFixed(2);
+        const speedForward = -this.rigid.velocity.dot(_v);
         _v.copy(Vec4.x).rotates(this.rigid.rotation);
         _v.y = 0;
         _v.norms();
-        const vx = this.rigid.velocity.dot(_v)?.toFixed(2);
+        const speedLR = this.rigid.velocity.dot(_v);
         _v.copy(Vec4.z).rotates(this.rigid.rotation);
         _v.y = 0;
         _v.norms();
-        const vz = this.rigid.velocity.dot(_v)?.toFixed(2);
-        const translate = {
-            "en": {
-                "throttle": "Throttle",
-                "aileronA": "Aileron A",
-                "aileronB": "Aileron B",
-                "aileronC": "Aileron C",
-                "gearbrakeA": "Gear Brake A",
-                "gearbrakeB": "Gear Brake B",
-                "gearbrakeC": "Gear Brake C",
-                "flaps": "Flaps",
-                "height": "Height",
-                "pitch": "Pitch",
-                "rollL-R": "Roll L-R",
-                "rollA-K": "Roll A-K",
-                "speedW": "Speed Ahead",
-                "speedY": "Speed Vertical",
-                "speedX": "Speed L-R",
-                "speedZ": "Speed A-K",
-                "wPitch": "ω Pitch",
-                "wYawL-R": "ω Yaw L-R",
-                "wYawA-K": "ω Yaw A-K",
-                "wRollL-R": "ω Roll L-R",
-                "wRollA-K": "ω Roll A-K",
-                "wSpin": "ωSpin",
-                "ctrlMode": `Press ${tesserxel.ui.ctrl.shortcut2text(lang, state.getActionKey("toggleCamlock", "aircraft"))} to toggle`,
-                "camMode": "Camera Control",
-                "aircraftMode": "Aircraft Control",
-                "fov": "Camera FOV",
-            },
-            "zh": {
-                "throttle": "引擎功率",
-                "aileronA": "副翼A",
-                "aileronB": "副翼B",
-                "aileronC": "副翼C",
-                "gearbrakeA": "起落架A刹车",
-                "gearbrakeB": "起落架B刹车",
-                "gearbrakeC": "起落架C刹车",
-                "flaps": "襟翼",
-                "height": "高度",
-                "pitch": "俯仰角",
-                "rollL-R": "左右横滚倾角",
-                "rollA-K": "侧前后横滚倾角",
-                "speedW": "前进速度",
-                "speedY": "垂直速度",
-                "speedX": "左右速度",
-                "speedZ": "侧前后速度",
-                "wPitch": "俯仰角速度",
-                "wYawL-R": "左右偏航角速度",
-                "wYawA-K": "侧前后偏航角速度",
-                "wRollL-R": "左右横滚角速度",
-                "wRollA-K": "侧前后横滚角速度",
-                "wSpin": "自转角速度",
-                "ctrlMode": `按${tesserxel.ui.ctrl.shortcut2text(lang, state.getActionKey("toggleCamlock", "aircraft"))}切换模式`,
-                "camMode": "控制相机",
-                "aircraftMode": "控制飞机",
-                "fov": "相机视野角"
-            }
-        }[lang];
-        this.hudDom.innerHTML =
-            `<table>
-<tr><td>${translate["fov"]}</td><td> ${this.camera.fov}</td></tr>
-<tr><td>${translate["ctrlMode"]}</td><td> ${this.camLock ? translate["aircraftMode"] : translate["camMode"]}</td></tr>
-<tr><td>${translate["throttle"]}</td><td> ${this.controls.throttle.toFixed(3)}</td></tr>
-<tr><td>${translate["aileronA"]}</td><td> ${this.controls.aileron1.toFixed(3)}</td></tr>
-<tr><td>${translate["aileronB"]}</td><td> ${this.controls.aileron2.toFixed(3)}</td></tr>
-<tr><td>${translate["aileronC"]}</td><td> ${this.controls.aileron3.toFixed(3)}</td></tr>
-<tr><td>${translate["gearbrakeA"]}</td><td> ${this.controls.brake1.toFixed(3)}</td></tr>
-<tr><td>${translate["gearbrakeB"]}</td><td> ${this.controls.brake2.toFixed(3)}</td></tr>
-<tr><td>${translate["gearbrakeC"]}</td><td> ${this.controls.brake3.toFixed(3)}</td></tr>
-<tr><td>${translate["flaps"]}</td><td> ${this.controls.flap.toFixed(3)}</td></tr>
-<tr><td></td><td></td></tr>
-<tr><td>${translate["height"]}</td><td> ${this.rigid.position.y.toFixed(2)}</td></tr>
-<tr><td>${translate["pitch"]}</td><td> ${(Math.acos(Vec4.w.rotate(this.rigid.rotation).y) * 180 / Math.PI - 90).toFixed(1)}</td></tr>
-<tr><td>${translate["rollL-R"]}</td><td> ${(Math.acos(Vec4.x.rotate(this.rigid.rotation).y) * 180 / Math.PI - 90).toFixed(1)}</td></tr>
-<tr><td>${translate["rollA-K"]}</td><td> ${(Math.acos(Vec4.z.rotate(this.rigid.rotation).y) * 180 / Math.PI - 90).toFixed(1)}</td></tr>
-<tr><td></td><td></td></tr>
-<td>${translate["speedW"]}</td><td> ${vw}</td></tr>
-<td>${translate["speedY"]}</td><td> ${this.rigid.velocity.y.toFixed(2)}</td></tr>
-<td>${translate["speedX"]}</td><td> ${vx}</td></tr>
-<td>${translate["speedZ"]}</td><td> ${vz}</td></tr>
-<tr><td></td><td></td></tr>
-<td>${translate["wPitch"]}</td><td> ${this.rigid.angularVelocity.clone().rotatesconj(this.rigid.rotation).yw.toFixed(3)}</td></tr>
-<td>${translate["wYawL-R"]}</td><td> ${this.rigid.angularVelocity.clone().rotatesconj(this.rigid.rotation).xw.toFixed(3)}</td></tr>
-<td>${translate["wYawA-K"]}</td><td> ${this.rigid.angularVelocity.clone().rotatesconj(this.rigid.rotation).zw.toFixed(3)}</td></tr>
-<td>${translate["wRollL-R"]}</td><td> ${this.rigid.angularVelocity.clone().rotatesconj(this.rigid.rotation).xy.toFixed(3)}</td></tr>
-<td>${translate["wRollA-K"]}</td><td> ${this.rigid.angularVelocity.clone().rotatesconj(this.rigid.rotation).yz.toFixed(3)}</td></tr>
-<td>${translate["wSpin"]}</td><td> ${this.rigid.angularVelocity.clone().rotatesconj(this.rigid.rotation).yz.toFixed(3)}</td></tr>
-</table>
-`;
+        const speedAK = this.rigid.velocity.dot(_v);
+        const angular = this.rigid.angularVelocity.clone().rotatesconj(this.rigid.rotation);
+        this.hud.update({
+            fov: this.camera.fov,
+            aircraftMode: this.camLock,
+            cameraModeKey: state.getActionKey("toggleCamlock", "aircraft"),
+            cameraPresetKeys: Array.from({ length: 7 }, (_, index) => state.getActionKey(`${index + 1}`, "aircraft.camPos")),
+            throttle: this.controls.throttle,
+            flap: this.controls.flap,
+            ailerons: [this.controls.aileron1, this.controls.aileron2, this.controls.aileron3],
+            brakes: [this.controls.brake1, this.controls.brake2, this.controls.brake3],
+            height: this.rigid.position.y,
+            pitch: Math.acos(Vec4.w.rotate(this.rigid.rotation).y) * 180 / Math.PI - 90,
+            rollLR: Math.acos(Vec4.x.rotate(this.rigid.rotation).y) * 180 / Math.PI - 90,
+            rollAK: Math.acos(Vec4.z.rotate(this.rigid.rotation).y) * 180 / Math.PI - 90,
+            speedForward,
+            speedVertical: this.rigid.velocity.y,
+            speedLR,
+            speedAK,
+            angular: [angular.yw, angular.xw, angular.zw, angular.xy, angular.yz, angular.xz]
+        });
     }
 }
 class PIDCtrl {
