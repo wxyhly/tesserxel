@@ -6,7 +6,268 @@ const Vec4 = tesserxel.math.Vec4;
 const Obj4 = tesserxel.math.Obj4;
 const Bivec = tesserxel.math.Bivec;
 const geomTesseract = new FOUR.TesseractGeometry(1);
-const lang = new URLSearchParams(window.location.search.slice(1)).get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en");
+const lang = (new URLSearchParams(window.location.search.slice(1)).get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en")) as "zh" | "en";
+const DRONE_HUD_COLORS = {
+    text: "#18540f",
+    grid: "#76c96b",
+    marker: "#b4cb01"
+};
+const DRONE_HUD_STROKE_WIDTHS = {
+    thin: 1,
+    marker: 3,
+    motorMarker: 3
+};
+const DRONE_HUD_LAYOUT = {
+    root: { top: 50, left: 0 },
+    viewBox: { width: 300, height: 480 },
+    vertical: {
+        firstCenter: { x: 25, y: 55 },
+        gapX: 48,
+        halfLength: 40,
+        tickSpacing: 12.5,
+        text: { titleY: 12, valueY: 100, size: 8 },
+        instruments: [
+            { key: "height", step: 10, label: { zh: "高度", en: "HEIGHT" } },
+            { key: "verticalSpeed", step: 5, label: { zh: "Y 速度", en: "Y VELOCITY" } },
+            { key: "tiltY", step: 15, label: { zh: "Y 倾角", en: "Y TILT" } }
+        ]
+    },
+    horizontalBar: {
+        halfLength: 55,
+        text: { titleOffsetY: -10, valueOffsetY: -10, size: 8 }
+    },
+    motorTransitionMs: 200,
+    velocity: {
+        firstCenter: { x: 70, y: 124 },
+        gapY: 32,
+        instruments: [
+            { key: "velocityX", step: 2, label: { zh: "X(左右) 速度", en: "X(L-R) VELOCITY" } },
+            { key: "velocityZ", step: 2, label: { zh: "Z(侧前后) 速度", en: "Z(A-K) VELOCITY" } },
+            { key: "velocityW", step: 2, label: { zh: "W(前后) 速度", en: "W(F-B) VELOCITY" } }
+        ]
+    },
+    attitude: {
+        firstCenter: { x: 190, y: 124 },
+        gapY: 32,
+        instruments: [
+            { key: "tiltX", step: 15, label: { zh: "X 倾角", en: "X TILT" } },
+            { key: "tiltZ", step: 15, label: { zh: "Z 倾角", en: "Z TILT" } },
+            { key: "tiltW", step: 15, label: { zh: "W 倾角", en: "W TILT" } }
+        ]
+    },
+    motors: {
+        firstCenter: { x: 70, y: 220 },
+        gapX: 120,
+        gapY: 32,
+        halfLength: 55,
+        limit: 4,
+        pointerHalfWidth: 4,
+        pointerOffsetY: 4,
+        tickHalfHeight: 3,
+        text: { titleOffsetY: -8, scaleOffsetY: 8, valueOffsetY: 14, axisX: 13, size: 7 },
+        groups: [
+            { axis: "X", negative: [0, 1], positive: [2, 3] },
+            { axis: "Z", negative: [4, 5], positive: [6, 7] },
+            { axis: "W", negative: [8, 9], positive: [10, 11] }
+        ]
+    },
+    status: { x: 10, y: 310, lineGap: 14, size: 9 }
+} as const;
+
+type DroneHudData = {
+    height: number;
+    verticalSpeed: number;
+    velocityX: number;
+    velocityZ: number;
+    velocityW: number;
+    tiltX: number;
+    tiltY: number;
+    tiltZ: number;
+    tiltW: number;
+    motors: number[];
+    status: [string, string, string];
+};
+
+class DroneHud {
+    private values = new Map<string, SVGTextElement>();
+    private tapes = new Map<string, SVGGElement>();
+    private motorMarkers = new Map<string, SVGLineElement[]>();
+    private displayedMotors: number[] | null = null;
+    private lastMotorUpdate = 0;
+
+    constructor(root: HTMLElement) {
+        root.style.cssText = `position:fixed;top:${DRONE_HUD_LAYOUT.root.top}px;left:${DRONE_HUD_LAYOUT.root.left}px;z-index:10;pointer-events:none;`;
+        root.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${DRONE_HUD_LAYOUT.viewBox.width} ${DRONE_HUD_LAYOUT.viewBox.height}" width="${DRONE_HUD_LAYOUT.viewBox.width}" aria-label="Drone instruments" style="display:block;overflow:visible;background:transparent;--hud-text:${DRONE_HUD_COLORS.text};--hud-grid:${DRONE_HUD_COLORS.grid};--hud-marker:${DRONE_HUD_COLORS.marker};--hud-stroke-thin:${DRONE_HUD_STROKE_WIDTHS.thin};--hud-stroke-marker:${DRONE_HUD_STROKE_WIDTHS.marker};--hud-stroke-motor-marker:${DRONE_HUD_STROKE_WIDTHS.motorMarker}" font-family="system-ui,sans-serif" fill="var(--hud-text)">${this.createTextDrawings()}${this.createDrawings()}</svg>`;
+        root.querySelectorAll<SVGTextElement>("[data-hud-value]").forEach(element => {
+            this.values.set(element.dataset.hudValue!, element);
+        });
+        for (const instrument of [...DRONE_HUD_LAYOUT.vertical.instruments, ...DRONE_HUD_LAYOUT.velocity.instruments, ...DRONE_HUD_LAYOUT.attitude.instruments]) {
+            this.tapes.set(instrument.key, root.querySelector<SVGGElement>(`[data-hud-tape="${instrument.key}"]`)!);
+        }
+        for (const group of DRONE_HUD_LAYOUT.motors.groups) {
+            for (const sign of ["negative", "positive"] as const) {
+                const key = `${group.axis}${sign}`;
+                this.motorMarkers.set(key, Array.from(root.querySelectorAll<SVGLineElement>(`[data-motor-marker="${key}"]`)));
+            }
+        }
+    }
+
+    private createTextDrawings() {
+        const text = (x: number, y: number, content: string, attrs = "") =>
+            `<text x="${x}" y="${y}" ${attrs}>${content}</text>`;
+        const value = (x: number, y: number, key: string, size: number, anchor = "middle") =>
+            text(x, y, "", `font-size="${size}" text-anchor="${anchor}" data-hud-value="${key}"`);
+        const vertical = DRONE_HUD_LAYOUT.vertical.instruments.map((instrument, index) => {
+            const x = DRONE_HUD_LAYOUT.vertical.firstCenter.x + index * DRONE_HUD_LAYOUT.vertical.gapX;
+            const layout = DRONE_HUD_LAYOUT.vertical.text;
+            return text(x, layout.titleY, instrument.label[lang], `font-size="${layout.size}" text-anchor="middle"`)
+                + value(x, layout.valueY, instrument.key, layout.size);
+        }).join("");
+        const horizontalText = (layout: typeof DRONE_HUD_LAYOUT.velocity | typeof DRONE_HUD_LAYOUT.attitude) =>
+            layout.instruments.map((instrument, index) => {
+                const x = layout.firstCenter.x;
+                const y = layout.firstCenter.y + index * layout.gapY;
+                const bar = DRONE_HUD_LAYOUT.horizontalBar;
+                return text(x - bar.halfLength, y + bar.text.titleOffsetY, instrument.label[lang], `font-size="${bar.text.size}"`)
+                    + value(x + bar.halfLength, y + bar.text.valueOffsetY, instrument.key, bar.text.size, "end");
+            }).join("");
+        const motors = DRONE_HUD_LAYOUT.motors.groups.map((group, row) => {
+            const y = DRONE_HUD_LAYOUT.motors.firstCenter.y + row * DRONE_HUD_LAYOUT.motors.gapY;
+            const textLayout = DRONE_HUD_LAYOUT.motors.text;
+            return text(textLayout.axisX, y + 3, group.axis, `font-size="${textLayout.size}" font-weight="700"`)
+                + (["negative", "positive"] as const).map((sign, column) => {
+                    const x = DRONE_HUD_LAYOUT.motors.firstCenter.x + column * DRONE_HUD_LAYOUT.motors.gapX;
+                    const label = `${group.axis}${sign === "negative" ? "−" : "+"}`;
+                    const key = `${group.axis}${sign}`;
+                    return text(x, y + textLayout.titleOffsetY, label, `font-size="${textLayout.size}" text-anchor="middle"`)
+                        + value(x, y + textLayout.valueOffsetY, `${key}Value`, textLayout.size);
+                }).join("");
+        }).join("");
+        const status = DRONE_HUD_LAYOUT.status;
+        return vertical + horizontalText(DRONE_HUD_LAYOUT.velocity) + horizontalText(DRONE_HUD_LAYOUT.attitude) + motors
+            + text(status.x, status.y, "", `font-size="${status.size}" data-hud-value="status0"`)
+            + text(status.x, status.y + status.lineGap, "", `font-size="${status.size}" data-hud-value="status1"`)
+            + text(status.x, status.y + status.lineGap * 2, "", `font-size="${status.size}" data-hud-value="status2"`);
+    }
+
+    private createDrawings() {
+        const vertical = DRONE_HUD_LAYOUT.vertical.instruments.map((instrument, index) => {
+            const x = DRONE_HUD_LAYOUT.vertical.firstCenter.x + index * DRONE_HUD_LAYOUT.vertical.gapX;
+            const y = DRONE_HUD_LAYOUT.vertical.firstCenter.y;
+            return `<line x1="${x}" y1="${y - DRONE_HUD_LAYOUT.vertical.halfLength}" x2="${x}" y2="${y + DRONE_HUD_LAYOUT.vertical.halfLength}"/><line x1="${x - 4}" y1="${y}" x2="${x + 4}" y2="${y}" stroke="var(--hud-marker)" stroke-width="var(--hud-stroke-marker)"/><g data-hud-tape="${instrument.key}"/>`;
+        }).join("");
+        const horizontal = (layout: typeof DRONE_HUD_LAYOUT.velocity | typeof DRONE_HUD_LAYOUT.attitude) =>
+            layout.instruments.map((instrument, index) => {
+                const x = layout.firstCenter.x;
+                const y = layout.firstCenter.y + index * layout.gapY;
+                const halfLength = DRONE_HUD_LAYOUT.horizontalBar.halfLength;
+                return `<line x1="${x - halfLength}" y1="${y}" x2="${x + halfLength}" y2="${y}"/><line x1="${x}" y1="${y - 4}" x2="${x}" y2="${y + 4}" stroke="var(--hud-marker)" stroke-width="var(--hud-stroke-marker)"/><g data-hud-tape="${instrument.key}"/>`;
+            }).join("");
+        const motors = DRONE_HUD_LAYOUT.motors.groups.map((group, row) => {
+            const y = DRONE_HUD_LAYOUT.motors.firstCenter.y + row * DRONE_HUD_LAYOUT.motors.gapY;
+            return (["negative", "positive"] as const).map((sign, column) => {
+                const x = DRONE_HUD_LAYOUT.motors.firstCenter.x + column * DRONE_HUD_LAYOUT.motors.gapX;
+                const key = `${group.axis}${sign}`;
+                const ticks = [-1, -0.5, 0, 0.5, 1].map(fraction => {
+                    const tx = x + fraction * DRONE_HUD_LAYOUT.motors.halfLength;
+                    const halfHeight = fraction === 0 ? 5 : DRONE_HUD_LAYOUT.motors.tickHalfHeight;
+                    const scaleValue = fraction ** 3 * DRONE_HUD_LAYOUT.motors.limit;
+                    const tickLabel = Number(scaleValue.toPrecision(2)).toString();
+                    return `<line x1="${tx}" y1="${y - halfHeight}" x2="${tx}" y2="${y + halfHeight}" stroke="${fraction === 0 ? "var(--hud-marker)" : "var(--hud-grid)"}"/><text x="${tx}" y="${y + DRONE_HUD_LAYOUT.motors.text.scaleOffsetY}" text-anchor="middle" fill="var(--hud-text)" stroke="none" font-size="5">${tickLabel}</text>`;
+                }).join("");
+                return `<line x1="${x - DRONE_HUD_LAYOUT.motors.halfLength}" y1="${y}" x2="${x + DRONE_HUD_LAYOUT.motors.halfLength}" y2="${y}"/>${ticks}<line data-motor-marker="${key}" y1="${y - DRONE_HUD_LAYOUT.motors.pointerOffsetY}" y2="${y - DRONE_HUD_LAYOUT.motors.pointerOffsetY}" stroke="var(--hud-marker)" stroke-width="var(--hud-stroke-motor-marker)" stroke-linecap="round"/><line data-motor-marker="${key}" y1="${y + DRONE_HUD_LAYOUT.motors.pointerOffsetY}" y2="${y + DRONE_HUD_LAYOUT.motors.pointerOffsetY}" stroke="var(--hud-text)" stroke-width="var(--hud-stroke-motor-marker)" stroke-linecap="round"/>`;
+            }).join("");
+        }).join("");
+        return `<g fill="none" stroke="var(--hud-grid)" stroke-width="var(--hud-stroke-thin)">${vertical}${horizontal(DRONE_HUD_LAYOUT.velocity)}${horizontal(DRONE_HUD_LAYOUT.attitude)}${motors}</g>`;
+    }
+
+    private formatValue(value: number, digits = 1) {
+        return Math.abs(value) < 0.5 * 10 ** -digits ? (0).toFixed(digits) : value.toFixed(digits);
+    }
+
+    update(data: DroneHudData) {
+        const motors = this.transitionMotors(data.motors);
+        for (const [key, value] of Object.entries(data)) {
+            if (typeof value !== "number") continue;
+            const element = this.values.get(key);
+            if (element) element.textContent = this.formatValue(value);
+        }
+        data.status.forEach((text, index) => {
+            this.values.get(`status${index}`)!.textContent = text;
+        });
+
+        for (const instrument of DRONE_HUD_LAYOUT.vertical.instruments) {
+            this.updateVerticalTape(instrument.key, data[instrument.key], instrument.step);
+        }
+        for (const layout of [DRONE_HUD_LAYOUT.velocity, DRONE_HUD_LAYOUT.attitude] as const) {
+            for (const [index, instrument] of layout.instruments.entries()) {
+                const value = data[instrument.key];
+                const x = layout.firstCenter.x;
+                const y = layout.firstCenter.y + index * layout.gapY;
+                this.updateHorizontalTape(instrument.key, value, x, y, DRONE_HUD_LAYOUT.horizontalBar.halfLength, instrument.step);
+            }
+        }
+        for (const group of DRONE_HUD_LAYOUT.motors.groups) {
+            for (const sign of ["negative", "positive"] as const) {
+                const indexes = group[sign];
+                const key = `${group.axis}${sign}`;
+                const markers = this.motorMarkers.get(key)!;
+                const values = [motors[indexes[0]], motors[indexes[1]]];
+                const x = DRONE_HUD_LAYOUT.motors.firstCenter.x + (sign === "negative" ? 0 : DRONE_HUD_LAYOUT.motors.gapX);
+                values.forEach((motor, index) => {
+                    const normalized = Math.max(-1, Math.min(1, motor / DRONE_HUD_LAYOUT.motors.limit));
+                    const markerX = x + Math.sign(normalized) * Math.cbrt(Math.abs(normalized)) * DRONE_HUD_LAYOUT.motors.halfLength;
+                    markers[index].setAttribute("x1", `${markerX - DRONE_HUD_LAYOUT.motors.pointerHalfWidth}`);
+                    markers[index].setAttribute("x2", `${markerX + DRONE_HUD_LAYOUT.motors.pointerHalfWidth}`);
+                });
+                this.values.get(`${key}Value`)!.textContent = values.map(value => this.formatValue(value, 2)).join(" / ");
+            }
+        }
+    }
+
+    private transitionMotors(target: number[]) {
+        const now = performance.now();
+        if (!this.displayedMotors) {
+            this.displayedMotors = [...target];
+            this.lastMotorUpdate = now;
+            return this.displayedMotors;
+        }
+        const amount = 1 - Math.exp(-(now - this.lastMotorUpdate) / (DRONE_HUD_LAYOUT.motorTransitionMs / 3));
+        this.lastMotorUpdate = now;
+        this.displayedMotors = this.displayedMotors.map((value, index) =>
+            value + (target[index] - value) * amount
+        );
+        return this.displayedMotors;
+    }
+
+    private updateHorizontalTape(key: string, value: number, centerX: number, centerY: number, halfLength: number, step: number) {
+        const tape = this.tapes.get(key)!;
+        const base = Math.round(value / step);
+        const fraction = value / step - base;
+        const tickSpacing = halfLength / 2;
+        tape.innerHTML = "";
+        for (let i = -2; i <= 2; i++) {
+            const x = centerX + i * tickSpacing - fraction * tickSpacing;
+            const tickValue = (base + i) * step;
+            tape.insertAdjacentHTML("beforeend", `<line x1="${x}" y1="${centerY - 3}" x2="${x}" y2="${centerY + 3}" stroke="var(--hud-grid)"/><text x="${x}" y="${centerY + 9}" text-anchor="middle" fill="var(--hud-text)" stroke="none" font-size="5">${this.formatValue(tickValue, step < 1 ? 1 : 0)}</text>`);
+        }
+    }
+
+    private updateVerticalTape(key: string, value: number, step: number) {
+        const tape = this.tapes.get(key)!;
+        const index = DRONE_HUD_LAYOUT.vertical.instruments.findIndex(instrument => instrument.key === key);
+        const x = DRONE_HUD_LAYOUT.vertical.firstCenter.x + index * DRONE_HUD_LAYOUT.vertical.gapX;
+        const y = DRONE_HUD_LAYOUT.vertical.firstCenter.y;
+        const base = Math.round(value / step);
+        const fraction = value / step - base;
+        tape.innerHTML = "";
+        for (let i = -2; i <= 2; i++) {
+            const tickY = y - i * DRONE_HUD_LAYOUT.vertical.tickSpacing + fraction * DRONE_HUD_LAYOUT.vertical.tickSpacing;
+            const tickValue = (base + i) * step;
+            tape.insertAdjacentHTML("beforeend", `<line x1="${x - 3}" y1="${tickY}" x2="${x + 3}" y2="${tickY}" stroke="var(--hud-grid)"/><text x="${x + 5}" y="${tickY + 2}" fill="var(--hud-text)" stroke="none" font-size="5">${this.formatValue(tickValue, 0)}</text>`);
+        }
+    }
+}
 
 export namespace drone {
 
@@ -77,7 +338,8 @@ export namespace drone {
         droneP.position.y = 0.2;
         // camera.rotatesb(Bivec.xw.mulf(Math.PI));
         const freeCamCtrl = new tesserxel.ui.ctrl.KeepUpController(camera);
-        const hud = document.createElement("table");
+        const hud = document.createElement("div");
+        const droneHud = new DroneHud(hud);
 
         const droneCtrl = new DroneCtrl(droneP, freeCamCtrl, hud);
         const droneMecanism = new DroneMecanism(droneCtrl);
@@ -85,87 +347,38 @@ export namespace drone {
         app.controllerRegistry.add(freeCamCtrl);
         app.controllerRegistry.add(droneCtrl);
         const coeffFanrotAnimation = 1;
-        const values: HTMLTableCellElement[] = [];
-        const keys = {
-            en: [
-                "Height", "Vertical Speed", "Horizontal Speed",
-                "W Speed", "X Speed", "Z Speed",
-                "X Tilt Angle", "Y Tilt Angle", "Z Tilt Angle", "W Tilt Angle",
-                "X- Motors", "X+ Motors",
-                "Z- Motors", "Z+ Motors",
-                "W- Motors", "W+ Motors",
-                `Press T to Toggle`,
-                `Press B to Toggle`,
-                `Press H to Hide`,
-            ],
-            "zh": [
-                "高度", "垂直速度分量", "水平速度分量",
-                "W速度分量", "X速度分量", "Z速度分量",
-                "X倾角", "Y倾角", "Z倾角", "W倾角",
-                "X-电机", "X+电机",
-                "Z-电机", "Z+电机",
-                "W-电机", "W+电机",
-                "按T切换",
-                "按B切换",
-                "按H隐藏",
-            ],
-
-        }[lang];
         const translate = {
             en: { "Automatic Mode": "Automatic Mode", "Manual Mode": "Manual Mode", "Drone Control": "Drone Control", "Camera Control": "Camera Control" },
             zh: { "Automatic Mode": "自动模式", "Manual Mode": "手动模式", "Drone Control": "控制无人机", "Camera Control": "控制相机" }
         }[lang];
-        const hudItems = keys.length;
-        for (let i = 0; i < hudItems; i++) {
-            const item = document.createElement("tr");
-            const key = document.createElement("td");
-            values[i] = document.createElement("td");
-            key.innerText = keys[i];
-            item.appendChild(key);
-            item.appendChild(values[i]);
-            hud.appendChild(item);
-        }
-        hud.style.position = "fixed";
-        hud.style.top = "100px";
-        hud.style.left = "0px";
-        hud.style.fontSize = "0.8em";
         document.body.appendChild(hud);
-        const defaultKeyConfig = freeCamCtrl.keyConfig;
-        const disableKeyConfig: any = {};
-        for (const k of Object.keys(defaultKeyConfig)) { disableKeyConfig[k] = ''; };
         function run() {
-            values[0].innerText = droneP.position.y.toFixed(1);
-            values[1].innerText = droneP.velocity.y.toFixed(1);
-            values[2].innerText = droneP.velocity.xzw().norm().toFixed(1);
-
-            const _v = Vec4.w.rotate(droneP.rotation); _v.y = 0; _v.norms();
-            values[3].innerText = (-droneP.velocity.dot(_v))?.toFixed(3);
-            _v.copy(Vec4.x).rotates(droneP.rotation); _v.y = 0; _v.norms();
-            values[4].innerText = droneP.velocity.dot(_v)?.toFixed(3);
-            _v.copy(Vec4.z).rotates(droneP.rotation); _v.y = 0; _v.norms();
-            values[5].innerText = (-droneP.velocity.dot(_v))?.toFixed(3);
-            values[6].innerText = (Math.acos(Vec4.x.rotate(droneP.rotation).y) * 180 / Math.PI - 90).toFixed(1);
-            values[7].innerText = (Math.acos(Math.min(Vec4.y.rotate(droneP.rotation).y, 1)) * 180 / Math.PI).toFixed(1);
-            values[8].innerText = (-Math.acos(Vec4.z.rotate(droneP.rotation).y) * 180 / Math.PI + 90).toFixed(1);
-            values[9].innerText = (-Math.acos(Vec4.w.rotate(droneP.rotation).y) * 180 / Math.PI + 90).toFixed(1);
-            values[10].innerText = droneCtrl.motors[0].toFixed(3) + "; " + droneCtrl.motors[1].toFixed(3);
-            values[11].innerText = droneCtrl.motors[2].toFixed(3) + "; " + droneCtrl.motors[3].toFixed(3);
-            values[13].innerText = droneCtrl.motors[4].toFixed(3) + "; " + droneCtrl.motors[5].toFixed(3);
-            values[12].innerText = droneCtrl.motors[6].toFixed(3) + "; " + droneCtrl.motors[7].toFixed(3);
-            values[15].innerText = droneCtrl.motors[8].toFixed(3) + "; " + droneCtrl.motors[9].toFixed(3);
-            values[14].innerText = droneCtrl.motors[10].toFixed(3) + "; " + droneCtrl.motors[11].toFixed(3);
-            values[16].innerText = droneCtrl.automatic ? translate["Automatic Mode"] : translate["Manual Mode"];
-            values[17].innerText = droneCtrl.camLock ? translate["Drone Control"] : translate["Camera Control"];
             app.controllerRegistry.update();
             const st = app.controllerRegistry.states;
             const tr = tesserxel.ui.ctrl.shortcut2text;
-            values[16].previousElementSibling.innerHTML = {zh:`按${tr("zh", st.getActionKey("automaticToggle", "drone"))}切换`,en:`Press ${tr("en", st.getActionKey("automaticToggle", "drone"))} to toggle`}[lang];
-            values[17].previousElementSibling.innerHTML = {zh:`按${tr("zh", st.getActionKey("toggleCamlock", "drone"))}切换`,en:`Press ${tr("en", st.getActionKey("toggleCamlock", "drone"))} to toggle`}[lang];
-            values[18].previousElementSibling.innerHTML = {zh:`按${tr("zh", st.getActionKey("hudToggle", "drone"))}隐藏`,en:`Press ${tr("en", st.getActionKey("hudToggle", "drone"))} to hide`}[lang];
-            for (let i = 0; i < values.length; i++) {
-                if (values[i].innerText === "-0.0") values[i].innerText = "0.0";
-                if (values[i].innerText === "-0.000") values[i].innerText = "0.000";
-            }
+            const degrees = (value: number) => value * 180 / Math.PI;
+            const clampUnit = (value: number) => Math.max(-1, Math.min(1, value));
+            const mode = droneCtrl.automatic ? translate["Automatic Mode"] : translate["Manual Mode"];
+            const controlMode = droneCtrl.camLock ? translate["Drone Control"] : translate["Camera Control"];
+            const modeKey = tr(lang, st.getActionKey("automaticToggle", "drone"));
+            const controlKey = tr(lang, st.getActionKey("toggleCamlock", "drone"));
+            const hudKey = tr(lang, st.getActionKey("hudToggle", "drone"));
+            const status: [string, string, string] = lang === "zh"
+                ? [`按${modeKey}切换：${mode}`, `按${controlKey}切换：${controlMode}`, `按${hudKey}隐藏HUD`]
+                : [`Press ${modeKey}: ${mode}`, `Press ${controlKey}: ${controlMode}`, `Press ${hudKey}: hide HUD`];
+            droneHud.update({
+                height: droneP.position.y,
+                verticalSpeed: droneP.velocity.y,
+                velocityX: droneP.velocity.x,
+                velocityZ: droneP.velocity.z,
+                velocityW: droneP.velocity.w,
+                tiltX: degrees(Math.acos(clampUnit(Vec4.x.rotate(droneP.rotation).y)) - Math.PI / 2),
+                tiltY: degrees(Math.acos(clampUnit(Vec4.y.rotate(droneP.rotation).y))),
+                tiltZ: degrees(Math.PI / 2 - Math.acos(clampUnit(Vec4.z.rotate(droneP.rotation).y))),
+                tiltW: degrees(Math.PI / 2 - Math.acos(clampUnit(Vec4.w.rotate(droneP.rotation).y))),
+                motors: droneCtrl.motors,
+                status
+            });
             engine.update(world, 1 / 60);
             animateDrone();
             if (droneCtrl.camLock) {

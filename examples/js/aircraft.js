@@ -7,12 +7,12 @@ const Bivec = tesserxel.math.Bivec;
 const geomTesseract = new FOUR.TesseractGeometry(1);
 const lang = (new URLSearchParams(window.location.search.slice(1)).get("lang") ?? (navigator.languages.join(",").includes("zh") ? "zh" : "en"));
 const HUD_COLORS = {
-    text: "#d8ffd2",
-    grid: "#76c96b",
-    gridFaint: "#76c96b66",
+    text: "#f4f2ed",
+    grid: "#76c96bee",
+    gridFaint: "#76c96bee",
     accent: "#eaef43",
     marker: "#eaff43",
-    track: "#76c96b88",
+    track: "#76c96bee",
     thumbOutline: "#10200f"
 };
 const HUD_STROKE_WIDTHS = {
@@ -28,10 +28,10 @@ const HUD_LAYOUT = {
         bar: { y: 34, length: 80, markerHalfHeight: 5, endTickHalfHeight: 3 },
         throttle: { x: 10 },
         flap: { x: 110 },
-        text: { titleOffset: { x: 0, y: -16 }, valueOffset: { x: 0, y: -4 }, titleSize: 9, valueSize: 7 }
+        text: { titleOffset: { x: 0, y: -9 }, valueOffset: { x: 60, y: -9 }, titleSize: 9, valueSize: 7 }
     },
     triplet: {
-        firstCenter: { x: 60, y: 96 },
+        firstCenter: { x: 60, y: 86 },
         gapX: 100,
         instances: [
             { key: "aileron", trackStart: -22, commonZeroOffsetY: 0, commonTravel: 20, centered: true },
@@ -48,18 +48,19 @@ const HUD_LAYOUT = {
         commonZeroHalfLength: 4,
         commonRange: 1,
         differenceScaleFactor: 22,
+        transitionMs: 200,
         directions: [0, 2 * Math.PI / 3, 4 * Math.PI / 3],
         text: { titleOffsetY: -38, readoutOffsetY: -26, commonOffsetX: -50, differenceOffsetX: 0, titleSize: 9, readoutSize: 7 }
     },
     verticalBar: {
-        firstCenter: { x: 20, y: 160 },
+        firstCenter: { x: 20, y: 150 },
         gapX: 50,
-        halfLength: 20,
+        halfLength: 30,
         centerHalfWidth: 4,
         tickHalfWidth: 3,
         labelOffset: { x: 2, y: 2 },
         tickSpacing: 10,
-        text: { titleGap: 10, valueGap: 8, titleSize: 7, valueSize: 7 },
+        text: { titleGap: 5, valueGap: 8, titleSize: 7, valueSize: 7 },
         instruments: [
             { key: "height", step: 10 },
             { key: "pitch", step: 15 },
@@ -74,10 +75,10 @@ const HUD_LAYOUT = {
         halfHeight: 4,
         labelOffsetY: 10,
         tickSpacing: 20,
-        text: { titleOffsetY: -12, valueOffsetY: 20, titleSize: 8, valueSize: 7 },
+        text: { yOffset: -12, titleSize: 8, valueSize: 7 },
         instruments: [
-            { key: "speedForward", step: 5 },
-            { key: "angular5", step: 0.5 }
+            { key: "speedForward", step: 5, titleOffsetX: -30, valueOffsetX: 12 },
+            { key: "angular5", step: 0.5, titleOffsetX: -30, valueOffsetX: 12 }
         ]
     },
     vector: {
@@ -122,6 +123,8 @@ class AircraftHud {
     cameraModeHint;
     cameraPresetHint;
     aileronDifferenceScale = 0.01;
+    displayedAilerons = null;
+    lastAileronUpdate = 0;
     tripletLayout(name) {
         const index = HUD_LAYOUT.triplet.instances.findIndex(instance => instance.key === name);
         if (index < 0)
@@ -149,7 +152,7 @@ class AircraftHud {
             difference: lang === "zh" ? "差模" : "DIFF",
             height: lang === "zh" ? "高度" : "ALT",
             pitch: lang === "zh" ? "俯仰角" : "PITCH",
-            speedVertical: lang === "zh" ? "垂直速度" : "VERTICAL SPEED",
+            speedVertical: lang === "zh" ? "高度速度" : "ALT SPEED",
             angular0: lang === "zh" ? "俯仰角速度" : "PITCH RATE",
             speedForward: lang === "zh" ? "前进速度" : "AHEAD VELOCITY",
             angular5: lang === "zh" ? "自转角速度" : "SPIN RATE",
@@ -189,8 +192,8 @@ class AircraftHud {
             const x = HUD_LAYOUT.horizontalBar.firstCenter.x + index * HUD_LAYOUT.horizontalBar.gapX;
             const y = HUD_LAYOUT.horizontalBar.firstCenter.y;
             const layout = HUD_LAYOUT.horizontalBar.text;
-            return text(x, y + layout.titleOffsetY, labels[instrument.key], `font-size="${layout.titleSize}" text-anchor="middle"`)
-                + value(x, y + layout.valueOffsetY, instrument.key, layout.valueSize);
+            return text(x + instrument.titleOffsetX, y + layout.yOffset, labels[instrument.key], `font-size="${layout.titleSize}"`)
+                + text(x + instrument.valueOffsetX, y + layout.yOffset, "", `font-size="${layout.valueSize}" text-anchor="start" data-value="${instrument.key}"`);
         }).join("");
         const vectors = HUD_LAYOUT.vector.instruments.map((instrument, index) => {
             const column = index % HUD_LAYOUT.vector.columns;
@@ -293,8 +296,7 @@ ${this.createTextDrawings()}
         this.cameraGroup = root.querySelector("[data-camera]");
         this.cameraModeHint = root.querySelector("[data-camera-mode-hint]");
         this.cameraPresetHint = root.querySelector("[data-camera-preset-hint]");
-        for (const element of root.querySelectorAll("[data-value]"))
-            this.values.set(element.dataset.value, element);
+        root.querySelectorAll("[data-value]").forEach(element => this.values.set(element.dataset.value, element));
         for (const instrument of [...HUD_LAYOUT.verticalBar.instruments, ...HUD_LAYOUT.horizontalBar.instruments]) {
             this.bars.set(instrument.key, root.querySelector(`[data-tape="${instrument.key}"]`));
         }
@@ -390,10 +392,11 @@ ${this.createTextDrawings()}
         set("height", this.formatValue(data.height, 1));
         set("speedForward", this.formatValue(data.speedForward, 1));
         set("speedVertical", this.formatValue(data.speedVertical, 1));
-        const aileronCommon = (data.ailerons[0] + data.ailerons[1] + data.ailerons[2]) / 3;
+        const ailerons = this.transitionAilerons(data.ailerons);
+        const aileronCommon = (ailerons[0] + ailerons[1] + ailerons[2]) / 3;
         const brakeCommon = (data.brakes[0] + data.brakes[1] + data.brakes[2]) / 3;
         set("aileronCommon", this.formatValue(aileronCommon, 1));
-        set("aileronDifference", this.formatValue(this.tripletMagnitude(data.ailerons), 3));
+        set("aileronDifference", this.formatValue(this.tripletMagnitude(ailerons), 3));
         set("brakeCommon", this.formatValue(brakeCommon, 2));
         set("brakeDifference", this.formatValue(this.tripletMagnitude(data.brakes), 2));
         set("pitch", this.formatValue(data.pitch, 1) + "°");
@@ -440,10 +443,23 @@ ${this.createTextDrawings()}
         }
         const aileronLayout = this.tripletLayout("aileron");
         const brakeLayout = this.tripletLayout("brake");
-        this.updateTriplet("aileron", data.ailerons, aileronLayout, this.aileronDifferenceScale);
+        this.updateTriplet("aileron", ailerons, aileronLayout, this.aileronDifferenceScale);
         this.updateTriplet("brake", data.brakes, brakeLayout, 1);
         this.updateCommonMarker("aileron", aileronCommon, aileronLayout);
         this.updateCommonMarker("brake", brakeCommon, brakeLayout);
+    }
+    transitionAilerons(target) {
+        const now = performance.now();
+        if (!this.displayedAilerons) {
+            this.displayedAilerons = [...target];
+            this.lastAileronUpdate = now;
+            return this.displayedAilerons;
+        }
+        const duration = HUD_LAYOUT.triplet.transitionMs;
+        const amount = 1 - Math.exp(-(now - this.lastAileronUpdate) / (duration / 3));
+        this.lastAileronUpdate = now;
+        this.displayedAilerons = this.displayedAilerons.map((value, index) => value + (target[index] - value) * amount);
+        return this.displayedAilerons;
     }
     updateCommonMarker(name, value, layout) {
         const marker = this.commonMarkers.get(name);
