@@ -78,19 +78,29 @@ class DroneHud {
     motorMarkers = new Map();
     displayedMotors = null;
     lastMotorUpdate = 0;
+    svg;
+    stereoMirror;
     constructor(root) {
         root.style.cssText = `position:fixed;top:${DRONE_HUD_LAYOUT.root.top}px;left:${DRONE_HUD_LAYOUT.root.left}px;z-index:10;pointer-events:none;`;
         root.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${DRONE_HUD_LAYOUT.viewBox.width} ${DRONE_HUD_LAYOUT.viewBox.height}" width="${DRONE_HUD_LAYOUT.viewBox.width}" aria-label="Drone instruments" style="display:block;overflow:visible;background:transparent;--hud-text:${DRONE_HUD_COLORS.text};--hud-grid:${DRONE_HUD_COLORS.grid};--hud-marker:${DRONE_HUD_COLORS.marker};--hud-stroke-thin:${DRONE_HUD_STROKE_WIDTHS.thin};--hud-stroke-marker:${DRONE_HUD_STROKE_WIDTHS.marker};--hud-stroke-motor-marker:${DRONE_HUD_STROKE_WIDTHS.motorMarker}" font-family="system-ui,sans-serif" fill="var(--hud-text)">${this.createTextDrawings()}${this.createDrawings()}</svg>`;
-        root.querySelectorAll("[data-hud-value]").forEach(element => {
+        this.svg = root.querySelector("svg");
+        this.stereoMirror = this.svg.cloneNode(true);
+        this.stereoMirror.style.position = "fixed";
+        this.stereoMirror.style.top = `${DRONE_HUD_LAYOUT.root.top}px`;
+        this.stereoMirror.style.left = `${DRONE_HUD_LAYOUT.root.left}px`;
+        this.stereoMirror.style.display = "none";
+        this.stereoMirror.style.pointerEvents = "none";
+        root.appendChild(this.stereoMirror);
+        this.svg.querySelectorAll("[data-hud-value]").forEach(element => {
             this.values.set(element.dataset.hudValue, element);
         });
         for (const instrument of [...DRONE_HUD_LAYOUT.vertical.instruments, ...DRONE_HUD_LAYOUT.velocity.instruments, ...DRONE_HUD_LAYOUT.attitude.instruments]) {
-            this.tapes.set(instrument.key, root.querySelector(`[data-hud-tape="${instrument.key}"]`));
+            this.tapes.set(instrument.key, this.svg.querySelector(`[data-hud-tape="${instrument.key}"]`));
         }
         for (const group of DRONE_HUD_LAYOUT.motors.groups) {
             for (const sign of ["negative", "positive"]) {
                 const key = `${group.axis}${sign}`;
-                this.motorMarkers.set(key, Array.from(root.querySelectorAll(`[data-motor-marker="${key}"]`)));
+                this.motorMarkers.set(key, Array.from(this.svg.querySelectorAll(`[data-motor-marker="${key}"]`)));
             }
         }
     }
@@ -160,7 +170,7 @@ class DroneHud {
     formatValue(value, digits = 1) {
         return Math.abs(value) < 0.5 * 10 ** -digits ? (0).toFixed(digits) : value.toFixed(digits);
     }
-    update(data) {
+    update(data, stereo, stereoOffsetX) {
         const motors = this.transitionMotors(data.motors);
         for (const [key, value] of Object.entries(data)) {
             if (typeof value !== "number")
@@ -199,6 +209,9 @@ class DroneHud {
                 this.values.get(`${key}Value`).textContent = values.map(value => this.formatValue(value, 2)).join(" / ");
             }
         }
+        this.stereoMirror.innerHTML = this.svg.innerHTML;
+        this.stereoMirror.style.left = `${DRONE_HUD_LAYOUT.root.left + stereoOffsetX}px`;
+        this.stereoMirror.style.display = stereo ? "block" : "none";
     }
     transitionMotors(target) {
         const now = performance.now();
@@ -322,7 +335,7 @@ export var drone;
                 tiltW: degrees(Math.PI / 2 - Math.acos(clampUnit(Vec4.w.rotate(droneP.rotation).y))),
                 motors: droneCtrl.motors,
                 status
-            });
+            }, app.renderer.core.getStereoMode(), canvas.getBoundingClientRect().width / 2);
             engine.update(world, 1 / 60);
             animateDrone();
             if (droneCtrl.camLock) {

@@ -240,7 +240,7 @@ export class TetraIndexMesh implements TetraIndexMeshData {
         return res;
     }
     toNonIndexMesh() {
-        let count = this.position.length << 2;
+        let count = this.positionIndex.length << 2;
         let out = new TetraMesh({
             position: new Float32Array(count),
             count: count >> 4

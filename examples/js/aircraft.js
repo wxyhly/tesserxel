@@ -95,9 +95,9 @@ const HUD_LAYOUT = {
         text: { titleOffsetY: -36, valueOffsetY: 37, titleSize: 7, valueSize: 7 },
         instruments: [
             { key: "attitude", scale: 15, ticks: [5, 10, 15] },
-            { key: "roll", scale: 0.3, ticks: [0.1, 0.2, 0.3] },
+            { key: "roll", scale: 0.15, ticks: [0.05, 0.1, 0.15] },
             { key: "sideSpeed", scale: 12, ticks: [4, 8, 12] },
-            { key: "yaw", scale: 0.3, ticks: [0.1, 0.2, 0.3] }
+            { key: "yaw", scale: 0.06, ticks: [0.02, 0.04, 0.06] }
         ]
     },
     cameraText: {
@@ -122,9 +122,13 @@ class AircraftHud {
     cameraGroup;
     cameraModeHint;
     cameraPresetHint;
+    svg;
+    stereoMirror;
     aileronDifferenceScale = 0.01;
     displayedAilerons = null;
     lastAileronUpdate = 0;
+    displayedBrakes = null;
+    lastBrakeUpdate = 0;
     tripletLayout(name) {
         const index = HUD_LAYOUT.triplet.instances.findIndex(instance => instance.key === name);
         if (index < 0)
@@ -289,14 +293,22 @@ class AircraftHud {
     constructor(root) {
         this.root = root;
         root.style.cssText = `position:fixed;top:${HUD_LAYOUT.root.top}px;left:${HUD_LAYOUT.root.left}px;z-index:10;pointer-events:none;`;
-        root.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${HUD_LAYOUT.viewBox.width} ${HUD_LAYOUT.viewBox.height}" width="100%" aria-label="Aircraft instruments" style="display:block;overflow:visible;background:transparent;--hud-text:${HUD_COLORS.text};--hud-grid:${HUD_COLORS.grid};--hud-grid-faint:${HUD_COLORS.gridFaint};--hud-accent:${HUD_COLORS.accent};--hud-marker:${HUD_COLORS.marker};--hud-track:${HUD_COLORS.track};--hud-thumb-outline:${HUD_COLORS.thumbOutline};--hud-stroke-thin:${HUD_STROKE_WIDTHS.thin};--hud-stroke-thick:${HUD_STROKE_WIDTHS.thick};--hud-stroke-triplet-track:${HUD_STROKE_WIDTHS.tripletTrack};--hud-stroke-triplet-difference:${HUD_STROKE_WIDTHS.tripletDifference}" font-family="system-ui,sans-serif" fill="var(--hud-text)">
+        root.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${HUD_LAYOUT.viewBox.width} ${HUD_LAYOUT.viewBox.height}" width="${HUD_LAYOUT.viewBox.width}px" aria-label="Aircraft instruments" style="display:block;overflow:visible;background:transparent;--hud-text:${HUD_COLORS.text};--hud-grid:${HUD_COLORS.grid};--hud-grid-faint:${HUD_COLORS.gridFaint};--hud-accent:${HUD_COLORS.accent};--hud-marker:${HUD_COLORS.marker};--hud-track:${HUD_COLORS.track};--hud-thumb-outline:${HUD_COLORS.thumbOutline};--hud-stroke-thin:${HUD_STROKE_WIDTHS.thin};--hud-stroke-thick:${HUD_STROKE_WIDTHS.thick};--hud-stroke-triplet-track:${HUD_STROKE_WIDTHS.tripletTrack};--hud-stroke-triplet-difference:${HUD_STROKE_WIDTHS.tripletDifference}" font-family="system-ui,sans-serif" fill="var(--hud-text)">
 ${this.createTextDrawings()}
 </svg>`;
+        this.svg = root.querySelector("svg");
+        this.stereoMirror = this.svg.cloneNode(true);
+        this.stereoMirror.style.position = "fixed";
+        this.stereoMirror.style.top = `${HUD_LAYOUT.root.top}px`;
+        this.stereoMirror.style.left = `${HUD_LAYOUT.root.left}px`;
+        this.stereoMirror.style.display = "none";
+        this.stereoMirror.style.pointerEvents = "none";
+        root.appendChild(this.stereoMirror);
         this.aircraftGroup = root.querySelector("[data-aircraft]");
         this.cameraGroup = root.querySelector("[data-camera]");
         this.cameraModeHint = root.querySelector("[data-camera-mode-hint]");
         this.cameraPresetHint = root.querySelector("[data-camera-preset-hint]");
-        root.querySelectorAll("[data-value]").forEach(element => this.values.set(element.dataset.value, element));
+        this.svg.querySelectorAll("[data-value]").forEach(element => this.values.set(element.dataset.value, element));
         for (const instrument of [...HUD_LAYOUT.verticalBar.instruments, ...HUD_LAYOUT.horizontalBar.instruments]) {
             this.bars.set(instrument.key, root.querySelector(`[data-tape="${instrument.key}"]`));
         }
@@ -393,12 +405,13 @@ ${this.createTextDrawings()}
         set("speedForward", this.formatValue(data.speedForward, 1));
         set("speedVertical", this.formatValue(data.speedVertical, 1));
         const ailerons = this.transitionAilerons(data.ailerons);
+        const brakes = this.transitionBrakes(data.brakes);
         const aileronCommon = (ailerons[0] + ailerons[1] + ailerons[2]) / 3;
-        const brakeCommon = (data.brakes[0] + data.brakes[1] + data.brakes[2]) / 3;
+        const brakeCommon = (brakes[0] + brakes[1] + brakes[2]) / 3;
         set("aileronCommon", this.formatValue(aileronCommon, 1));
         set("aileronDifference", this.formatValue(this.tripletMagnitude(ailerons), 3));
         set("brakeCommon", this.formatValue(brakeCommon, 2));
-        set("brakeDifference", this.formatValue(this.tripletMagnitude(data.brakes), 2));
+        set("brakeDifference", this.formatValue(this.tripletMagnitude(brakes), 2));
         set("pitch", this.formatValue(data.pitch, 1) + "°");
         set("angular0", this.formatValue(data.angular[0], 3));
         set("angular5", this.formatValue(data.angular[5], 3));
@@ -444,9 +457,12 @@ ${this.createTextDrawings()}
         const aileronLayout = this.tripletLayout("aileron");
         const brakeLayout = this.tripletLayout("brake");
         this.updateTriplet("aileron", ailerons, aileronLayout, this.aileronDifferenceScale);
-        this.updateTriplet("brake", data.brakes, brakeLayout, 1);
+        this.updateTriplet("brake", brakes, brakeLayout, 1);
         this.updateCommonMarker("aileron", aileronCommon, aileronLayout);
         this.updateCommonMarker("brake", brakeCommon, brakeLayout);
+        this.stereoMirror.innerHTML = this.svg.innerHTML;
+        this.stereoMirror.style.left = `${HUD_LAYOUT.root.left + data.stereoOffsetX}px`;
+        this.stereoMirror.style.display = data.stereo ? "block" : "none";
     }
     transitionAilerons(target) {
         const now = performance.now();
@@ -460,6 +476,19 @@ ${this.createTextDrawings()}
         this.lastAileronUpdate = now;
         this.displayedAilerons = this.displayedAilerons.map((value, index) => value + (target[index] - value) * amount);
         return this.displayedAilerons;
+    }
+    transitionBrakes(target) {
+        const now = performance.now();
+        if (!this.displayedBrakes) {
+            this.displayedBrakes = [...target];
+            this.lastBrakeUpdate = now;
+            return this.displayedBrakes;
+        }
+        const duration = HUD_LAYOUT.triplet.transitionMs;
+        const amount = 1 - Math.exp(-(now - this.lastBrakeUpdate) / (duration / 3));
+        this.lastBrakeUpdate = now;
+        this.displayedBrakes = this.displayedBrakes.map((value, index) => value + (target[index] - value) * amount);
+        return this.displayedBrakes;
     }
     updateCommonMarker(name, value, layout) {
         const marker = this.commonMarkers.get(name);
@@ -566,6 +595,8 @@ export var aircraft;
         camera.near = 0.2;
         camera.far = 5000;
         camera.fov = 90;
+        // const skyBox = new SkylineBox();
+        // scene.skyBox = skyBox;
         scene.skyBox = new FOUR.SimpleSkyBox();
         scene.skyBox.setOpacity(0.05);
         scene.add(new FOUR.AmbientLight(0.2));
@@ -652,7 +683,7 @@ export var aircraft;
         hud.style.left = "0px";
         hud.style.fontSize = "0.6em";
         hud.style.color = "#FFF";
-        const aircraftCtrl = new AircraftCtrl(aircraftP, freeCamCtrl, canvas, hud, camera);
+        const aircraftCtrl = new AircraftCtrl(aircraftP, freeCamCtrl, canvas, hud, camera, () => app.renderer.core.getStereoMode());
         const aircraftMecanism = new AircraftMecanism(aircraftCtrl);
         world.add(aircraftP, aircraftMecanism);
         app.controllerRegistry.add(freeCamCtrl);
@@ -988,6 +1019,10 @@ class AircraftCtrl {
                     "title": { "zh": "逆时针自转", "en": "Spin Counterclockwise" },
                     "key": "KeyX"
                 },
+                "fastturn": {
+                    "title": { "zh": "按住快速转向", "en": "Fast Turn (Hold on)" },
+                    "key": "ShiftLeft"
+                },
                 "flapp": {
                     "title": { "zh": "襟翼增加", "en": "Flaps Increase" },
                     "key": "KeyF",
@@ -1109,17 +1144,19 @@ class AircraftCtrl {
     hudDom;
     hud;
     camera;
+    isStereo;
     rollXPID;
     rollYPID;
     dt = 1 / 60;
     brake = false;
-    constructor(rigid, camCtrl, canvas, hudDom, camera) {
+    constructor(rigid, camCtrl, canvas, hudDom, camera, isStereo) {
         this.rigid = rigid;
         this.camCtrl = camCtrl;
         this.canvas = canvas;
         this.hudDom = hudDom;
         this.hud = new AircraftHud(hudDom);
         this.camera = camera;
+        this.isStereo = isStereo;
         this.rollXPID = new PIDCtrl(0.5, 0.01, 0.2);
         this.rollYPID = new PIDCtrl(0.5, 0.01, 0.2);
     }
@@ -1159,11 +1196,11 @@ class AircraftCtrl {
         if (this.camLock) {
             const throttleDelta = 0.03;
             const elevatorDelta = 0.003;
-            const aileronDelta = 0.003;
+            const aileronDelta = state.isActionActive("fastturn", "aircraft") ? 0.01 : 0.003;
             const brakeDelta = 0.08;
             const rudderDelta = 0.1;
             const flapDelta = 0.2;
-            const spinDelta = 1;
+            const spinDelta = state.isActionActive("fastturn", "aircraft") ? 4 : 1;
             if (state.isActionActive("throttlep", "aircraft")) {
                 this.controls.throttle += throttleDelta;
             }
@@ -1340,6 +1377,8 @@ class AircraftCtrl {
         this.hud.update({
             fov: this.camera.fov,
             aircraftMode: this.camLock,
+            stereo: this.isStereo(),
+            stereoOffsetX: this.canvas.getBoundingClientRect().width / 2,
             cameraModeKey: state.getActionKey("toggleCamlock", "aircraft"),
             cameraPresetKeys: Array.from({ length: 7 }, (_, index) => state.getActionKey(`${index + 1}`, "aircraft.camPos")),
             throttle: this.controls.throttle,
@@ -1476,6 +1515,291 @@ class AircraftMecanism extends tesserxel.physics.Force {
         // total apply
         this.rigid.force.adds(this.localForce.rotates(this.rigid.rotation));
         this.rigid.torque.adds(this.localTorque.rotates(this.rigid.rotation));
+    }
+}
+class SkylineBox extends tesserxel.four.SkyBox {
+    bufferSize = 4;
+    constructor() {
+        super();
+        this.jsBuffer = new Float32Array(this.bufferSize);
+    }
+    getShaderCode() {
+        return {
+            code: `
+        @group(1) @binding(0) var<uniform> camMat: tsxAffineMat;
+        @group(1) @binding(1) var<uniform> sunDir: vec4f;
+        ${tesserxel.four.SkyBox.commonCode}
+// Ported from https://www.shadertoy.com/view/XtsSWs
+
+const WORLD_SCALE: f32 = 54.0;            // 1 cell = 10 world units
+const PI:        f32 = 3.14159265;
+const SMALL_VAL: f32 = 0.000625 * WORLD_SCALE;   // = 0.00625
+const MAX_DEPTH: f32 = 45.0 * WORLD_SCALE;        // = 450
+const VOXEL_PAD: f32 = 0.4  * WORLD_SCALE;        // = 2.0  (≈20m 街道)
+
+// --- city cluster knobs ------------------------------------------------------
+const CITY_SCALE:     f32 = 0.025;  // 团 ≈ 40 cell ≈ 4 km
+const CITY_THRESHOLD: f32 = 0.35;
+const CITY_RAMP:      f32 = 0.30;
+const CITY_CORE:      f32 = 24.0 * WORLD_SCALE;   // force dense city within this radius of origin
+
+// ---------------------------------------------------------------- hashes ----
+fn hash11(a: f32) -> f32 {
+    return fract(sin(a) * 10403.9);
+}
+
+fn hash31(v: vec3f) -> vec3f {
+    return vec3f(
+        fract(sin(dot(v, vec3f(12.9898, 78.233, 37.719))) * 43758.5453),
+        fract(sin(dot(v, vec3f(39.346, 11.135, 83.155))) * 24634.6345),
+        fract(sin(dot(v, vec3f(73.156, 52.235,  9.151))) * 43758.5453)
+    );
+}
+
+// cheap scalar hash (used by value noise + block build flip)
+fn hash13i(ix: i32, iy: i32, iz: i32) -> f32 {
+    var h = bitcast<u32>(ix) * 374761393u
+          + bitcast<u32>(iy) * 668265263u
+          + bitcast<u32>(iz) * 2654435761u;
+    h = (h ^ (h >> 13u)) * 1274126177u;
+    // 24-bit mantissa range -> exact f32 in [0,1)
+    return f32(h & 0xFFFFFFu) * (1.0 / 16777216.0);
+}
+
+// Same signature, same semantics (trilinear value noise).
+// 8 corner hashes are now ~15 ALU each instead of ~25, no transcendental.
+fn valueNoise3D(p: vec3f) -> f32 {
+    // let fi = floor(p);
+    // let i  = vec3i(i32(fi.x), i32(fi.y), i32(fi.z));
+    // let f  = p - fi;
+    // let u  = f * f * (3.0 - 2.0 * f);
+
+    // let n000 = hash13i(i.x,     i.y,     i.z    );
+    // let n100 = hash13i(i.x + 1, i.y,     i.z    );
+    // let n010 = hash13i(i.x,     i.y + 1, i.z    );
+    // let n110 = hash13i(i.x + 1, i.y + 1, i.z    );
+    // let n001 = hash13i(i.x,     i.y,     i.z + 1);
+    // let n101 = hash13i(i.x + 1, i.y,     i.z + 1);
+    // let n011 = hash13i(i.x,     i.y + 1, i.z + 1);
+    // let n111 = hash13i(i.x + 1, i.y + 1, i.z + 1);
+
+    // let nx00 = mix(n000, n100, u.x);
+    // let nx10 = mix(n010, n110, u.x);
+    // let nx01 = mix(n001, n101, u.x);
+    // let nx11 = mix(n011, n111, u.x);
+    // let nxy0 = mix(nx00, nx10, u.y);
+    // let nxy1 = mix(nx01, nx11, u.y);
+    return 0.5;//mix(nxy0, nxy1, u.z);
+}
+
+// ------------------------------------------------------ distance functions --
+fn sdBox4(p: vec4f, r: vec4f) -> f32 {
+    let d = abs(p) - r;
+    return min(max(max(d.x, d.y), max(d.z, d.w)), 0.0) + length(max(d, vec4f(0.0)));
+}
+
+// One 4D city block.  p.x, p.z, p.w are in [0,1); p.y is absolute height.
+fn cityBlock(p: vec4f, blk: vec3f) -> f32 {
+    // ---- density field (soft city edges) ----
+    let centerBias = 1.0 - smoothstep(0.0, CITY_CORE, length(blk));
+    let mask = valueNoise3D(blk * CITY_SCALE);
+
+    // 0 = empty field, 1 = dense city.  Origin is forced dense via centerBias.
+    let density = clamp(
+        max(smoothstep(CITY_THRESHOLD, CITY_THRESHOLD + CITY_RAMP, mask), centerBias),
+        0.0, 1.0
+    );
+
+    // ---- per-block build decision ----
+    // Blocks that are not built return only the ground plane, so the
+    // raymarcher flies straight through them.
+        let bi = vec3i(i32(blk.x), i32(blk.y), i32(blk.z));
+    let blockRand = hash13i(bi.x + 123, bi.y + 568, bi.z + 90);
+    if (blockRand > density) {
+        return 1e10;
+    }
+
+    // ---- build a normal-height building ----
+    // Height is NOT multiplied by density; sparse edges just means fewer
+    // blocks are built, not shorter buildings.
+    let r  = hash31(blk);
+    let r2 = hash31(blk + vec3f(37.0, 11.0, 5.0));
+
+    var baseRad = 0.07 + r.x * 0.09;
+    baseRad = floor(baseRad * 20.0 + 0.5) / 20.0;
+    let cx = p.x - 0.5;
+    let cz = p.z - 0.5;
+    let cw = p.w - 0.5;
+
+    // taller buildings near the origin of the grid (natural skyline)
+    let downtown = clamp(3.0 / (length(blk) + 1.0), 0.10, 1.0);
+
+    // main tower — floor unit is 0.05, "+ 0.05" guarantees at least 1 floor,
+    // and downtown >= 0.10 already lifts the base to a couple of floors.
+    var h = (1.50 + r.y * r.z * 7.30) * downtown;
+    h = floor(h * 20.0) / 20.0 + 0.10;   // >= 2 floors
+    let hh = h * 0.5;
+
+    var d = sdBox4(vec4f(cx, p.y - hh, cz, cw),
+                   vec4f(baseRad, hh, baseRad, baseRad));
+
+    // upper setback
+    var h2 = max(0.0, r2.x * r2.y * 1.6 - 0.5) * downtown;
+    h2 = floor(h2 * 20.0) / 20.0;
+    if (h2 > 0.02) {
+        let hh2 = h2 * 0.5;
+        let rr  = baseRad * (0.40 + 0.30 * r2.z);
+        d = min(d, sdBox4(vec4f(cx, p.y - (h + hh2), cz, cw),
+                          vec4f(rr, hh2, rr, rr)));
+    }
+
+    // little roof box
+    let ox = (r2.y - 0.5) * baseRad * 1.2;
+    let oz = (r2.z - 0.5) * baseRad * 1.2;
+    let ow = (r.x  - 0.5) * baseRad * 1.2;
+    let rh = 0.02 + r2.x * 0.05;
+    d = min(d, sdBox4(vec4f(cx - ox, p.y - (h + h2 + rh), cz - oz, cw - ow),
+                      vec4f(baseRad * 0.22, rh, baseRad * 0.22, baseRad * 0.22)));
+
+    // ground hyperplane
+    d = min(d, p.y);
+
+    return d;
+}
+
+fn distanceToObject(p: vec4f) -> f32 {
+    let s = p / WORLD_SCALE;                          // world -> cell space
+    let blk   = vec3f(floor(s.x), floor(s.z), floor(s.w));
+    let local = vec4f(fract(s.x), s.y, fract(s.z), fract(s.w));
+    return cityBlock(local, blk) * WORLD_SCALE;      // cell -> world space
+}
+
+// ------------------------------------------------- 4D voxel walk limiter ----
+fn axisLimit(p: f32, d: f32) -> f32 {
+    let f = fract(p / WORLD_SCALE);                   // 世界坐标 -> cell 内小数
+    if (d >  1e-6) { return (1.0 - f) * WORLD_SCALE / d; }
+    if (d < -1e-6) { return -f * WORLD_SCALE / d; }
+    return 1e20;
+}
+
+fn voxelLimit(p: vec4f, rd: vec4f) -> f32 {
+    var m = axisLimit(p.x, rd.x);
+    m = min(m, axisLimit(p.z, rd.z));
+    m = min(m, axisLimit(p.w, rd.w));
+    return m;
+}
+
+// ------------------------------------------------------------------ sky -----
+fn skyColor(rd: vec4f) -> vec3f {
+    let sunDir = normalize(vec4f(0.90, 1.00, 1.00, 0.45));
+
+    let t = clamp(rd.y * 1.2 + 0.25, 0.0, 1.0);
+    var c = mix(vec3f(0.82, 0.80, 0.76), vec3f(0.24, 0.44, 0.90), t);
+
+    let s = max(dot(rd, sunDir), 0.0);
+    c += vec3f(1.00, 0.92, 0.72) * pow(s, 900.0) * 12.0;
+    c += vec3f(1.00, 0.80, 0.55) * pow(s,  14.0) *  0.30;
+    return c;
+}
+
+fn toDepth(t: f32) -> f32 {
+    let near = 0.25;
+    let far  = 5000.0;                 // = 45.0
+    let z    = max(t, near);
+    return clamp((far / (far - near)) * (1.0 - near / z), 0.0, 1.0);
+}
+
+fn traceRay(ro: vec4f, rd: vec4f) -> fOut {
+    var t   = 0.05;
+    var pos = ro;
+    var hit = false;
+
+    // ---- march the 4D distance field ----
+    for (var i: i32 = 0; i < 196; i = i + 1) {
+        pos = ro + rd * t;
+        let d = distanceToObject(pos);
+        if (d < SMALL_VAL) { hit = true; break; }
+
+        var walk = max(d, 0.0008 * WORLD_SCALE);
+        walk = min(walk, voxelLimit(pos, rd) + VOXEL_PAD);
+        t = t + walk;
+
+        if (t > MAX_DEPTH) { break; }
+    }
+
+    // ---- miss: sky at far plane ----
+    if (!hit) {
+        var out: fOut;
+        out.color = vec4f(skyColor(rd), 0.05);   // linear, no gamma
+        out.depth = 0.99999;
+        return out;
+    }
+
+    // ---- normal by forward differences ----
+    let d0 = distanceToObject(pos);
+    let e  = SMALL_VAL;
+    let n = normalize(vec4f(
+        d0 - distanceToObject(pos - vec4f(e, 0.0, 0.0, 0.0)),
+        d0 - distanceToObject(pos - vec4f(0.0, e, 0.0, 0.0)),
+        d0 - distanceToObject(pos - vec4f(0.0, 0.0, e, 0.0)),
+        d0 - distanceToObject(pos - vec4f(0.0, 0.0, 0.0, e))
+    ));
+
+    // AO / soft-shadow intentionally disabled
+    let ao     = 1.0;
+    let shadow = 1.0;
+
+    // ---- surface colour ----
+    let cs  = pos / WORLD_SCALE;                       // world -> cell space
+    let blk = vec3f(floor(cs.x), floor(cs.z), floor(cs.w));
+    let r   = hash31(blk);
+    var albedo = vec3f(0.45 + 0.45 * r.x,
+                       0.42 + 0.40 * r.y,
+                       0.40 + 0.35 * r.z);
+
+    if (abs(n.y) < 0.7 && pos.y > 0.02 * WORLD_SCALE) {
+        let cs = pos / WORLD_SCALE;                  // world -> cell space
+        let wy = fract(cs.y * 26.0);
+        let wu = fract((cs.x + 1.7 * cs.z + 2.3 * cs.w) * 26.0);
+        if (wy > 0.28 && wy < 0.86 && wu > 0.28 && wu < 0.86) {
+            albedo = vec3f(0.06, 0.08, 0.12);
+        }
+    }
+    if (n.y > 0.7 && pos.y < 0.05) {
+        // albedo = vec3f(0.34, 0.33, 0.31);
+        t = 1e10;
+    }
+
+    // ---- lighting ----
+    let sunDir = normalize(vec4f(0.90, 1.00, 1.00, 0.45));
+    let sunCol = vec3f(1.00, 0.94, 0.80);
+
+    var light  = sunCol * max(dot(n, sunDir), 0.0) * shadow * 2.2;
+    light += vec3f(0.38, 0.52, 0.85) * (n.y * 0.5 + 0.5) * ao * 1.1;
+
+    var col = albedo * light;
+
+    let refl = reflect(rd, n);
+    let spec = pow(max(dot(refl, sunDir), 0.0), 32.0) * shadow;
+    col += vec3f(1.00, 0.95, 0.85) * spec * 0.12;
+
+    col = mix(skyColor(rd), col, exp(-t * 0.030 / WORLD_SCALE));
+
+    // ---- output (linear, gamma applied outside) ----
+    var out: fOut;
+    out.color = vec4f(clamp(col, vec3f(0.0), vec3f(1.0)), 0.2);
+    out.depth = toDepth(t);
+    return out;
+}
+
+        @fragment fn mainFragment(@location(0) pos: vec4f, @location(1) dir: vec4f, @location(2) coord: vec3<f32>)->fOut{
+            let a = sunDir;
+            let rd = normalize(dir);
+            return traceRay(pos+vec4f(200.2,0.0,10.0,0.0), rd);
+        }`,
+            rayEntryPoint: "mainRay",
+            fragmentEntryPoint: "mainFragment"
+        };
     }
 }
 //# sourceMappingURL=aircraft.js.map

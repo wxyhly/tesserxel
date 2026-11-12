@@ -152,8 +152,8 @@ let examples = [
                     { target: "rigids::roll_square_conical_f", zh: "四棱圆台", en: "square-conical frustum" },
                     { target: "rigids::roll_square_conical_c", zh: "四棱圆锥", en: "square-conical cone" },
                     { target: "rigids::roll_semidisphenoid", zh: "双圆半锲(无法滚动)", en: "Duocircular Semidisphenoid (non-rollable)" },
-                    { target: "rigids::roll_1skewed_duocone", zh: "单斜双圆锥(无法持续滚动)", en: "Mono-oblique Duospindle(cannot roll steadily)" },
-                    { target: "rigids::roll_2skewed_duocone", zh: "双斜双圆锥(无法持续滚动)", en: "Bi-oblique Duospindle(cannot roll steadily)" }
+                    { target: "rigids::roll_1skewed_duocone", zh: "单斜双圆锥(无法持续滚动)", en: "Monoclinic Duospindle(cannot roll steadily)" },
+                    { target: "rigids::roll_2skewed_duocone", zh: "双斜双圆锥(无法持续滚动)", en: "Diclinic Duospindle(cannot roll steadily)" }
                 ]
             },
             {

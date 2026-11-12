@@ -5299,11 +5299,11 @@ return vec4f(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1.0))
                 this.depthTexture.destroy();
             // if (!this.pipeline) throw "TetraSliceRenderer: ScreenRenderPipeline is not initialized.";
             this.texture = this.gpu.device.createTexture({
-                size, format: this.config.enableFloat16Blend ? 'rgba16float' : this.gpu.preferredFormat,
+                size: size, format: this.config.enableFloat16Blend ? 'rgba16float' : this.gpu.preferredFormat,
                 usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
             });
             this.depthTexture = this.gpu.device.createTexture({
-                size, format: 'depth24plus',
+                size: size, format: 'depth24plus',
                 usage: GPUTextureUsage.RENDER_ATTACHMENT,
             });
             this.view = this.texture.createView();
@@ -5964,7 +5964,7 @@ return vec4f(mix(color.rgb, vec3<f32>(1.0) - color.rgb, clamp(factor, 0.0, 1.0))
             return res;
         }
         toNonIndexMesh() {
-            let count = this.position.length << 2;
+            let count = this.positionIndex.length << 2;
             let out = new TetraMesh({
                 position: new Float32Array(count),
                 count: count >> 4

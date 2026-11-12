@@ -897,11 +897,11 @@ class ScreenRenderPass {
             this.depthTexture.destroy();
         // if (!this.pipeline) throw "TetraSliceRenderer: ScreenRenderPipeline is not initialized.";
         this.texture = this.gpu.device.createTexture({
-            size, format: this.config.enableFloat16Blend ? 'rgba16float' : this.gpu.preferredFormat,
+            size: size, format: this.config.enableFloat16Blend ? 'rgba16float' : this.gpu.preferredFormat,
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
         });
         this.depthTexture = this.gpu.device.createTexture({
-            size, format: 'depth24plus',
+            size: size, format: 'depth24plus',
             usage: GPUTextureUsage.RENDER_ATTACHMENT,
         });
         this.view = this.texture.createView();
